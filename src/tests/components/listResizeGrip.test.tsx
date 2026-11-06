@@ -101,7 +101,7 @@ const widthWrites = (seen: string[]) =>
 const press = (x: number) =>
   fireEvent.pointerDown(grip(), { clientX: x, clientY: 300, button: 0 });
 const moveTo = (x: number) =>
-  fireEvent.pointerMove(window, { clientX: x, clientY: 300 });
+  fireEvent.pointerMove(window, { clientX: x, clientY: 300, buttons: 1 });
 const release = (x: number) =>
   fireEvent.pointerUp(window, { clientX: x, clientY: 300 });
 

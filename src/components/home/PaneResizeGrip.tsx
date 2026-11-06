@@ -10,6 +10,7 @@ import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
 
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { useMacKeys } from '../../hooks/useIsMac';
 import { DURATION } from '../../styles/scale';
 import { whileKeyNav } from '../common/focusRing';
 import {
@@ -76,6 +77,7 @@ export default function PaneResizeGrip({
   const { t } = useTranslation();
   const COLORS = useThemeColors();
   const dispatch: AppDispatch = useDispatch();
+  const isMac = useMacKeys();
 
   // Read at each move: a window resized mid-drag re-renders with its range.
   const rangeNow = useRef(range);
@@ -118,6 +120,11 @@ export default function PaneResizeGrip({
     const onMove = (event: PointerEvent) => {
       const current = drag.current;
       if (current === null || !isDragPointer(event)) return;
+      // KAN-332. The button is up, so the release was lost: a native menu can swallow it. Nothing the user chose is left to save.
+      if ((event.buttons & 1) === 0) {
+        end(false);
+        return;
+      }
       const { min, max } = rangeNow.current;
       current.widestMax = Math.max(current.widestMax, max);
       current.width = clampToRange(
@@ -159,7 +166,9 @@ export default function PaneResizeGrip({
   }, [isResizing, dispatch, onLiveWidth, pane]);
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0 || drag.current !== null) return;
+    // A Mac's Ctrl+press is a right-click (KAN-332, the row drag's KAN-708 rule).
+    if (event.button !== 0 || (isMac && event.ctrlKey)) return;
+    if (drag.current !== null) return;
     // No text selection starts under the press.
     event.preventDefault();
     drag.current = {

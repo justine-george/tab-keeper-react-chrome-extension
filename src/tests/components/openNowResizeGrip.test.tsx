@@ -5,6 +5,7 @@ import de from '../../../public/locales/de/translation.json';
 import MainContainer from '../../components/MainContainer';
 import { OPEN_NOW_RAIL_QUERY } from '../../components/home/opennow/railQuery';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { forgetPlatform } from '../../hooks/useIsMac';
 import { testI18n } from '../setup/i18nForTests';
 import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 import { classRulesFor } from '../setup/hoverRules';
@@ -56,12 +57,14 @@ const goToTabView = () => history.replaceState(null, '', '?view=tab');
 type Setup = {
   fold?: boolean;
   width?: number;
+  platformOs?: chrome.runtime.PlatformInfo['os'];
 };
 
 // One saved session, selected; side by side unless `fold`; `width` stored
 // before the first render when given.
-const renderHome = ({ fold = false, width }: Setup = {}) =>
+const renderHome = ({ fold = false, width, platformOs }: Setup = {}) =>
   renderWithProviders(<MainContainer />, {
+    seed: platformOs === undefined ? undefined : { platformOs },
     seedStore: (store) => {
       store.dispatch(
         saveToTabContainerInternal(
@@ -104,7 +107,7 @@ const isResizing = () => document.documentElement.hasAttribute('data-resizing');
 const press = (x: number) =>
   fireEvent.pointerDown(grip(), { clientX: x, clientY: 300, button: 0 });
 const moveTo = (x: number) =>
-  fireEvent.pointerMove(window, { clientX: x, clientY: 300 });
+  fireEvent.pointerMove(window, { clientX: x, clientY: 300, buttons: 1 });
 const release = (x: number) =>
   fireEvent.pointerUp(window, { clientX: x, clientY: 300 });
 
@@ -460,6 +463,7 @@ describe('the pointer drag (O1a, Review Focus 4)', () => {
         pointerId: id,
         clientX: x,
         clientY: 300,
+        buttons: 1,
       });
     const releaseBy = (id: number, x: number) =>
       fireEvent.pointerUp(window, {
@@ -524,6 +528,63 @@ describe('the pointer drag (O1a, Review Focus 4)', () => {
       releaseBy(SECOND, 1050);
 
       expect(storedWidth()).toBe(750);
+    });
+  });
+
+  // KAN-332. A native menu can swallow a release. Seen with a real Ctrl+click: no pointerup, and the next click saved a width.
+  test('a move with the button up ends a drag whose release was lost, and saves nothing', async () => {
+    const { seen } = await renderHome();
+    await mounted();
+    const writesBefore = widthWrites(seen);
+    press(1000);
+    moveTo(900);
+    expect(openNowTrack()).toBe('700px');
+
+    fireEvent.pointerMove(window, { clientX: 880, clientY: 300, buttons: 0 });
+
+    expect(isResizing()).toBe(false);
+    expect(openNowTrack()).toBe('600px');
+    release(880);
+    expect(widthWrites(seen)).toBe(writesBefore);
+  });
+
+  describe('a Ctrl+press', () => {
+    afterEach(forgetPlatform);
+
+    const ctrlPress = () =>
+      fireEvent.pointerDown(grip(), {
+        clientX: 1000,
+        clientY: 300,
+        button: 0,
+        ctrlKey: true,
+      });
+
+    test('on a Mac is a right-click: no drag starts', async () => {
+      forgetPlatform();
+      await renderHome({ platformOs: 'mac' });
+      await mounted();
+      // Lets useMacKeys' getPlatformInfo answer land before the press.
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+      ctrlPress();
+
+      expect(isResizing()).toBe(false);
+    });
+
+    test('elsewhere is a left press: the drag starts', async () => {
+      forgetPlatform();
+      await renderHome({ platformOs: 'win' });
+      await mounted();
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+      ctrlPress();
+
+      expect(isResizing()).toBe(true);
+      release(1000);
     });
   });
 
