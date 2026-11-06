@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { screen, within } from '@testing-library/react';
 
 import OpenNowColumn from '../../components/home/opennow/OpenNowColumn';
+import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { setupChromeFake } from '../setup/chrome.fake';
 import type { ChromeSeed } from '../setup/chrome.fake';
@@ -156,6 +157,48 @@ describe('a split as one row (KAN-486)', () => {
     expect(docs?.closest('[data-drag-row-id="21"]')).not.toBeNull();
     const news = document.querySelector('[data-open-tab-id="24"]');
     expect(news?.closest('[data-drag-row-id="24"]')).not.toBeNull();
+  });
+
+  test("a group's tag counts both halves of a split inside it", async () => {
+    await renderWithProviders(<OpenNowColumn folded={true} />, {
+      seed: {
+        splitView: true,
+        currentTabId: 10,
+        windows: [
+          {
+            id: 1,
+            focused: true,
+            tabs: [{ id: 10, url: tabViewUrl(), title: 'Tab Keeper' }],
+          },
+          {
+            id: 2,
+            tabs: [
+              { id: 21, title: 'Docs', url: url('Docs'), groupId: 9 },
+              {
+                id: 22,
+                title: 'Wiki',
+                url: url('Wiki'),
+                groupId: 9,
+                splitViewId: 70,
+              },
+              {
+                id: 23,
+                title: 'Guide',
+                url: url('Guide'),
+                groupId: 9,
+                splitViewId: 70,
+              },
+            ],
+          },
+        ],
+        tabGroups: [{ id: 9, title: 'Work', color: 'blue', windowId: 2 }],
+      },
+      seedStore: (store) => store.dispatch(setHasTabGroupsPermission(true)),
+    });
+    const title = await screen.findByText('Work');
+    const band = title.closest('[data-band-id]');
+    if (!(band instanceof HTMLElement)) throw new Error('no band');
+    expect(within(band).getByText('3 Tabs')).not.toBeNull();
   });
 
   test('the second half names no row of its own', async () => {

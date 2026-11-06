@@ -1415,7 +1415,14 @@ export default function OpenNowWindow({
                             `}
                           >
                             <RowTag
-                              value={formatTabCount(item.tabs.length, t)}
+                              // Tabs drawn, not rows: a split inside counts twice (KAN-486).
+                              value={formatTabCount(
+                                drawnTabs.filter(
+                                  (tab) =>
+                                    String(tab.groupId) === item.group.groupId
+                                ).length,
+                                t
+                              )}
                             />
                           </span>
                         )}
