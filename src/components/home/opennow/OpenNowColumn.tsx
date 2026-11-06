@@ -61,7 +61,7 @@ function OpenNowColumn({ folded }: OpenNowColumnProps) {
     (showRail ? railButtonRef.current : headingRef.current)?.focus();
   }, [showRail]);
 
-  // KAN-306. A resize or another page swapped the rail away with focus inside it.
+  // KAN-306, KAN-928. A resize or another page swapped the rail or pane away with focus inside it.
   const handOnFocus = useCallback(() => {
     focusAfterSwap.current = true;
   }, []);
@@ -115,6 +115,7 @@ function OpenNowColumn({ folded }: OpenNowColumnProps) {
       searchText={searchText}
       onSearchTextChange={setSearchText}
       searchInputRef={searchInputRef}
+      onGoneWithFocus={handOnFocus}
     />
   );
 }

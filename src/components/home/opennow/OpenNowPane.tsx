@@ -168,6 +168,8 @@ interface OpenNowPaneProps {
   onSearchTextChange: (text: string) => void;
   // The field. The caller holds it so the drawer can focus it on open (R1).
   searchInputRef: RefObject<HTMLInputElement>;
+  // KAN-928. Left out in the drawer, which hands focus back itself.
+  onGoneWithFocus?: () => void;
 }
 
 // Stands in for `windows` while the first read is in flight, the same array
@@ -226,6 +228,7 @@ export default function OpenNowPane({
   searchText,
   onSearchTextChange,
   searchInputRef,
+  onGoneWithFocus,
 }: OpenNowPaneProps) {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -238,6 +241,13 @@ export default function OpenNowPane({
     backPlan?.kind === 'none' ? t('BackNowhereToGo') : t('Back to your tab');
   const dispatch: AppDispatch = useDispatch();
   const paneRef = useRef<HTMLDivElement>(null);
+  // Before the DOM goes, so focus can still be read inside it.
+  useLayoutEffect(() => {
+    const pane = paneRef.current;
+    return () => {
+      if (pane?.contains(document.activeElement)) onGoneWithFocus?.();
+    };
+  }, [onGoneWithFocus]);
   const scrollerRef = useRef<HTMLDivElement>(null);
   // KAN-336. The search row sits outside the scroller; this gives it the bar's width.
   const listBoxRef = useRef<HTMLDivElement>(null);

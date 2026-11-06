@@ -1034,7 +1034,12 @@ async function moveToBefore(
       .sort((a, b) => a.before.index - b.before.index)
       .map((tab) => tab.tabId);
     const ordered = await applyGroupOrder(place.windowId, place.groupId, order);
-    return ordered ? 'done' : 'couldNotRun';
+    if (!ordered) return 'couldNotRun';
+    // Not a reason to fail the step: the tabs the user sorted are back.
+    for (const { tabId, index } of drop.pagesBefore ?? []) {
+      await attempt(() => chrome.tabs.move(tabId, { index }));
+    }
+    return 'done';
   }
   // KAN-746 Part 2. Only groups moved, so the groups' old order is the whole run.
   if (drop.kind === 'groupOrder') {

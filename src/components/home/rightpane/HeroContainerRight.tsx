@@ -66,6 +66,7 @@ import {
   clearSessionRenameDraft,
   setSessionRenameDraft,
 } from '../sessionRenameDraft';
+import { useNativeMouseLeave } from '../../../hooks/useNativeMouseLeave';
 
 export default function HeroContainerRight() {
   const COLORS = useThemeColors();
@@ -77,6 +78,10 @@ export default function HeroContainerRight() {
   );
   const [editableTitle, setEditableTitle] = useState('');
   const [isContainerHovered, setIsContainerHovered] = useState<boolean>(false);
+  useNativeMouseLeave(
+    (element) => element.getAttribute('data-panel') === 'session-card',
+    () => setIsContainerHovered(false)
+  );
   const dispatch: AppDispatch = useDispatch();
   // KAN-808. The full view folds Open now from the title line. Not in the
   // popup, which has no Open now, nor narrow, where Open now is already the
@@ -363,7 +368,6 @@ export default function HeroContainerRight() {
         css={containerStyle}
         {...headerMenu.rowProps(tabGroupId)}
         onMouseEnter={() => setIsContainerHovered(true)}
-        onMouseLeave={() => setIsContainerHovered(false)}
       >
         <div css={topStyle}>
           <div
