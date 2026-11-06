@@ -796,7 +796,10 @@ test.describe('only the session list carries (hand-off, KAN-352)', () => {
     await adoptPhantom(page, 'carried:a1');
 
     const third = await boxOf(sessionRow(page, 'S3'));
-    await page.mouse.move(third.x + third.width / 2, third.y + third.height / 2);
+    await page.mouse.move(
+      third.x + third.width / 2,
+      third.y + third.height / 2
+    );
 
     await expect.poll(() => carryTargets(page)).toEqual(['S3']);
     await expect

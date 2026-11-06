@@ -2500,12 +2500,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // still under the threshold is dropped the same way, so it cannot go on
     // to start a drag the list has turned off.
     if (disabled && live.current) finish(false, true, true);
-    // KAN-393. Nor can a drag outlive its row: a keyboard switch of session keeps this area mounted, with other rows. An adopted drag's row is the carry's.
-    if (
-      live.current !== null &&
-      !live.current.adopted &&
-      !rowIds.includes(live.current.rowId)
-    ) {
+    // KAN-393. Nor can a drag outlive its row: a keyboard switch of session keeps this area mounted, with other rows.
+    if (live.current !== null && !rowIds.includes(live.current.rowId)) {
       finish(false, true, true);
     }
     // P2. A list turned carry-only (Open now's search starting) ends an in-list drag; a carry-only drag has already handed off.

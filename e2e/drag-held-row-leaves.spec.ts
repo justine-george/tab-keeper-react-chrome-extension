@@ -4,9 +4,12 @@
 import { type Page } from '@playwright/test';
 import {
   S2,
+  adoptPhantom,
+  carryOutLeft,
   carryTargets,
   detailPane,
   layout,
+  onto,
   openPopup,
   selected,
   session,
@@ -153,4 +156,36 @@ test.describe('a keyboard switch of session with a tab held', () => {
     expect((await detailPane(page)).scrollTop).toBe(0);
     expect(await layout(page, 'S2')).toEqual(S2_START);
   });
+});
+
+// An adopted drag's row is the carry's phantom. Nothing may be lost or doubled, whichever session it ends in.
+test.describe('a keyboard switch of session with an adopted tab held', () => {
+  for (const to of ['S3', 'S1']) {
+    test(`to ${to}: a1 is still in exactly one place after the release`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      const at = await pickUp(page, tabHandle(page, 'a1'));
+      await carryOutLeft(page, at);
+      await onto(page, 'S2');
+      await expect.poll(() => selected(page)).toBe('S2');
+      await adoptPhantom(page, 'carried:a1');
+
+      await selectFromKeyboard(page, to);
+      await page.mouse.up();
+      await expect.poll(() => dragFlag(page)).toBeNull();
+      await expect(page.locator('[data-carry-card]')).toHaveCount(0);
+
+      const all = await Promise.all(
+        ['S1', 'S2', 'S3'].map((id) => layout(page, id))
+      );
+      const copies = all
+        .flat()
+        .join(' ')
+        .split(' ')
+        .filter((t) => t === 'a1');
+      expect(copies).toHaveLength(1);
+    });
+  }
 });
