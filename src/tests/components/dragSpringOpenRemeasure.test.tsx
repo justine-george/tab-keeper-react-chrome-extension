@@ -528,7 +528,7 @@ describe('a window opened mid-drag is measured as if it had been open (KAN-379)'
   });
 
   // Fits open or folded in 460; open, 6px stays free below the last window.
-  test('the space free below the last window is read again, so a new window there is refused as when started open', async () => {
+  test('the space free below the last window is read again, so a new window there gets room as when started open', async () => {
     const run: Run = {
       held: 'a9',
       aims: [260, 445],
@@ -540,8 +540,8 @@ describe('a window opened mid-drag is measured as if it had been open (KAN-379)'
 
     // PREMISE: folded, 90px was free; started open, 6 is under half a row.
     expect(opened.freeBeforeOpen).toBe(90);
-    expect(control.previews[1].free).toBe(6);
-    expect(control.after).toEqual(START_WINDOWS);
+    expect(control.previews[1].free).toBeNull();
+    expect(control.after).not.toEqual(START_WINDOWS);
     expect(opened.previews).toEqual(control.previews);
     expect(opened.after).toEqual(control.after);
   });

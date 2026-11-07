@@ -759,6 +759,44 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
     });
   });
 
+  // KAN-944. Folded it had space; open, under half a row is left, and New window at its end needs room.
+  test('a window opening under the drag leaves the list tight: New window is reached at its end', async ({
+    context,
+    extensionId,
+  }) => {
+    const tight = session('S1', 'Fits', [
+      win(
+        'w1',
+        Array.from({ length: 9 }, (_, i) => tab(`a${i}`))
+      ),
+      win('w2', [tab('b0')]),
+    ]);
+    const page = await openPopup(context, extensionId, [tight, S2()]);
+    await collapseWindow(page, 'w2');
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    await ontoTitle(page, 'w2', at.x);
+    await expect(tabHandle(page, 'b0')).toBeVisible();
+    await settled(page);
+
+    const pane = await detailPane(page);
+    await page.mouse.move(at.x, pane.bottom - 4, { steps: 4 });
+    const target = page.locator(
+      '[data-new-window-target="last"][data-landing]'
+    );
+    await expect(target).toHaveCount(1);
+    // The whole box comes into view, not the sliver the list had free.
+    await expect
+      .poll(async () => {
+        const b = await boxOf(target);
+        return b.y + b.height;
+      })
+      .toBeLessThanOrEqual(pane.bottom);
+    await page.mouse.up();
+    await expect
+      .poll(async () => (await layout(page, 'S1')).slice(-1))
+      .toEqual(['a1']);
+  });
+
   test.describe('nothing dwells', () => {
     async function neverDwelt(page: Page): Promise<void> {
       expect((await dwellLog(page)).filter((r) => r.attr === 'dwell')).toEqual(

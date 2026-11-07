@@ -418,13 +418,21 @@ test.describe('what a drag into another window previews', () => {
     // PREMISE: past b1's midpoint, and still inside the window's block.
     expect(y).toBeGreaterThan(b1.y + b1.height / 2);
 
-    await holdAt(page, 'a0', y);
+    const x = await holdAt(page, 'a0', y);
+    // This list has under half a row free, so it has room and the bottom edge
+    // scrolls to it (KAN-944): aim again once it has stopped.
+    await expect
+      .poll(async () => (await blockBox(page, 'w2')).y)
+      .toBeLessThan(w2.y);
+    await page.waitForTimeout(150);
+    const end = await blockBox(page, 'w2');
+    await page.mouse.move(x, end.y + end.height - 3, { steps: 3 });
 
     await expect
       .poll(async () => Object.keys(await shiftsIn(page, 'w1')).length)
       .toBe(4);
     expect(await shiftsIn(page, 'w2')).toEqual({});
-    expect(await slotTop(page)).toBeCloseTo(w2.y + w2.height, 0);
+    expect(await slotTop(page)).toBeCloseTo(end.y + end.height, 0);
 
     await page.mouse.up();
     await expect.poll(() => order(page, 'w2')).toBe('be0* be1* b0 b1 a0');
