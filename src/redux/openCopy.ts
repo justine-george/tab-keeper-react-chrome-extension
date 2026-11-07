@@ -1,10 +1,10 @@
 // KAN-815. A saved tab, pair (KAN-942), group or window let go over Currently open opens a
 // copy in Chrome: in the background at a slot of a live window, or in a new
 // window in front (KAN-853); a window also in the background at the end of an
-// open one (KAN-892). The saved session is never changed, so there is no toast
-// and no Undo (as Open). Whether Chrome was asked is known at once, because
-// the carry ends in the same call (RowDragArea's finish); whether it opened
-// the copy comes later, and never throws.
+// open one (KAN-892). The saved session is never changed. What it opened is
+// kept as an undo step (KAN-893). Whether Chrome was asked is known at once,
+// because the carry ends in the same call (RowDragArea's finish); whether it
+// opened the copy comes later, and never throws.
 import type { ThunkAction, UnknownAction } from '@reduxjs/toolkit';
 
 import { pickOf, sourceWindowOf } from './carriedItem';
@@ -13,7 +13,11 @@ import { expectNewWindow } from './newWindowFollow';
 import { noteReviewMoment } from './reviewAsk';
 import { showToast } from './slices/globalStateSlice';
 import { selectSkipsTabsAlreadyOpen } from './slices/settingsDataStateSlice';
-import { whileMovingTabs } from './undoHistory';
+import {
+  keepOpenedStep,
+  whileKeepingStep,
+  whileMovingTabs,
+} from './undoHistory';
 import { toWindowSpec } from './slices/tabContainerDataStateSlice';
 import type {
   tabData,
@@ -47,8 +51,14 @@ import type {
   OpenIntoWindowRequest,
 } from '../utils/functions/openIntoWindow';
 import { isSampleSession } from '../utils/functions/sampleSession';
-import { RESTORE_SESSION_MESSAGE } from '../utils/functions/windows';
+import { recordOpened } from '../utils/functions/runOpenedCopy';
+import type { ReopenAt } from '../utils/functions/openedCopy';
+import {
+  isMadeWindowList,
+  RESTORE_SESSION_MESSAGE,
+} from '../utils/functions/windows';
 import type {
+  MadeWindow,
   RestoreSessionRequest,
   TabGroupSpec,
   WindowSpec,
@@ -73,6 +83,19 @@ async function askIntoWindow(
   } catch (error) {
     console.warn('Could not open the saved window in that window:', error);
     return NOTHING_OPENED;
+  }
+}
+
+// The window the worker's restore made; null when it made none, failed, or could not be reached.
+async function askNewWindow(
+  request: RestoreSessionRequest
+): Promise<MadeWindow | null> {
+  try {
+    const answer: unknown = await chrome.runtime.sendMessage(request);
+    return (isMadeWindowList(answer) && answer[0]) || null;
+  } catch (error) {
+    console.warn('Could not open the copy in a new window:', error);
+    return null;
   }
 }
 
@@ -209,6 +232,41 @@ export const openCarriedCopy =
       );
     };
 
+    // KAN-893. The tabs a drop opened, kept as one undo step; `saved` runs parallel to `ids`.
+    const hasTabGroups = state.globalState.hasTabGroupsPermission;
+    const keep = async (
+      ids: readonly (number | undefined)[],
+      saved: readonly tabData[],
+      reopen: ReopenAt,
+      extra: { group?: TabGroupSpec; madeWindow?: MadeWindow } = {}
+    ) => {
+      const { group = null, madeWindow } = extra;
+      keepOpenedStep(dispatch, {
+        kind: 'opened',
+        tabs: await recordOpened(ids, saved, hasTabGroups),
+        group,
+        madeWindow:
+          madeWindow === undefined
+            ? null
+            : {
+                windowId: madeWindow.windowId,
+                stubTabId: madeWindow.stubTabId,
+              },
+        reopen,
+        goToURLText,
+      });
+    };
+    const atSlot = (slot: {
+      windowId: number;
+      index: number;
+      groupId?: number;
+    }): ReopenAt => ({
+      at: 'slot',
+      windowId: slot.windowId,
+      index: slot.index,
+      groupId: slot.groupId ?? null,
+    });
+
     let opened: Promise<Outcome>;
     if (place.kind === 'newWindow') {
       const spec = copyWindowSpec(window, pick);
@@ -219,37 +277,70 @@ export const openCarriedCopy =
         goToURLText,
         closeOtherWindows: false,
         pinTabKeeper: state.settingsDataState.pinTabKeeperInNewWindows,
+        answers: true,
       };
-      // The worker's restore sends no answer: counted when asked, as Open.
+      // Counted when asked, as Open: the carry ends before the worker answers.
       noteRestore();
       expectNewWindow();
-      void chrome.runtime.sendMessage(request);
+      void whileKeepingStep(async () => {
+        const made = await askNewWindow(request);
+        if (made !== null) {
+          await keep(
+            made.tabIds,
+            spec.tabs,
+            { at: 'newWindow', spec },
+            { madeWindow: made }
+          );
+        }
+      });
       return Promise.resolve(true);
     } else if (place.kind === 'intoWindow' && pick.kind === 'window') {
       // Nothing takes focus (spec D), a fallback new window included.
+      const spec = toWindowSpec(window, false);
       const request: OpenIntoWindowRequest = {
         type: OPEN_INTO_WINDOW_MESSAGE,
         windowId: place.windowId,
-        specs: [toWindowSpec(window, false)],
+        specs: [spec],
         goToURLText,
         activate: false,
         pinTabKeeper: state.settingsDataState.pinTabKeeperInNewWindows,
         skipTabsAlreadyOpen: skips,
       };
-      opened = whileMovingTabs(() => askIntoWindow(request)).then(
-        ({ ids, leftOut, alreadyOpen }): Outcome => {
-          if (ids.length > 0) {
-            announceArrival(place.windowId, ids);
-            if (leftOut > 0) sayLeftOut(leftOut);
-            return 'opened';
-          }
-          // Every tab left out; fewer means the rest were refused.
-          if (alreadyOpen.length === 0 || leftOut < window.tabs.length)
-            return 'nothing';
-          sayAlreadyOpen(place.windowId, alreadyOpen);
-          return 'alreadyOpen';
+      opened = whileMovingTabs(async () => {
+        const answer = await askIntoWindow(request);
+        const { ids, savedTabIds, madeWindows } = answer;
+        const byId = new Map(spec.tabs.map((tab) => [tab.tabId, tab]));
+        const saved = savedTabIds.flatMap((id) => byId.get(id) ?? []);
+        if (ids.length > 0 && saved.length === ids.length) {
+          const reopen = {
+            at: 'windowEnd',
+            windowId: place.windowId,
+            spec: { ...spec, tabs: saved },
+          } as const;
+          await keep(ids, saved, reopen);
+        } else if (ids.length === 0 && madeWindows[0] !== undefined) {
+          // Its window closed mid-carry: the worker opened it in a new one instead, undone as a New window drop.
+          const made = madeWindows[0];
+          await keep(
+            made.tabIds,
+            spec.tabs,
+            { at: 'newWindow', spec },
+            { madeWindow: made }
+          );
         }
-      );
+        return answer;
+      }).then(({ ids, leftOut, alreadyOpen }): Outcome => {
+        if (ids.length > 0) {
+          announceArrival(place.windowId, ids);
+          if (leftOut > 0) sayLeftOut(leftOut);
+          return 'opened';
+        }
+        // Every tab left out; fewer means the rest were refused.
+        if (alreadyOpen.length === 0 || leftOut < window.tabs.length)
+          return 'nothing';
+        sayAlreadyOpen(place.windowId, alreadyOpen);
+        return 'alreadyOpen';
+      });
     } else if (place.kind === 'tab' && pick.kind === 'tab') {
       const tab = window.tabs.find((t) => t.tabId === pick.tabId);
       if (!tab) return null;
@@ -262,9 +353,10 @@ export const openCarriedCopy =
           sayAlreadyOpen(place.slot.windowId, [copy]);
           return 'alreadyOpen';
         }
-        return (await openTabCopy(plain, place.slot)) !== undefined
-          ? 'opened'
-          : 'nothing';
+        const id = await openTabCopy(plain, place.slot);
+        if (id === undefined) return 'nothing';
+        await keep([id], [plain], atSlot(place.slot));
+        return 'opened';
       });
     } else if (place.kind === 'tab' && pick.kind === 'pair') {
       const halves = halvesOf(window, pick);
@@ -279,7 +371,9 @@ export const openCarriedCopy =
           return 'alreadyOpen';
         }
         const ids = await openPairCopy(...halves, place.slot);
-        return ids.some((id) => id !== undefined) ? 'opened' : 'nothing';
+        if (!ids.some((id) => id !== undefined)) return 'nothing';
+        await keep(ids, halves, atSlot(place.slot));
+        return 'opened';
       });
     } else if (place.kind === 'group' && pick.kind === 'group') {
       const found = groupOf(window, pick.groupId);
@@ -299,6 +393,7 @@ export const openCarriedCopy =
           goToURLText
         );
         if (!ids.some((id) => id !== undefined)) return 'nothing';
+        await keep(ids, rest.tabs, atSlot(place.slot), { group: found.group });
         if (rest.leftOut > 0) sayLeftOut(rest.leftOut);
         return 'opened';
       });

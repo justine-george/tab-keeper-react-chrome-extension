@@ -40,6 +40,20 @@ let running = false;
 // undo the step below, and the new step would then clear that step's redo.
 let movesInFlight = 0;
 
+// KAN-893. Drops into Currently open still waiting to keep their step (a New
+// window drop's worker answers late). A press meanwhile is ignored too, but
+// Open now's list does not wait for these, as it does for moves.
+let stepsInFlight = 0;
+
+export async function whileKeepingStep<T>(keep: () => Promise<T>): Promise<T> {
+  stepsInFlight += 1;
+  try {
+    return await keep();
+  } finally {
+    stepsInFlight -= 1;
+  }
+}
+
 // KAN-835. Told each time an Open now sort or drag's moves end.
 const movesEndedListeners = new Set<() => void>();
 
@@ -95,7 +109,7 @@ async function takeStep(
   dispatch: AppDispatch,
   getState: () => RootState
 ): Promise<StepRun> {
-  if (running || movesInFlight > 0) return 'busy';
+  if (running || movesInFlight > 0 || stepsInFlight > 0) return 'busy';
   const state = getState();
   const next = selectNextStep(state, direction);
   if (next === null) return 'nothing';
@@ -182,7 +196,7 @@ export function keepLiveStep(
 
 // KAN-893. Keeps a drop into Currently open as a step, when it opened any tab; returns its id.
 export function keepOpenedStep(
-  dispatch: AppDispatch,
+  dispatch: (action: ReturnType<typeof pushLiveStep>) => unknown,
   step: OpenedCopy
 ): number | null {
   if (step.tabs.length === 0) return null;
