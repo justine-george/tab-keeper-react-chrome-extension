@@ -12,7 +12,12 @@ vi.mock('../../utils/functions/external', () => ({
   ensureCloudSessionReady: vi.fn(async () => undefined),
 }));
 
-import { keepLiveStep, redoStep, undoStep } from '../../redux/undoHistory';
+import {
+  keepLiveStep,
+  redoStep,
+  tabMovesInFlight,
+  undoStep,
+} from '../../redux/undoHistory';
 import {
   sortOpenWindow,
   sortOpenWindowBySite,
@@ -440,6 +445,21 @@ describe('a press while Open now is still moving tabs', () => {
     expect(s.title()).toBe(TITLE_BEFORE);
     expect(await s.redoing()).toBe('saved');
     expect(s.title()).toBe(TITLE_AFTER);
+  });
+});
+
+describe('tabMovesInFlight (KAN-486)', () => {
+  test('undo and redo count as moves in flight', async () => {
+    handle = setupChromeFake(seed);
+    const s = setup();
+    await s.dragAndKeep(dragTo1);
+    const seen: boolean[] = [];
+    chrome.tabs.onAttached.addListener(() => seen.push(tabMovesInFlight()));
+
+    expect(await s.undoing()).toBe('live');
+    expect(await s.redoing()).toBe('live');
+    expect(seen).toEqual([true, true]);
+    expect(tabMovesInFlight()).toBe(false);
   });
 });
 

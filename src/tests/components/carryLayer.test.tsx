@@ -602,6 +602,27 @@ describe('a live carry (KAN-280 Part F)', () => {
     expect(badge()).toBeNull();
   });
 
+  // KAN-486. A1: two rows, one name each.
+  test('the card shows both names, in strip order', async () => {
+    await renderLayer();
+    act(() =>
+      startCarry(
+        LIVE_ITEM(),
+        {
+          kind: 'pair',
+          first: { title: 'Left page', faviconUrl: '' },
+          second: { title: 'Right page', faviconUrl: '' },
+        },
+        10,
+        10
+      )
+    );
+    const names = [...document.querySelectorAll('[data-carry-card-name]')].map(
+      (name) => name.textContent
+    );
+    expect(names).toEqual(['Left page', 'Right page']);
+  });
+
   // KAN-815. A saved carry's + says letting go here opens a copy in Chrome.
   test("a saved carry's card wears it only while letting go would open something", async () => {
     await renderLayer();

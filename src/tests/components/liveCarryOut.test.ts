@@ -128,3 +128,54 @@ describe('liveCarryOut', () => {
     expect(liveWindowCarryOut([W1], '9', () => 1, noRecent)).toBeNull();
   });
 });
+
+describe('a split pair (KAN-486)', () => {
+  const withPair: OpenWindow = {
+    ...W1,
+    tabs: [
+      openTab(11),
+      openTab(12, { splitViewId: 7, title: 'First half' }),
+      openTab(13, { splitViewId: 7, title: 'Second half' }),
+      openTab(14),
+    ],
+    groups: [],
+  };
+  const noRecents: RecentTabsOf = () => [];
+
+  it('a head hands the pair, both names in strip order', () => {
+    const out = liveTabCarryOut([withPair], '12', noRecents);
+    expect(out?.card).toMatchObject({
+      kind: 'pair',
+      first: { title: 'First half' },
+      second: { title: 'Second half' },
+    });
+    const pick = out?.item.source === 'live' ? out.item.live.pick : null;
+    expect(pick?.kind).toBe('pair');
+    const window = out?.item.source === 'live' ? out.item.live.window : null;
+    expect(window?.tabs[1]?.splitId).toBeDefined();
+    expect(pick).toMatchObject({
+      tabId: window?.tabs[1]?.tabId,
+      partnerTabId: window?.tabs[2]?.tabId,
+    });
+  });
+
+  it('the second half, drawn alone under a search, hands the same pair', () => {
+    const out = liveTabCarryOut([withPair], '13', noRecents);
+    expect(out?.card).toMatchObject({
+      kind: 'pair',
+      first: { title: 'First half' },
+      second: { title: 'Second half' },
+    });
+  });
+
+  it('a tab of no split stays a tab', () => {
+    const out = liveTabCarryOut([withPair], '11', noRecents);
+    expect(out?.card.kind).toBe('tab');
+  });
+
+  it('a lone half, its other half hidden, stays a tab', () => {
+    const lone = { ...withPair, tabs: withPair.tabs.slice(0, 2) };
+    const out = liveTabCarryOut([lone], '12', noRecents);
+    expect(out?.card.kind).toBe('tab');
+  });
+});

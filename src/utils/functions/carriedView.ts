@@ -4,6 +4,7 @@ import type {
   windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import {
+  landsAsTab,
   pickOf,
   sourceSessionIdOf,
   sourceWindowOf,
@@ -27,9 +28,9 @@ function windowWithout(
   pick: Exclude<CarriedPick, { kind: 'window' }>
 ): windowGroupData {
   const tabs =
-    pick.kind === 'tab'
-      ? w.tabs.filter((t) => t.tabId !== pick.tabId)
-      : w.tabs.filter((t) => t.chromeGroupId !== pick.groupId);
+    pick.kind === 'group'
+      ? w.tabs.filter((t) => t.chromeGroupId !== pick.groupId)
+      : w.tabs.filter((t) => t.tabId !== pick.tabId);
   if (tabs.length === w.tabs.length) return w;
   const chromeTabGroups = w.chromeTabGroups?.filter((g) =>
     tabs.some((t) => t.chromeGroupId === g.groupId)
@@ -95,6 +96,7 @@ export function carriedRowId(item: CarriedItem): string {
   const pick = pickOf(item);
   switch (pick.kind) {
     case 'tab':
+    case 'pair':
       return phantomIdOf(pick.tabId);
     case 'group':
       return groupItemIdOf(phantomIdOf(pick.groupId));
@@ -107,6 +109,7 @@ export function carriedRowId(item: CarriedItem): string {
 export function landedRowIdOfPick(pick: CarriedPick): string {
   switch (pick.kind) {
     case 'tab':
+    case 'pair':
       return pick.tabId;
     case 'group':
       return groupItemIdOf(pick.groupId);
@@ -178,7 +181,7 @@ function phantomWindowOf(
     ...asPhantom(tabs, groups),
   });
 
-  if (pick.kind === 'tab') {
+  if (landsAsTab(pick)) {
     const tab = from.tabs.find((t) => t.tabId === pick.tabId);
     if (tab === undefined) return null;
     const loose = { ...tab };
@@ -217,6 +220,8 @@ function carriedIdsIn(
       return idsOf([from]);
     case 'tab':
       return new Set([pick.tabId]);
+    case 'pair':
+      return new Set([pick.tabId, pick.partnerTabId]);
     case 'group':
       return new Set([
         pick.groupId,

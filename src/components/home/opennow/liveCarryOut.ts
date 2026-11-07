@@ -1,15 +1,53 @@
 // KAN-280 Part F (spec O12c). What Open now hands the carry: the live item converted as Save window converts it (Q1 A), and its card (D1 A).
 import type { CarryOut } from '../../../redux/carry';
 import { liveItem } from '../../../redux/carriedItem';
+import type {
+  tabData,
+  windowGroupData,
+} from '../../../redux/slices/tabContainerDataStateSlice';
 import { resolveFaviconUrl } from '../../../utils/functions/local';
 import type { OpenWindow } from '../../../utils/functions/openNow';
 import { toSavedWindow } from '../../../utils/functions/openWindowsToSession';
 import type { RecentTabsOf } from '../../../utils/functions/recentTabs';
+import { openSplitPartners } from '../../../utils/functions/splitPartners';
 import {
   TAB_GROUP_COLOR_HEX,
   groupIdOfItemId,
   sanitizeTabGroupColor,
 } from '../../../utils/functions/tabGroups';
+
+const cardTab = (tab: tabData) => ({
+  title: tab.title,
+  faviconUrl: resolveFaviconUrl(tab.favicon, tab.url),
+});
+
+// KAN-486. The pair the row at `i` is half of, in strip order, or null for a tab in no whole pair.
+function pairCarryOut(
+  w: OpenWindow,
+  window: windowGroupData,
+  i: number
+): CarryOut | null {
+  const held = w.tabs[i];
+  const partner = held && openSplitPartners(w.tabs).get(held.id);
+  if (partner === undefined) return null;
+  const j = w.tabs.indexOf(partner);
+  const first = window.tabs[Math.min(i, j)];
+  const second = window.tabs[Math.max(i, j)];
+  if (first === undefined || second === undefined) return null;
+  return {
+    item: liveItem({
+      pick: {
+        kind: 'pair',
+        windowId: window.windowId,
+        tabId: first.tabId,
+        partnerTabId: second.tabId,
+      },
+      window,
+      chromeWindowId: w.id,
+    }),
+    card: { kind: 'pair', first: cardTab(first), second: cardTab(second) },
+  };
+}
 
 // The tabs list: its rows are Chrome tab ids.
 export function liveTabCarryOut(
@@ -23,6 +61,8 @@ export function liveTabCarryOut(
     const window = toSavedWindow(w, recentTabsOf(w.id));
     const tab = window.tabs[i];
     if (tab === undefined) return null;
+    const pair = pairCarryOut(w, window, i);
+    if (pair !== null) return pair;
     return {
       item: liveItem({
         pick: { kind: 'tab', windowId: window.windowId, tabId: tab.tabId },

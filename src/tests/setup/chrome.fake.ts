@@ -737,6 +737,79 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     }
   };
 
+  // KAN-486. The two tabs of `ids`, in strip order, when they are one split.
+  const splitPairIn = (
+    ids: number[]
+  ): [chrome.tabs.Tab, chrome.tabs.Tab] | undefined => {
+    const [a, b] = ids.flatMap((id) => tabs.filter((tab) => tab.id === id));
+    if (ids.length !== 2 || a === undefined || b === undefined) {
+      return undefined;
+    }
+    const id = a.splitViewId;
+    if (id === undefined || id === SPLIT_VIEW_ID_NONE) return undefined;
+    if (id !== b.splitViewId) return undefined;
+    return a.index < b.index ? [a, b] : [b, a];
+  };
+
+  // KAN-486, measured (probe 3 R1, P3c, probe 4 S2): a split leaves its group as one unit,
+  // past the run from its middle, in place at the run's head or tail.
+  const ungroupPair = ([first, second]: [
+    chrome.tabs.Tab,
+    chrome.tabs.Tab,
+  ]): void => {
+    const groupId = first.groupId;
+    const run = windowTabsInOrder(first.windowId).filter(
+      (tab) => tab.groupId === groupId
+    );
+    const head = run[0];
+    const tail = run[run.length - 1];
+    const inMiddle = head !== first && tail !== second;
+    for (const tab of [first, second]) {
+      tab.groupId = -1;
+      tabsOnUpdated.fire(idOf(tab), { groupId: -1 }, tab);
+    }
+    if (inMiddle && tail !== undefined) {
+      const end = tail.index;
+      moveWithinWindow(second, end);
+      moveWithinWindow(first, end - 1);
+    }
+    dropGroupIfEmpty(groupId);
+  };
+
+  // KAN-486, measured (P3a, probe 2 Q2, probe 4 S3): a split joins a group as one unit, at the run's nearest edge, in order.
+  const joinAsPair = (
+    [first, second]: [chrome.tabs.Tab, chrome.tabs.Tab],
+    groupId: number
+  ): void => {
+    const run = windowTabsInOrder(first.windowId).filter(
+      (tab) => tab.groupId === groupId
+    );
+    const head = run[0]?.index;
+    const tail = run[run.length - 1]?.index;
+    if (head !== undefined && second.index < head - 1) {
+      moveWithinWindow(second, head - 1);
+      moveWithinWindow(first, head - 2);
+    } else if (tail !== undefined && first.index > tail + 1) {
+      moveWithinWindow(first, tail + 1);
+      moveWithinWindow(second, tail + 2);
+    }
+    for (const tab of [first, second]) {
+      if (tab.groupId === groupId) continue;
+      tab.groupId = groupId;
+      tabsOnUpdated.fire(idOf(tab), { groupId }, tab);
+    }
+  };
+
+  // KAN-486. Whether `slot` falls between the two halves of one split.
+  const splitAt = (own: chrome.tabs.Tab[], slot: number): boolean => {
+    const id = own[slot - 1]?.splitViewId;
+    return (
+      id !== undefined &&
+      id !== SPLIT_VIEW_ID_NONE &&
+      id === own[slot]?.splitViewId
+    );
+  };
+
   // KAN-460 Part 4, measured on Chrome for Testing 155: the schema refuses a
   // count other than 2 at the call; then Chrome refuses a tab already split, a
   // mixed window, pinned state or group, and non-adjacent tabs. Which of those
@@ -1053,6 +1126,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         ? moveAcross(target, toWindowId, props.index + i)
         : `No tab with id: ${tabId}.`;
       if (refused !== undefined || !target) break;
+      // KAN-486, measured: array moves end a split, whichever halves they carry.
+      endSplit(target);
       moved.push(target);
     }
     for (const windowId of from) closeIfEmpty(windowId);
@@ -2062,7 +2137,9 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         const created = makeTab({ url, active, pinned }, windowId);
 
         const own = windowTabsInOrder(windowId);
-        const want = clampSlot(own, props.index, pinned);
+        const slot = clampSlot(own, props.index, pinned);
+        // KAN-486, measured: an index between a split's halves lands after the pair.
+        const want = splitAt(own, slot) ? slot + 1 : slot;
 
         // Chrome's rule for a tab inserted inside a group's run: strictly
         // between two tabs of one group, it joins that group (Chromium's
@@ -2155,6 +2232,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         const wasPinned = target.pinned;
         Object.assign(target, rest);
         if (rest.pinned !== undefined && rest.pinned !== wasPinned) {
+          // KAN-486, measured: pinning or unpinning one half ends the split.
+          endSplit(target);
           landOnPinnedBoundary(target);
         }
         // A window has one front tab: activating one takes the front from
@@ -2216,8 +2295,6 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         const target = tabs.find((tab) => tab.id === tabId);
         if (!target)
           return fail<chrome.tabs.Tab>(`No tab with id: ${tabId}.`, cb);
-        // KAN-460 Part 4, measured (M13): moving one tab of a split ends the split. Across windows not measured; assumed the same.
-        endSplit(target);
         if (
           props.windowId !== undefined &&
           props.windowId !== target.windowId
@@ -2227,6 +2304,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           if (refused !== undefined) {
             return fail<chrome.tabs.Tab>(refused, cb);
           }
+          // KAN-486, measured (P5, P7): leaving the window ends the split.
+          endSplit(target);
           closeIfEmpty(fromWindowId);
           return settle(target, cb);
         }
@@ -2238,6 +2317,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           props.index === -1 ? others.length : props.index,
           target.pinned
         );
+        // KAN-460 Part 4, measured (M13): moving one tab of a split ends it. KAN-486, measured (R5): a move to where it stands does not.
+        if (slot !== fromIndex) endSplit(target);
         tabs.splice(tabs.indexOf(target), 1);
         insertAtSlot(target, others, slot);
 
@@ -2354,6 +2435,9 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           return fail<number>(OTHER_PROFILE, cb);
         }
         const sources = new Set(arriving.map((tab) => tab.windowId));
+        // KAN-486, measured: a split carried into another window's group ends.
+        arriving.forEach(endSplit);
+        const samePair = splitPairIn(tabIds);
         const groupId = options.groupId ?? nextId++;
         // Measured 2026-10-26 (KAN-814, e2e 5e2): a group holds no pinned
         // tab, so a pinned one is unpinned as it joins. Measured only for the
@@ -2385,6 +2469,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           }
           tabGroupsOnCreated.fire(created);
           tabGroupsOnUpdated.fire(created);
+        } else if (samePair !== undefined && arriving.length === 0) {
+          joinAsPair(samePair, groupId);
         } else {
           for (const target of targets) {
             if (arriving.includes(target)) {
@@ -2431,6 +2517,11 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         const unknown = idList.find((id) => !tabs.some((tab) => tab.id === id));
         if (unknown !== undefined) {
           return fail<void>(`No tab with id: ${unknown}.`, cb);
+        }
+        const pair = splitPairIn(idList);
+        if (pair !== undefined && pair[0].groupId !== -1) {
+          ungroupPair(pair);
+          return settle(undefined, cb);
         }
         for (const id of idList) {
           const tab = tabs.find((t) => t.id === id);

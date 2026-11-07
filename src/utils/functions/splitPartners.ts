@@ -39,3 +39,35 @@ export function openSplitPartners(
   }
   return partners;
 }
+
+// KAN-486. Both tab ids of every whole pair, each mapped to the half with the
+// lower index: the head, which names the pair's one row.
+export function splitHeadOf(tabs: readonly OpenTab[]): Map<number, number> {
+  const partners = openSplitPartners(tabs);
+  const heads = new Map<number, number>();
+  for (const tab of tabs) {
+    const partner = partners.get(tab.id);
+    if (partner === undefined) continue;
+    heads.set(tab.id, tab.index < partner.index ? tab.id : partner.id);
+  }
+  return heads;
+}
+
+// KAN-486. The tabs with each pair's second half left out.
+export function withoutSplitFollowers<T extends OpenTab>(
+  tabs: readonly T[]
+): T[] {
+  const heads = splitHeadOf(tabs);
+  return tabs.filter((tab) => (heads.get(tab.id) ?? tab.id) === tab.id);
+}
+
+// KAN-486. One span of real tab indices per row, in order. A pair spans both.
+export function rowSpansOf(
+  tabs: readonly OpenTab[]
+): { first: number; last: number }[] {
+  const partners = openSplitPartners(tabs);
+  return withoutSplitFollowers(tabs).map((tab) => ({
+    first: tab.index,
+    last: partners.get(tab.id)?.index ?? tab.index,
+  }));
+}

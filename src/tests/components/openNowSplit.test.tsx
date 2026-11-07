@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { screen, within } from '@testing-library/react';
 
 import OpenNowColumn from '../../components/home/opennow/OpenNowColumn';
+import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { setupChromeFake } from '../setup/chrome.fake';
 import type { ChromeSeed } from '../setup/chrome.fake';
@@ -130,5 +131,79 @@ describe('Open now shows a split view (KAN-564)', () => {
     await renderOpenNow();
     expect(titleWeight('Maps')).toBe('plain');
     expect(titleWeight('Notes')).toBe('plain');
+  });
+});
+
+describe('a split as one row (KAN-486)', () => {
+  test('both halves render inside one row, each with its own menu and close', async () => {
+    await renderOpenNow();
+    const wiki = document.querySelector('[data-open-tab-id="22"]');
+    const guide = document.querySelector('[data-open-tab-id="23"]');
+    const row = wiki?.closest('[data-drag-row-id="22"]');
+    expect(row).not.toBeNull();
+    expect(guide?.closest('[data-drag-row-id="22"]')).toBe(row);
+    if (!(guide instanceof HTMLElement)) throw new Error('no second half');
+    expect(
+      within(guide).getByRole('button', { name: /^Close tab: Guide/ })
+    ).not.toBeNull();
+    expect(
+      within(guide).getByRole('button', { name: 'Switch to tab: Guide' })
+    ).not.toBeNull();
+  });
+
+  test('a loose tab stays a row of its own', async () => {
+    await renderOpenNow();
+    const docs = document.querySelector('[data-open-tab-id="21"]');
+    expect(docs?.closest('[data-drag-row-id="21"]')).not.toBeNull();
+    const news = document.querySelector('[data-open-tab-id="24"]');
+    expect(news?.closest('[data-drag-row-id="24"]')).not.toBeNull();
+  });
+
+  test("a group's tag counts both halves of a split inside it", async () => {
+    await renderWithProviders(<OpenNowColumn folded={true} />, {
+      seed: {
+        splitView: true,
+        currentTabId: 10,
+        windows: [
+          {
+            id: 1,
+            focused: true,
+            tabs: [{ id: 10, url: tabViewUrl(), title: 'Tab Keeper' }],
+          },
+          {
+            id: 2,
+            tabs: [
+              { id: 21, title: 'Docs', url: url('Docs'), groupId: 9 },
+              {
+                id: 22,
+                title: 'Wiki',
+                url: url('Wiki'),
+                groupId: 9,
+                splitViewId: 70,
+              },
+              {
+                id: 23,
+                title: 'Guide',
+                url: url('Guide'),
+                groupId: 9,
+                splitViewId: 70,
+              },
+            ],
+          },
+        ],
+        tabGroups: [{ id: 9, title: 'Work', color: 'blue', windowId: 2 }],
+      },
+      seedStore: (store) => store.dispatch(setHasTabGroupsPermission(true)),
+    });
+    const title = await screen.findByText('Work');
+    const band = title.closest('[data-band-id]');
+    if (!(band instanceof HTMLElement)) throw new Error('no band');
+    expect(within(band).getByText('3 Tabs')).not.toBeNull();
+  });
+
+  test('the second half names no row of its own', async () => {
+    await renderOpenNow();
+    expect(document.querySelector('[data-drag-row-id="23"]')).toBeNull();
+    expect(document.querySelector('[data-drag-row-id="tab:23"]')).toBeNull();
   });
 });

@@ -221,6 +221,57 @@ describe('useOpenWindows', () => {
     expect(titlesIn(result.current, 1)).toEqual(['A', 'B']);
   });
 
+  // KAN-486. A slow move must not draw its temporary group as a band.
+  test('no read lands while a move is in flight', async () => {
+    handle = setupChromeFake(twoWindows());
+    renderHook(() => useOpenWindows(false));
+    await advance(0);
+    const reads = getAllCalls();
+    let finishMove = () => undefined as void;
+    const moving = whileMovingTabs(
+      () =>
+        new Promise<void>((resolve) => {
+          finishMove = resolve;
+        })
+    );
+
+    await act(async () => {
+      await chrome.tabs.move(20, { windowId: 1, index: -1 });
+    });
+    await advance(OPEN_NOW_REFRESH_COALESCE_MS);
+    expect(getAllCalls()).toBe(reads);
+
+    await act(async () => {
+      finishMove();
+      await moving;
+    });
+  });
+
+  test('the read comes as the move ends', async () => {
+    handle = setupChromeFake(twoWindows());
+    const { result } = renderHook(() => useOpenWindows(false));
+    await advance(0);
+    let finishMove = () => undefined as void;
+    const moving = whileMovingTabs(
+      () =>
+        new Promise<void>((resolve) => {
+          finishMove = resolve;
+        })
+    );
+    await act(async () => {
+      await chrome.tabs.move(20, { windowId: 1, index: -1 });
+    });
+    await advance(OPEN_NOW_REFRESH_COALESCE_MS);
+    expect(titlesIn(result.current, 1)).toEqual(['A']);
+
+    await act(async () => {
+      finishMove();
+      await moving;
+    });
+    await advance(0);
+    expect(titlesIn(result.current, 1)).toEqual(['A', 'B']);
+  });
+
   test('CONTROL: the same move made outside Tab Keeper waits for the coalesce', async () => {
     handle = setupChromeFake(twoWindows());
     const { result } = renderHook(() => useOpenWindows(false));

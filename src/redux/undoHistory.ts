@@ -47,6 +47,9 @@ export function onTabMovesEnded(listener: () => void): () => void {
   };
 }
 
+// KAN-486. Whether any are in flight: Open now's list waits, so a pair's temporary group is never read.
+export const tabMovesInFlight = (): boolean => movesInFlight > 0;
+
 // Runs an Open now sort or drag's Chrome moves, counted as in flight until they end.
 export async function whileMovingTabs<T>(move: () => Promise<T>): Promise<T> {
   movesInFlight += 1;
@@ -105,10 +108,12 @@ async function takeStep(
   running = true;
   try {
     if (closesPlainToasts) dispatch(closePlainToasts());
-    const run = await runLiveStep(
-      step.drop,
-      direction,
-      getState().globalState.hasTabGroupsPermission
+    const run = await whileMovingTabs(() =>
+      runLiveStep(
+        step.drop,
+        direction,
+        getState().globalState.hasTabGroupsPermission
+      )
     );
     if (run.outcome === 'done') {
       const reply = { id: step.id, drop: run.drop };
