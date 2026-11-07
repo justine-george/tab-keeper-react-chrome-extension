@@ -173,15 +173,15 @@ afterEach(() => {
 // Shown by resting on A for the first delay.
 const showA = () => {
   pointerTo(byTip('Save session'));
-  wait(300);
+  wait(200);
   expect(chip()).toHaveTextContent('Save session');
 };
 
 describe('timing', () => {
-  test('a pointer resting 299 ms shows nothing; at 300 ms the chip shows the text', async () => {
+  test('a pointer resting 199 ms shows nothing; at 200 ms the chip shows the text', async () => {
     await setup();
     pointerTo(byTip('Save session'));
-    wait(299);
+    wait(199);
     expect(chip()).toBeNull();
     wait(1);
     expect(chip()).toHaveTextContent('Save session');
@@ -200,38 +200,38 @@ describe('timing', () => {
     expect(chip()).toHaveTextContent('Delete');
   });
 
-  test('501 ms after a hide the next waits the full 300 ms again', async () => {
+  test('501 ms after a hide the next waits the full 200 ms again', async () => {
     await setup();
     showA();
     pointerTo(screen.getByTestId('plain'));
     wait(501);
     pointerTo(byTip('Delete'));
-    wait(299);
+    wait(199);
     expect(chip()).toBeNull();
     wait(1);
     expect(chip()).toHaveTextContent('Delete');
   });
 
-  test('a move within the anchor restarts the wait: it shows only once the pointer rests', async () => {
+  test('a move within the anchor does not restart the wait: it counts from the arrival', async () => {
     await setup();
     const a = byTip('Save session');
     pointerTo(a);
-    wait(200);
+    wait(150);
     moveOn(a);
-    wait(200);
+    wait(49);
     expect(chip()).toBeNull();
-    wait(100);
+    wait(1);
     expect(chip()).toHaveTextContent('Save session');
   });
 
   test('sweeping across anchors faster than the wait leaves no chip', async () => {
     await setup();
     pointerTo(byTip('Save session'));
-    wait(250);
+    wait(150);
     pointerTo(byTip('Delete'));
-    wait(250);
+    wait(150);
     pointerTo(byTip('Replace this session with open windows'));
-    wait(250);
+    wait(150);
     pointerTo(screen.getByTestId('plain'));
     wait(1000);
     expect(chip()).toBeNull();
@@ -247,7 +247,7 @@ describe('timing', () => {
   test('moving onto a child of the anchor keeps the chip', async () => {
     await setup();
     pointerTo(screen.getByTestId('outer-text'));
-    wait(300);
+    wait(200);
     expect(chip()).toHaveTextContent('Outer');
     pointerTo(screen.getByTestId('outer'));
     expect(chip()).toHaveTextContent('Outer');
@@ -410,7 +410,7 @@ describe('it hides', () => {
   test('a pressed anchor stays hidden while the pointer moves onto its child', async () => {
     await setup();
     pointerTo(screen.getByTestId('outer'));
-    wait(300);
+    wait(200);
     press(screen.getByTestId('outer'));
     pointerTo(screen.getByTestId('outer-text'));
     wait(1000);
@@ -426,7 +426,7 @@ describe('it hides', () => {
     expect(chip()).toBeNull();
     release(byTip('Delete'));
     pointerTo(byTip('Save session'));
-    wait(299);
+    wait(199);
     expect(chip()).toBeNull();
     wait(1);
     expect(chip()).toHaveTextContent('Save session');
@@ -439,7 +439,7 @@ describe('it hides', () => {
       window.dispatchEvent(new FocusEvent('blur'));
     });
     pointerTo(byTip('Delete'), { buttons: 0 });
-    wait(300);
+    wait(200);
     expect(chip()).toHaveTextContent('Delete');
   });
 
@@ -448,7 +448,7 @@ describe('it hides', () => {
     await setup();
     press(byTip('Save session'));
     pointerTo(byTip('Delete'), { buttons: 0 });
-    wait(299);
+    wait(199);
     expect(chip()).toBeNull();
     wait(1);
     expect(chip()).toHaveTextContent('Delete');
@@ -563,7 +563,7 @@ describe('the anchor changes while shown', () => {
   test('Review Focus 2: the anchor removed while shown takes the chip with it', async () => {
     const { rerender } = await setup();
     pointerTo(byTip('Delete'));
-    wait(300);
+    wait(200);
     expect(chip()).toHaveTextContent('Delete');
     rerender(<Fixture withB={false} />);
     await settle();
@@ -576,21 +576,21 @@ describe('the anchor changes while shown', () => {
     wait(200);
     rerender(<Fixture withB={false} />);
     await settle();
-    wait(300);
+    wait(200);
     expect(chip()).toBeNull();
   });
 
   test('Review Focus 3: nested anchors show the innermost text', async () => {
     await setup();
     pointerTo(byTip('Inner'));
-    wait(300);
+    wait(200);
     expect(chip()).toHaveTextContent(/^Inner$/);
   });
 
   test('Review Focus 3: from outer to inner the chip hands over at 100 ms', async () => {
     await setup();
     pointerTo(screen.getByTestId('outer-text'));
-    wait(300);
+    wait(200);
     expect(chip()).toHaveTextContent('Outer');
     pointerTo(byTip('Inner'));
     wait(99);
@@ -620,7 +620,7 @@ describe('the repeat rule', () => {
       configurable: true,
     });
     pointerTo(byTip('Weekend in Kyoto'));
-    wait(300);
+    wait(200);
     expect(chip()).toHaveTextContent('Weekend in Kyoto');
   });
 
@@ -644,7 +644,7 @@ describe('the repeat rule', () => {
       for (const spy of spies) spy.mockRestore();
     });
     pointerTo(byTip('Weekend in Kyoto'));
-    wait(300);
+    wait(200);
     expect(chip()?.textContent).toBe('Weekend in Kyoto');
   });
 });
@@ -666,7 +666,7 @@ describe('a lead line', () => {
   test('a lead whose text fits is left out', async () => {
     await setup();
     pointerTo(byTip('https://kagi.com/'));
-    wait(300);
+    wait(200);
     expect(chip()?.textContent).toBe('https://kagi.com/');
   });
 
@@ -674,7 +674,7 @@ describe('a lead line', () => {
     await setup();
     cutOffLead();
     pointerTo(byTip('https://kagi.com/'));
-    wait(300);
+    wait(200);
     expect(chip()?.textContent).toBe('Kagi Search\nhttps://kagi.com/');
   });
 
@@ -683,7 +683,7 @@ describe('a lead line', () => {
     cutOffLead();
     const anchor = byTip('https://kagi.com/');
     pointerTo(anchor);
-    wait(300);
+    wait(200);
     act(() => {
       anchor.setAttribute('data-tooltip', 'https://kagi.com/search');
     });
@@ -695,7 +695,7 @@ describe('a lead line', () => {
     await setup();
     cutOffLead();
     pointerTo(byTip('https://kagi.com/'));
-    wait(300);
+    wait(200);
     Object.defineProperty(screen.getByTestId('lead'), 'scrollWidth', {
       value: 80,
       configurable: true,
@@ -714,7 +714,7 @@ describe('a lead line', () => {
     cutOffLead();
     const anchor = byTip('https://kagi.com/');
     pointerTo(anchor);
-    wait(300);
+    wait(200);
     act(() => {
       screen.getByTestId('lead').textContent = 'Kagi';
       anchor.setAttribute('data-tooltip-lead', 'Kagi');
@@ -749,7 +749,7 @@ describe('what it draws, and where', () => {
     const replace = screen.getByRole('button', { name: 'Replace' });
     const before = attrs(replace);
     pointerTo(replace);
-    wait(300);
+    wait(200);
     expect(chip()).toHaveAttribute('aria-hidden', 'true');
     expect(replace).toHaveAccessibleDescription(
       'Replace this session with open windows'
@@ -774,7 +774,7 @@ describe('what it draws, and where', () => {
     await setup();
     const anchor = byTip('In dialog');
     pointerTo(anchor);
-    wait(300);
+    wait(200);
     expect(chip()?.closest('dialog')).toBe(anchor.closest('dialog'));
   });
 
@@ -783,7 +783,7 @@ describe('what it draws, and where', () => {
     const a = byTip('Save session');
     a.getBoundingClientRect = () => new DOMRect(100, 50, 40, 20);
     pointerTo(a);
-    wait(300);
+    wait(200);
     const place = vi.mocked(placeTooltip);
     expect(place).toHaveBeenCalledWith(
       expect.objectContaining({ left: 100, top: 50, width: 40, height: 20 }),
@@ -817,7 +817,7 @@ describe('what it draws, and where', () => {
     Object.defineProperty(dialog, 'clientHeight', { value: 300 });
     anchor.getBoundingClientRect = () => new DOMRect(650, 220, 32, 32);
     pointerTo(anchor);
-    wait(300);
+    wait(200);
     const place = vi.mocked(placeTooltip);
     expect(place).toHaveBeenLastCalledWith(
       expect.objectContaining({ left: 349, top: 19, width: 32, height: 32 }),
@@ -850,7 +850,7 @@ describe('mounted on every page', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
     const anchor = firstShowable();
     pointerTo(anchor);
-    wait(300);
+    wait(200);
     expect(chip()).toHaveTextContent(anchor.getAttribute('data-tooltip') ?? '');
   });
 
@@ -868,7 +868,7 @@ describe('mounted on every page', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
     const anchor = firstShowable();
     pointerTo(anchor);
-    wait(300);
+    wait(200);
     expect(chip()).toHaveTextContent(anchor.getAttribute('data-tooltip') ?? '');
   });
 });
@@ -878,7 +878,7 @@ describe('a tooltip of two lines', () => {
   test('keeps its line break', async () => {
     await setup();
     pointerTo(screen.getByText('two lines'));
-    wait(300);
+    wait(200);
     expect(chip()?.textContent).toBe('Kagi\nhttps://kagi.com/');
     expect(getComputedStyle(chip()!).whiteSpace).toBe('pre-line');
   });
