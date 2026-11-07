@@ -43,10 +43,10 @@ export const carryToSpot =
     const { ref } = item;
     switch (ref.kind) {
       case 'tab':
+      case 'pair':
         return dispatch(dropCarriedTab(ref, spot));
       case 'group':
         return dispatch(dropCarriedGroup(ref, spot));
-      case 'pair':
       case 'window':
         return false;
     }

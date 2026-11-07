@@ -480,7 +480,7 @@ export type NewWindowPlace = 'first' | 'last';
 // never here.
 export type SessionMove =
   | {
-      carried: Extract<CarriedRef, { kind: 'tab' }>;
+      carried: Extract<CarriedRef, { kind: 'tab' | 'pair' }>;
       to:
         | {
             tabGroupId: string;
@@ -505,12 +505,15 @@ export type SessionMove =
 // not narrow `move.to` on the nested `move.carried.kind`, so these guards do
 // it; each reads the discriminant and nothing else, so the narrowing is
 // exactly what the check proves.
-export type TabMove = Extract<SessionMove, { carried: { kind: 'tab' } }>;
+export type TabMove = Extract<
+  SessionMove,
+  { carried: { kind: 'tab' | 'pair' } }
+>;
 export type GroupMove = Extract<SessionMove, { carried: { kind: 'group' } }>;
 export type WindowMove = Extract<SessionMove, { carried: { kind: 'window' } }>;
 
 export function isTabMove(move: SessionMove): move is TabMove {
-  return move.carried.kind === 'tab';
+  return move.carried.kind === 'tab' || move.carried.kind === 'pair';
 }
 
 export function isWindowMove(move: SessionMove): move is WindowMove {
@@ -1864,13 +1867,20 @@ function tabsLandingIn(
   return { kind: 'in-window', window, toIndex: to.toIndex, toChromeGroupId };
 }
 
-// Whether a carried tab or group is ALL its window holds, so moving it into a
-// new window would make the same window again. A tab must be loose: a grouped
-// one leaves its group as it moves, which is a change.
+// Whether a carried tab, pair or group is ALL its window holds, so moving it
+// into a new window would make the same window again. A tab or pair must be
+// loose: a grouped one leaves its group as it moves, which is a change.
 function isAllOfWindow(
   w: windowGroupData,
   carried: (TabMove | GroupMove)['carried']
 ): boolean {
+  if (carried.kind === 'pair') {
+    return (
+      w.tabs.length === 2 &&
+      isSavedPair(w.tabs, carried.tabId, carried.partnerTabId) &&
+      w.tabs[0].chromeGroupId === undefined
+    );
+  }
   if (carried.kind === 'tab') {
     const [only, ...rest] = w.tabs;
     return (
@@ -1885,6 +1895,48 @@ function isAllOfWindow(
     only?.kind === 'group' &&
     only.group.groupId === carried.groupId
   );
+}
+
+// A tab or pair out of `from`, loose: a group it leaves empty loses its entry
+// (the moveTabAcrossWindowsInternal rule). Null when it isn't there to lift.
+function liftLoose(
+  from: windowGroupData,
+  carried: Extract<CarriedRef, { kind: 'tab' | 'pair' }>
+): tabData[] | null {
+  if (
+    carried.kind === 'pair' &&
+    !isSavedPair(from.tabs, carried.tabId, carried.partnerTabId)
+  ) {
+    return null;
+  }
+  const index = from.tabs.findIndex((t) => t.tabId === carried.tabId);
+  if (index === -1) return null;
+  const lifted = from.tabs.splice(index, carried.kind === 'pair' ? 2 : 1);
+  const leftGroupId = lifted[0].chromeGroupId;
+  for (const tab of lifted) delete tab.chromeGroupId;
+  if (
+    leftGroupId !== undefined &&
+    !from.tabs.some((t) => t.chromeGroupId === leftGroupId)
+  ) {
+    from.chromeTabGroups = (from.chromeTabGroups ?? []).filter(
+      (g) => g.groupId !== leftGroupId
+    );
+  }
+  return lifted;
+}
+
+// KAN-942. A splitId the window holds would make four tabs share it, and no pair: one re-mint gives both halves the same new id.
+function remintSplits(
+  tabs: tabData[],
+  landingIn: readonly tabData[],
+  remint: (id: string) => string
+): void {
+  const taken = new Set(landingIn.map((t) => t.splitId));
+  for (const tab of tabs) {
+    if (tab.splitId !== undefined && taken.has(tab.splitId)) {
+      tab.splitId = remint(tab.splitId);
+    }
+  }
 }
 
 // The bounds a new window takes, and a copy's incognito mark (a move's new window stays unmarked, as before).
@@ -1915,6 +1967,9 @@ function landTabsIn(
 ): void {
   const taken = idsIn(target);
   remintTabsAndGroups(tabs, group === undefined ? [] : [group], taken, remint);
+  if (landing.kind === 'in-window') {
+    remintSplits(tabs, landing.window.tabs, remint);
+  }
 
   if (landing.kind === 'new-window') {
     // Unnamed as a captured window is (KAN-394 L4). First or last, as the drop
@@ -1933,7 +1988,11 @@ function landTabsIn(
     else target.windows.push(newWindow);
     target.windowCount += 1;
   } else if (group === undefined) {
-    const slot = clampIndex(landing.toIndex, landing.window.tabs.length);
+    const slot = slotOutsidePairs(
+      landing.window.tabs,
+      new Set(),
+      clampIndex(landing.toIndex, landing.window.tabs.length)
+    );
     // KAN-458. Its group, and its pin by where it landed. A pair's two tabs (KAN-486) land as one.
     for (const tab of tabs) {
       landTab(tab, landing.window.tabs, slot, landing.toChromeGroupId);
@@ -1946,9 +2005,13 @@ function landTabsIn(
       landing.window.chromeTabGroups
     );
     // KAN-458. Never inside the pinned run (groupLandingRange offers no such slot).
-    const slot = Math.max(
-      clampIndex(landing.toIndex, items.length),
-      pinnedRunLength(landing.window.tabs)
+    const slot = itemSlotOutsidePairs(
+      items,
+      savedFollowerIds(landing.window.tabs),
+      Math.max(
+        clampIndex(landing.toIndex, items.length),
+        pinnedRunLength(landing.window.tabs)
+      )
     );
     items.splice(slot, 0, { kind: 'group', group, tabs });
     landing.window.tabs = items.flatMap((item) =>
@@ -3306,27 +3369,15 @@ export const tabContainerDataStateSlice = createSlice({
           const landing = tabsLandingIn(target, move.to);
           if (!landing) return;
 
-          // Lift. A tab leaves its group: it lands loose unless it joins a
-          // band, and a group it leaves empty loses its entry (the
-          // moveTabAcrossWindowsInternal rule). A group takes its entry.
+          // Lift. A tab or pair leaves its group, and lands loose unless it
+          // joins a band. A group takes its entry.
           let tabs: tabData[];
           let group: chromeTabGroupData | undefined;
           const carried = move.carried;
-          if (carried.kind === 'tab') {
-            const index = from.tabs.findIndex((t) => t.tabId === carried.tabId);
-            if (index === -1) return;
-            const [tab] = from.tabs.splice(index, 1);
-            const leftGroupId = tab.chromeGroupId;
-            delete tab.chromeGroupId;
-            if (
-              leftGroupId !== undefined &&
-              !from.tabs.some((t) => t.chromeGroupId === leftGroupId)
-            ) {
-              from.chromeTabGroups = (from.chromeTabGroups ?? []).filter(
-                (g) => g.groupId !== leftGroupId
-              );
-            }
-            tabs = [tab];
+          if (carried.kind === 'tab' || carried.kind === 'pair') {
+            const lifted = liftLoose(from, carried);
+            if (lifted === null) return;
+            tabs = lifted;
             group = undefined;
           } else {
             // The SAME partition the screen draws (KAN-131).
@@ -3481,7 +3532,6 @@ export const tabContainerDataStateSlice = createSlice({
         // The item is gone (or never listed): there is nothing to lift, and
         // the session made for it would be left empty (D20).
         if (!isCarriedStillThere(state.tabGroups, carried)) return;
-        if (carried.kind === 'pair') return;
 
         state.tabGroups.unshift({
           tabGroupId,
@@ -3502,7 +3552,7 @@ export const tabContainerDataStateSlice = createSlice({
         const move: SessionMove =
           carried.kind === 'window'
             ? { carried, to: { tabGroupId, toIndex: 0 } }
-            : carried.kind === 'tab'
+            : carried.kind === 'tab' || carried.kind === 'pair'
               ? {
                   carried,
                   to: { tabGroupId, newWindowId, at: 'first' },

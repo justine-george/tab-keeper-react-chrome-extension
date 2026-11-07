@@ -22,7 +22,13 @@
 import type { ThunkAction, UnknownAction } from '@reduxjs/toolkit';
 
 import { dropOnTopMoved } from './dropOnTop';
-import { groupDrop, intoNewWindow, tabDrop, windowDrop } from './dropSpecs';
+import {
+  groupDrop,
+  intoNewWindow,
+  pairDrop,
+  tabDrop,
+  windowDrop,
+} from './dropSpecs';
 import { moveToSession } from './moveToSession';
 import { announcingPinChange } from './pinChangeToast';
 import type { CarriedRef } from './slices/tabContainerDataStateSlice';
@@ -41,7 +47,7 @@ export interface CarriedSpot {
 
 export const dropCarriedTab =
   (
-    carried: Extract<CarriedRef, { kind: 'tab' }>,
+    carried: Extract<CarriedRef, { kind: 'tab' | 'pair' }>,
     // The band the release landed in, if any: the tab joins that group.
     spot: CarriedSpot & { toChromeGroupId?: string }
   ): Moved =>
@@ -59,19 +65,22 @@ export const dropCarriedTab =
     // KAN-811. Among a window's rows, where it lands decides its pin; a new window keeps it.
     const landing = { tabGroupId, windowId: toWindowId };
     if (carried.tabGroupId === tabGroupId) {
+      const drop = {
+        tabGroupId,
+        tabId: carried.tabId,
+        fromWindowId: carried.windowId,
+        toWindowId,
+        toIndex,
+        toChromeGroupId,
+      };
       return dispatch(
         announcingPinChange(
           carried,
           landing,
           dropOnTopMoved(
-            tabDrop({
-              tabGroupId,
-              tabId: carried.tabId,
-              fromWindowId: carried.windowId,
-              toWindowId,
-              toIndex,
-              toChromeGroupId,
-            })
+            carried.kind === 'pair'
+              ? pairDrop({ ...drop, partnerTabId: carried.partnerTabId })
+              : tabDrop(drop)
           )
         )
       );
