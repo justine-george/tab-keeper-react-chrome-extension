@@ -11,7 +11,11 @@ import {
   selectCategory,
   SettingsCategory,
 } from '../../redux/slices/settingsCategoryStateSlice';
-import { APP_VERSION, PRIVACY_POLICY_LINK } from '../../utils/constants/common';
+import {
+  APP_VERSION,
+  DEV_EMAIL,
+  PRIVACY_POLICY_LINK,
+} from '../../utils/constants/common';
 import { ICON, TYPE } from '../../styles/scale';
 import { testI18n } from '../setup/i18nForTests';
 import { asWritten } from '../setup/asWritten';
@@ -182,6 +186,20 @@ describe('the About nameplate', () => {
     );
     expect(getComputedStyle(rate).color).toBe(
       getComputedStyle(mail).backgroundColor
+    );
+  });
+
+  // KAN-864. The same mail as the review card's link.
+  test('Share feedback writes to the feedback address, naming the version and language', async () => {
+    const location = { href: '' };
+    vi.stubGlobal('location', location);
+    await renderAbout();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Share feedback' }));
+    vi.unstubAllGlobals();
+
+    expect(location.href).toBe(
+      `mailto:${DEV_EMAIL}?subject=Feedback: Tab Keeper v${APP_VERSION} (en)`
     );
   });
 

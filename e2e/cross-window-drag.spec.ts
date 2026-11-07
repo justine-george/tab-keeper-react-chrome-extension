@@ -129,6 +129,19 @@ async function holdAt(page: Page, rowId: string, toY: number) {
   return x;
 }
 
+// Until two reads of a row's top agree: the list under it has stopped.
+async function listStopped(page: Page, rowId: string) {
+  let last = Number.NaN;
+  await expect
+    .poll(async () => {
+      const { y } = await rowBox(page, rowId);
+      const stopped = y === last;
+      last = y;
+      return stopped;
+    })
+    .toBe(true);
+}
+
 // Every commanded shift in a window's block: tab and item rows, and its groups' title rows.
 const shiftsIn = (page: Page, windowId: string) =>
   page.evaluate((windowId) => {
@@ -199,9 +212,15 @@ test.describe('a tab drag inside one window', () => {
   }) => {
     const page = await open(context, extensionId);
 
+    // This list has under half a row free, so holding b1 in the bottom band
+    // scrolls it (KAN-944): aim once it has stopped.
+    const b1 = await rowBox(page, 'b1');
+    const x = await holdAt(page, 'b1', b1.y + b1.height / 2 - 8);
+    await listStopped(page, 'b0');
+
     // b1 up, just inside b0's top: above b0's midpoint and below beta's band.
     const b0 = await rowBox(page, 'b0');
-    await holdAt(page, 'b1', b0.y + 3);
+    await page.mouse.move(x, b0.y + 3, { steps: 8 });
     await page.mouse.up();
 
     await expect.poll(() => order(page, 'w2')).toBe('be0* be1* b1 b0');

@@ -26,6 +26,7 @@ const EN: Record<string, string> = {
   ReviewCardBodyFirstSave:
     'If you like it so far, a rating on the Chrome Web Store helps other people find Tab Keeper.',
   'Rate Tab Keeper': 'Rate Tab Keeper',
+  'Share feedback': 'Share feedback',
   'Never ask again': 'Never ask again',
 };
 
