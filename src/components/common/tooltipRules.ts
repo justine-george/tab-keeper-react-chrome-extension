@@ -1,6 +1,6 @@
 // Pure rules for the app-drawn tooltip (KAN-695): when it shows, where it sits,
 // and whether it repeats the name a screen reader already hears.
-export const FIRST_DELAY_MS = 300;
+export const FIRST_DELAY_MS = 200;
 export const WARM_DELAY_MS = 100;
 export const WARM_WINDOW_MS = 500;
 export const GAP_PX = 6;
