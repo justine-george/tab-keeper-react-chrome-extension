@@ -16,6 +16,7 @@ import {
   moveSessionInternal,
   moveTabAcrossWindowsInternal,
   moveTabInternal,
+  moveSavedPairInternal,
   isTabMove,
   isWindowMove,
   moveToSessionInternal,
@@ -134,6 +135,29 @@ export function tabDrop({
             toIndex: i,
             toChromeGroupId,
           }),
+  };
+}
+
+export interface PairDropParams extends TabDropParams {
+  partnerTabId: string;
+}
+
+// KAN-942. A pair lands as a tab does, but reaimIndex lifts only the row, so the follower leaves the list, and a pair that stopped being one is gone.
+export function pairDrop({ partnerTabId, ...tab }: PairDropParams): DropOnTop {
+  const plain = tabDrop(tab);
+  return {
+    ...plain,
+    targetIds: (s) =>
+      plain.targetIds(s)?.filter((id) => id !== partnerTabId) ?? null,
+    rowExists: (s) =>
+      isCarriedStillThere(s.tabGroups, {
+        kind: 'pair',
+        tabGroupId: tab.tabGroupId,
+        windowId: tab.fromWindowId,
+        tabId: tab.tabId,
+        partnerTabId,
+      }),
+    move: (i) => moveSavedPairInternal({ ...tab, partnerTabId, toIndex: i }),
   };
 }
 

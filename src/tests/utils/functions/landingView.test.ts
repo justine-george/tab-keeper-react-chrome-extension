@@ -300,3 +300,78 @@ describe('carriedRowId: the id the phantom row goes by in its list', () => {
     expect(carriedRowId(savedItem(carried))).toBe(rowId);
   });
 });
+
+// KAN-942. A saved pair leaves its source whole, and its group's band stays when it is the band's only row.
+describe('a carried pair (KAN-942)', () => {
+  const half = (tabId: string, chromeGroupId?: string) => ({
+    ...tab(tabId, chromeGroupId),
+    splitId: 's',
+  });
+  const pair: CarriedRef = {
+    kind: 'pair',
+    tabGroupId: 'P',
+    windowId: 'w',
+    tabId: 'h1',
+    partnerTabId: 'h2',
+  };
+  const inWindow = (tabs: ReturnType<typeof tab>[], groups = false) =>
+    session('P', 'Pair', 1, [
+      win(
+        'w',
+        tabs,
+        groups ? [{ groupId: 'g', title: 'G', color: 'blue' }] : []
+      ),
+    ]);
+
+  test('the source leaves out both halves, and the phantom rests in the trailing block', () => {
+    const view = landingView(
+      [inWindow([tab('a'), half('h1'), half('h2')])],
+      'P',
+      savedItem(pair),
+      true
+    );
+    expect(view?.windows[0].tabs.map((t) => t.tabId)).toEqual(['a']);
+    expect(lastOf(view?.windows)?.windowId).toBe(NEW_LAST_WINDOW);
+    expect(lastOf(view?.windows)?.tabs.map((t) => t.tabId)).toEqual([
+      carriedRowId(savedItem(pair)),
+    ]);
+  });
+
+  test('a group whose only row is the pair keeps its band at home', () => {
+    const view = landingView(
+      [inWindow([tab('a'), half('h1', 'g'), half('h2', 'g')], true)],
+      'P',
+      savedItem(pair),
+      true
+    );
+    expect(view?.windows).toHaveLength(1);
+    expect(view?.windows[0].tabs.map((t) => t.tabId)).toEqual([
+      'a',
+      carriedRowId(savedItem(pair)),
+      'carried:h2',
+    ]);
+    expect(view?.windows[0].tabs[1].chromeGroupId).toBe('g');
+    expect(view?.windows[0].tabs[2].splitId).toBe('s');
+  });
+
+  test('a group with a third tab leaves no pair at home', () => {
+    const view = landingView(
+      [inWindow([half('h1', 'g'), half('h2', 'g'), tab('m', 'g')], true)],
+      'P',
+      savedItem(pair),
+      true
+    );
+    expect(view?.windows[0].tabs.map((t) => t.tabId)).toEqual(['m']);
+  });
+
+  test('refuses when the session on screen holds the second half', () => {
+    const other = session('O', 'Other', 2, [win('v', [tab('h2')])]);
+    const view = landingView(
+      [inWindow([half('h1'), half('h2')]), other],
+      'O',
+      savedItem(pair),
+      true
+    );
+    expect(view).toBeNull();
+  });
+});

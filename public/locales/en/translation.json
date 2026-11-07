@@ -430,6 +430,7 @@
   "Type in the search box to find an open tab. Press {{icon}} to show the saved session beside it.": "Type in the search box to find an open tab. Press {{icon}} to show the saved session beside it.",
   "Show me here": "Show me here",
   "In a split view with {{title}}": "In a split view with “{{title}}”",
+  "End split view": "End split view",
   "Sync limit used": "Sync limit used",
   "SyncLimitUsed": "Your sessions use {{used}} of the {{limit}} sync limit.",
   "SyncLimitUsedNear": "Your sessions use {{used}} of the {{limit}} sync limit. Sync stops at {{limit}}: delete sessions you no longer need.",

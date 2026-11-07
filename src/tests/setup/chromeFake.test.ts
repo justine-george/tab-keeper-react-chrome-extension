@@ -5188,3 +5188,53 @@ describe('split view (Chrome 155+)', () => {
     });
   });
 });
+
+// KAN-942, measured (ledger probe-unsplit-output.txt): tabs.unsplit ends a split in place.
+describe('tabs.unsplit', () => {
+  const fake = () =>
+    setupChromeFake({
+      splitView: true,
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 10, active: true },
+            { id: 11, splitViewId: 70 },
+            { id: 12, splitViewId: 70 },
+          ],
+        },
+      ],
+    });
+  const unsplit = (id: unknown): Promise<void> => {
+    const found: unknown = Reflect.get(chrome.tabs, 'unsplit');
+    if (typeof found !== 'function') throw new Error('no unsplit');
+    return Reflect.apply(found, chrome.tabs, [id]) as Promise<void>;
+  };
+
+  test('ends the split, and moves nothing', async () => {
+    const handle = fake();
+    await unsplit(70);
+    const tabs = await chrome.tabs.query({ windowId: 1 });
+    expect(tabs.map((t) => t.splitViewId)).toEqual([-1, -1, -1]);
+    expect(tabs.map((t) => t.id)).toEqual([10, 11, 12]);
+    handle.restore();
+  });
+
+  test('refuses an id no split has', async () => {
+    const handle = fake();
+    await expect(unsplit(999)).rejects.toThrow('No split view with id: 999.');
+    handle.restore();
+  });
+
+  test('an array is no matching signature', () => {
+    const handle = fake();
+    expect(() => unsplit([11, 12])).toThrow('No matching signature');
+    handle.restore();
+  });
+
+  test('absent without splitView', () => {
+    const handle = setupChromeFake();
+    expect(Reflect.get(chrome.tabs, 'unsplit')).toBeUndefined();
+    handle.restore();
+  });
+});

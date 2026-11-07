@@ -1,6 +1,6 @@
 import type { tabData } from '../../redux/slices/tabContainerDataStateSlice';
 import type { OpenTab } from './openNow';
-import { splitPairs } from './windows';
+import { splitPairs } from './savedPairs';
 
 // KAN-564. Each saved tab's other half, for exactly the pairs a restore
 // splits (splitPairs): a pair Chrome would refuse comes back as two ordinary

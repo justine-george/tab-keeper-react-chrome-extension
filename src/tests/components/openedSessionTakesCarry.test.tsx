@@ -54,6 +54,7 @@ import {
   windowIn,
 } from '../fixtures/sessionMoveFixture';
 import { carriedRef } from '../setup/carriedRef';
+import { dragKindOf } from '../setup/carryKind';
 
 // KAN-350 Task 5: the session on screen takes a carry at an exact spot. The carried item is drawn as a phantom (a tab or group in the trailing block,
 // KAN-361/366; a window first), and on entry the drag area adopts it as an ordinary drag, so every rule is the engine's own.
@@ -213,7 +214,7 @@ const cardFor = (carried: CarriedRef): CarryCard =>
 // As the engine leaves things at the hand-off: the kind published, the hold
 // on, the pointer out to the left of the pane, over the session list.
 function carry(carried: CarriedRef, onCancel?: () => void) {
-  setDragging(true, carried.kind);
+  setDragging(true, dragKindOf(carried));
   beginDragHold();
   act(() =>
     startCarry(savedItem(carried), cardFor(carried), -40, 100, onCancel)

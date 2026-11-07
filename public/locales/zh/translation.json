@@ -418,6 +418,7 @@
   "Type in the search box to find an open tab. Press {{icon}} to show the saved session beside it.": "在搜索框中输入，即可找到打开的标签页。按 {{icon}} 可在旁边显示已保存的会话。",
   "Show me here": "在这里看看",
   "In a split view with {{title}}": "与“{{title}}”分屏显示",
+  "End split view": "结束分屏显示",
   "Sync limit used": "已用同步上限",
   "SyncLimitUsed": "您的会话占用 {{used}}（同步上限 {{limit}}）。",
   "SyncLimitUsedNear": "您的会话占用 {{used}}（同步上限 {{limit}}）。达到 {{limit}} 时同步将停止：请删除不再需要的会话。",

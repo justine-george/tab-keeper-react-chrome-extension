@@ -60,6 +60,7 @@ const rowDropMove =
   (dispatch, getState) => {
     switch (carried.kind) {
       case 'tab':
+      case 'pair':
         return dispatch(
           moveToSession({
             move: { carried, to: intoNewWindow(tabGroupId, 'first') },

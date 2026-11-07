@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { act, fireEvent, screen, within } from '@testing-library/react';
 
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
+import { OpenCopyAddresses } from '../../components/home/rightpane/openCopies';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import type { ChromeSeed } from '../setup/chrome.fake';
 import type { tabData } from '../../redux/slices/tabContainerDataStateSlice';
@@ -239,4 +240,123 @@ describe('while the tour blocks opens (KAN-413)', () => {
       expect(await focusedWindow()).toBe(1);
     }
   );
+});
+
+// KAN-942. Either half of a marked pair opens the pair; the menu's Open in new tab stays one tab.
+describe('a click on a saved pair', () => {
+  const PAIR: tabData[] = [
+    {
+      tabId: 'p1',
+      favicon: '',
+      title: 'Left',
+      url: 'https://l.test/',
+      splitId: 's',
+    },
+    {
+      tabId: 'p2',
+      favicon: '',
+      title: 'Right',
+      url: 'https://r.test/',
+      splitId: 's',
+    },
+  ];
+  const render = async (liveTabs: { id: number; url: string }[] = []) => {
+    const r = await renderWithProviders(
+      <OpenCopyAddresses.Provider value={new Set(liveTabs.map((t) => t.url))}>
+        <WindowEntryContainer
+          number={1}
+          title="Window 1"
+          tabGroupId="tg1"
+          windowId="w1"
+          tabs={PAIR}
+          onOpenWindow={() => undefined}
+          onUpdateWindowGroupTitle={() => undefined}
+          onAddCurrTabToWindowClick={() => undefined}
+          onDeleteClick={() => undefined}
+        />
+      </OpenCopyAddresses.Provider>,
+      {
+        seed: {
+          platformOs: 'linux',
+          splitView: true,
+          windows: [
+            {
+              id: 1,
+              focused: true,
+              tabs: [{ id: 10, url: 'https://here.test/', active: true }],
+            },
+            ...(liveTabs.length === 0 ? [] : [{ id: 2, tabs: liveTabs }]),
+          ],
+        },
+      }
+    );
+    await settle();
+    return r;
+  };
+  const row = (name: RegExp) => screen.getByRole('button', { name });
+  const urls = async () =>
+    (await chrome.tabs.query({ windowId: 1 }))
+      .sort((a, b) => a.index - b.index)
+      .map((t) => t.url);
+
+  test('a plain click on the second half opens both, it in front', async () => {
+    await render();
+    fireEvent.click(row(/Right/));
+    await settle();
+    expect(await urls()).toEqual([
+      'https://here.test/',
+      'https://l.test/',
+      'https://r.test/',
+    ]);
+    const [front] = await chrome.tabs.query({ active: true, windowId: 1 });
+    expect(front.url).toBe('https://r.test/');
+  });
+
+  test('a Ctrl-click opens both behind', async () => {
+    await render();
+    fireEvent.click(row(/Left/), { ctrlKey: true });
+    await settle();
+    expect(await urls()).toHaveLength(3);
+    const [front] = await chrome.tabs.query({ active: true, windowId: 1 });
+    expect(front.url).toBe('https://here.test/');
+  });
+
+  test('a middle-click opens both behind', async () => {
+    await render();
+    fireEvent(
+      row(/Right/),
+      new MouseEvent('auxclick', { bubbles: true, button: 1 })
+    );
+    await settle();
+    expect(await urls()).toHaveLength(3);
+    const [front] = await chrome.tabs.query({ active: true, windowId: 1 });
+    expect(front.url).toBe('https://here.test/');
+  });
+
+  test('one half open: the row still says Open, and a click opens both', async () => {
+    await render([{ id: 20, url: 'https://l.test/' }]);
+    expect(row(/Left/).getAttribute('aria-label')).toContain('Open in new tab');
+    fireEvent.click(row(/Left/));
+    await settle();
+    expect(await urls()).toHaveLength(3);
+  });
+
+  test('both open: the row says Switch, and a click opens nothing', async () => {
+    await render([
+      { id: 20, url: 'https://l.test/' },
+      { id: 21, url: 'https://r.test/' },
+    ]);
+    expect(row(/Left/).getAttribute('aria-label')).toContain('Switch to tab');
+    fireEvent.click(row(/Left/));
+    await settle();
+    expect(await urls()).toHaveLength(1);
+  });
+
+  test('the menu’s Open in new tab opens one tab', async () => {
+    await render();
+    fireEvent.contextMenu(row(/Left/));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Open in new tab/ }));
+    await settle();
+    expect(await urls()).toHaveLength(2);
+  });
 });

@@ -1349,7 +1349,11 @@ export default function OpenNowPane({
                       phantom={
                         carriedIn === null
                           ? null
-                          : { rowId: carriedIn.rowId, kind: carriedIn.kind }
+                          : {
+                              rowId: carriedIn.rowId,
+                              kind: carriedIn.kind,
+                              pair: carriedIn.pair,
+                            }
                       }
                     />
                   )}

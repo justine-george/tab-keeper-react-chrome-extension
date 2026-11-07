@@ -5,14 +5,18 @@
 // skipped, and a refused group step costs the group, never the tabs.
 import type { tabData } from '../../redux/slices/tabContainerDataStateSlice';
 import { rememberCopyLook } from './copyLooks';
-import { resolveTabUrl, restoreRoute } from './local';
+import { resolveTabUrl } from './local';
 import { belowPinnedRun } from './openNowMoves';
 import type { GroupCopySlot, TabCopySlot } from './openNowMoves';
+import { splitPairs } from './savedPairs';
+import { createSplitApi } from './splitView';
 import {
   applyTabGroups,
   createRestoredTab,
   placeholderIcon,
   placeholderUrl,
+  realPageIndexes,
+  splitRestoredPairs,
 } from './windows';
 import type { TabGroupSpec } from './windows';
 
@@ -58,21 +62,52 @@ export async function openTabCopy(
   return id;
 }
 
+// Beside a tab just opened, where Chrome really put it; its asked-for slot's neighbor once it can't be read.
+async function indexBeside(id: number, slot: number): Promise<number> {
+  try {
+    return (await chrome.tabs.get(id)).index + 1;
+  } catch {
+    return slot + 1;
+  }
+}
+
+// KAN-942. A saved pair at a slot: both tabs at their real pages, then the split, last, as a restore does: a move ends one.
+// Before Chrome 155, or refused, two tabs. Ids in saved order, undefined where Chrome refused.
+export async function openPairCopy(
+  first: tabData,
+  second: tabData,
+  slot: TabCopySlot
+): Promise<[number | undefined, number | undefined]> {
+  const firstId = await openTabCopy(first, slot);
+  const index =
+    firstId === undefined ? slot.index : await indexBeside(firstId, slot.index);
+  const secondId = await openTabCopy(second, { ...slot, index });
+  const createSplit = createSplitApi();
+  if (createSplit !== null) {
+    await splitRestoredPairs(createSplit, [[0, 1]], [firstId, secondId]);
+  }
+  return [firstId, secondId];
+}
+
 // A group: its first tab real, the rest KAN-250 placeholders (a page no swap
-// loads opens real, as Open does), never pinned, below the pinned run, then
-// one Chrome group with the saved look, shown. Created one at a time: in a
-// live window a refused tab would leave the next index past a stranger.
-// Ids in saved order, undefined where Chrome refused.
+// loads opens real, as Open does, and so does a pair's half: KAN-942), never
+// pinned, below the pinned run, then one Chrome group with the saved look,
+// shown, then its pairs split. Created one at a time: in a live window a
+// refused tab would leave the next index past a stranger. Ids in saved order,
+// undefined where Chrome refused.
 export async function openGroupCopy(
   tabs: readonly tabData[],
   group: TabGroupSpec,
   slot: GroupCopySlot,
   goToURLText: string
 ): Promise<(number | undefined)[]> {
+  const createSplit = createSplitApi();
+  const pairs = createSplit === null ? [] : splitPairs(tabs);
+  const loadsPage = realPageIndexes(tabs, pairs);
   const urls = await Promise.all(
     tabs.map(async (tab, i) => {
       const url = resolveTabUrl(tab.url);
-      return i === 0 || restoreRoute(url, chrome.runtime.id) === 'open'
+      return i === 0 || loadsPage.has(i)
         ? url
         : placeholderUrl(tab, await placeholderIcon(tab), goToURLText);
     })
@@ -103,5 +138,6 @@ export async function openGroupCopy(
     [group],
     new Map([[group.groupId, members]])
   );
+  if (createSplit !== null) await splitRestoredPairs(createSplit, pairs, ids);
   return ids;
 }

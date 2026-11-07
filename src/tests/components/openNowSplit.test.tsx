@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 
 import OpenNowColumn from '../../components/home/opennow/OpenNowColumn';
 import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
@@ -205,5 +205,34 @@ describe('a split as one row (KAN-486)', () => {
     await renderOpenNow();
     expect(document.querySelector('[data-drag-row-id="23"]')).toBeNull();
     expect(document.querySelector('[data-drag-row-id="tab:23"]')).toBeNull();
+  });
+});
+
+// KAN-942. End split view, on either half of a marked split.
+describe('End split view in Currently open', () => {
+  const menuOf = (title: string) => {
+    fireEvent.contextMenu(switchRow(title));
+    return screen.getAllByRole('menuitem').map((item) => item.textContent);
+  };
+
+  test.each(['Wiki', 'Guide'])(
+    'right-clicking %s offers it above the red item',
+    async (title) => {
+      await renderOpenNow();
+      const items = menuOf(title);
+      expect(items[items.length - 2]).toContain('End split view');
+      expect(items[items.length - 1]).toContain('Close tab');
+    }
+  );
+
+  test('a plain tab offers none', async () => {
+    await renderOpenNow();
+    expect(menuOf('Docs').join(' ')).not.toContain('End split view');
+  });
+
+  test('where Chrome has no unsplit, none shows', async () => {
+    await renderOpenNow();
+    Reflect.deleteProperty(chrome.tabs, 'unsplit');
+    expect(menuOf('Wiki').join(' ')).not.toContain('End split view');
   });
 });

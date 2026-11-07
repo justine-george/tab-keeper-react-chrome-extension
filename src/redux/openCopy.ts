@@ -1,4 +1,4 @@
-// KAN-815. A saved tab, group or window let go over Currently open opens a
+// KAN-815. A saved tab, pair (KAN-942), group or window let go over Currently open opens a
 // copy in Chrome: in the background at a slot of a live window, or in a new
 // window in front (KAN-853); a window also in the background at the end of an
 // open one (KAN-892). The saved session is never changed, so there is no toast
@@ -20,7 +20,11 @@ import type {
   windowGroupData,
 } from './slices/tabContainerDataStateSlice';
 import type { RootState } from './store';
-import { openGroupCopy, openTabCopy } from '../utils/functions/openCopies';
+import {
+  openGroupCopy,
+  openPairCopy,
+  openTabCopy,
+} from '../utils/functions/openCopies';
 import type {
   GroupCopySlot,
   TabCopySlot,
@@ -72,7 +76,7 @@ async function askIntoWindow(
   }
 }
 
-// A split re-forms only from a whole window (Open's rule); a lone tab opens plain.
+// A lone half opens plain: a split needs its two tabs.
 function unsplit(tab: tabData): tabData {
   const copy = { ...tab };
   delete copy.splitId;
@@ -81,7 +85,7 @@ function unsplit(tab: tabData): tabData {
 
 // A group's tabs never open pinned: Chrome's groups hold none.
 function unpinned(tab: tabData): tabData {
-  const copy = unsplit(tab);
+  const copy = { ...tab };
   delete copy.pinned;
   return copy;
 }
@@ -111,17 +115,30 @@ function groupOf(
   };
 }
 
+// A pair's two tabs, head first; null when either is gone.
+function halvesOf(
+  window: windowGroupData,
+  pick: Extract<CarriedPick, { kind: 'pair' }>
+): [tabData, tabData] | null {
+  const first = window.tabs.find((t) => t.tabId === pick.tabId);
+  const second = window.tabs.find((t) => t.tabId === pick.partnerTabId);
+  return first === undefined || second === undefined ? null : [first, second];
+}
+
 // The new window a pick opens in: in front (KAN-853). Null when the window no
-// longer holds the tab or group.
+// longer holds the tab, pair or group.
 export function copyWindowSpec(
   window: windowGroupData,
   pick: CarriedPick
 ): WindowSpec | null {
   const kind = window.incognito === true ? { incognito: true as const } : {};
   switch (pick.kind) {
-    // KAN-486. Live only: a copy opens a saved item.
-    case 'pair':
-      return null;
+    // KAN-942. The worker's restore splits it (splitPairs).
+    case 'pair': {
+      const halves = halvesOf(window, pick);
+      if (!halves) return null;
+      return { tabs: halves, focused: true, bounds: null, ...kind };
+    }
     case 'tab': {
       const tab = window.tabs.find((t) => t.tabId === pick.tabId);
       if (!tab) return null;
@@ -248,6 +265,21 @@ export const openCarriedCopy =
         return (await openTabCopy(plain, place.slot)) !== undefined
           ? 'opened'
           : 'nothing';
+      });
+    } else if (place.kind === 'tab' && pick.kind === 'pair') {
+      const halves = halvesOf(window, pick);
+      if (!halves) return null;
+      opened = whileMovingTabs(async (): Promise<Outcome> => {
+        // KAN-906. Left out only when both halves are open.
+        const rest = skips
+          ? leaveOutOpenTabs(halves, await pagesOpenIn(place.slot.windowId))
+          : { tabs: halves, alreadyOpen: [] };
+        if (rest.tabs.length === 0) {
+          sayAlreadyOpen(place.slot.windowId, rest.alreadyOpen);
+          return 'alreadyOpen';
+        }
+        const ids = await openPairCopy(...halves, place.slot);
+        return ids.some((id) => id !== undefined) ? 'opened' : 'nothing';
       });
     } else if (place.kind === 'group' && pick.kind === 'group') {
       const found = groupOf(window, pick.groupId);

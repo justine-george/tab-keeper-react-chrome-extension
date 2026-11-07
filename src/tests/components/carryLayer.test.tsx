@@ -34,6 +34,7 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import type { makeTestStore } from '../setup/makeStore';
 import { s1, s2, tab } from '../fixtures/sessionMoveFixture';
 import { carriedRef } from '../setup/carriedRef';
+import { dragKindOf } from '../setup/carryKind';
 
 // KAN-350: CarryLayer drives a carry outside every area that can take it: draws the D1 card, asks the receivers, and ends it on Esc, pointercancel or a refused release.
 
@@ -63,7 +64,7 @@ async function renderLayer() {
 
 // As the engine leaves things at the hand-off: held, kind published, carried.
 function handOff(card: CarryCard, carried: CarriedRef = TAB, x = 300, y = 40) {
-  setDragging(true, carried.kind);
+  setDragging(true, dragKindOf(carried));
   beginDragHold();
   act(() => startCarry(savedItem(carried), card, x, y));
 }

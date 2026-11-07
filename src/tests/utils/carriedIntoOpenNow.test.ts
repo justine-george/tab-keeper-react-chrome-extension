@@ -76,6 +76,7 @@ describe('carriedIntoOpenNow', () => {
       },
       incognito: false,
       pinned: true,
+      pair: false,
     });
   });
 
@@ -155,5 +156,54 @@ describe('carriedIntoOpenNow', () => {
 
   test('a tab still opens without the grant', () => {
     expect(carriedIntoOpenNow(sessions(), TAB, false)?.kind).toBe('tab');
+  });
+});
+
+// KAN-942. A pair is a tab-list phantom that holds two rows of room.
+describe('a carried saved pair', () => {
+  const half = (tabId: string, pinned: boolean) => ({
+    tabId,
+    favicon: '',
+    title: tabId,
+    url: `https://${tabId}.example/`,
+    splitId: 's',
+    ...(pinned ? { pinned: true as const } : {}),
+  });
+  const item = savedItem({
+    kind: 'pair',
+    tabGroupId: 'S',
+    windowId: 'w1',
+    tabId: 'h1',
+    partnerTabId: 'h2',
+  });
+  const holding = (pinned: boolean) => [
+    buildSession({
+      tabGroupId: 'S',
+      windows: [
+        savedWindow({ tabs: [half('h1', pinned), half('h2', pinned)] }),
+      ],
+    }),
+  ];
+
+  test('rests in the block as one tab row, marked a pair', () => {
+    const carried = carriedIntoOpenNow(holding(false), item, true);
+    expect(carried?.kind).toBe('tab');
+    expect(carried?.pair).toBe(true);
+    expect(carried?.window.windowId).toBe(OPEN_NOW_NEW_WINDOW);
+    expect(carried?.window.tabs).toHaveLength(1);
+  });
+
+  test('carries the head’s pin', () => {
+    expect(carriedIntoOpenNow(holding(true), item, true)?.pinned).toBe(true);
+  });
+
+  test('a plain tab is no pair', () => {
+    const tab = savedItem({
+      kind: 'tab',
+      tabGroupId: 'S',
+      windowId: 'w1',
+      tabId: 'h1',
+    });
+    expect(carriedIntoOpenNow(holding(false), tab, true)?.pair).toBe(false);
   });
 });

@@ -430,6 +430,7 @@
   "Type in the search box to find an open tab. Press {{icon}} to show the saved session beside it.": "किसी खुले टैब को ढूँढने के लिए खोज बॉक्स में टाइप करें। सहेजा गया सेशन इसके बगल में दिखाने के लिए {{icon}} दबाएँ।",
   "Show me here": "यहीं दिखाएँ",
   "In a split view with {{title}}": "“{{title}}” के साथ स्प्लिट व्यू में",
+  "End split view": "स्प्लिट व्यू बंद करें",
   "Sync limit used": "उपयोग की गई सिंक सीमा",
   "SyncLimitUsed": "आपके सेशन {{limit}} की सिंक सीमा में से {{used}} उपयोग करते हैं।",
   "SyncLimitUsedNear": "आपके सेशन {{limit}} की सिंक सीमा में से {{used}} उपयोग करते हैं। {{limit}} पर सिंक रुक जाता है: जिन सेशन की अब ज़रूरत नहीं है, उन्हें हटाएँ।",

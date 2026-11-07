@@ -24,6 +24,7 @@ import { setIsNotDirty } from '../../redux/slices/globalStateSlice';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { T0, s1, s2, s3 } from '../fixtures/sessionMoveFixture';
 import { carriedRef } from '../setup/carriedRef';
+import { dragKindOf } from '../setup/carryKind';
 
 // KAN-350 final review, list and detail together. Finding 8: the move that hands a drag off, or back, is routed to the list, so the row under it is the target at once.
 // Finding 7: a detail drag reads the list's box once, at its start. jsdom: the list's scroller at x 0..300, y 100..400, 60px rows; the detail at x 400..800.
@@ -125,7 +126,7 @@ const targetIds = () =>
 // As the engine leaves things at the hand-off: held, kind published,
 // carried, the pointer out in the detail.
 function handOff(carried: CarriedRef, card: CarryCard) {
-  setDragging(true, carried.kind);
+  setDragging(true, dragKindOf(carried));
   beginDragHold();
   act(() => startCarry(savedItem(carried), card, 600, 200));
 }

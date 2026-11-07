@@ -16,6 +16,7 @@ import {
 import { setIsNotDirty } from '../../redux/slices/globalStateSlice';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { s1, s2 } from '../fixtures/sessionMoveFixture';
+import { dragKindOf } from '../setup/carryKind';
 
 // KAN-394 N1 (revised). No layout in jsdom: save row y 0..58, scroller 100..400, rows 60 apart.
 
@@ -97,7 +98,7 @@ const lit = () =>
     ?.hasAttribute('data-landing');
 
 function carry(carried: CarriedRef = T1) {
-  setDragging(true, carried.kind);
+  setDragging(true, dragKindOf(carried));
   beginDragHold();
   act(() =>
     startCarry(

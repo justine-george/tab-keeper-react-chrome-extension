@@ -720,6 +720,105 @@ describe('a saved split pair (KAN-564, pick A)', () => {
       expect(row(title)).not.toHaveAttribute('aria-describedby');
     }
   });
+
+  // KAN-942. One drag row draws both halves, named by the first.
+  const dragRows = (container: HTMLElement) =>
+    [...container.querySelectorAll<HTMLElement>('[data-drag-row-id]')]
+      .map((el) => el.dataset.dragRowId)
+      .filter((id) => id !== undefined && !id.includes(':'));
+
+  test('a pair draws one drag row holding both halves', async () => {
+    const { container } = await renderWindow({
+      tabs: [
+        tab('t1', 'Docs'),
+        tab('t2', 'Wiki', { splitId: 's1' }),
+        tab('t3', 'Guide', { splitId: 's1' }),
+      ],
+    });
+    expect(dragRows(container)).toEqual(['t1', 't2']);
+    const pair = container.querySelector('[data-drag-row-id="t2"]');
+    expect(pair?.querySelectorAll('[data-saved-tab-row]')).toHaveLength(2);
+  });
+
+  test('a pair in a band draws one drag row too', async () => {
+    const { container } = await renderWindow({
+      tabs: [
+        tab('t1', 'Wiki', { splitId: 's1', chromeGroupId: 'g' }),
+        tab('t2', 'Guide', { splitId: 's1', chromeGroupId: 'g' }),
+        tab('t3', 'Docs', { chromeGroupId: 'g' }),
+      ],
+      chromeTabGroups: [{ groupId: 'g', title: 'Work', color: 'blue' }],
+    });
+    expect(dragRows(container)).toEqual(['t1', 't3']);
+  });
+
+  test('a broken pair draws two drag rows', async () => {
+    const { container } = await renderWindow({
+      tabs: [
+        tab('t1', 'Wiki', { splitId: 's1' }),
+        tab('t2', 'Docs'),
+        tab('t3', 'Guide', { splitId: 's1' }),
+      ],
+    });
+    expect(dragRows(container)).toEqual(['t1', 't2', 't3']);
+  });
+
+  // KAN-942. End split view, on either half of a marked pair.
+  const menuOf = (title: string) => {
+    fireEvent.contextMenu(row(title));
+    return screen.getAllByRole('menuitem').map((item) => item.textContent);
+  };
+
+  test.each(['Wiki', 'Guide'])(
+    'right-clicking %s offers End split view above the red item',
+    async (title) => {
+      await renderWindow({
+        tabs: [
+          tab('t1', 'Wiki', { splitId: 's1' }),
+          tab('t2', 'Guide', { splitId: 's1' }),
+        ],
+      });
+      const items = menuOf(title);
+      const at = items.findIndex((item) => item?.includes('End split view'));
+      expect(at).toBe(items.length - 2);
+      expect(items[items.length - 1]).toContain('Delete tab');
+    }
+  );
+
+  test('a plain tab offers no End split view', async () => {
+    await renderWindow({
+      tabs: [
+        tab('t1', 'Docs'),
+        tab('t2', 'Wiki', { splitId: 's1' }),
+        tab('t3', 'Guide', { splitId: 's1' }),
+      ],
+    });
+    expect(menuOf('Docs').join(' ')).not.toContain('End split view');
+  });
+
+  test('a broken pair offers no End split view', async () => {
+    await renderWindow({
+      tabs: [
+        tab('t1', 'Wiki', { splitId: 's1' }),
+        tab('t2', 'Docs'),
+        tab('t3', 'Guide', { splitId: 's1' }),
+      ],
+    });
+    expect(menuOf('Wiki').join(' ')).not.toContain('End split view');
+  });
+
+  test('a group holding a pair counts both halves in its tag', async () => {
+    await renderWindow({
+      tabs: [
+        tab('t1', 'Wiki', { splitId: 's1', chromeGroupId: 'g' }),
+        tab('t2', 'Guide', { splitId: 's1', chromeGroupId: 'g' }),
+        tab('t3', 'Docs', { chromeGroupId: 'g' }),
+        tab('t4', 'Loose'),
+      ],
+      chromeTabGroups: [{ groupId: 'g', title: 'Work', color: 'blue' }],
+    });
+    expect(screen.getByText('3 Tabs')).toBeInTheDocument();
+  });
 });
 
 // KAN-708. Right-clicking a saved window or a saved group header opens that row's ⋮ items.

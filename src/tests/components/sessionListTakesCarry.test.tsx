@@ -49,6 +49,7 @@ import {
 } from '../fixtures/sessionMoveFixture';
 import { carriedRef } from '../setup/carriedRef';
 import { rgb } from '../setup/hexColor';
+import { dragKindOf } from '../setup/carryKind';
 
 // KAN-350 Task 4: the session list takes a carry. The row under the pointer is the target (D2 A), 600ms on it opens it (S1 A), a release moves the item in as a new first window (S2 A).
 // jsdom has no layout: a 300px scroller at y 100..400, 60px rows, six sessions (the sixth below the fold), laid out against scrollTop so a hit read in the wrong space names the wrong row.
@@ -205,7 +206,7 @@ function handOff(
   card: CarryCard = TAB_CARD,
   onCancel?: () => void
 ) {
-  setDragging(true, carried.kind);
+  setDragging(true, dragKindOf(carried));
   beginDragHold();
   act(() => startCarry(savedItem(carried), card, 600, 200, onCancel));
 }

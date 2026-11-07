@@ -856,6 +856,23 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     return Promise.resolve(id);
   };
 
+  // KAN-942, measured (ledger probe-unsplit-output.txt): takes one id, ends the split in place, and refuses an id no split has.
+  const unsplit = (splitViewId: number): Promise<void> => {
+    if (typeof splitViewId !== 'number') {
+      throw new TypeError(
+        'Error in invocation of tabs.unsplit(integer splitViewId, optional function callback): No matching signature.'
+      );
+    }
+    const half = tabs.find((tab) => tab.splitViewId === splitViewId);
+    if (half === undefined || splitViewId === SPLIT_VIEW_ID_NONE) {
+      return Promise.reject(
+        new Error(`No split view with id: ${splitViewId}.`)
+      );
+    }
+    endSplit(half);
+    return Promise.resolve();
+  };
+
   const closeIfEmpty = (windowId: number): void => {
     if (windowTabsInOrder(windowId).length > 0) return;
     const index = windows.findIndex((win) => win.id === windowId);
@@ -2357,7 +2374,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         if (expanded) tabGroupsOnUpdated.fire(expanded);
         return settle(target, cb);
       },
-      ...(seed.splitView ? { createSplit } : {}),
+      ...(seed.splitView ? { createSplit, unsplit } : {}),
       onCreated: tabsOnCreated,
       onRemoved: tabsOnRemoved,
       onUpdated: tabsOnUpdated,

@@ -454,6 +454,7 @@
   "Type in the search box to find an open tab. Press {{icon}} to show the saved session beside it.": "Введите запрос в поле поиска, чтобы найти открытую вкладку. Нажмите {{icon}}, чтобы показать сохранённую сессию рядом.",
   "Show me here": "Показать здесь",
   "In a split view with {{title}}": "В разделённом окне с «{{title}}»",
+  "End split view": "Выйти из разделённого окна",
   "Sync limit used": "Использование лимита синхронизации",
   "SyncLimitUsed": "Ваши сессии занимают {{used}} из лимита синхронизации в {{limit}}.",
   "SyncLimitUsedNear": "Ваши сессии занимают {{used}} из лимита синхронизации в {{limit}}. При {{limit}} синхронизация остановится: удалите ненужные сессии.",

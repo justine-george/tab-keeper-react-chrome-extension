@@ -86,6 +86,7 @@ import {
   sortGroupTabsBySite,
   sortTabsBySite,
   sortWindowGroupsByName,
+  endSavedSplitInternal,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import {
   isSavedGroupSortedBySite,
@@ -107,6 +108,12 @@ import type {
   GroupRun,
 } from '../../../utils/functions/tabGroups';
 import { savedSplitPartners } from '../../../utils/functions/splitPartners';
+import { savedFollowerIds } from '../../../utils/functions/savedPairs';
+import {
+  openPairBesideActive,
+  pairClickSwitches,
+  switchToOpenPair,
+} from '../../../utils/functions/openSavedPair';
 import { isTabKeeperPage, toStoredTab } from '../../../utils/functions/capture';
 import { useCanAddCurrentTab } from '../../../hooks/useCanAddCurrentTab';
 import { useCanReplaceWithCurrentWindow } from '../../../hooks/useCanReplaceWithCurrentWindow';
@@ -1014,6 +1021,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const descriptionIdPrefix = useId();
   // KAN-564. Each tab's other half, for the pairs a restore splits.
   const splitPartners = savedSplitPartners(tabs);
+  // KAN-942. Each pair's second half: it draws in its head's row, not its own.
+  const followers = savedFollowerIds(tabs);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewTitle(e.target.value);
@@ -1169,8 +1178,33 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     });
   };
 
+  // KAN-942. Either half of a pair opens the pair; the clicked half comes forward.
+  const handlePairClick = (
+    tab: tabData,
+    partner: tabData,
+    e: React.MouseEvent
+  ) => {
+    const [first, second] =
+      tabs.indexOf(tab) < tabs.indexOf(partner)
+        ? [tab, partner]
+        : [partner, tab];
+    if (opensInBackground(e, isMac)) {
+      void openPairBesideActive(first, second, tab, false);
+      return;
+    }
+    void switchToOpenPair(tab.url, partner.url).then((switched) => {
+      if (!switched) void openPairBesideActive(first, second, tab, true);
+    });
+  };
+
   // KAN-884. A plain click switches to an open copy, else opens one; ⌘/Ctrl-click opens one behind.
-  const handleTabClick = (url: string, e: React.MouseEvent) => {
+  const handleTabClick = (tab: tabData, e: React.MouseEvent) => {
+    const partner = splitPartners.get(tab.tabId);
+    if (partner !== undefined) {
+      handlePairClick(tab, partner, e);
+      return;
+    }
+    const { url } = tab;
     if (opensInBackground(e, isMac)) {
       openTabCopy(url, false);
       return;
@@ -1213,6 +1247,20 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               },
             ]),
         copyLinkItem(tab.url, { t, dispatch }),
+        // KAN-942. Above the red item, on either half of a marked pair.
+        ...(splitPartners.has(tabId)
+          ? [
+              {
+                key: 'endSplit',
+                label: t('End split view'),
+                icon: 'view_column_2' as const,
+                onSelect: () =>
+                  dispatch(
+                    endSavedSplitInternal({ tabGroupId, windowId, tabId })
+                  ),
+              },
+            ]
+          : []),
         {
           key: 'delete',
           label: t('Delete tab'),
@@ -1244,6 +1292,17 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     );
   };
 
+  // KAN-942. What one row of the `tabs` list draws: a tab, or both halves of a pair, named by the first.
+  const renderRowTabs = (tab: tabData, grouped: boolean) => {
+    const partner = splitPartners.get(tab.tabId);
+    return (
+      <>
+        {renderTab(tab, grouped, tab.tabId)}
+        {partner && renderTab(partner, grouped, tab.tabId)}
+      </>
+    );
+  };
+
   function handleAccordionClick() {
     dispatch(toggleWindowCollapse({ tabGroupId, windowId }));
   }
@@ -1264,20 +1323,23 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // drag -- reveals the wrong row's actions. It also removes the cross-run
   // index arithmetic this used to need, since a run's local index and the
   // window-wide one no longer have to be reconciled.
-  function renderTab(tab: tabData, grouped: boolean) {
+  function renderTab(tab: tabData, grouped: boolean, rowId: string) {
     const { tabId, favicon, url, pinned } = tab;
     const shown = shownTitle(tab);
     const isRenaming = editingTabId === tabId;
     // KAN-891. The tour's why names the click's action, as the row's name does.
-    const switches = hasOpenCopy(url, openAddresses);
+    const partner = splitPartners.get(tabId);
+    const switches =
+      partner === undefined
+        ? hasOpenCopy(url, openAddresses)
+        : pairClickSwitches(url, partner.url, openAddresses);
     const tabBlockedBecause = !isOpenBlocked
       ? null
       : switches
         ? t('Switch works after the tour')
         : t('Open works after the tour');
     const pinnedId = `${descriptionIdPrefix}-pinned-${tabId}`;
-    // KAN-564 A. The other half of the split this tab restores into.
-    const partner = splitPartners.get(tabId);
+    // KAN-564 A. `partner` is the other half of the split this tab restores into.
     const splitId = `${descriptionIdPrefix}-split-${tabId}`;
     const splitText =
       partner === undefined
@@ -1302,7 +1364,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       >
         <DragHandle
           scope="tabs"
-          rowId={tabId}
+          rowId={rowId}
           left={grouped ? '-40px' : '-24px'}
           outsideRow
         />
@@ -1360,9 +1422,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             // KAN-825. A cut-off title goes above the address; never above the tour's why.
             tooltipLead={isOpenBlocked ? undefined : shown}
             disable={isOpenBlocked}
-            onClick={(e) => handleTabClick(url, e)}
+            onClick={(e) => handleTabClick(tab, e)}
             onAuxClick={(e) => {
-              if (e.button === 1) openTabCopy(url, false);
+              if (e.button === 1) handleTabClick(tab, e);
             }}
             style={childLeftStyle}
           >
@@ -1709,19 +1771,21 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 (KAN-132); a window provides neither list itself. */}
           {items.map((item, index) =>
             item.kind === 'tab' ? (
-              <DraggableRow
-                key={itemIdOf(item)}
-                scope="items"
-                rowId={itemIdOf(item)}
-              >
-                <DraggableRow scope="tabs" rowId={item.tab.tabId}>
-                  {renderTab(item.tab, false)}
-                  {/* KAN-486. A pair lands as two rows, so its phantom holds the room for the second. */}
-                  {isTrailingBlock && carriesPair && (
-                    <div css={pairRoomStyle} />
-                  )}
+              followers.has(item.tab.tabId) ? null : (
+                <DraggableRow
+                  key={itemIdOf(item)}
+                  scope="items"
+                  rowId={itemIdOf(item)}
+                >
+                  <DraggableRow scope="tabs" rowId={item.tab.tabId}>
+                    {renderRowTabs(item.tab, false)}
+                    {/* KAN-486. A pair lands as two rows, so its phantom holds the room for the second. */}
+                    {isTrailingBlock && carriesPair && (
+                      <div css={pairRoomStyle} />
+                    )}
+                  </DraggableRow>
                 </DraggableRow>
-              </DraggableRow>
+              )
             ) : (
               <DraggableRow
                 key={itemIdOf(item)}
@@ -2179,15 +2243,17 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                       )}
                     </div>
                     <div data-group-tabs>
-                      {item.tabs.map((tabItem) => (
-                        <DraggableRow
-                          key={tabItem.tabId}
-                          scope="tabs"
-                          rowId={tabItem.tabId}
-                        >
-                          {renderTab(tabItem, true)}
-                        </DraggableRow>
-                      ))}
+                      {item.tabs
+                        .filter((tabItem) => !followers.has(tabItem.tabId))
+                        .map((tabItem) => (
+                          <DraggableRow
+                            key={tabItem.tabId}
+                            scope="tabs"
+                            rowId={tabItem.tabId}
+                          >
+                            {renderRowTabs(tabItem, true)}
+                          </DraggableRow>
+                        ))}
                       {/* KAN-175. The group's TAIL, declared the same way
                               its title row declares its head. Zero height, so
                               it changes no layout -- it exists only to hold a

@@ -24,6 +24,7 @@ import {
   orderBeforeSort,
 } from './openNowSort';
 import { carryPair, frontTabOf, isStillOneSplit } from './splitPairMove';
+import { createSplitApi, SPLIT_VIEW_ID_NONE, unsplitApi } from './splitView';
 import {
   openSplitPartners,
   rowSpansOf,
@@ -840,9 +841,11 @@ export async function moveOpenGroup(
 // one; KAN-694), or a sort inside one group's (`kind: 'groupSort'`, every tab
 // of that group but Tab Keeper pages; KAN-746), or a sort of the groups by name
 // (`kind: 'groupOrder'`, every tab of the window but Tab Keeper pages, only
-// the groups moved; KAN-746 Part 2).
+// the groups moved; KAN-746 Part 2), or an ended split (`kind: 'endSplit'`, its
+// two tabs, which stay where they are; KAN-942).
 export interface OpenNowDrop {
-  kind: 'tab' | 'pair' | 'group' | 'sort' | 'groupSort' | 'groupOrder';
+  kind:
+    'tab' | 'pair' | 'group' | 'sort' | 'groupSort' | 'groupOrder' | 'endSplit';
   moved: MovedTabs;
   // A window sort's Tab Keeper pages, where they stood: its moves shift them (KAN-745).
   pagesBefore?: readonly { tabId: number; index: number }[];
@@ -1259,6 +1262,62 @@ async function moveToBefore(
   return 'done';
 }
 
+// KAN-942. Ends a live split; the two tabs' places, for its undo step. Null when Chrome has no unsplit or refused: a split already ended answers "No split view with id".
+export async function endLiveSplit(
+  tabIds: readonly [number, number],
+  splitViewId: number,
+  withLook: boolean
+): Promise<MovedTabs | null> {
+  const unsplit = unsplitApi();
+  if (unsplit === null) return null;
+  const moved: MovedTab[] = [];
+  for (const tabId of tabIds) {
+    const place = await readPlace(tabId, withLook);
+    if (place === null) return null;
+    moved.push({ tabId, before: place, after: place });
+  }
+  const ended = await attempt(() => unsplit(splitViewId));
+  return ended === REFUSED ? null : moved;
+}
+
+// KAN-942. Undo splits the two tabs again, at the same place with a new id; redo ends the split undo made. The divider comes back even.
+async function runEndSplitStep(
+  drop: OpenNowDrop,
+  direction: 'undo' | 'redo'
+): Promise<LiveRun> {
+  const [first, second] = drop.moved;
+  const states =
+    first === undefined || second === undefined
+      ? null
+      : await whereTheLastRunLeftThem(drop.moved);
+  if (states === null || first === undefined || second === undefined) {
+    return { outcome: 'changedSince' };
+  }
+  const halves = await attempt(() =>
+    Promise.all([chrome.tabs.get(first.tabId), chrome.tabs.get(second.tabId)])
+  );
+  if (halves === REFUSED) return { outcome: 'couldNotRun' };
+  const splitId = halves[0].splitViewId ?? SPLIT_VIEW_ID_NONE;
+  const inOneSplit =
+    splitId !== SPLIT_VIEW_ID_NONE && splitId === halves[1].splitViewId;
+  const inNone = !holdsSplitView(halves);
+  if (direction === 'undo' ? !inNone : !inOneSplit) {
+    return { outcome: 'changedSince' };
+  }
+  const createSplit = createSplitApi();
+  const unsplit = unsplitApi();
+  if (createSplit === null || unsplit === null) {
+    return { outcome: 'couldNotRun' };
+  }
+  const run = await attempt(async () => {
+    if (direction === 'undo') await createSplit([first.tabId, second.tabId]);
+    else await unsplit(splitId);
+  });
+  return run === REFUSED
+    ? { outcome: 'couldNotRun' }
+    : { outcome: 'done', drop };
+}
+
 // ⌘Z or ⌘⇧Z for one live step (KAN-744 R6, R7). Never throws. Undo puts the
 // tabs at `before`, redo at `after`. Once done, the side just reached is read
 // again from Chrome (R8: a rebuilt group has a new id); a read Chrome refuses
@@ -1268,6 +1327,7 @@ export async function runLiveStep(
   direction: 'undo' | 'redo',
   hasTabGroups: boolean
 ): Promise<LiveRun> {
+  if (drop.kind === 'endSplit') return runEndSplitStep(drop, direction);
   // The look is only read or set with the grant, and chrome.tabGroups is
   // absent without it.
   const withLook = hasTabGroups && Boolean(chrome.tabGroups);

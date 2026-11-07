@@ -442,6 +442,7 @@
   "Type in the search box to find an open tab. Press {{icon}} to show the saved session beside it.": "Escribe en el cuadro de búsqueda para encontrar una pestaña abierta. Pulsa {{icon}} para mostrar la sesión guardada a su lado.",
   "Show me here": "Muéstramelo aquí",
   "In a split view with {{title}}": "En vista dividida con «{{title}}»",
+  "End split view": "Finalizar vista dividida",
   "Sync limit used": "Límite de sincronización usado",
   "SyncLimitUsed": "Tus sesiones usan {{used}} del límite de sincronización de {{limit}}.",
   "SyncLimitUsedNear": "Tus sesiones usan {{used}} del límite de sincronización de {{limit}}. La sincronización se detiene en {{limit}}: elimina las sesiones que ya no necesites.",

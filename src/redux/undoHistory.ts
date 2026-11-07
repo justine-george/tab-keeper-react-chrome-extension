@@ -157,12 +157,12 @@ export const redoStep = createAsyncThunk<
   takeStep('redo', press ?? CLOSES_PLAIN_TOASTS, dispatch, getState)
 );
 
-// KAN-744 R1. Keeps an Open now move as a step in the undo history, when it changed any place; returns its id.
+// KAN-744 R1. Keeps an Open now move as a step in the undo history, when it changed any place, or ended a split, which moves nothing (KAN-942); returns its id.
 export function keepLiveStep(
   dispatch: AppDispatch,
   drop: OpenNowDrop
 ): number | null {
-  if (!changedAnyPlace(drop.moved)) return null;
+  if (drop.kind !== 'endSplit' && !changedAnyPlace(drop.moved)) return null;
   const id = nextActionNumber();
   dispatch(pushLiveStep({ id, drop }));
   return id;

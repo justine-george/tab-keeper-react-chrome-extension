@@ -34,6 +34,11 @@ import {
   itemIdOf,
   groupIdOfItemId,
 } from '../../../utils/functions/tabGroups';
+import {
+  itemIndexOfRow,
+  savedFollowerIds,
+  savedRowWindows,
+} from '../../../utils/functions/savedPairs';
 import type { DragWindows, GroupMove, PaneWindows } from './rowDrag/dropRules';
 
 /**
@@ -118,8 +123,10 @@ export function useGroupDrop(
 ) {
   const dispatch: AppDispatch = useDispatch();
   const { windows, tabGroupId } = itemList;
+  // KAN-942. The geometry sees rows, a pair once: onMove turns its index back into items.
+  const rowWindows = useMemo(() => savedRowWindows(windows), [windows]);
   const { rowIds, describeGroupMove } = useGroupDropGeometry(
-    windows,
+    rowWindows,
     hasTabGroupsPermission
   );
 
@@ -149,8 +156,27 @@ export function useGroupDrop(
       _dropTargetId: string | undefined,
       toWindowId?: string
     ) => {
-      const move = describeGroupMove(itemId, toIndex, toWindowId);
-      if (move === undefined) return;
+      const described = describeGroupMove(itemId, toIndex, toWindowId);
+      if (described === undefined) return;
+      const landing = windows.find((w) => w.windowId === described.toWindowId);
+      const move =
+        landing === undefined
+          ? described
+          : {
+              ...described,
+              toIndex: itemIndexOfRow(
+                partitionTabsIntoItems(
+                  landing.tabs,
+                  hasTabGroupsPermission ? landing.chromeTabGroups : undefined
+                ).filter(
+                  (item) =>
+                    item.kind !== 'group' ||
+                    item.group.groupId !== described.groupId
+                ),
+                savedFollowerIds(landing.tabs),
+                described.toIndex
+              ),
+            };
       // A CARRIED group (KAN-350): let go where the drop landed, from the
       // window the carry took it out of -- see dropCarriedGroup.
       const carried = currentCarry()?.item;
@@ -200,7 +226,7 @@ export function useGroupDrop(
         )
       );
     },
-    [dispatch, tabGroupId, describeGroupMove]
+    [dispatch, tabGroupId, windows, hasTabGroupsPermission, describeGroupMove]
   );
 
   return { rowIds, onMove };

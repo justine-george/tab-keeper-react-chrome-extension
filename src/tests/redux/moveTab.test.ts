@@ -337,3 +337,69 @@ describe('a move for data that is no longer there', () => {
     expect(tabIds(unknown(before, { tabId: 'nope' }))).toEqual(tabIds(before));
   });
 });
+
+// KAN-942. Nothing lands between a pair's halves, whatever index reaches the reducer.
+describe('moveTabInternal around a saved pair (KAN-942)', () => {
+  const stateWith = (
+    tabs: tabContainerData['windows'][number]['tabs']
+  ): TabMasterContainer => {
+    const base = session();
+    return reducer(
+      undefined,
+      saveToTabContainerInternal({
+        ...base,
+        tabCount: tabs.length,
+        windows: [
+          {
+            ...base.windows[0],
+            tabCount: tabs.length,
+            tabs,
+            chromeTabGroups: [],
+          },
+        ],
+      })
+    );
+  };
+  const row = (tabId: string, splitId?: string) => ({
+    tabId,
+    favicon: '',
+    title: tabId,
+    url: `https://${tabId}.test`,
+    ...(splitId === undefined ? {} : { splitId }),
+  });
+  const order = (state: TabMasterContainer) =>
+    state.tabGroups[0].windows[0].tabs.map((tab) => tab.tabId);
+
+  it('a tab aimed inside a pair lands past it', () => {
+    const state = stateWith([
+      row('a'),
+      row('h1', 's'),
+      row('h2', 's'),
+      row('b'),
+    ]);
+    const next = reducer(
+      state,
+      moveTabInternal({
+        tabGroupId: 'tg',
+        windowId: 'w',
+        tabId: 'a',
+        toIndex: 1,
+      })
+    );
+    expect(order(next)).toEqual(['h1', 'h2', 'a', 'b']);
+  });
+
+  it('a tab put back between a broken pair is no edit', () => {
+    const state = stateWith([row('x1', 's'), row('h'), row('x2', 's')]);
+    const next = reducer(
+      state,
+      moveTabInternal({
+        tabGroupId: 'tg',
+        windowId: 'w',
+        tabId: 'h',
+        toIndex: 1,
+      })
+    );
+    expect(next).toBe(state);
+  });
+});

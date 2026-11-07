@@ -39,6 +39,7 @@ import {
 import { liveItem, savedItem } from '../../redux/carriedItem';
 import { beginDragHold, endDragHold } from '../../redux/dragHold';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
+import { dragKindOf } from '../setup/carryKind';
 
 // KAN-820 E. A saved carry resting 600ms on Currently open's rail springs the drawer out, without moving focus.
 // jsdom has no layout: the rail is stubbed at x 980..1024 (jsdom's innerWidth), y 0..800.
@@ -156,7 +157,7 @@ const isSweeping = () => rail().hasAttribute('data-carry-dwell');
 
 // As the engine leaves things at a hand-off: held, kind published, carried, off the rail.
 function carrySaved(ref: CarriedRef = TAB) {
-  setDragging(true, ref.kind);
+  setDragging(true, dragKindOf(ref));
   beginDragHold();
   const item = savedItem(ref);
   act(() => startCarry(item, CARD, OFF_RAIL.x, OFF_RAIL.y));

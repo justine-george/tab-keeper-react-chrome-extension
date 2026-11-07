@@ -418,6 +418,7 @@
   "Type in the search box to find an open tab. Press {{icon}} to show the saved session beside it.": "검색창에 입력하면 열린 탭을 찾을 수 있습니다. 저장된 세션을 옆에 표시하려면 {{icon}} 버튼을 누르세요.",
   "Show me here": "여기서 보기",
   "In a split view with {{title}}": "“{{title}}” 탭과 분할 보기",
+  "End split view": "분할 보기 종료",
   "Sync limit used": "사용 중인 동기화 한도",
   "SyncLimitUsed": "세션 사용량: 동기화 한도 {{limit}} 중 {{used}}.",
   "SyncLimitUsedNear": "세션 사용량: 동기화 한도 {{limit}} 중 {{used}}. {{limit}}에 도달하면 동기화가 중지됩니다. 더 이상 필요 없는 세션을 삭제하세요.",
