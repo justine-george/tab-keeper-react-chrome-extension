@@ -107,6 +107,7 @@ import type {
   GroupRun,
 } from '../../../utils/functions/tabGroups';
 import { savedSplitPartners } from '../../../utils/functions/splitPartners';
+import { savedFollowerIds } from '../../../utils/functions/savedPairs';
 import { isTabKeeperPage, toStoredTab } from '../../../utils/functions/capture';
 import { useCanAddCurrentTab } from '../../../hooks/useCanAddCurrentTab';
 import { useCanReplaceWithCurrentWindow } from '../../../hooks/useCanReplaceWithCurrentWindow';
@@ -1014,6 +1015,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const descriptionIdPrefix = useId();
   // KAN-564. Each tab's other half, for the pairs a restore splits.
   const splitPartners = savedSplitPartners(tabs);
+  // KAN-942. Each pair's second half: it draws in its head's row, not its own.
+  const followers = savedFollowerIds(tabs);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewTitle(e.target.value);
@@ -1244,6 +1247,17 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     );
   };
 
+  // KAN-942. What one row of the `tabs` list draws: a tab, or both halves of a pair, named by the first.
+  const renderRowTabs = (tab: tabData, grouped: boolean) => {
+    const partner = splitPartners.get(tab.tabId);
+    return (
+      <>
+        {renderTab(tab, grouped, tab.tabId)}
+        {partner && renderTab(partner, grouped, tab.tabId)}
+      </>
+    );
+  };
+
   function handleAccordionClick() {
     dispatch(toggleWindowCollapse({ tabGroupId, windowId }));
   }
@@ -1264,7 +1278,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // drag -- reveals the wrong row's actions. It also removes the cross-run
   // index arithmetic this used to need, since a run's local index and the
   // window-wide one no longer have to be reconciled.
-  function renderTab(tab: tabData, grouped: boolean) {
+  function renderTab(tab: tabData, grouped: boolean, rowId: string) {
     const { tabId, favicon, url, pinned } = tab;
     const shown = shownTitle(tab);
     const isRenaming = editingTabId === tabId;
@@ -1302,7 +1316,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       >
         <DragHandle
           scope="tabs"
-          rowId={tabId}
+          rowId={rowId}
           left={grouped ? '-40px' : '-24px'}
           outsideRow
         />
@@ -1709,19 +1723,21 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 (KAN-132); a window provides neither list itself. */}
           {items.map((item, index) =>
             item.kind === 'tab' ? (
-              <DraggableRow
-                key={itemIdOf(item)}
-                scope="items"
-                rowId={itemIdOf(item)}
-              >
-                <DraggableRow scope="tabs" rowId={item.tab.tabId}>
-                  {renderTab(item.tab, false)}
-                  {/* KAN-486. A pair lands as two rows, so its phantom holds the room for the second. */}
-                  {isTrailingBlock && carriesPair && (
-                    <div css={pairRoomStyle} />
-                  )}
+              followers.has(item.tab.tabId) ? null : (
+                <DraggableRow
+                  key={itemIdOf(item)}
+                  scope="items"
+                  rowId={itemIdOf(item)}
+                >
+                  <DraggableRow scope="tabs" rowId={item.tab.tabId}>
+                    {renderRowTabs(item.tab, false)}
+                    {/* KAN-486. A pair lands as two rows, so its phantom holds the room for the second. */}
+                    {isTrailingBlock && carriesPair && (
+                      <div css={pairRoomStyle} />
+                    )}
+                  </DraggableRow>
                 </DraggableRow>
-              </DraggableRow>
+              )
             ) : (
               <DraggableRow
                 key={itemIdOf(item)}
@@ -2179,15 +2195,17 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                       )}
                     </div>
                     <div data-group-tabs>
-                      {item.tabs.map((tabItem) => (
-                        <DraggableRow
-                          key={tabItem.tabId}
-                          scope="tabs"
-                          rowId={tabItem.tabId}
-                        >
-                          {renderTab(tabItem, true)}
-                        </DraggableRow>
-                      ))}
+                      {item.tabs
+                        .filter((tabItem) => !followers.has(tabItem.tabId))
+                        .map((tabItem) => (
+                          <DraggableRow
+                            key={tabItem.tabId}
+                            scope="tabs"
+                            rowId={tabItem.tabId}
+                          >
+                            {renderRowTabs(tabItem, true)}
+                          </DraggableRow>
+                        ))}
                       {/* KAN-175. The group's TAIL, declared the same way
                               its title row declares its head. Zero height, so
                               it changes no layout -- it exists only to hold a

@@ -1,0 +1,588 @@
+import type { Locator, Page, Worker } from '@playwright/test';
+
+import { test as ungrantedTest } from './fixtures/extension';
+import { expect, grantedTest as test } from './fixtures/grantedExtension';
+import {
+  adoptPhantom,
+  aimAt,
+  carryOutLeft,
+  layout,
+  onto,
+  openTabView,
+  selected,
+  session,
+  settled,
+  TAB_VIEW,
+  tab,
+  toasts,
+  win,
+  type SeedTab,
+} from './fixtures/betweenSessions';
+import { elementLanded } from './fixtures/landed';
+import { liveRow, openLiveWindow } from './fixtures/liveWindows';
+import {
+  boxOf,
+  groupHandle,
+  pickUp,
+  saveRowAim,
+  stored,
+  tabHandle,
+} from './fixtures/sessionDrag';
+
+// KAN-942 on the real artifact: a saved split pair is one row. What the unit tests cannot show:
+// the engine's geometry with a two-tab row, the slot, the card, and Chrome's answer to the copies.
+
+const HELD = '[data-drag-held]';
+const SLOT = '[data-drag-landing-slot]';
+const CARD_NAMES = '[data-carry-card-name]';
+const OPEN_NOW = '[data-pane="open-now"]';
+
+const half = (
+  id: string,
+  g?: string,
+  splitId = 'sp'
+): SeedTab & { splitId: string } => ({
+  ...tab(id, g),
+  splitId,
+});
+const pinned = <T extends SeedTab>(t: T): T & { pinned: true } => ({
+  ...t,
+  pinned: true,
+});
+
+const DAY = { groupId: 'day', title: 'Day trips', color: 'green' };
+
+const TRIP = () =>
+  session('S1', 'Trip', [
+    win(
+      'w1',
+      [
+        tab('a0'),
+        half('h1'),
+        half('h2'),
+        tab('a1'),
+        tab('a2'),
+        tab('g0', 'day'),
+        tab('g1', 'day'),
+      ],
+      [DAY]
+    ),
+    win('w2', [tab('b0'), tab('b1')]),
+  ]);
+const TARGET = () =>
+  session('S2', 'Target', [win('d1', [tab('c0'), tab('c1')])]);
+
+const START = ['a0 h1 h2 a1 a2 g0* g1*', 'b0 b1'];
+
+const open = (
+  context: Parameters<typeof openTabView>[0],
+  extensionId: string,
+  sessions = [TRIP(), TARGET()],
+  settings: Record<string, unknown> = {}
+) => openTabView(context, extensionId, false, sessions, TAB_VIEW, settings);
+
+const halfRow = (page: Page, id: string) =>
+  page.locator(`[data-saved-tab-row="${id}"]`);
+
+async function lift(page: Page, handle: Locator) {
+  await elementLanded(handle, 'ancestors');
+  const at = await pickUp(page, handle);
+  await expect(page.locator(HELD)).toHaveCount(1);
+  return at;
+}
+
+async function drop(page: Page, handle: Locator, rowId: string, frac: number) {
+  await lift(page, handle);
+  await aimAt(page, rowId, frac);
+  await page.mouse.up();
+}
+
+const undoPress = (page: Page) => page.keyboard.press('ControlOrMeta+z');
+const redoPress = (page: Page) => page.keyboard.press('ControlOrMeta+Shift+z');
+
+const tabsOf = async (page: Page, windowId: string) => {
+  const { tabGroups } = await stored(page);
+  return (
+    tabGroups.flatMap((g) => g.windows).find((w) => w.windowId === windowId)
+      ?.tabs ?? []
+  );
+};
+
+async function expectPair(page: Page, windowId: string) {
+  const tabs = await tabsOf(page, windowId);
+  const at = tabs.findIndex((t) => t.tabId === 'h1');
+  expect(tabs[at + 1]?.tabId).toBe('h2');
+  expect(tabs[at]?.splitId).toBeDefined();
+  expect(tabs[at]?.splitId).toBe(tabs[at + 1]?.splitId);
+  expect(tabs[at]?.pinned).toBe(tabs[at + 1]?.pinned);
+  expect(tabs[at]?.chromeGroupId).toBe(tabs[at + 1]?.chromeGroupId);
+}
+
+// The drawn space between the halves stays shut wherever the held row rests.
+async function expectNoSlotInside(page: Page, x: number) {
+  const first = halfRow(page, 'h1');
+  const second = halfRow(page, 'h2');
+  const a = await boxOf(first);
+  const b = await boxOf(second);
+  for (const y of [a.y + 4, a.y + a.height - 4, b.y + 4, b.y + b.height - 4]) {
+    await page.mouse.move(x, y, { steps: 6 });
+    await settled(page);
+    const top = await boxOf(first);
+    const bottom = await boxOf(second);
+    expect(bottom.y - (top.y + top.height)).toBeLessThan(2);
+  }
+}
+
+test.describe('a saved pair is one row (KAN-942)', () => {
+  test('1. pressing either half lifts both; the card names both, and the spot is two rows tall', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+    await expect(page.locator('[data-drag-row-id="h2"]')).toHaveCount(0);
+    const row = (await boxOf(halfRow(page, 'h1'))).height;
+
+    for (const press of ['h1', 'h2']) {
+      const at = await lift(page, halfRow(page, press));
+      await aimAt(page, 'a2', 0.75);
+      const slot = await boxOf(page.locator(SLOT));
+      expect(Math.abs(slot.height - 2 * row)).toBeLessThan(3);
+      await carryOutLeft(page, at);
+      await expect(page.locator(CARD_NAMES)).toHaveText(['Tab h1', 'Tab h2']);
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+      await expect(page.locator(HELD)).toHaveCount(0);
+      await settled(page);
+    }
+    expect(await layout(page, 'S1')).toEqual(START);
+  });
+
+  test('2. reorders inside a window, with undo and redo', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+    await drop(page, halfRow(page, 'h2'), 'tab:a2', 0.75);
+    await expect
+      .poll(() => layout(page, 'S1'))
+      .toEqual(['a0 a1 a2 h1 h2 g0* g1*', 'b0 b1']);
+    await expectPair(page, 'w1');
+
+    await undoPress(page);
+    await expect.poll(() => layout(page, 'S1')).toEqual(START);
+    await redoPress(page);
+    await expect
+      .poll(() => layout(page, 'S1'))
+      .toEqual(['a0 a1 a2 h1 h2 g0* g1*', 'b0 b1']);
+  });
+
+  test('3. a plain tab lands by rows around a pair', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+    await drop(page, tabHandle(page, 'a0'), 'tab:a1', 0.75);
+    await expect
+      .poll(() => layout(page, 'S1'))
+      .toEqual(['h1 h2 a1 a0 a2 g0* g1*', 'b0 b1']);
+    await expectPair(page, 'w1');
+  });
+
+  test('4. to another window, with undo', async ({ context, extensionId }) => {
+    const page = await open(context, extensionId);
+    await drop(page, halfRow(page, 'h1'), 'tab:b0', 0.75);
+    await expect
+      .poll(() => layout(page, 'S1'))
+      .toEqual(['a0 a1 a2 g0* g1*', 'b0 h1 h2 b1']);
+    await expectPair(page, 'w2');
+    await undoPress(page);
+    await expect.poll(() => layout(page, 'S1')).toEqual(START);
+  });
+
+  test('5. into a band, and out again, where a group left empty goes', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId, [
+      session('S1', 'Trip', [
+        win('w1', [tab('a0'), half('h1'), half('h2'), tab('g0', 'day')], [DAY]),
+        win(
+          'w2',
+          [
+            tab('b0'),
+            half('i1', 'day', 'other'),
+            half('i2', 'day', 'other'),
+            tab('b1'),
+          ],
+          [{ ...DAY, groupId: 'day2' }]
+        ),
+      ]),
+      TARGET(),
+    ]);
+    await drop(page, halfRow(page, 'h1'), 'g0', 0.25);
+    await expect
+      .poll(() => layout(page, 'S1').then((l) => l[0]))
+      .toBe('a0 h1* h2* g0*');
+    await expectPair(page, 'w1');
+    await expect(page.locator('[data-band-id="day"]')).toHaveCount(1);
+
+    await drop(page, halfRow(page, 'h1'), 'tab:a0', 0.25);
+    await expect
+      .poll(() => layout(page, 'S1').then((l) => l[0]))
+      .toBe('h1 h2 a0 g0*');
+    await expectPair(page, 'w1');
+  });
+
+  test('6. a band holding only the pair goes when the pair leaves, and stays through a put-back', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId, [
+      session('S1', 'Trip', [
+        win(
+          'w1',
+          [tab('a0'), half('h1', 'day'), half('h2', 'day'), tab('a1')],
+          [DAY]
+        ),
+      ]),
+      TARGET(),
+    ]);
+    // Out to the session list and back: the band is still there to land in.
+    const at = await lift(page, halfRow(page, 'h1'));
+    await carryOutLeft(page, at);
+    await expect(page.locator('[data-band-id="day"]')).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(page.locator(HELD)).toHaveCount(0);
+
+    await drop(page, halfRow(page, 'h1'), 'tab:a1', 0.75);
+    await expect.poll(() => layout(page, 'S1')).toEqual(['a0 a1 h1 h2']);
+    await expect(page.locator('[data-band-id="day"]')).toHaveCount(0);
+    await expectPair(page, 'w1');
+  });
+
+  test('7. into the pinned run and out of it, said once', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId, [
+      session('S1', 'Trip', [
+        win('w1', [
+          pinned(tab('p0')),
+          pinned(tab('p1')),
+          half('h1'),
+          half('h2'),
+          tab('a0'),
+        ]),
+      ]),
+      TARGET(),
+    ]);
+    await drop(page, halfRow(page, 'h1'), 'tab:p1', 0.25);
+    await expect.poll(() => layout(page, 'S1')).toEqual(['p0 h1 h2 p1 a0']);
+    await expectPair(page, 'w1');
+    expect((await tabsOf(page, 'w1'))[1]?.pinned).toBe(true);
+    await expect
+      .poll(() => toasts(page).then((all) => all.map((t) => t.text)))
+      .toEqual(['Tab pinned.']);
+
+    await drop(page, halfRow(page, 'h2'), 'tab:a0', 0.75);
+    await expect.poll(() => layout(page, 'S1')).toEqual(['p0 p1 a0 h1 h2']);
+    await expectPair(page, 'w1');
+    expect((await tabsOf(page, 'w1'))[3]?.pinned).toBeUndefined();
+  });
+
+  test('8. to another session, at a spot, with undo', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+    const at = await lift(page, halfRow(page, 'h1'));
+    await carryOutLeft(page, at);
+    await onto(page, 'S2');
+    await expect.poll(() => selected(page), { timeout: 3000 }).toBe('S2');
+    await adoptPhantom(page, 'carried:h1');
+    await aimAt(page, 'tab:c1', 0.25);
+    await page.mouse.up();
+
+    await expect.poll(() => layout(page, 'S2')).toEqual(['c0 h1 h2 c1']);
+    await expectPair(page, 'd1');
+    expect(await layout(page, 'S1')).toEqual(['a0 a1 a2 g0* g1*', 'b0 b1']);
+    await undoPress(page);
+    await expect.poll(() => layout(page, 'S1')).toEqual(START);
+    expect(await layout(page, 'S2')).toEqual(['c0 c1']);
+  });
+
+  test('9. on another session’s row: its first window', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+    const at = await lift(page, halfRow(page, 'h2'));
+    await carryOutLeft(page, at);
+    await onto(page, 'S2');
+    await page.mouse.up();
+    await expect.poll(() => layout(page, 'S2')).toEqual(['h1 h2', 'c0 c1']);
+  });
+
+  test('10. the New window targets and the New session row', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+    const header = await boxOf(
+      page.getByRole('button', { name: 'Open session' })
+    );
+    const save = await saveRowAim(page);
+
+    await lift(page, halfRow(page, 'h1'));
+    await page.mouse.move(header.x + 10, header.y + 10, { steps: 8 });
+    await expect(
+      page.locator('[data-new-window-target="first"]')
+    ).toHaveAttribute('data-landing', '');
+    await page.mouse.up();
+    await expect
+      .poll(() => layout(page, 'S1'))
+      .toEqual(['h1 h2', 'a0 a1 a2 g0* g1*', 'b0 b1']);
+
+    await undoPress(page);
+    await expect.poll(() => layout(page, 'S1')).toEqual(START);
+
+    const at = await lift(page, halfRow(page, 'h1'));
+    await carryOutLeft(page, at);
+    await page.mouse.move(save.x, save.y, { steps: 8 });
+    await page.mouse.up();
+    await expect
+      .poll(async () => (await stored(page)).tabGroups[0]?.title)
+      .toBe('Tab h1');
+    const { tabGroups } = await stored(page);
+    expect(tabGroups[0]?.windows[0]?.tabs.map((t) => t.tabId)).toEqual([
+      'h1',
+      'h2',
+    ]);
+  });
+
+  test('11. no slot opens between the halves for a tab or a group', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+    const { x } = await lift(page, tabHandle(page, 'a1'));
+    await expectNoSlotInside(page, x);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(page.locator(HELD)).toHaveCount(0);
+
+    const group = await lift(page, groupHandle(page, 'day'));
+    await expectNoSlotInside(page, group.x);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    expect(await layout(page, 'S1')).toEqual(START);
+  });
+
+  test('12. no slot opens between the halves for a carried live tab, group or pair', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const w = await openLiveWindow(worker, ['L', 'M', 'N', 'O']);
+    await splitTabs(worker, [w.idOf('N'), w.idOf('O')]);
+    await worker.evaluate(
+      async ({ windowId, id }) => {
+        const groupId = await chrome.tabs.group({
+          tabIds: id,
+          createProperties: { windowId },
+        });
+        await chrome.tabGroups.update(groupId, {
+          title: 'Live',
+          color: 'blue',
+        });
+      },
+      { windowId: w.windowId, id: w.idOf('M') }
+    );
+    const page = await open(context, extensionId);
+    await expect(liveRow(page, w.idOf('O'))).toBeVisible();
+
+    const groupRow = page
+      .locator(`[data-open-window-id="${w.windowId}"]`)
+      .getByText('Live', { exact: true });
+    for (const handle of [
+      liveRow(page, w.idOf('L')),
+      groupRow,
+      liveRow(page, w.idOf('N')),
+    ]) {
+      await lift(page, handle);
+      const pane = await boxOf(page.locator(OPEN_NOW));
+      const y = (await boxOf(halfRow(page, 'h1'))).y;
+      await page.mouse.move(pane.x - 40, y, { steps: 6 });
+      await expect(page.locator('[data-carry-card]')).toHaveCount(1);
+      const target = await boxOf(halfRow(page, 'h1'));
+      await expectNoSlotInside(page, target.x + 60);
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+      await expect(page.locator(HELD)).toHaveCount(0);
+    }
+    expect(await layout(page, 'S1')).toEqual(START);
+  });
+
+  test('13. Skip duplicate tabs: one half repeated lands whole, both repeated say so', async ({
+    context,
+    extensionId,
+  }) => {
+    const repeat = (id: string, of: string) => ({
+      ...tab(id),
+      url: tab(of).url,
+    });
+    const page = await open(
+      context,
+      extensionId,
+      [
+        session('S1', 'Trip', [
+          win('w1', [
+            tab('a0'),
+            half('h1'),
+            half('h2'),
+            half('k1', undefined, 'k'),
+            half('k2', undefined, 'k'),
+          ]),
+        ]),
+        session('S2', 'Target', [
+          win('d1', [
+            repeat('r1', 'h1'),
+            repeat('r2', 'k1'),
+            repeat('r3', 'k2'),
+          ]),
+        ]),
+      ],
+      { skipDuplicateTabs: true }
+    );
+    const into = async (row: string) => {
+      const at = await lift(page, halfRow(page, row));
+      await carryOutLeft(page, at);
+      await onto(page, 'S2');
+      await page.mouse.up();
+    };
+    await into('h1');
+    await expect.poll(() => layout(page, 'S2')).toEqual(['h1 h2', 'r1 r2 r3']);
+
+    await into('k1');
+    await expect(
+      page.locator('[data-toast]', { hasText: '2 duplicate tabs left out.' })
+    ).toHaveCount(1);
+    await expect.poll(() => layout(page, 'S1')).toEqual(['a0']);
+    expect(await layout(page, 'S2')).toEqual(['h1 h2', 'r1 r2 r3']);
+  });
+
+  test('14. a folded window takes the pair', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+    await page
+      .locator('[data-drag-row-id="w2"]')
+      .getByRole('button', { name: /collapse|fold/i })
+      .first()
+      .click();
+    await lift(page, halfRow(page, 'h1'));
+    const title = await boxOf(page.locator('[data-drag-row-id="w2"]'));
+    await page.mouse.move(title.x + 80, title.y + 10, { steps: 8 });
+    await page.mouse.up();
+    await expect
+      .poll(() => layout(page, 'S1'))
+      .toEqual(['a0 a1 a2 g0* g1*', 'h1 h2 b0 b1']);
+    await expectPair(page, 'w2');
+  });
+
+  test('15. worst path: the pair ends during the hold, and the drop moves nothing', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+    await lift(page, halfRow(page, 'h1'));
+    await aimAt(page, 'tab:a2', 0.75);
+    // Another page's write, as dropOnTop re-reads it at the drop.
+    await page.evaluate(() => {
+      const raw = window.localStorage.getItem('tabContainerData');
+      if (raw === null) throw new Error('nothing stored');
+      const data = JSON.parse(raw);
+      for (const group of data.tabGroups) {
+        for (const w of group.windows) {
+          for (const t of w.tabs) {
+            if (t.tabId === 'h2') delete t.splitId;
+          }
+        }
+        group.lastModified = Date.now() + 1000;
+      }
+      data.lastModified = Date.now() + 1000;
+      window.localStorage.setItem('tabContainerData', JSON.stringify(data));
+    });
+    await page.mouse.up();
+    await expect(page.locator(HELD)).toHaveCount(0);
+    await expect.poll(() => layout(page, 'S1')).toEqual(START);
+    expect((await tabsOf(page, 'w1'))[2]?.splitId).toBeUndefined();
+  });
+
+  test('16. a half deleted while held ends the drag', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+    await lift(page, halfRow(page, 'h1'));
+    await page.evaluate(() => {
+      const raw = window.localStorage.getItem('tabContainerData');
+      if (raw === null) throw new Error('nothing stored');
+      const data = JSON.parse(raw);
+      for (const group of data.tabGroups) {
+        for (const w of group.windows) {
+          w.tabs = w.tabs.filter((t: { tabId: string }) => t.tabId !== 'h2');
+          w.tabCount = w.tabs.length;
+        }
+      }
+      data.lastModified = Date.now() + 1000;
+      window.localStorage.setItem('tabContainerData', JSON.stringify(data));
+    });
+    await aimAt(page, 'tab:a2', 0.75);
+    await page.mouse.up();
+    await expect(page.locator(HELD)).toHaveCount(0);
+    expect((await tabsOf(page, 'w1')).map((t) => t.tabId).slice(0, 3)).toEqual([
+      'a0',
+      'h1',
+      'a1',
+    ]);
+  });
+
+  test('17. a drop in place is no undo step', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+    const before = await stored(page);
+    const at = await lift(page, halfRow(page, 'h1'));
+    await page.mouse.move(at.x, at.y - 8, { steps: 3 });
+    await page.mouse.up();
+    await expect(page.locator(HELD)).toHaveCount(0);
+    expect((await stored(page)).lastModified).toBe(before.lastModified);
+  });
+});
+
+async function splitTabs(worker: Worker, ids: [number, number]) {
+  await worker.evaluate(async (tabIds) => {
+    const createSplit: unknown = Reflect.get(chrome.tabs, 'createSplit');
+    if (typeof createSplit !== 'function') throw new Error('no createSplit');
+    await Reflect.apply(createSplit, chrome.tabs, [tabIds]);
+  }, ids);
+}
+
+ungrantedTest.describe('without the grant (KAN-942)', () => {
+  ungrantedTest(
+    '18. a pair still moves as one, and draws no band',
+    async ({ context, extensionId }) => {
+      const page = await open(context, extensionId);
+      await expect(page.locator('[data-band-id]')).toHaveCount(0);
+      await drop(page, halfRow(page, 'h1'), 'tab:a2', 0.75);
+      await expect
+        .poll(() => layout(page, 'S1'))
+        .toEqual(['a0 a1 a2 h1 h2 g0* g1*', 'b0 b1']);
+      await expectPair(page, 'w1');
+    }
+  );
+});

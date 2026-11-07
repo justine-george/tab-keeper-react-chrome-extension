@@ -147,10 +147,14 @@ export async function openTabView(
   extensionId: string,
   folded: boolean,
   sessions: tabContainerData[] = [S1(), S2(), S3(), S4()],
-  viewport = TAB_VIEW
+  viewport = TAB_VIEW,
+  settings: Record<string, unknown> = {}
 ): Promise<Page> {
   await seed(context, sessions, 'S1');
-  await seedSettings(context, { foldSavedSessionInTabView: folded });
+  await seedSettings(context, {
+    foldSavedSessionInTabView: folded,
+    ...settings,
+  });
   const page = await context.newPage();
   await page.setViewportSize(viewport);
   await page.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
