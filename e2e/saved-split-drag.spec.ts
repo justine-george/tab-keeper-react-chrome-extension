@@ -867,6 +867,98 @@ test.describe('a saved pair into Currently open (KAN-942)', () => {
   });
 });
 
+const endSplitItem = (page: Page) =>
+  page.getByRole('menuitem', { name: 'End split view' });
+
+test.describe('End split view (KAN-942)', () => {
+  test('26. saved: from either half, two plain rows, with undo and redo', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+    for (const pressed of ['h1', 'h2']) {
+      await halfRow(page, pressed).click({ button: 'right' });
+      await endSplitItem(page).click();
+      await expect(tabHandle(page, 'h2')).toHaveCount(1);
+      expect(
+        (await tabsOf(page, 'w1')).filter((t) => t.splitId !== undefined)
+      ).toHaveLength(0);
+      await undoPress(page);
+      await expect(tabHandle(page, 'h2')).toHaveCount(0);
+      await redoPress(page);
+      await expect(tabHandle(page, 'h2')).toHaveCount(1);
+      await undoPress(page);
+      await expect(tabHandle(page, 'h2')).toHaveCount(0);
+    }
+    expect(await layout(page, 'S1')).toEqual(START);
+  });
+
+  test('27. live: from either half; order, pin, group and front tab stay; undo and redo', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const live = await openLiveWindow(worker, ['A', 'B', 'C', 'D']);
+    await splitTabs(worker, [live.idOf('B'), live.idOf('C')]);
+    const page = await open(context, extensionId);
+    await expect(liveRow(page, live.idOf('C'))).toBeVisible();
+    const order = await strip(worker, live.windowId);
+    const front = (await splitOf(worker, live.windowId)).find((t) => t.active);
+    const inSplit = async () =>
+      (await splitOf(worker, live.windowId)).filter((t) => t.split > 0).length;
+
+    for (const title of ['B', 'C']) {
+      await liveRow(page, live.idOf(title)).click({ button: 'right' });
+      await endSplitItem(page).click();
+      await expect.poll(inSplit).toBe(0);
+      expect(await strip(worker, live.windowId)).toEqual(order);
+      expect(
+        (await splitOf(worker, live.windowId)).find((t) => t.active)?.url
+      ).toBe(front?.url);
+      await expect(
+        liveRow(page, live.idOf('B')).locator('[data-split]')
+      ).toHaveCount(0);
+
+      await undoPress(page);
+      await expect.poll(inSplit).toBe(2);
+      await redoPress(page);
+      await expect.poll(inSplit).toBe(0);
+      await undoPress(page);
+      await expect.poll(inSplit).toBe(2);
+      await expect(
+        liveRow(page, live.idOf('B')).locator('[data-split]')
+      ).toHaveCount(1);
+    }
+    expect(await strip(worker, live.windowId)).toEqual(order);
+  });
+
+  test('28. the item is absent on a plain tab and a broken pair', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId, [
+      session('S1', 'Trip', [
+        win('w1', [
+          half('x1'),
+          tab('m'),
+          half('x2'),
+          half('h1', undefined, 'k'),
+          half('h2', undefined, 'k'),
+        ]),
+      ]),
+      TARGET(),
+    ]);
+    for (const row of ['m', 'x1']) {
+      await halfRow(page, row).click({ button: 'right' });
+      await expect(page.getByRole('menuitem').first()).toBeVisible();
+      await expect(endSplitItem(page)).toHaveCount(0);
+      await page.keyboard.press('Escape');
+    }
+    await halfRow(page, 'h1').click({ button: 'right' });
+    await expect(endSplitItem(page)).toHaveCount(1);
+  });
+});
+
 async function splitTabs(worker: Worker, ids: [number, number]) {
   await worker.evaluate(async (tabIds) => {
     const createSplit: unknown = Reflect.get(chrome.tabs, 'createSplit');

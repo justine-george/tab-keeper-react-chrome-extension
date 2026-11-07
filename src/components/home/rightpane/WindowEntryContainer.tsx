@@ -86,6 +86,7 @@ import {
   sortGroupTabsBySite,
   sortTabsBySite,
   sortWindowGroupsByName,
+  endSavedSplitInternal,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import {
   isSavedGroupSortedBySite,
@@ -1216,6 +1217,20 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               },
             ]),
         copyLinkItem(tab.url, { t, dispatch }),
+        // KAN-942. Above the red item, on either half of a marked pair.
+        ...(splitPartners.has(tabId)
+          ? [
+              {
+                key: 'endSplit',
+                label: t('End split view'),
+                icon: 'view_column_2' as const,
+                onSelect: () =>
+                  dispatch(
+                    endSavedSplitInternal({ tabGroupId, windowId, tabId })
+                  ),
+              },
+            ]
+          : []),
         {
           key: 'delete',
           label: t('Delete tab'),

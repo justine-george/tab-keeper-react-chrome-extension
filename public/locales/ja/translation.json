@@ -418,6 +418,7 @@
   "Type in the search box to find an open tab. Press {{icon}} to show the saved session beside it.": "検索ボックスに入力すると、開いているタブを見つけられます。{{icon}} を押すと、保存済みのセッションが横に表示されます。",
   "Show me here": "ここで見る",
   "In a split view with {{title}}": "「{{title}}」と分割表示",
+  "End split view": "分割表示を終了",
   "Sync limit used": "使用中の同期上限",
   "SyncLimitUsed": "セッションは同期上限 {{limit}} のうち {{used}} を使っています。",
   "SyncLimitUsedNear": "セッションは同期上限 {{limit}} のうち {{used}} を使っています。{{limit}} で同期が止まります。不要なセッションを削除してください。",

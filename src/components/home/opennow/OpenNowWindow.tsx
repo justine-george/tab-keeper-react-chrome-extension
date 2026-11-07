@@ -70,6 +70,8 @@ import {
   openSplitPartners,
   withoutSplitFollowers,
 } from '../../../utils/functions/splitPartners';
+import { unsplitApi } from '../../../utils/functions/splitView';
+import { endOpenSplit } from '../../../redux/endSplit';
 import {
   focusOpenWindow,
   groupLandingTab,
@@ -654,6 +656,7 @@ export default function OpenNowWindow({
     itemsFor: (tabId) => {
       const tab = drawnTabs.find((candidate) => String(candidate.id) === tabId);
       if (!tab) return null;
+      const partner = splitPartners.get(tab.id);
       return [
         {
           key: 'switch',
@@ -663,6 +666,17 @@ export default function OpenNowWindow({
           onSelect: () => void switchToOpenTab(tab).catch(() => undefined),
         },
         copyLinkItem(tab.url, { t, dispatch }),
+        // KAN-942. Above the red item, on either half of a marked split.
+        ...(partner !== undefined && unsplitApi() !== null
+          ? [
+              {
+                key: 'endSplit',
+                label: t('End split view'),
+                icon: 'view_column_2' as const,
+                onSelect: () => void dispatch(endOpenSplit(tab, partner)),
+              },
+            ]
+          : []),
         {
           key: 'close',
           label: t('Close tab'),

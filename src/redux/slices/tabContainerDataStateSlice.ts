@@ -121,6 +121,7 @@ import {
   itemSlotOutsidePairs,
   savedFollowerIds,
   slotOutsidePairs,
+  splitPairs,
 } from '../../utils/functions/savedPairs';
 
 export type { chromeTabGroupData };
@@ -381,6 +382,13 @@ export interface moveSavedPairParams {
   toIndex: number;
   // Absent means ungrouped.
   toChromeGroupId?: string;
+}
+
+// KAN-942. Either half of the pair to end.
+export interface endSavedSplitParams {
+  tabGroupId: string;
+  windowId: string;
+  tabId: string;
 }
 
 // Where a window sits inside its session (KAN-129).
@@ -2929,6 +2937,28 @@ export const tabContainerDataStateSlice = createSlice({
       saveLocalSessions(state);
     },
 
+    // KAN-942. End split view: both halves go back to plain tabs, side by side.
+    endSavedSplitInternal: (
+      state,
+      action: PayloadAction<endSavedSplitParams>
+    ) => {
+      const { tabGroupId, windowId, tabId } = action.payload;
+      const container = state.tabGroups.find(
+        (group) => group.tabGroupId === tabGroupId
+      );
+      const window = container?.windows.find((w) => w.windowId === windowId);
+      if (!container || !window) return;
+      const pair = splitPairs(window.tabs).find((indexes) =>
+        indexes.some((i) => window.tabs[i].tabId === tabId)
+      );
+      if (pair === undefined) return;
+      for (const i of pair) delete window.tabs[i].splitId;
+
+      touchContent(state, container);
+      state.lastModified = Date.now();
+      saveLocalSessions(state);
+    },
+
     // move a session within the left pane (KAN-130)
     //
     // WRITES BOTH THE ARRAY AND A RANK, and both are load-bearing. The stored
@@ -4071,6 +4101,7 @@ export const {
   moveTabInternal,
   moveTabAcrossWindowsInternal,
   moveSavedPairInternal,
+  endSavedSplitInternal,
   moveWindowInternal,
   moveChromeGroupInternal,
   moveChromeGroupAcrossWindowsInternal,
