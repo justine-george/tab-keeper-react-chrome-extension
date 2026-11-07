@@ -452,14 +452,26 @@ describe('openPairCopy', () => {
   });
 
   test('the second opens beside where the first really landed', async () => {
-    handle = live();
-    const [first, second] = await openPairCopy(a, b, { ...slot, index: 99 });
-    expect(await strip(1)).toEqual([
-      '11*',
-      '12',
-      String(first),
-      String(second),
-    ]);
+    handle = live({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 11, active: true, groupId: 7 },
+            { id: 12, groupId: 7 },
+            { id: 13, groupId: 7 },
+            { id: 14 },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 7, windowId: 1 }],
+    });
+    // Inside a run with no band: ungrouped, the first leaves the slot it asked for.
+    const [first, second] = await openPairCopy(a, b, { ...slot, index: 2 });
+    const order = (await strip(1)).map((t) => t.replace(/g7|\*/g, ''));
+    expect(order.indexOf(String(second))).toBe(
+      order.indexOf(String(first)) + 1
+    );
   });
 
   test('both take the slot’s pin', async () => {
