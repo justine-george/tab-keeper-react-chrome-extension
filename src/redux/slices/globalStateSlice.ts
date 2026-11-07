@@ -177,6 +177,8 @@ export interface Global {
   firstSavePops: number;
   // KAN-875. The pop is playing: the review card waits for it.
   isFirstSavePopping: boolean;
+  // KAN-388. Bumped by each session the user saves; the header mark's shutter plays on each new count.
+  sessionSaves: number;
   // KAN-7 §4. The pin guide, full view only.
   isPinGuideOpen: boolean;
   // KAN-7 §5. The setup, full view only.
@@ -367,6 +369,7 @@ export const initialState: Global = {
   isFullViewCalloutOpen: false,
   firstSavePops: 0,
   isFirstSavePopping: false,
+  sessionSaves: 0,
   isPinGuideOpen: false,
   isSetupOpen: false,
   doesSetupLeadToPinGuide: true,
@@ -1402,6 +1405,10 @@ export const globalStateSlice = createSlice({
       state.firstSavePops += 1;
     },
 
+    noteSessionSaved: (state) => {
+      state.sessionSaves += 1;
+    },
+
     setFirstSavePopping: (state, action: PayloadAction<boolean>) => {
       state.isFirstSavePopping = action.payload;
     },
@@ -1793,6 +1800,7 @@ export const {
   openFullViewCallout,
   closeFullViewCallout,
   noteFirstSave,
+  noteSessionSaved,
   setFirstSavePopping,
   setSearchInputText,
   toastAdded,
