@@ -932,7 +932,10 @@ test.describe('a click on a saved pair (KAN-942)', () => {
     await expect
       .poll(async () => (await pairTabs(worker)).find((t) => t.active)?.url)
       .toBe(H2);
-    expect((await pairTabs(worker)).map((t) => t.url)).toEqual([H1, H2]);
+    // Polled: a loading tab can read a blank url for a moment (KAN-943).
+    await expect
+      .poll(async () => (await pairTabs(worker)).map((t) => t.url))
+      .toEqual([H1, H2]);
   });
 
   test('30. ⌘-click: both open split, behind', async ({
