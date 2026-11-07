@@ -18,7 +18,9 @@ import {
   isSortKind,
   runLiveStep,
 } from '../utils/functions/openNowMoves';
-import type { OpenNowDrop } from '../utils/functions/openNowMoves';
+import type { LiveRun, OpenNowDrop } from '../utils/functions/openNowMoves';
+import { isOpenedCopy } from '../utils/functions/openedCopy';
+import type { LiveDrop, OpenedCopy } from '../utils/functions/openedCopy';
 
 // KAN-744. What one press of undo or redo did: 'nothing' to step to, 'busy'
 // (a live step, or an Open now sort or drag, is still moving tabs), 'saved' or
@@ -108,12 +110,16 @@ async function takeStep(
   running = true;
   try {
     if (closesPlainToasts) dispatch(closePlainToasts());
-    const run = await whileMovingTabs(() =>
-      runLiveStep(
-        step.drop,
-        direction,
-        getState().globalState.hasTabGroupsPermission
-      )
+    const { drop } = step;
+    const run: LiveRun<LiveDrop> = await whileMovingTabs(() =>
+      isOpenedCopy(drop)
+        ? // KAN-893. Task 4 gives a drop into Currently open its runner.
+          Promise.resolve<LiveRun<LiveDrop>>({ outcome: 'couldNotRun' })
+        : runLiveStep(
+            drop,
+            direction,
+            getState().globalState.hasTabGroupsPermission
+          )
     );
     if (run.outcome === 'done') {
       const reply = { id: step.id, drop: run.drop };
@@ -165,5 +171,16 @@ export function keepLiveStep(
   if (drop.kind !== 'endSplit' && !changedAnyPlace(drop.moved)) return null;
   const id = nextActionNumber();
   dispatch(pushLiveStep({ id, drop }));
+  return id;
+}
+
+// KAN-893. Keeps a drop into Currently open as a step, when it opened any tab; returns its id.
+export function keepOpenedStep(
+  dispatch: AppDispatch,
+  step: OpenedCopy
+): number | null {
+  if (step.tabs.length === 0) return null;
+  const id = nextActionNumber();
+  dispatch(pushLiveStep({ id, drop: step }));
   return id;
 }

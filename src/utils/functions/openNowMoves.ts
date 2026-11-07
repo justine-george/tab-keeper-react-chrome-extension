@@ -15,6 +15,7 @@ import type {
 } from '../../components/home/rightpane/rowDrag/dropRules';
 import type { OpenTab, OpenWindow } from './openNow';
 import { isTabKeeperPage } from './capture';
+import type { LiveDrop, RenamedIds } from './openedCopy';
 import { isPinnedSlot } from './pinnedRun';
 import {
   applyGroupOrder,
@@ -852,7 +853,7 @@ export interface OpenNowDrop {
 }
 
 // The kinds that reorder one window: they never change window, and a refused one is told as a sort.
-export function isSortKind(kind: OpenNowDrop['kind']): boolean {
+export function isSortKind(kind: LiveDrop['kind']): boolean {
   return kind === 'sort' || kind === 'groupSort' || kind === 'groupOrder';
 }
 
@@ -1145,8 +1146,9 @@ async function putGroupBack(
 // the last run left them (nothing moved), 'windowClosed' when a tab or group
 // step's target window is gone (nothing moved), 'couldNotRun' without the
 // grant a group or sort needs (nothing moved) or when Chrome refused part way.
-export type LiveRun =
-  | { outcome: 'done'; drop: OpenNowDrop }
+// KAN-893. `renamed`: the new ids a redo that reopened tabs made.
+export type LiveRun<D extends LiveDrop = OpenNowDrop> =
+  | { outcome: 'done'; drop: D; renamed?: RenamedIds }
   | { outcome: 'changedSince' }
   | { outcome: 'windowClosed' }
   | { outcome: 'couldNotRun' };

@@ -7,6 +7,7 @@ vi.hoisted(() => {
 });
 
 import { nextActionNumber } from '../../redux/actionOrder';
+import { keepOpenedStep } from '../../redux/undoHistory';
 import {
   liveStepDropped,
   liveStepRedone,
@@ -23,6 +24,11 @@ import {
   type UndoableStates,
 } from '../../redux/slices/undoRedoSlice';
 import type { OpenNowDrop } from '../../utils/functions/openNowMoves';
+import {
+  isOpenedCopy,
+  renameIds,
+  type OpenedCopy,
+} from '../../utils/functions/openedCopy';
 import { STACK_LEVEL } from '../../utils/constants/common';
 import { makeTestStore } from '../setup/makeStore';
 import { buildContainer } from '../fixtures/sessionFixture';
@@ -280,6 +286,117 @@ describe('live steps in the undo history (KAN-744)', () => {
     expect(history().present).toEqual({
       tabContainerDataState: loaded,
       addedTabGroupIds: [],
+    });
+  });
+});
+
+// KAN-893. A saved tab dropped into Currently open: tab 11 in window 1, at slot 2 of group 5.
+function opened(tabId: number): OpenedCopy {
+  return {
+    kind: 'opened',
+    tabs: [
+      {
+        tabId,
+        place: { ...place, index: 2, groupId: 5 },
+        openedUrl: 'https://a.test/',
+        saved: { tabId: 's', favicon: '', title: 'a', url: 'https://a.test/' },
+      },
+    ],
+    group: null,
+    madeWindow: null,
+    reopen: { at: 'slot', windowId: 1, index: 2, groupId: 5 },
+  };
+}
+
+describe('a drop into Currently open in the undo history (KAN-893)', () => {
+  it('round-trips through undo and redo unchanged', () => {
+    const { store, history } = setup();
+    const step = { id: 7, drop: opened(11) };
+    store.dispatch(pushLiveStep(step));
+    expect(history().present.liveStep).toEqual(step);
+    store.dispatch(liveStepUndone(step));
+    expect(history().future[0].liveStep).toEqual(step);
+    store.dispatch(liveStepRedone(step));
+    expect(history().present.liveStep).toEqual(step);
+    expect(isOpenedCopy(step.drop)).toBe(true);
+    expect(isOpenedCopy(drop(1))).toBe(false);
+  });
+
+  it('a redo with new ids renames them in the later steps of each kind, and only those', () => {
+    const { store, history } = setup();
+    const dropStep = { id: 1, drop: opened(11) };
+    const move: LiveStep = { id: 2, drop: drop(11) };
+    const other: LiveStep = { id: 3, drop: drop(12) };
+    const later: LiveStep = { id: 4, drop: opened(11) };
+    for (const step of [dropStep, move, other, later])
+      store.dispatch(pushLiveStep(step));
+    for (const step of [later, other, move, dropStep])
+      store.dispatch(liveStepUndone(step));
+
+    store.dispatch(
+      liveStepRedone({
+        ...dropStep,
+        renamed: { tabs: [[11, 21]], windows: [], groups: [[5, 15]] },
+      })
+    );
+
+    const [m, o, l] = history().future.map((s) => s.liveStep?.drop);
+    expect(m).toEqual({
+      kind: 'tab',
+      moved: [{ tabId: 21, before: place, after: { ...place, index: 1 } }],
+    });
+    expect(o).toEqual(drop(12));
+    expect(l).toEqual({
+      ...opened(21),
+      reopen: { at: 'slot', windowId: 1, index: 2, groupId: 15 },
+      tabs: [
+        { ...opened(21).tabs[0], place: { ...place, index: 2, groupId: 15 } },
+      ],
+    });
+  });
+
+  it('keepOpenedStep pushes a drop that opened tabs, and nothing for one that opened none', () => {
+    const { store, history } = setup();
+    expect(
+      keepOpenedStep(store.dispatch, { ...opened(11), tabs: [] })
+    ).toBeNull();
+    expect(history().present.liveStep).toBeUndefined();
+    const id = keepOpenedStep(store.dispatch, opened(11));
+    expect(history().present.liveStep).toEqual({ id, drop: opened(11) });
+  });
+
+  it('renameIds on a step naming no renamed id returns an equal step', () => {
+    const none = {
+      tabs: [[99, 98]],
+      windows: [[8, 9]],
+      groups: [[7, 6]],
+    } as const;
+    const copy = {
+      ...opened(11),
+      madeWindow: { windowId: 3, stubTabId: 30 },
+    };
+    expect(renameIds(copy, none)).toEqual(copy);
+    expect(renameIds(drop(11), none)).toEqual(drop(11));
+  });
+
+  it('a made window is renamed with its stub and the window a new-window step reopens', () => {
+    const copy: OpenedCopy = {
+      ...opened(11),
+      tabs: [{ ...opened(11).tabs[0], place: { ...place, windowId: 3 } }],
+      madeWindow: { windowId: 3, stubTabId: 30 },
+    };
+    const renamed = renameIds(copy, {
+      tabs: [
+        [11, 21],
+        [30, 40],
+      ],
+      windows: [[3, 4]],
+      groups: [],
+    });
+    expect(renamed).toEqual({
+      ...copy,
+      tabs: [{ ...copy.tabs[0], tabId: 21, place: { ...place, windowId: 4 } }],
+      madeWindow: { windowId: 4, stubTabId: 40 },
     });
   });
 });
