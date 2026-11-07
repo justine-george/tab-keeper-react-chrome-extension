@@ -9,8 +9,11 @@ import {
   restoreRoute,
 } from './local';
 import { fetchPngDataUri } from './exportIcons';
+import { splitPairs } from './savedPairs';
 import { createSplitApi, type CreateSplit } from './splitView';
 import { sanitizeTabGroupColor } from './tabGroups';
+
+export { splitPairs };
 
 // This module is imported by the service worker, so it must stay free of
 // anything a worker does not have. In particular it must never reach for
@@ -173,27 +176,6 @@ export async function applyTabGroups(
       console.warn('Could not restore a tab group:', error);
     }
   }
-}
-
-// KAN-460 Part 4. The saved pairs a restore splits: exactly two tabs share a
-// splitId, side by side, both pinned or neither, in the same group. Chrome
-// refuses any other pair (measured), so it opens as ordinary tabs (pick a).
-export function splitPairs(tabs: readonly tabData[]): [number, number][] {
-  const at = new Map<string, number[]>();
-  tabs.forEach((tab, i) => {
-    if (tab.splitId === undefined) return;
-    at.set(tab.splitId, [...(at.get(tab.splitId) ?? []), i]);
-  });
-  return [...at.values()].flatMap((indexes): [number, number][] => {
-    if (indexes.length !== 2) return [];
-    const [i, j] = indexes;
-    const [a, b] = [tabs[i], tabs[j]];
-    return j === i + 1 &&
-      a.pinned === b.pinned &&
-      a.chromeGroupId === b.chromeGroupId
-      ? [[i, j]]
-      : [];
-  });
 }
 
 // Besides the target, the tabs a restore opens at their real page: split partners and pages no swap loads (KAN-561).
