@@ -15,6 +15,26 @@ export const MARK_CLICK = {
   SHUTTER_PX: -16,
 } as const;
 
+// KAN-388. Reduce motion's save: the shutter dims and comes back, COLOR (120ms) each way.
+export const MARK_SAVE_DIM = { OPACITY: 0.45, MS: 240 } as const;
+
+// Out, a short hold, and home: the click's slide, which a save plays too.
+function slideShutter(shutter: Element): Animation {
+  return shutter.animate(
+    [
+      { transform: 'translateX(0)' },
+      { transform: `translateX(${MARK_CLICK.SHUTTER_PX}px)`, offset: 0.45 },
+      { transform: `translateX(${MARK_CLICK.SHUTTER_PX}px)`, offset: 0.55 },
+      { transform: 'translateX(0)' },
+    ],
+    {
+      duration: MARK_CLICK.SHUTTER_MS,
+      delay: MARK_CLICK.SHUTTER_DELAY_MS,
+      easing: 'ease-in-out',
+    }
+  );
+}
+
 // The shutter's two moments, as Get started has them (KAN-513): ready the click as it starts, play it as it shuts.
 export interface ShutterBeat {
   onShutterStart: () => void;
@@ -37,28 +57,7 @@ export function playMarkClick(
     ],
     { duration: MARK_CLICK.PRESS_MS, easing: 'ease-out' }
   );
-  const slide =
-    shutter === null
-      ? null
-      : shutter.animate(
-          [
-            { transform: 'translateX(0)' },
-            {
-              transform: `translateX(${MARK_CLICK.SHUTTER_PX}px)`,
-              offset: 0.45,
-            },
-            {
-              transform: `translateX(${MARK_CLICK.SHUTTER_PX}px)`,
-              offset: 0.55,
-            },
-            { transform: 'translateX(0)' },
-          ],
-          {
-            duration: MARK_CLICK.SHUTTER_MS,
-            delay: MARK_CLICK.SHUTTER_DELAY_MS,
-            easing: 'ease-in-out',
-          }
-        );
+  const slide = shutter === null ? null : slideShutter(shutter);
   let isCancelled = false;
   if (beat !== undefined) {
     beat.onShutterStart();
@@ -80,6 +79,29 @@ export function playMarkClick(
       isCancelled = true;
       press.cancel();
       slide?.cancel();
+    },
+  };
+}
+
+// KAN-388, his pick B. A save slides the shutter as a click does, with no press and no sound.
+// Under Reduce motion the shutter dims instead. Null where nothing can animate.
+export function playMarkSave(shutter: Element): Motion | null {
+  if (!canAnimate(shutter)) return null;
+  const animation = prefersReducedMotion()
+    ? shutter.animate(
+        [{ opacity: 1 }, { opacity: MARK_SAVE_DIM.OPACITY }, { opacity: 1 }],
+        { duration: MARK_SAVE_DIM.MS, easing: 'ease-out' }
+      )
+    : slideShutter(shutter);
+  let isCancelled = false;
+  return {
+    finished: animation.finished.then(
+      () => !isCancelled,
+      () => false
+    ),
+    cancel: () => {
+      isCancelled = true;
+      animation.cancel();
     },
   };
 }

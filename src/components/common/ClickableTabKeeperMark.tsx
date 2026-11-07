@@ -2,7 +2,7 @@ import { useEffect, useRef, type MouseEvent } from 'react';
 import { css } from '@emotion/react';
 
 import TabKeeperMark from './TabKeeperMark';
-import { playMarkClick } from './tabKeeperMarkMotion';
+import { playMarkClick, playMarkSave } from './tabKeeperMarkMotion';
 import type { Motion } from '../modals/getStartedMotion';
 import { ICON } from '../../styles/scale';
 import {
@@ -16,6 +16,7 @@ export default function ClickableTabKeeperMark({
   markSize = ICON.SMALL,
   boxSize = markSize,
   shutterOnMountAfterMs,
+  saveCount,
 }: {
   markSize?: string;
   // The clickable square the mark is centred in.
@@ -23,6 +24,8 @@ export default function ClickableTabKeeperMark({
   // KAN-653. Plays the shutter once, silently, this long after mounting: the
   // review card's mark, as the card finishes rising.
   shutterOnMountAfterMs?: number;
+  // KAN-388. Sessions saved so far: each rise after mounting slides the shutter.
+  saveCount?: number;
 }) {
   const playing = useRef<Motion | null>(null);
   const box = useRef<HTMLDivElement>(null);
@@ -42,11 +45,27 @@ export default function ClickableTabKeeperMark({
       if (motion === null) return;
       playing.current = motion;
       void motion.finished.then(() => {
-        playing.current = null;
+        if (playing.current === motion) playing.current = null;
       });
     }, shutterOnMountAfterMs);
     return () => clearTimeout(timer);
   }, [shutterOnMountAfterMs]);
+
+  const savesSeen = useRef(saveCount);
+  useEffect(() => {
+    if (saveCount === undefined || saveCount === savesSeen.current) return;
+    savesSeen.current = saveCount;
+    const shutter = box.current?.querySelector('[data-mark-part="shutter"]');
+    if (!shutter) return;
+    // A save while anything plays starts over from rest.
+    playing.current?.cancel();
+    const motion = playMarkSave(shutter);
+    playing.current = motion;
+    if (motion === null) return;
+    void motion.finished.then(() => {
+      if (playing.current === motion) playing.current = null;
+    });
+  }, [saveCount]);
 
   const play = (event: MouseEvent<HTMLDivElement>) => {
     if (playing.current !== null) return;
@@ -64,7 +83,7 @@ export default function ClickableTabKeeperMark({
     }
     playing.current = motion;
     void motion.finished.then(() => {
-      playing.current = null;
+      if (playing.current === motion) playing.current = null;
     });
   };
 

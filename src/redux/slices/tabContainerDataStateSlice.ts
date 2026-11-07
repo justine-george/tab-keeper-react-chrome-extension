@@ -27,6 +27,7 @@ import {
 import {
   closeFocusModal,
   noteFirstSave,
+  noteSessionSaved,
   openFocusModal,
   showToast,
 } from './globalStateSlice';
@@ -1047,6 +1048,8 @@ export const saveToTabContainer = createAsyncThunk(
     if (!isSample && isFirst && !hadSaved) {
       thunkAPI.dispatch(noteFirstSave());
     }
+    // KAN-388. The header mark's shutter, for every session the user saves.
+    if (!isSample) thunkAPI.dispatch(noteSessionSaved());
 
     thunkAPI.dispatch(
       showToast({

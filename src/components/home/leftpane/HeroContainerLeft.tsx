@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { css } from '@emotion/react';
+import { useSelector } from 'react-redux';
 
 import MenuContainer from './MenuContainer';
 import ClickableTabKeeperMark from '../../common/ClickableTabKeeperMark';
@@ -7,6 +8,7 @@ import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useTranslation } from 'react-i18next';
 import { ICON, TYPE } from '../../../styles/scale';
+import type { RootState } from '../../../redux/store';
 
 const visuallyHiddenStyle = css`
   position: absolute;
@@ -35,6 +37,9 @@ export default function HeroContainer() {
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
   const name = t('Tab Keeper');
+  const sessionSaves = useSelector(
+    (state: RootState) => state.globalState.sessionSaves
+  );
 
   const room = useRef<HTMLDivElement>(null);
   const ruler = useRef<HTMLSpanElement>(null);
@@ -91,7 +96,10 @@ export default function HeroContainer() {
           align-items: center;
         `}
       >
-        <ClickableTabKeeperMark boxSize={`calc(${ICON.DEFAULT} + 8px)`} />
+        <ClickableTabKeeperMark
+          boxSize={`calc(${ICON.DEFAULT} + 8px)`}
+          saveCount={sessionSaves}
+        />
         <div
           ref={room}
           css={css`
