@@ -71,6 +71,17 @@ body {
 
    Selected by attribute because the reveal itself is an emotion class keyed on
    React state, which no stylesheet can name. */
+/* KAN-368. See RowDragArea: a list that fits draws no bar for a transform. The
+   delay outlasts the rows' 200ms ease home after the drag ends. */
+[data-drag-fits] {
+  transition: scrollbar-width 0s linear 300ms allow-discrete;
+}
+
+[data-dragging] [data-drag-fits] {
+  scrollbar-width: none;
+  transition: none;
+}
+
 [data-dragging] [data-row-actions] {
   opacity: 0 !important;
   background-color: transparent !important;

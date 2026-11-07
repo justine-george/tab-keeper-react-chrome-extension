@@ -1923,6 +1923,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       }
       // Read now, before any row carries a transform (invariant #2).
       l.fittedAtStart = l.scroller ? null : fittingOf(paneOf(l.heldEl));
+      // KAN-368. The held row's transform counts as overflow: a list that
+      // fits must not draw a scrollbar for it, and narrow every row (App.css).
+      paneOf(l.heldEl)?.toggleAttribute(
+        'data-drag-fits',
+        l.fittedAtStart !== null
+      );
 
       // Re-anchor the grab. Collapsing moves every row, so the row being held
       // is no longer under the pointer where it was picked up -- without this
@@ -2047,6 +2053,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           l.fittedAtStart.contentHeight - l.fittedAtStart.pane.clientHeight;
         l.maxScroll = Math.max(0, overflow);
         if (overflow > 0) {
+          l.fittedAtStart.pane.removeAttribute('data-drag-fits');
           l.scroller = l.fittedAtStart.pane;
           if (!scrollFrame.current) {
             scrollFrame.current = requestAnimationFrame(autoScroll);
