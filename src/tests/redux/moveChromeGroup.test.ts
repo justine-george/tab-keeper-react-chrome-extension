@@ -222,3 +222,29 @@ describe('moveChromeGroupInternal clamps the destination', () => {
     expect(store.getState().tabContainerDataState).toBe(stateBefore);
   });
 });
+
+// KAN-942. A group never lands between a pair's halves either.
+describe('moveChromeGroupInternal around a saved pair (KAN-942)', () => {
+  test('a group aimed inside a pair lands past it', () => {
+    const half = (tabId: string) => ({ ...t(tabId), splitId: 's' });
+    const { store } = makeTestStore();
+    store.dispatch(
+      saveToTabContainerInternal(
+        build([t('g1a', 'alpha'), t('g2a', 'beta'), half('h1'), half('h2')])
+      )
+    );
+    store.dispatch(
+      moveChromeGroupInternal({
+        tabGroupId: 'tg',
+        windowId: 'w',
+        groupId: 'alpha',
+        toIndex: 2,
+      })
+    );
+    expect(
+      store
+        .getState()
+        .tabContainerDataState.tabGroups[0].windows[0].tabs.map((x) => x.tabId)
+    ).toEqual(['g2a', 'h1', 'h2', 'g1a']);
+  });
+});

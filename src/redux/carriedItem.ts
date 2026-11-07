@@ -18,7 +18,7 @@ export const savedItem = (ref: CarriedRef): CarriedItem => ({
 // The item's kind and its ids inside its source window.
 export type CarriedPick =
   | { kind: 'tab'; windowId: string; tabId: string }
-  // KAN-486. A live split's two tabs, carried as one: live only, so no saved ref has it.
+  // KAN-486, KAN-942. A split's two tabs, carried as one, head first.
   | { kind: 'pair'; windowId: string; tabId: string; partnerTabId: string }
   | { kind: 'group'; windowId: string; groupId: string }
   | { kind: 'window'; windowId: string };
@@ -52,6 +52,13 @@ export function pickOf(item: CarriedItem): CarriedPick {
   switch (ref.kind) {
     case 'tab':
       return { kind: 'tab', windowId: ref.windowId, tabId: ref.tabId };
+    case 'pair':
+      return {
+        kind: 'pair',
+        windowId: ref.windowId,
+        tabId: ref.tabId,
+        partnerTabId: ref.partnerTabId,
+      };
     case 'group':
       return { kind: 'group', windowId: ref.windowId, groupId: ref.groupId };
     case 'window':

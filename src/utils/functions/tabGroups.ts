@@ -3,6 +3,7 @@ import type {
   tabContainerData,
   tabData,
 } from '../../redux/slices/tabContainerDataStateSlice';
+import { isSavedPair } from './savedPairs';
 
 // This module is imported by the service worker (via windows.ts) AND by the
 // right pane, so it must stay DOM-free -- no `window`, no `document`. Same
@@ -187,8 +188,8 @@ export function groupIdOfItemId(itemId: string): string | undefined {
 
 /**
  * Whether the store still holds the carried item where the carry found it:
- * its session, its window, and the tab, the group (with a tab in it, as the
- * move reducer's partition sees it) or the window. False means the move would
+ * its session, its window, and the tab, the pair (still one), the group (with
+ * a tab in it, as the move reducer's partition sees it) or the window. False means the move would
  * find nothing to lift, so the carry has nothing left to carry.
  */
 export function isCarriedStillThere(
@@ -204,6 +205,8 @@ export function isCarriedStillThere(
       return true;
     case 'tab':
       return w.tabs.some((t) => t.tabId === carried.tabId);
+    case 'pair':
+      return isSavedPair(w.tabs, carried.tabId, carried.partnerTabId);
     case 'group':
       return partitionTabsIntoRuns(w.tabs, w.chromeTabGroups).some(
         (run) => run.kind === 'group' && run.group.groupId === carried.groupId

@@ -57,4 +57,38 @@ describe('isCarriedStillThere', () => {
   ])('not when %s', (_what, carried, tabGroups) => {
     expect(isCarriedStillThere(tabGroups, carried)).toBe(false);
   });
+
+  // KAN-942. A pair is there only while a restore would still split it.
+  describe('a pair', () => {
+    const half = (tabId: string) => ({ ...tab(tabId), splitId: 's' });
+    const pairRef: CarriedRef = {
+      kind: 'pair',
+      tabGroupId: 'S1',
+      windowId: 'w1',
+      tabId: 'h1',
+      partnerTabId: 'h2',
+    };
+    const holding = (tabs: ReturnType<typeof tab>[]) => [
+      { ...s1(), windows: [win('w1', tabs)] },
+    ];
+
+    test('while both halves stand side by side', () => {
+      expect(
+        isCarriedStillThere(holding([half('h1'), half('h2')]), pairRef)
+      ).toBe(true);
+    });
+
+    test('not with a half gone', () => {
+      expect(isCarriedStillThere(holding([half('h1')]), pairRef)).toBe(false);
+    });
+
+    test('not once they stand apart', () => {
+      expect(
+        isCarriedStillThere(
+          holding([half('h1'), tab('m'), half('h2')]),
+          pairRef
+        )
+      ).toBe(false);
+    });
+  });
 });

@@ -59,6 +59,8 @@ const rowDropMove =
   ): ThunkAction<boolean, RootState, unknown, UnknownAction> =>
   (dispatch, getState) => {
     switch (carried.kind) {
+      case 'pair':
+        return false;
       case 'tab':
         return dispatch(
           moveToSession({

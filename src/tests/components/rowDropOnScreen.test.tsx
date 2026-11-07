@@ -34,6 +34,7 @@ import {
   win,
   windowIds,
 } from '../fixtures/sessionMoveFixture';
+import { dragKindOf } from '../setup/carryKind';
 
 // KAN-350 final review, list and detail together. Finding 1: a new window that rebuilds the one the item is already alone and first in changes nothing and cancels.
 // Finding 2: a window on its own row with another session shown is announced, as a tab or group is. Finding 5: a drop into the shown session is followed into view (KAN-155).
@@ -172,7 +173,7 @@ const targetIds = () =>
 // As the engine leaves things at the hand-off: held, kind published,
 // carried, the pointer out in the detail.
 function handOff(carried: CarriedRef, card: CarryCard, onCancel?: () => void) {
-  setDragging(true, carried.kind);
+  setDragging(true, dragKindOf(carried));
   beginDragHold();
   act(() => startCarry(savedItem(carried), card, 600, 200, onCancel));
 }

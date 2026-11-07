@@ -46,6 +46,7 @@ export const carryToSpot =
         return dispatch(dropCarriedTab(ref, spot));
       case 'group':
         return dispatch(dropCarriedGroup(ref, spot));
+      case 'pair':
       case 'window':
         return false;
     }
