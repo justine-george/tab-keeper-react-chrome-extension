@@ -166,6 +166,8 @@
   "RedoRefusedMove": "No se pudo rehacer el movimiento. Esas pestañas se movieron o se cerraron desde entonces.",
   "UndoRefusedWindowClosed": "No se pudo deshacer el movimiento. La ventana de la que venían está cerrada.",
   "RedoRefusedWindowClosed": "No se pudo rehacer el movimiento. La ventana a la que fueron movidas está cerrada.",
+  "UndoRefusedDrop": "No se pudo deshacer la acción de soltar. Esas pestañas cambiaron o se cerraron desde entonces.",
+  "RedoRefusedDropWindowClosed": "No se pudo rehacer la acción de soltar. La ventana donde se soltaron está cerrada.",
   "Date saved": "Fecha de guardado",
   "Name": "Nombre",
   "Tab count": "Número de pestañas",

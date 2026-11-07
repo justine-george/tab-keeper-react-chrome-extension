@@ -160,6 +160,8 @@
   "RedoRefusedMove": "이동을 다시 실행하지 못했습니다. 해당 탭이 그 사이 이동되었거나 닫혔습니다.",
   "UndoRefusedWindowClosed": "이동을 실행취소하지 못했습니다. 탭이 있던 창이 닫혀 있습니다.",
   "RedoRefusedWindowClosed": "이동을 다시 실행하지 못했습니다. 탭이 이동한 창이 닫혀 있습니다.",
+  "UndoRefusedDrop": "놓기를 실행취소하지 못했습니다. 해당 탭이 그 사이 변경되었거나 닫혔습니다.",
+  "RedoRefusedDropWindowClosed": "놓기를 다시 실행하지 못했습니다. 탭을 놓은 창이 닫혀 있습니다.",
   "Date saved": "저장한 날짜",
   "Name": "이름",
   "Tab count": "탭 수",

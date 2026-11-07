@@ -135,7 +135,7 @@ async function placeOf(
 
 // Where a tab is now, with its group's look when `withLook`. Null when Chrome
 // refuses either read.
-async function readPlace(
+export async function readPlace(
   tabId: number,
   withLook: boolean
 ): Promise<TabPlace | null> {

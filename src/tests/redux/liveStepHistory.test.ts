@@ -305,6 +305,7 @@ function opened(tabId: number): OpenedCopy {
     group: null,
     madeWindow: null,
     reopen: { at: 'slot', windowId: 1, index: 2, groupId: 5 },
+    goToURLText: 'Visit Site',
   };
 }
 

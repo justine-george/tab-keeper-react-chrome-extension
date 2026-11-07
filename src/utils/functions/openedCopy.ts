@@ -17,7 +17,8 @@ export interface OpenedTab {
 // when `groupId` is set), the end of an open window, or a new window in front.
 export type ReopenAt =
   | { at: 'slot'; windowId: number; index: number; groupId: number | null }
-  | { at: 'windowEnd'; windowId: number }
+  // Only the saved tabs the drop opened, with the window's groups.
+  | { at: 'windowEnd'; windowId: number; spec: WindowSpec }
   | { at: 'newWindow'; spec: WindowSpec };
 
 export interface OpenedCopy {
@@ -29,6 +30,8 @@ export interface OpenedCopy {
   // The window a New window drop made, with the pinned Tab Keeper tab it added.
   madeWindow: { windowId: number; stubTabId: number | null } | null;
   reopen: ReopenAt;
+  // The placeholders' words, as the drop made them: redo makes them again.
+  goToURLText: string;
 }
 
 export type LiveDrop = OpenNowDrop | OpenedCopy;

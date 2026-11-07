@@ -163,6 +163,8 @@
   "RedoRefusedMove": "Couldn't redo the move. Those tabs moved or closed since.",
   "UndoRefusedWindowClosed": "Couldn't undo the move. The window they came from is closed.",
   "RedoRefusedWindowClosed": "Couldn't redo the move. The window they went to is closed.",
+  "UndoRefusedDrop": "Couldn't undo the drop. Those tabs changed or closed since.",
+  "RedoRefusedDropWindowClosed": "Couldn't redo the drop. The window it went to is closed.",
   "Date saved": "Date saved",
   "Name": "Name",
   "Tab count": "Tab count",

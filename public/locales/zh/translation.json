@@ -160,6 +160,8 @@
   "RedoRefusedMove": "无法重做移动。这些标签页此后已被移动或关闭。",
   "UndoRefusedWindowClosed": "无法撤销移动。它们原来所在的窗口已关闭。",
   "RedoRefusedWindowClosed": "无法重做移动。它们移往的窗口已关闭。",
+  "UndoRefusedDrop": "无法撤销拖放。这些标签页此后已被更改或关闭。",
+  "RedoRefusedDropWindowClosed": "无法重做拖放。拖放到的窗口已关闭。",
   "Date saved": "保存日期",
   "Name": "名称",
   "Tab count": "标签页数",

@@ -166,6 +166,8 @@
   "RedoRefusedMove": "Não foi possível refazer o movimento. Essas abas foram movidas ou fechadas desde então.",
   "UndoRefusedWindowClosed": "Não foi possível desfazer o movimento. A janela de onde elas vieram está fechada.",
   "RedoRefusedWindowClosed": "Não foi possível refazer o movimento. A janela para onde elas foram movidas está fechada.",
+  "UndoRefusedDrop": "Não foi possível desfazer a ação de soltar. Essas abas foram alteradas ou fechadas desde então.",
+  "RedoRefusedDropWindowClosed": "Não foi possível refazer a ação de soltar. A janela onde elas foram soltas está fechada.",
   "Date saved": "Data de salvamento",
   "Name": "Nome",
   "Tab count": "Número de abas",

@@ -160,6 +160,8 @@
   "RedoRefusedMove": "移動をやり直せませんでした。それらのタブはその後移動または閉じられています。",
   "UndoRefusedWindowClosed": "移動を元に戻せませんでした。移動元のウィンドウは閉じられています。",
   "RedoRefusedWindowClosed": "移動をやり直せませんでした。移動先のウィンドウは閉じられています。",
+  "UndoRefusedDrop": "ドロップを元に戻せませんでした。それらのタブはその後変更または閉じられています。",
+  "RedoRefusedDropWindowClosed": "ドロップをやり直せませんでした。ドロップ先のウィンドウは閉じられています。",
   "Date saved": "保存日",
   "Name": "名前",
   "Tab count": "タブ数",

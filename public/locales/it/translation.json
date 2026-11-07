@@ -166,6 +166,8 @@
   "RedoRefusedMove": "Impossibile rifare lo spostamento. Quelle schede sono state spostate o chiuse da allora.",
   "UndoRefusedWindowClosed": "Impossibile annullare lo spostamento. La finestra da cui provenivano è chiusa.",
   "RedoRefusedWindowClosed": "Impossibile rifare lo spostamento. La finestra in cui sono state spostate è chiusa.",
+  "UndoRefusedDrop": "Impossibile annullare il rilascio. Quelle schede sono state modificate o chiuse da allora.",
+  "RedoRefusedDropWindowClosed": "Impossibile rifare il rilascio. La finestra in cui sono state rilasciate è chiusa.",
   "Date saved": "Data di salvataggio",
   "Name": "Nome",
   "Tab count": "Numero di schede",

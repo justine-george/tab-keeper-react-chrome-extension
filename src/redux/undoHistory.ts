@@ -20,6 +20,7 @@ import {
 } from '../utils/functions/openNowMoves';
 import type { LiveRun, OpenNowDrop } from '../utils/functions/openNowMoves';
 import { isOpenedCopy } from '../utils/functions/openedCopy';
+import { runOpenedCopy } from '../utils/functions/runOpenedCopy';
 import type { LiveDrop, OpenedCopy } from '../utils/functions/openedCopy';
 
 // KAN-744. What one press of undo or redo did: 'nothing' to step to, 'busy'
@@ -68,11 +69,14 @@ const REFUSED_TOAST = {
     sort: TOAST_MESSAGES.UNDO_REFUSED_SORT,
     move: TOAST_MESSAGES.UNDO_REFUSED_MOVE,
     windowClosed: TOAST_MESSAGES.UNDO_REFUSED_WINDOW_CLOSED,
+    // KAN-893. An undo refuses when the tabs changed; a redo only when the window closed.
+    drop: TOAST_MESSAGES.UNDO_REFUSED_DROP,
   },
   redo: {
     sort: TOAST_MESSAGES.REDO_REFUSED_SORT,
     move: TOAST_MESSAGES.REDO_REFUSED_MOVE,
     windowClosed: TOAST_MESSAGES.REDO_REFUSED_WINDOW_CLOSED,
+    drop: TOAST_MESSAGES.REDO_REFUSED_DROP_WINDOW_CLOSED,
   },
 };
 
@@ -111,30 +115,32 @@ async function takeStep(
   try {
     if (closesPlainToasts) dispatch(closePlainToasts());
     const { drop } = step;
-    const run: LiveRun<LiveDrop> = await whileMovingTabs(() =>
+    const hasTabGroups = getState().globalState.hasTabGroupsPermission;
+    const run = await whileMovingTabs<LiveRun<LiveDrop>>(() =>
       isOpenedCopy(drop)
-        ? // KAN-893. Task 4 gives a drop into Currently open its runner.
-          Promise.resolve<LiveRun<LiveDrop>>({ outcome: 'couldNotRun' })
-        : runLiveStep(
-            drop,
-            direction,
-            getState().globalState.hasTabGroupsPermission
-          )
+        ? runOpenedCopy(drop, direction, {
+            hasTabGroups,
+            pinTabKeeper: getState().settingsDataState.pinTabKeeperInNewWindows,
+          })
+        : runLiveStep(drop, direction, hasTabGroups)
     );
     if (run.outcome === 'done') {
       const reply = { id: step.id, drop: run.drop };
       dispatch(
-        direction === 'undo' ? liveStepUndone(reply) : liveStepRedone(reply)
+        direction === 'undo'
+          ? liveStepUndone(reply)
+          : liveStepRedone({ ...reply, renamed: run.renamed })
       );
       return 'live';
     }
     // KAN-744 R10-R12. A step that can't run leaves the history, so the next press reaches the one before.
     dispatch(liveStepDropped({ id: step.id }));
     if (run.outcome === 'couldNotRun') return 'failed';
-    const kind =
-      run.outcome === 'windowClosed'
+    const kind = isOpenedCopy(drop)
+      ? 'drop'
+      : run.outcome === 'windowClosed'
         ? 'windowClosed'
-        : isSortKind(step.drop.kind)
+        : isSortKind(drop.kind)
           ? 'sort'
           : 'move';
     await dispatch(showToast({ toastText: REFUSED_TOAST[direction][kind] }));
