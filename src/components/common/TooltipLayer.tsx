@@ -108,19 +108,15 @@ function createTooltips() {
   const attach = (): (() => void) => {
     // The anchor under the pointer, whether or not its chip shows.
     let hovered: Element | null = null;
-    let pending: {
-      anchor: Element;
-      delay: number;
-      timer: ReturnType<typeof setTimeout>;
-    } | null = null;
+    let pendingTimer: ReturnType<typeof setTimeout> | null = null;
     let lastHiddenAt: number | null = null;
     // A Tab or arrow key is down: the focus it moves shows a chip (memory a-timer-cannot-end-a-keys-turn).
     let navKeyDown = false;
 
     const cancel = () => {
-      if (pending === null) return;
-      clearTimeout(pending.timer);
-      pending = null;
+      if (pendingTimer === null) return;
+      clearTimeout(pendingTimer);
+      pendingTimer = null;
     };
     const hide = () => {
       cancel();
@@ -157,13 +153,13 @@ function createTooltips() {
         moves: 0,
       });
     };
-    // The delay is fixed when the pointer arrives; a move only restarts it.
-    const schedule = (
-      anchor: Element,
-      delay = showDelay(Date.now(), lastHiddenAt)
-    ) => {
+    // KAN-946. Counted from the arrival: a move on the anchor doesn't put it off.
+    const schedule = (anchor: Element) => {
       cancel();
-      pending = { anchor, delay, timer: setTimeout(() => show(anchor), delay) };
+      pendingTimer = setTimeout(
+        () => show(anchor),
+        showDelay(Date.now(), lastHiddenAt)
+      );
     };
     const leaveHover = () => {
       cancel();
@@ -205,12 +201,6 @@ function createTooltips() {
       leaveHover();
       hovered = null;
     };
-    const onPointerMove = (e: PointerEvent) => {
-      if (e.pointerType === 'touch' || pending === null) return;
-      if (anchorOf(e.target) === pending.anchor) {
-        schedule(pending.anchor, pending.delay);
-      }
-    };
     const onPointerDown = () => {
       navKeyDown = false;
       hide();
@@ -245,7 +235,6 @@ function createTooltips() {
 
     document.addEventListener('pointerover', onPointerOver);
     document.addEventListener('pointerout', onPointerOut);
-    document.addEventListener('pointermove', onPointerMove);
     document.addEventListener('pointerdown', onPointerDown, true);
     document.addEventListener('focusin', onFocusIn);
     document.addEventListener('focusout', onFocusOut);
@@ -256,7 +245,6 @@ function createTooltips() {
     return () => {
       document.removeEventListener('pointerover', onPointerOver);
       document.removeEventListener('pointerout', onPointerOut);
-      document.removeEventListener('pointermove', onPointerMove);
       document.removeEventListener('pointerdown', onPointerDown, true);
       document.removeEventListener('focusin', onFocusIn);
       document.removeEventListener('focusout', onFocusOut);

@@ -280,7 +280,7 @@ test.describe('look', () => {
 });
 
 test.describe('timing', () => {
-  test('a resting pointer shows the chip after 300 ms: not before 299, within 500', async ({
+  test('a resting pointer shows the chip after 200 ms: not before 199, within 400', async ({
     context,
     extensionId,
   }) => {
@@ -294,9 +294,33 @@ test.describe('timing', () => {
     const log = await chipLog(page);
     expect(log.inserted).toBe(1);
     const waited = log.insertedAt - log.overAt;
-    // Not before the 300 ms wait (so absent at 250); the upper bound leaves room for a loaded CI shard.
-    expect(waited).toBeGreaterThanOrEqual(299);
-    expect(waited).toBeLessThan(500);
+    // Not before the 200 ms wait; the upper bound leaves room for a loaded CI shard.
+    expect(waited).toBeGreaterThanOrEqual(199);
+    expect(waited).toBeLessThan(400);
+  });
+
+  // KAN-946. The wait counts from the arrival, so a hand still settling doesn't put it off.
+  test('a pointer drifting on a control still shows the chip 200 ms after it arrived', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSessions(context);
+    const page = await openPopup(context, extensionId);
+    await pointerAway(page);
+    await watchChips(page);
+    const box = await rectOf(button(page, 'Settings'));
+    const x = box.left + box.width / 2;
+    const y = box.top + box.height / 2;
+    await page.mouse.move(x, y);
+    for (let i = 1; i <= 12; i++) {
+      await page.waitForTimeout(40);
+      await page.mouse.move(x + (i % 2), y);
+    }
+    await expect(chip(page)).toHaveText('Settings');
+    const log = await chipLog(page);
+    const waited = log.insertedAt - log.overAt;
+    expect(waited).toBeGreaterThanOrEqual(199);
+    expect(waited).toBeLessThan(400);
   });
 
   test('a sweep across the six toolbar buttons at 50 ms each leaves no chip, and resting then shows one', async ({
@@ -357,9 +381,9 @@ test.describe('timing', () => {
     // PREMISE: the pointer reached all six, each well inside the first wait.
     expect(swept.overs).toHaveLength(6);
     const dwell = swept.overs.slice(1).map((t, i) => t - swept.overs[i]);
-    expect(Math.max(...dwell)).toBeLessThan(250);
-    // Judged up to where Settings' own chip may show: 299 ms after the pointer reached it.
-    const settingsDue = swept.overs[5] + 299;
+    expect(Math.max(...dwell)).toBeLessThan(200);
+    // Judged up to where Settings' own chip may show: 199 ms after the pointer reached it.
+    const settingsDue = swept.overs[5] + 199;
     const sweep = frames.filter((f) => f.at < settingsDue);
     expect(sweep.length).toBeGreaterThan(5);
     expect(sweep.filter((f) => f.chip)).toEqual([]);

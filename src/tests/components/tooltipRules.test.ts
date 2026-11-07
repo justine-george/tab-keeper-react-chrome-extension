@@ -29,13 +29,13 @@ describe('tooltip constants', () => {
       GAP_PX,
       INSET_PX,
       MAX_WIDTH_PX,
-    ]).toEqual([300, 100, 500, 6, 8, 260]);
+    ]).toEqual([200, 100, 500, 6, 8, 260]);
   });
 });
 
 describe('showDelay', () => {
   test('is the first delay when nothing was shown yet', () => {
-    expect(showDelay(1000, null)).toBe(300);
+    expect(showDelay(1000, null)).toBe(200);
   });
 
   test('is the warm delay within the warm window', () => {
@@ -44,11 +44,11 @@ describe('showDelay', () => {
   });
 
   test('exactly the window ago is cold', () => {
-    expect(showDelay(1000, 500)).toBe(300);
+    expect(showDelay(1000, 500)).toBe(200);
   });
 
   test('long ago is cold', () => {
-    expect(showDelay(1000, 0)).toBe(300);
+    expect(showDelay(1000, 0)).toBe(200);
   });
 });
 
