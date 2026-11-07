@@ -53,11 +53,10 @@ function normal(url: string): string {
 export function showsItsPage(tab: chrome.tabs.Tab, opened: OpenedTab): boolean {
   const url = tab.pendingUrl || tab.url || '';
   if (isLazyPlaceholder(url)) return true;
+  // Still on its first load: a redirect commits its address before the load completes (spec Goal 6).
+  const settledAt = tab.id === undefined ? undefined : settled.get(tab.id);
+  if (settledAt === null && tab.status === 'loading') return true;
   const now = normal(url);
-  const own = [
-    opened.openedUrl,
-    resolveTabUrl(opened.saved.url),
-    tab.id === undefined ? null : settled.get(tab.id),
-  ];
+  const own = [opened.openedUrl, resolveTabUrl(opened.saved.url), settledAt];
   return own.some((address) => address != null && normal(address) === now);
 }

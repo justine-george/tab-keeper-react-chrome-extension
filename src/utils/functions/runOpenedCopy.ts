@@ -125,6 +125,8 @@ interface Reopened {
   ids: (number | undefined)[];
   saved: tabData[];
   madeWindow: OpenedCopy['madeWindow'];
+  // Set when it opened somewhere else than the step said: its window closed as the worker opened it.
+  reopen?: OpenedCopy['reopen'];
 }
 
 async function redo(step: OpenedCopy, options: OpenedCopyRun): Promise<Run> {
@@ -138,7 +140,7 @@ async function redo(step: OpenedCopy, options: OpenedCopyRun): Promise<Run> {
     options.hasTabGroups
   );
   if (tabs.length === 0) return { outcome: 'couldNotRun' };
-  const { reopen: at } = step;
+  const at = reopened.reopen ?? step.reopen;
   if (at.at !== 'newWindow') {
     announceArrival(
       at.windowId,
@@ -146,7 +148,12 @@ async function redo(step: OpenedCopy, options: OpenedCopyRun): Promise<Run> {
     );
   }
   forgetSettled(step.tabs.map((t) => t.tabId));
-  const drop: OpenedCopy = { ...step, tabs, madeWindow: reopened.madeWindow };
+  const drop: OpenedCopy = {
+    ...step,
+    tabs,
+    madeWindow: reopened.madeWindow,
+    reopen: reopened.reopen ?? step.reopen,
+  };
   return { outcome: 'done', drop, renamed: renamedBy(step, drop) };
 }
 
@@ -218,9 +225,21 @@ async function reopen(
     const answer = await attempt(
       () => chrome.runtime.sendMessage(request) as Promise<unknown>
     );
-    if (!isOpenIntoWindowAnswer(answer) || answer.ids.length === 0) {
-      return 'couldNotRun';
+    if (!isOpenIntoWindowAnswer(answer)) return 'couldNotRun';
+    // Its window closed meanwhile: the worker opened a new one instead, kept as a New window step, as the drop does.
+    const instead = answer.madeWindows[0];
+    if (answer.ids.length === 0 && instead !== undefined) {
+      return {
+        ids: instead.tabIds,
+        saved: at.spec.tabs,
+        madeWindow: {
+          windowId: instead.windowId,
+          stubTabId: instead.stubTabId,
+        },
+        reopen: { at: 'newWindow', spec: at.spec },
+      };
     }
+    if (answer.ids.length === 0) return 'couldNotRun';
     const byId = new Map(at.spec.tabs.map((t) => [t.tabId, t]));
     const pairs = answer.ids.flatMap((id, i) => {
       const tab = byId.get(answer.savedTabIds[i] ?? '');

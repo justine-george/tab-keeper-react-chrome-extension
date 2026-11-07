@@ -100,11 +100,34 @@ describe('showsItsPage', () => {
     expect(showsItsPage(await tabNow(11), opened(11))).toBe(false);
   });
 
-  test('an address it is still loading, with no settle yet, is navigated', async () => {
+  // Spec Goal 6: a redirect commits its address before the load completes.
+  test('still on its first load, at a redirect’s address, counts as unchanged', async () => {
     const fake = start(OPENED);
     watchSettling([11]);
+    fake.browser.updateTab(11, {
+      url: 'https://www.a.test/',
+      status: 'loading',
+    });
+    expect(showsItsPage(await tabNow(11), opened(11))).toBe(true);
+  });
+
+  test('loading another page after its first load settled is navigated', async () => {
+    const fake = start(OPENED);
+    watchSettling([11]);
+    fake.browser.updateTab(11, { status: 'complete' });
     fake.browser.updateTab(11, { url: 'https://c.test/', status: 'loading' });
     expect(showsItsPage(await tabNow(11), opened(11))).toBe(false);
+  });
+
+  test('a visited placeholder: a redirect while its real page first loads counts as unchanged', async () => {
+    const fake = start(PLACEHOLDER);
+    watchSettling([11]);
+    fake.browser.updateTab(11, { status: 'complete' });
+    fake.browser.updateTab(11, {
+      url: 'https://www.a.test/',
+      status: 'loading',
+    });
+    expect(showsItsPage(await tabNow(11), opened(11, PLACEHOLDER))).toBe(true);
   });
 
   test('a tab never watched, showing another page, is navigated', async () => {
@@ -116,7 +139,8 @@ describe('showsItsPage', () => {
     const fake = start(OPENED);
     watchSettling([11, 12]);
     fake.browser.updateTab(12, { url: 'https://c.test/', status: 'complete' });
-    fake.browser.updateTab(11, { url: 'https://d.test/', status: 'loading' });
+    fake.browser.updateTab(11, { status: 'complete' });
+    fake.browser.updateTab(11, { url: 'https://c.test/', status: 'complete' });
     expect(showsItsPage(await tabNow(11), opened(11))).toBe(false);
   });
 

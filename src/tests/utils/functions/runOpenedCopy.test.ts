@@ -463,6 +463,56 @@ describe('redo', () => {
     expect(result.drop.tabs.map((t) => t.saved.tabId)).toEqual(['w0', 'w1']);
   });
 
+  test('a window-end redo whose window closed as the worker opened it: the new window it made instead is the step', async () => {
+    handle = setupChromeFake(seed());
+    const spec: WindowSpec = {
+      tabs: [saved('w0')],
+      focused: false,
+      bounds: null,
+    };
+    const id = await openTabCopy(spec.tabs[0], {
+      windowId: 1,
+      index: 4,
+      pinned: false,
+    });
+    const step = await undone(async () => ({
+      kind: 'opened',
+      tabs: await recordOpened([id], spec.tabs, true),
+      group: null,
+      madeWindow: null,
+      reopen: { at: 'windowEnd', windowId: 1, spec },
+      goToURLText: GO_TO,
+    }));
+    // The worker's fallback: a new window, answered as made, nothing in window 1.
+    vi.spyOn(chrome.runtime, 'sendMessage').mockImplementation(async () => {
+      const made = await restoreSession({
+        type: RESTORE_SESSION_MESSAGE,
+        specs: [spec],
+        goToURLText: GO_TO,
+        closeOtherWindows: false,
+        pinTabKeeper: false,
+      });
+      return {
+        ids: [],
+        savedTabIds: [],
+        leftOut: 0,
+        alreadyOpen: [],
+        madeWindows: made,
+      };
+    });
+    const result = await runOpenedCopy(step, 'redo', run);
+    if (result.outcome !== 'done') throw new Error(result.outcome);
+    const windowId = result.drop.madeWindow?.windowId ?? -1;
+    expect(result.drop.reopen.at).toBe('newWindow');
+    expect((await chrome.tabs.query({ windowId })).map((t) => t.id)).toEqual(
+      idsOf(result.drop)
+    );
+    expect((await runOpenedCopy(result.drop, 'undo', run)).outcome).toBe(
+      'done'
+    );
+    expect(handle.removedWindowIds).toEqual([windowId]);
+  });
+
   test('a New window redo with no answer could not run', async () => {
     handle = setupChromeFake(seed());
     const step = await undone(() => newWindowDrop(false));
