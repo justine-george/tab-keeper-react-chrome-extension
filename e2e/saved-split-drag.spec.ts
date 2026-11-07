@@ -689,6 +689,12 @@ test.describe('a saved pair into Currently open (KAN-942)', () => {
     await expect
       .poll(async () => (await strip(worker, live.windowId)).length)
       .toBe(8);
+    // A tab just made reads no address until its load starts.
+    await expect
+      .poll(async () =>
+        (await strip(worker, live.windowId)).slice(1, 3).map((t) => t.url)
+      )
+      .toEqual([H1, H2]);
     const pinnedNow = await splitOf(worker, live.windowId);
     expect(pinnedNow.slice(0, 4).map((t) => t.pinned)).toEqual([
       true,
@@ -696,8 +702,6 @@ test.describe('a saved pair into Currently open (KAN-942)', () => {
       true,
       true,
     ]);
-    expect(pinnedNow[1]?.url).toBe(H1);
-    expect(pinnedNow[2]?.url).toBe(H2);
     await expect
       .poll(async () => {
         const t = await splitOf(worker, live.windowId);
@@ -863,7 +867,151 @@ test.describe('a saved pair into Currently open (KAN-942)', () => {
         hasText: 'This window already has these tabs.',
       })
     ).toHaveCount(1);
-    expect((await strip(worker, live.windowId)).length).toBe(3);
+    // Each page once: CI can open the tab view in this same window, so its count isn't fixed.
+    const urls = (await strip(worker, live.windowId)).map((t) => t.url);
+    expect(urls.filter((url) => url === H1)).toHaveLength(1);
+    expect(urls.filter((url) => url === H2)).toHaveLength(1);
+  });
+});
+
+// Every tab of H1's or H2's address, wherever it is.
+const pairTabs = (worker: Worker) =>
+  worker.evaluate(
+    async (urls) => {
+      const all = await chrome.tabs.query({});
+      return all
+        .filter((t) => urls.includes(t.pendingUrl || t.url || ''))
+        .sort((a, b) => a.index - b.index)
+        .map((t) => ({
+          id: t.id ?? -1,
+          url: t.pendingUrl || t.url || '',
+          windowId: t.windowId,
+          index: t.index,
+          split: Reflect.get(t, 'splitViewId') as number,
+          active: t.active,
+        }));
+    },
+    [H1, H2]
+  );
+
+const halfButton = (page: Page, id: string) =>
+  halfRow(page, id).getByRole('button', { name: new RegExp(`Tab ${id}$`) });
+
+// True once the two tabs read as one split, side by side.
+const splitTogether = async (worker: Worker) => {
+  const [a, b] = await pairTabs(worker);
+  return (
+    a !== undefined &&
+    b !== undefined &&
+    a.windowId === b.windowId &&
+    b.index === a.index + 1 &&
+    a.split > 0 &&
+    a.split === b.split
+  );
+};
+
+const openApart = (worker: Worker, windowId: number, urls: string[]) =>
+  worker.evaluate(
+    async ({ windowId, urls }) => {
+      for (const url of urls) {
+        await chrome.tabs.create({ windowId, url, active: false });
+      }
+    },
+    { windowId, urls }
+  );
+
+test.describe('a click on a saved pair (KAN-942)', () => {
+  test('29. neither open: both open split, in front, the clicked half forward', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const page = await open(context, extensionId);
+    await halfButton(page, 'h2').click();
+    await expect.poll(() => splitTogether(worker)).toBe(true);
+    await expect
+      .poll(async () => (await pairTabs(worker)).find((t) => t.active)?.url)
+      .toBe(H2);
+    expect((await pairTabs(worker)).map((t) => t.url)).toEqual([H1, H2]);
+  });
+
+  test('30. ⌘-click: both open split, behind', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const page = await open(context, extensionId);
+    await halfButton(page, 'h1').click({ modifiers: ['ControlOrMeta'] });
+    await expect.poll(() => splitTogether(worker)).toBe(true);
+    expect((await pairTabs(worker)).some((t) => t.active)).toBe(false);
+  });
+
+  test('31. both open as a split: switches to it, opens nothing', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const live = await openLiveWindow(worker, ['A']);
+    await openApart(worker, live.windowId, [H1, H2]);
+    await expect.poll(async () => (await pairTabs(worker)).length).toBe(2);
+    const [a, b] = await pairTabs(worker);
+    await splitTabs(worker, [a?.id ?? -1, b?.id ?? -1]);
+    const page = await open(context, extensionId);
+    await expect(liveRow(page, live.idOf('A'))).toBeVisible();
+
+    await halfButton(page, 'h2').click();
+    await expect
+      .poll(async () => (await pairTabs(worker)).find((t) => t.active)?.url)
+      .toBe(H2);
+    expect(await pairTabs(worker)).toHaveLength(2);
+  });
+
+  test('32. both open apart: switches to the clicked half, opens nothing', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const live = await openLiveWindow(worker, ['A']);
+    await openApart(worker, live.windowId, [H1, H2]);
+    const page = await open(context, extensionId);
+    await expect(liveRow(page, live.idOf('A'))).toBeVisible();
+
+    await halfButton(page, 'h1').click();
+    await expect
+      .poll(async () => (await pairTabs(worker)).find((t) => t.active)?.url)
+      .toBe(H1);
+    expect(await pairTabs(worker)).toHaveLength(2);
+  });
+
+  test('33. one half open: opens both, split', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const live = await openLiveWindow(worker, ['A']);
+    await openApart(worker, live.windowId, [H1]);
+    const page = await open(context, extensionId);
+    await expect(liveRow(page, live.idOf('A'))).toBeVisible();
+
+    await halfButton(page, 'h1').click();
+    await expect.poll(async () => (await pairTabs(worker)).length).toBe(3);
+    await expect
+      .poll(async () => {
+        const tabs = await pairTabs(worker);
+        return tabs.filter((t) => t.split > 0).length;
+      })
+      .toBe(2);
+  });
+
+  test('34. the menu’s Open in new tab opens the one half', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const page = await open(context, extensionId);
+    await halfRow(page, 'h1').click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Open in new tab' }).click();
+    await expect.poll(async () => (await pairTabs(worker)).length).toBe(1);
   });
 });
 

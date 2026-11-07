@@ -109,6 +109,11 @@ import type {
 } from '../../../utils/functions/tabGroups';
 import { savedSplitPartners } from '../../../utils/functions/splitPartners';
 import { savedFollowerIds } from '../../../utils/functions/savedPairs';
+import {
+  openPairBesideActive,
+  pairClickSwitches,
+  switchToOpenPair,
+} from '../../../utils/functions/openSavedPair';
 import { isTabKeeperPage, toStoredTab } from '../../../utils/functions/capture';
 import { useCanAddCurrentTab } from '../../../hooks/useCanAddCurrentTab';
 import { useCanReplaceWithCurrentWindow } from '../../../hooks/useCanReplaceWithCurrentWindow';
@@ -1173,8 +1178,33 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     });
   };
 
+  // KAN-942. Either half of a pair opens the pair; the clicked half comes forward.
+  const handlePairClick = (
+    tab: tabData,
+    partner: tabData,
+    e: React.MouseEvent
+  ) => {
+    const [first, second] =
+      tabs.indexOf(tab) < tabs.indexOf(partner)
+        ? [tab, partner]
+        : [partner, tab];
+    if (opensInBackground(e, isMac)) {
+      void openPairBesideActive(first, second, tab, false);
+      return;
+    }
+    void switchToOpenPair(tab.url, partner.url).then((switched) => {
+      if (!switched) void openPairBesideActive(first, second, tab, true);
+    });
+  };
+
   // KAN-884. A plain click switches to an open copy, else opens one; ⌘/Ctrl-click opens one behind.
-  const handleTabClick = (url: string, e: React.MouseEvent) => {
+  const handleTabClick = (tab: tabData, e: React.MouseEvent) => {
+    const partner = splitPartners.get(tab.tabId);
+    if (partner !== undefined) {
+      handlePairClick(tab, partner, e);
+      return;
+    }
+    const { url } = tab;
     if (opensInBackground(e, isMac)) {
       openTabCopy(url, false);
       return;
@@ -1298,15 +1328,18 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     const shown = shownTitle(tab);
     const isRenaming = editingTabId === tabId;
     // KAN-891. The tour's why names the click's action, as the row's name does.
-    const switches = hasOpenCopy(url, openAddresses);
+    const partner = splitPartners.get(tabId);
+    const switches =
+      partner === undefined
+        ? hasOpenCopy(url, openAddresses)
+        : pairClickSwitches(url, partner.url, openAddresses);
     const tabBlockedBecause = !isOpenBlocked
       ? null
       : switches
         ? t('Switch works after the tour')
         : t('Open works after the tour');
     const pinnedId = `${descriptionIdPrefix}-pinned-${tabId}`;
-    // KAN-564 A. The other half of the split this tab restores into.
-    const partner = splitPartners.get(tabId);
+    // KAN-564 A. `partner` is the other half of the split this tab restores into.
     const splitId = `${descriptionIdPrefix}-split-${tabId}`;
     const splitText =
       partner === undefined
@@ -1389,9 +1422,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             // KAN-825. A cut-off title goes above the address; never above the tour's why.
             tooltipLead={isOpenBlocked ? undefined : shown}
             disable={isOpenBlocked}
-            onClick={(e) => handleTabClick(url, e)}
+            onClick={(e) => handleTabClick(tab, e)}
             onAuxClick={(e) => {
-              if (e.button === 1) openTabCopy(url, false);
+              if (e.button === 1) handleTabClick(tab, e);
             }}
             style={childLeftStyle}
           >
