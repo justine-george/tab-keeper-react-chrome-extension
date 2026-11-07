@@ -103,6 +103,28 @@ describe('landTab', () => {
 });
 
 describe('groupLandingRange', () => {
+  // KAN-942. The engine counts rows, so a pinned pair is one.
+  test('a pinned pair counts one row', () => {
+    const pinned = {
+      tabId: '',
+      favicon: '',
+      title: '',
+      url: '',
+      pinned: true as const,
+    };
+    const tabs = [
+      { ...pinned, tabId: 'h1', splitId: 's' },
+      { ...pinned, tabId: 'h2', splitId: 's' },
+      { ...pinned, tabId: 'p' },
+      { tabId: 'a', favicon: '', title: '', url: '' },
+    ];
+    const answer = groupLandingRange([{ windowId: 'w', tabs }], () => false)(
+      'row',
+      'w'
+    );
+    expect(answer.min).toBe(2);
+  });
+
   const range = groupLandingRange(
     [
       { windowId: 'w1', tabs: [p('a'), p('b'), t('c')] },

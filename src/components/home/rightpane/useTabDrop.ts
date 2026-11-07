@@ -22,7 +22,7 @@ import {
   noRowsTabIndex,
   isTabPinnedIn,
 } from '../../../utils/functions/pinnedRun';
-import { dropSavedTab } from '../../../redux/pinChangeToast';
+import { dropSavedPair, dropSavedTab } from '../../../redux/pinChangeToast';
 import { intoNewWindow } from '../../../redux/dropSpecs';
 import {
   isCarriedTabPinned,
@@ -33,6 +33,11 @@ import { carryToSpot } from '../../../redux/commitCarry';
 import { moveToSession } from '../../../redux/moveToSession';
 import { currentCarry, endCarry } from '../../../redux/carry';
 import { newWindowPlacement } from './newWindowTarget';
+import {
+  savedRowWindows,
+  tabIndexOfRow,
+} from '../../../utils/functions/savedPairs';
+import { savedSplitPartners } from '../../../utils/functions/splitPartners';
 import {
   TAB_GROUP_COLOR_HEX,
   sanitizeTabGroupColor,
@@ -689,8 +694,10 @@ export function useTabDrop(
   const dispatch: AppDispatch = useDispatch();
   const store = useStore<RootState>();
   const { windows, tabGroupId } = tabList;
+  // KAN-942. The geometry sees rows, a pair once: onMove turns its index back into tabs.
+  const rowWindows = useMemo(() => savedRowWindows(windows), [windows]);
   const { describeTabMove, ...geometry } = useTabDropGeometry(
-    windows,
+    rowWindows,
     hasTabGroupsPermission
   );
 
@@ -722,6 +729,13 @@ export function useTabDrop(
           : undefined;
       // Read at the drop: the engine keeps a window it opened open before calling this (KAN-379).
       const { globalState, tabContainerDataState } = store.getState();
+      const source = windows.find((w) => w.windowId === described.fromWindowId);
+      const partner =
+        source === undefined
+          ? undefined
+          : savedSplitPartners(source.tabs).get(tabId);
+      const landingTabs =
+        windows.find((w) => w.windowId === described.toWindowId)?.tabs ?? [];
       // KAN-458. A window drawn with no rows gives position no meaning: the tab keeps its pin, at the start of its own run.
       const move = isDrawnFolded(
         collapsedWindowIdsOf(globalState.collapsedWindows, tabGroupId),
@@ -731,8 +745,7 @@ export function useTabDrop(
             ...described,
             toGroupId: undefined,
             toIndex: noRowsTabIndex(
-              windows.find((w) => w.windowId === described.toWindowId)?.tabs ??
-                [],
+              landingTabs,
               carriedTab !== undefined
                 ? isCarriedTabPinned(
                     tabContainerDataState.tabGroups,
@@ -745,7 +758,14 @@ export function useTabDrop(
                   })
             ),
           }
-        : described;
+        : {
+            ...described,
+            toIndex: tabIndexOfRow(
+              landingTabs,
+              new Set([tabId, ...(partner ? [partner.tabId] : [])]),
+              described.toIndex
+            ),
+          };
       if (carriedTab !== undefined) {
         const moved = dispatch(
           carryToSpot(carriedTab, {
@@ -767,12 +787,21 @@ export function useTabDrop(
         dispatch(
           moveToSession({
             move: {
-              carried: {
-                kind: 'tab',
-                tabGroupId,
-                windowId: move.fromWindowId,
-                tabId: move.tabId,
-              },
+              carried:
+                partner === undefined
+                  ? {
+                      kind: 'tab',
+                      tabGroupId,
+                      windowId: move.fromWindowId,
+                      tabId: move.tabId,
+                    }
+                  : {
+                      kind: 'pair',
+                      tabGroupId,
+                      windowId: move.fromWindowId,
+                      tabId: move.tabId,
+                      partnerTabId: partner.tabId,
+                    },
               to: intoNewWindow(tabGroupId, at),
             },
             announceMoved: false,
@@ -780,15 +809,18 @@ export function useTabDrop(
         );
         return;
       }
+      const drop = {
+        tabGroupId,
+        tabId: move.tabId,
+        fromWindowId: move.fromWindowId,
+        toWindowId: move.toWindowId,
+        toIndex: move.toIndex,
+        toChromeGroupId: move.toGroupId,
+      };
       dispatch(
-        dropSavedTab({
-          tabGroupId,
-          tabId: move.tabId,
-          fromWindowId: move.fromWindowId,
-          toWindowId: move.toWindowId,
-          toIndex: move.toIndex,
-          toChromeGroupId: move.toGroupId,
-        })
+        partner === undefined
+          ? dropSavedTab(drop)
+          : dropSavedPair({ ...drop, partnerTabId: partner.tabId })
       );
     },
     [dispatch, store, tabGroupId, windows, describeTabMove]

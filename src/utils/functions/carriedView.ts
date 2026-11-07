@@ -20,6 +20,14 @@ import { NEW_LAST_WINDOW } from '../../components/home/rightpane/newWindowTarget
 // Structurally a PaneWindows, so the drag areas take it as they are.
 export type ShownSession = Pick<tabContainerData, 'tabGroupId' | 'windows'>;
 
+// The tabs a tab or pair pick names; a group's are its members', so none here.
+const tabIdsOfPick = (pick: CarriedPick): string[] =>
+  pick.kind === 'pair'
+    ? [pick.tabId, pick.partnerTabId]
+    : pick.kind === 'tab'
+      ? [pick.tabId]
+      : [];
+
 // A window with the carried tab or group taken out. A group left with no tabs
 // loses its entry, as the move reducer prunes it. The window itself stays,
 // however empty: its header shows until the drop (plan Decision).
@@ -27,10 +35,11 @@ function windowWithout(
   w: windowGroupData,
   pick: Exclude<CarriedPick, { kind: 'window' }>
 ): windowGroupData {
+  const held = new Set(tabIdsOfPick(pick));
   const tabs =
     pick.kind === 'group'
       ? w.tabs.filter((t) => t.chromeGroupId !== pick.groupId)
-      : w.tabs.filter((t) => t.tabId !== pick.tabId);
+      : w.tabs.filter((t) => !held.has(t.tabId));
   if (tabs.length === w.tabs.length) return w;
   const chromeTabGroups = w.chromeTabGroups?.filter((g) =>
     tabs.some((t) => t.chromeGroupId === g.groupId)
@@ -232,8 +241,9 @@ function carriedIdsIn(
   }
 }
 
-// KAN-371 A. A group's only tab, in its own session: its phantom stays at its
-// own place, still in its group, so the band stays drawn to land back in.
+// KAN-371 A. A group's only tab, or only pair (KAN-942), in its own session: its
+// phantom stays at its own place, still in its group, so the band stays drawn
+// to land back in.
 // Null for any other carry, or with no bands shown.
 function soleTabAtHome(
   tabGroups: readonly tabContainerData[],
@@ -243,7 +253,7 @@ function soleTabAtHome(
 ): ShownSession | null {
   if (!bandsShown) return null;
   const pick = pickOf(item);
-  if (pick.kind !== 'tab' || sourceSessionIdOf(item) !== shownId) return null;
+  if (!landsAsTab(pick) || sourceSessionIdOf(item) !== shownId) return null;
   const shown = tabGroups.find((g) => g.tabGroupId === shownId);
   const from = shown?.windows.find((w) => w.windowId === pick.windowId);
   const tab = from?.tabs.find((t) => t.tabId === pick.tabId);
@@ -251,8 +261,9 @@ function soleTabAtHome(
   if (shown === undefined || from === undefined || groupId === undefined) {
     return null;
   }
+  const held = new Set(tabIdsOfPick(pick));
   const isOnly = !from.tabs.some(
-    (t) => t.tabId !== pick.tabId && t.chromeGroupId === groupId
+    (t) => !held.has(t.tabId) && t.chromeGroupId === groupId
   );
   const copies = shown.windows
     .flatMap((w) => w.tabs)
@@ -270,7 +281,7 @@ function soleTabAtHome(
       : {
           ...w,
           tabs: w.tabs.map((t) =>
-            t.tabId === pick.tabId ? { ...t, tabId: phantomIdOf(t.tabId) } : t
+            held.has(t.tabId) ? { ...t, tabId: phantomIdOf(t.tabId) } : t
           ),
         }
   );

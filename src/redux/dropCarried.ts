@@ -64,6 +64,7 @@ export const dropCarriedTab =
     }
     // KAN-811. Among a window's rows, where it lands decides its pin; a new window keeps it.
     const landing = { tabGroupId, windowId: toWindowId };
+    const arriving = carried.kind === 'pair' ? 2 : 1;
     if (carried.tabGroupId === tabGroupId) {
       const drop = {
         tabGroupId,
@@ -81,7 +82,8 @@ export const dropCarriedTab =
             carried.kind === 'pair'
               ? pairDrop({ ...drop, partnerTabId: carried.partnerTabId })
               : tabDrop(drop)
-          )
+          ),
+          arriving
         )
       );
     }
@@ -95,7 +97,8 @@ export const dropCarriedTab =
             to: { tabGroupId, windowId: toWindowId, toIndex, toChromeGroupId },
           },
           announceMoved: false,
-        })
+        }),
+        arriving
       )
     );
   };

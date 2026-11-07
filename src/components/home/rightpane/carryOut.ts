@@ -13,13 +13,33 @@ import {
 import { resolveFaviconUrl } from '../../../utils/functions/local';
 import { windowNumbers } from '../../../utils/functions/windowLabel';
 import { NEW_LAST_WINDOW } from './newWindowTarget';
+import { savedSplitPartners } from '../../../utils/functions/splitPartners';
 import { shownTitle } from '../../../utils/functions/tabTitle';
+import type { tabData } from '../../../redux/slices/tabContainerDataStateSlice';
 
-// The `tabs` list: its rows are tab ids.
+const cardTab = (tab: tabData) => ({
+  title: shownTitle(tab),
+  faviconUrl: resolveFaviconUrl(tab.favicon, tab.url),
+});
+
+// The `tabs` list: its rows are tab ids, a pair's by its head (KAN-942).
 export function tabCarryOut(pane: PaneWindows, tabId: string): CarryOut | null {
   for (const w of pane.windows) {
     const tab = w.tabs.find((t) => t.tabId === tabId);
     if (tab === undefined) continue;
+    const partner = savedSplitPartners(w.tabs).get(tabId);
+    if (partner !== undefined) {
+      return {
+        item: savedItem({
+          kind: 'pair',
+          tabGroupId: pane.tabGroupId,
+          windowId: w.windowId,
+          tabId,
+          partnerTabId: partner.tabId,
+        }),
+        card: { kind: 'pair', first: cardTab(tab), second: cardTab(partner) },
+      };
+    }
     return {
       item: savedItem({
         kind: 'tab',
@@ -27,11 +47,7 @@ export function tabCarryOut(pane: PaneWindows, tabId: string): CarryOut | null {
         windowId: w.windowId,
         tabId,
       }),
-      card: {
-        kind: 'tab',
-        title: shownTitle(tab),
-        faviconUrl: resolveFaviconUrl(tab.favicon, tab.url),
-      },
+      card: { kind: 'tab', ...cardTab(tab) },
     };
   }
   return null;

@@ -3,6 +3,7 @@ import type {
   tabData,
   windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
+import { withoutSavedFollowers } from './savedPairs';
 
 // KAN-458. A saved window keeps Chrome's shape: pinned tabs first. Where a tab is dropped decides its pin; the row never moves.
 
@@ -69,7 +70,8 @@ export function groupLandingRange(
     const target = windows.find((w) => w.windowId === windowId);
     const drawn = target !== undefined && !drawsNoRows(target.windowId);
     return {
-      min: drawn ? pinnedRunLength(target.tabs) : 0,
+      // Rows, as the engine counts them: a pinned pair is one (KAN-942).
+      min: drawn ? pinnedRunLength(withoutSavedFollowers(target.tabs)) : 0,
       max: Number.MAX_SAFE_INTEGER,
     };
   };

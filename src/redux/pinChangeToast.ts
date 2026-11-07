@@ -1,7 +1,12 @@
 import type { ThunkAction, UnknownAction } from '@reduxjs/toolkit';
 
 import { dropOnTop } from './dropOnTop';
-import { tabDrop, type TabDropParams } from './dropSpecs';
+import {
+  pairDrop,
+  tabDrop,
+  type PairDropParams,
+  type TabDropParams,
+} from './dropSpecs';
 import { showToast } from './slices/globalStateSlice';
 import {
   isLatestUndoStep,
@@ -29,12 +34,13 @@ const tabsOf = (
     ?.windows.find((w) => w.windowId === to.windowId)?.tabs ?? [];
 
 // Reordered in its window, the tab is found by its id. Landed from elsewhere, it is new to the window: by its id, or, re-minted
-// because the target session held that id, the one new id there. Two new ids (another page's change landed with the drop) name no tab, and say nothing.
+// because the target session held that id, the new ids there. More new ids than arrived (another page's change landed with the drop) name no tab, and say nothing.
 function landedTab(
   tabs: readonly tabData[],
   from: TabRef,
   to: Omit<TabRef, 'tabId'>,
-  idsBefore: ReadonlySet<string>
+  idsBefore: ReadonlySet<string>,
+  arriving: number
 ): tabData | undefined {
   if (from.tabGroupId === to.tabGroupId && from.windowId === to.windowId) {
     return tabs.find((t) => t.tabId === from.tabId);
@@ -42,17 +48,18 @@ function landedTab(
   const arrived = tabs.filter((t) => !idsBefore.has(t.tabId));
   return (
     arrived.find((t) => t.tabId === from.tabId) ??
-    (arrived.length === 1 ? arrived[0] : undefined)
+    (arrived.length === arriving ? arrived[0] : undefined)
   );
 }
 
 // Runs `drop` for the saved tab `from`, landing in window `to`, and says "Tab pinned." / "Tab unpinned." when its pin changed.
-// Undo only while the drop is the newest step.
+// Undo only while the drop is the newest step. `arriving`: the tabs it lands, two for a pair (KAN-942).
 export const announcingPinChange =
   <R>(
     from: TabRef,
     to: Omit<TabRef, 'tabId'>,
-    drop: ThunkAction<R, RootState, unknown, UnknownAction>
+    drop: ThunkAction<R, RootState, unknown, UnknownAction>,
+    arriving = 1
   ): ThunkAction<R, RootState, unknown, UnknownAction> =>
   (dispatch, getState) => {
     const before = getState();
@@ -68,7 +75,8 @@ export const announcingPinChange =
       tabsOf(getState().tabContainerDataState.tabGroups, to),
       from,
       to,
-      idsBefore
+      idsBefore,
+      arriving
     );
     if (landed !== undefined && (landed.pinned === true) !== wasPinned) {
       void dispatch(
@@ -96,4 +104,19 @@ export const dropSavedTab = (
     },
     { tabGroupId: params.tabGroupId, windowId: params.toWindowId },
     dropOnTop(tabDrop(params))
+  );
+
+// KAN-942. A saved pair let go among its own session's rows.
+export const dropSavedPair = (
+  params: PairDropParams
+): ThunkAction<void, RootState, unknown, UnknownAction> =>
+  announcingPinChange(
+    {
+      tabGroupId: params.tabGroupId,
+      windowId: params.fromWindowId,
+      tabId: params.tabId,
+    },
+    { tabGroupId: params.tabGroupId, windowId: params.toWindowId },
+    dropOnTop(pairDrop(params)),
+    2
   );

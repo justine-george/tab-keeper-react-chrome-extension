@@ -28,7 +28,7 @@ import {
   whenDragReleases,
 } from '../../redux/dragHold';
 import { dropCarriedTab } from '../../redux/dropCarried';
-import { dropSavedTab } from '../../redux/pinChangeToast';
+import { dropSavedPair, dropSavedTab } from '../../redux/pinChangeToast';
 import { undoStep } from '../../redux/undoHistory';
 import { NEW_FIRST_WINDOW } from '../../components/home/rightpane/newWindowTarget';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
@@ -329,5 +329,63 @@ describe('a change from another page landing with the drop', () => {
     // PREMISE: it landed pinned, so a toast that guessed would say "Tab pinned.".
     expect(pinOf(store, 'S1', 'w1')[0]).toMatch(/\*$/);
     expect(toasts(store)).toEqual([]);
+  });
+});
+
+// KAN-942. A pair's two tabs share a pin, so a drop says so once.
+describe('a pair says its pin once (KAN-942)', () => {
+  const half = (tabId: string): tabData => ({ ...tab(tabId), splitId: 's' });
+  const paired = () =>
+    container(
+      [
+        session('S2', 'Target', T0 - 7_200_000, [
+          win('d1', [pin(tab('q1')), pin(tab('q2'))]),
+          win('d2', [tab('h1'), tab('h2')]),
+        ]),
+        session('S1', 'Source', T0 - 10_800_000, [
+          win('w1', [pin(tab('p1')), pin(tab('p2')), half('h1'), half('h2')]),
+        ]),
+      ],
+      'S1'
+    );
+  const seeded = () => {
+    const store = ready();
+    store.dispatch(replaceState(paired()));
+    return store;
+  };
+
+  it('dropped in the pinned run: Tab pinned, once', () => {
+    const store = seeded();
+    store.dispatch(
+      dropSavedPair({
+        tabGroupId: 'S1',
+        tabId: 'h1',
+        partnerTabId: 'h2',
+        fromWindowId: 'w1',
+        toWindowId: 'w1',
+        toIndex: 1,
+      })
+    );
+    expect(pinOf(store, 'S1', 'w1')).toEqual(['p1*', 'h1*', 'h2*', 'p2*']);
+    expect(toasts(store)).toEqual([PINNED]);
+  });
+
+  it('re-minted ids still say it', () => {
+    const store = seeded();
+    const carried: Extract<CarriedRef, { kind: 'pair' }> = {
+      kind: 'pair',
+      tabGroupId: 'S1',
+      windowId: 'w1',
+      tabId: 'h1',
+      partnerTabId: 'h2',
+    };
+    store.dispatch(
+      dropCarriedTab(carried, {
+        tabGroupId: 'S2',
+        toWindowId: 'd1',
+        toIndex: 1,
+      })
+    );
+    expect(toasts(store)).toEqual([PINNED]);
   });
 });
