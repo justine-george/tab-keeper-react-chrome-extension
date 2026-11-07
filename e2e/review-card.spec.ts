@@ -277,6 +277,46 @@ test('✕ closes it as Not now, and the gap keeps it away on reload', async ({
 
 // Review I2. Below 1100px Open now is a drawer on the right, over the panes.
 // The card opens there too, and must not sit under it, its ✕ hidden.
+// KAN-864. Never click the real mailto: here: even headless, Chrome hands it
+// to the OS and Mail opens. Same-page, so the browser can follow it safely.
+const FEEDBACK_MAIL =
+  /^mailto:[^?]+\?subject=Feedback: Tab Keeper v\d+\.\d+\.\d+$/;
+const HARMLESS_TARGET = '#feedback-mail-followed';
+
+test('Share feedback follows its link and closes the card as a close', async ({
+  context,
+  extensionId,
+}) => {
+  await seedSessions(context, buildContainer());
+  await seedSettings(context, {
+    ...ASKABLE,
+    extensionInstalledTime: Date.now() - 2 * DAY,
+  });
+  const page = await openPopup(context, extensionId);
+  const link = anyCard(page).getByRole('link', {
+    name: 'Share feedback',
+    exact: true,
+  });
+  await expect(link).toHaveAttribute('href', FEEDBACK_MAIL);
+
+  await link.evaluate(
+    (a, href) => a.setAttribute('href', href),
+    HARMLESS_TARGET
+  );
+  await expect(link).toHaveAttribute('href', HARMLESS_TARGET);
+  await link.click();
+
+  await expect(anyCard(page)).toHaveCount(0);
+  // The click unmounts the link: the browser must still follow it.
+  await expect
+    .poll(() => page.evaluate(() => location.hash))
+    .toBe(HARMLESS_TARGET);
+  const settings = await storedSettings(page);
+  expect(settings.isSkippedUserReviewOnce).toBe(true);
+  expect(settings.isUserRatedAndReviewed).not.toBe(true);
+  expect(settings.isNeverAskAgainToRate).toBe(false);
+});
+
 test('a narrow full view: the card stays over the Open now drawer', async ({
   context,
   extensionId,

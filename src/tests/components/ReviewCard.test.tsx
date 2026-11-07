@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const motion = vi.hoisted(() => ({ calls: [] as unknown[][] }));
@@ -33,6 +39,7 @@ import {
 } from '../../redux/slices/globalStateSlice';
 import { PAGE_COVERS } from '../fixtures/pageCoversFixture';
 import type { ReviewMoment } from '../../utils/functions/reviewAsk';
+import { DEV_EMAIL, FEEDBACK_MAIL_SUBJECT } from '../../utils/constants/common';
 
 // KAN-653. The review card: a corner card, not a dialog. It never takes
 // focus, takes no pointer input while it rises, and its ✕ means Not now.
@@ -65,6 +72,8 @@ const renderCard = (
 const card = () => screen.getByTestId('review-card');
 const notNow = () => screen.getByRole('button', { name: 'Not now' });
 const rate = () => screen.getByRole('button', { name: 'Rate Tab Keeper' });
+const shareFeedback = () =>
+  screen.getByRole('link', { name: 'Share feedback' });
 
 beforeEach(() => {
   localStorage.clear();
@@ -178,6 +187,67 @@ describe('the controls', () => {
 
     expect(store.getState().settingsDataState.isNeverAskAgainToRate).toBe(true);
     expect(store.getState().globalState.reviewCard).toBeNull();
+  });
+});
+
+// KAN-864. Someone with something to say and no wish to rate.
+describe('Share feedback', () => {
+  // jsdom can't follow a mailto:, and a real browser would open a mail app.
+  const keepTheLinkFromNavigating = () => {
+    const stop = (event: Event) => event.preventDefault();
+    document.addEventListener('click', stop);
+    return () => document.removeEventListener('click', stop);
+  };
+
+  test.each<ReviewMoment>([
+    { kind: 'time' },
+    { kind: 'firstSave' },
+    { kind: 'bigSave' },
+    { kind: 'restored' },
+    { kind: 'sessionsArrived' },
+    { kind: 'updated' },
+  ])('is offered on the $kind card, first or later', async (moment) => {
+    await renderCard(moment, false);
+    expect(shareFeedback()).toBeTruthy();
+    cleanup();
+
+    await renderCard(moment, true);
+    expect(shareFeedback()).toBeTruthy();
+  });
+
+  test('writes to the same address and subject as About', async () => {
+    await renderCard();
+    expect(shareFeedback().getAttribute('href')).toBe(
+      `mailto:${DEV_EMAIL}?subject=${FEEDBACK_MAIL_SUBJECT}`
+    );
+  });
+
+  test('closes the card as a close: the asks go on, Never ask again next', async () => {
+    const { store } = await renderCard();
+    fireEvent.animationEnd(card());
+    const release = keepTheLinkFromNavigating();
+
+    await userEvent.click(shareFeedback());
+    release();
+
+    expect(screen.queryByTestId('review-card')).toBeNull();
+    const settings = store.getState().settingsDataState;
+    expect(settings.isSkippedUserReviewOnce).toBe(true);
+    expect(settings.isUserRatedAndReviewed).toBe(false);
+    expect(settings.isNeverAskAgainToRate).toBe(false);
+  });
+
+  test('comes after Rate and before Never ask again in Tab order', async () => {
+    await renderCard({ kind: 'time' }, true);
+    const never = screen.getByRole('button', { name: 'Never ask again' });
+    const follows = Node.DOCUMENT_POSITION_FOLLOWING;
+
+    expect(
+      rate().compareDocumentPosition(shareFeedback()) & follows
+    ).toBeTruthy();
+    expect(
+      shareFeedback().compareDocumentPosition(never) & follows
+    ).toBeTruthy();
   });
 });
 

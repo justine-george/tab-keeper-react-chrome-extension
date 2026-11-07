@@ -64,6 +64,7 @@ export const APP_CHROME_WEBSTORE_LINK =
 
 // feedback mail subject
 export const FEEDBACK_MAIL_SUBJECT = `Feedback: Tab Keeper v${APP_VERSION}`;
+export const FEEDBACK_MAIL_LINK = `mailto:${DEV_EMAIL}?subject=${FEEDBACK_MAIL_SUBJECT}`;
 
 // error messages
 //

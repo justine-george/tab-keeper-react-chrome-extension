@@ -506,6 +506,7 @@ test.describe('controls are reachable by keyboard', () => {
     expect(names).toContain('Not now');
     // Read from textContent, so the star's ligature text comes first.
     expect(names).toContainEqual(expect.stringMatching(/Rate Tab Keeper$/));
+    expect(names).toContain('Share feedback');
     expect(names).toContain('Never ask again');
   });
 
@@ -522,6 +523,9 @@ test.describe('controls are reachable by keyboard', () => {
         1
       );
     }
+    await expect(
+      card.getByRole('link', { name: 'Share feedback', exact: true })
+    ).toHaveCount(1);
   });
 
   // The old dialog's body sentence once carried its own onClick. Asserted by

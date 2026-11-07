@@ -35,8 +35,7 @@ import {
 import {
   APP_CHROME_WEBSTORE_LINK,
   APP_VERSION,
-  DEV_EMAIL,
-  FEEDBACK_MAIL_SUBJECT,
+  FEEDBACK_MAIL_LINK,
   PRIVACY_POLICY_LINK,
 } from '../../../utils/constants/common';
 import { SettingsCategoryContainer } from '../leftpane/SettingsCategoryContainer';
@@ -1182,9 +1181,7 @@ const SettingsDetailsContainer: React.FC = () => {
             <Button
               text={t('Share feedback')}
               iconType="mail"
-              onClick={() =>
-                (window.location.href = `mailto:${DEV_EMAIL}?subject=${FEEDBACK_MAIL_SUBJECT}`)
-              }
+              onClick={() => (window.location.href = FEEDBACK_MAIL_LINK)}
               style="justify-content: center;"
             />
           </div>
