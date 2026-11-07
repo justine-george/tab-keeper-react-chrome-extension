@@ -205,42 +205,6 @@ function phantomWindowOf(
   return asNewWindow(run.tabs, [run.group]);
 }
 
-// Every window, tab and group id a list of windows holds.
-function idsOf(windows: readonly windowGroupData[]): Set<string> {
-  const ids = new Set<string>();
-  for (const w of windows) {
-    ids.add(w.windowId);
-    for (const t of w.tabs) ids.add(t.tabId);
-    for (const g of w.chromeTabGroups ?? []) ids.add(g.groupId);
-  }
-  return ids;
-}
-
-// The carried item's own ids, as the store holds them.
-function carriedIdsIn(
-  tabGroups: readonly tabContainerData[],
-  item: CarriedItem
-): Set<string> {
-  const from = sourceWindowOf(tabGroups, item);
-  if (from === null) return new Set();
-  const pick = pickOf(item);
-  switch (pick.kind) {
-    case 'window':
-      return idsOf([from]);
-    case 'tab':
-      return new Set([pick.tabId]);
-    case 'pair':
-      return new Set([pick.tabId, pick.partnerTabId]);
-    case 'group':
-      return new Set([
-        pick.groupId,
-        ...from.tabs
-          .filter((t) => t.chromeGroupId === pick.groupId)
-          .map((t) => t.tabId),
-      ]);
-  }
-}
-
 // KAN-371 A. A group's only tab, or only pair (KAN-942), in its own session: its
 // phantom stays at its own place, still in its group, so the band stays drawn
 // to land back in.
@@ -297,12 +261,10 @@ function soleTabAtHome(
  * stays at its own place (KAN-371); a window as the first window. Its rows
  * go by phantom ids (carriedRowId), never the item's own.
  *
- * Null when the session offers no exact spot: no session has that id, the
- * store no longer holds the carried item, or one of the item's ids is one
- * the session already holds -- duplicate ids from legacy data or an import
- * (Review Focus 4). The detail then draws carriedView's session with no
- * phantom, and a row drop still works: the move reducer re-mints colliding
- * ids.
+ * Null when the session offers no exact spot: no session has that id, or the
+ * store no longer holds the carried item. A session already holding one of
+ * the item's ids (legacy data or an import) still offers one (KAN-409): the
+ * phantom's ids are prefixed, and the move reducer re-mints colliding ids.
  *
  * A new object on every call; the caller memoizes it for the carry.
  */
@@ -320,10 +282,6 @@ export function landingView(
   const phantom = phantomWindowOf(tabGroups, item);
   if (phantom === null) return null;
 
-  const held = idsOf(shown.windows);
-  for (const id of carriedIdsIn(tabGroups, item)) {
-    if (held.has(id)) return null;
-  }
   // A window's phantom is a window row, first. A tab's or group's rests in
   // the trailing block, after every window, so drawing it moves no row of
   // the session (KAN-361 N1 B: the New window target is in the header now).

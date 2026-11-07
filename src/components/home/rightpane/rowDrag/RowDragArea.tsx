@@ -977,6 +977,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         return { windowId: l.newFirstWindowId, index: 0, clamped: false };
       }
 
+      // Off the trailing block, an adopted carry has no window of its own to
+      // overshoot (KAN-369): only landingBlock's bounds can make a new window.
+      if (block === null && l.heldWindow && isTrailingBlock(l.heldWindow)) {
+        return undefined;
+      }
+
       // Content space, matching how the rects were measured. Using the raw
       // viewport y here would misjudge both the containment test and the
       // landing index by however far the list had auto-scrolled.
@@ -1917,6 +1923,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       }
       // Read now, before any row carries a transform (invariant #2).
       l.fittedAtStart = l.scroller ? null : fittingOf(paneOf(l.heldEl));
+      // KAN-368. The held row's transform counts as overflow: a list that
+      // fits must not draw a scrollbar for it, and narrow every row (App.css).
+      paneOf(l.heldEl)?.toggleAttribute(
+        'data-drag-fits',
+        l.fittedAtStart !== null
+      );
 
       // Re-anchor the grab. Collapsing moves every row, so the row being held
       // is no longer under the pointer where it was picked up -- without this
@@ -2041,6 +2053,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           l.fittedAtStart.contentHeight - l.fittedAtStart.pane.clientHeight;
         l.maxScroll = Math.max(0, overflow);
         if (overflow > 0) {
+          l.fittedAtStart.pane.removeAttribute('data-drag-fits');
           l.scroller = l.fittedAtStart.pane;
           if (!scrollFrame.current) {
             scrollFrame.current = requestAnimationFrame(autoScroll);
@@ -2292,6 +2305,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
 
       try {
         if (drop) {
+          const rowIdsAtDrop = new Set(rows.current.keys());
           // The window is passed only by a list whose rows sit in windows. Every
           // other list is called exactly as it always was, and never learns the
           // argument exists.
@@ -2398,7 +2412,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
               : undefined;
           if (dropped !== undefined) {
             requestAnimationFrame(() => {
-              rows.current.get(dropped)?.scrollIntoView({ block: 'nearest' });
+              // A row already held that id, so the move re-minted the item:
+              // it is the one row that wasn't there (KAN-409).
+              const landed =
+                l.adopted && rowIdsAtDrop.has(dropped)
+                  ? [...rows.current.keys()].find((id) => !rowIdsAtDrop.has(id))
+                  : dropped;
+              if (landed === undefined) return;
+              rows.current.get(landed)?.scrollIntoView({ block: 'nearest' });
             });
           }
         } else if (

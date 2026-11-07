@@ -212,10 +212,10 @@ describe('landingView: a window', () => {
   });
 });
 
-// Review Focus 4. Duplicate ids from legacy data or an import: a session that
-// already holds one of the carried item's ids offers no exact spot; a row
-// drop still works (the reducer re-mints).
-describe('landingView refuses (null)', () => {
+// KAN-409. Duplicate ids from legacy data or an import: a session that already
+// holds one of the carried item's ids still offers an exact spot, under the
+// phantom's own ids. The move re-mints what collides.
+describe('landingView with ids the session already holds', () => {
   const clash = (windows: ReturnType<typeof win>[]) =>
     session('S2', 'Target', 0, windows);
 
@@ -248,17 +248,25 @@ describe('landingView refuses (null)', () => {
       clash([win('d1', [tab('t3')])]),
     ],
   ])('%s', (_what, carried, target) => {
-    expect(
-      landingView([s1(), target], 'S2', savedItem(carried), true)
-    ).toBeNull();
+    const view = landingView([s1(), target], 'S2', savedItem(carried), true);
+    const phantom =
+      carried.kind === 'window' ? view?.windows[0] : lastOf(shape(view));
+    expect(phantom?.windowId).toBe(
+      carried.kind === 'window' ? 'carried:w2' : NEW_LAST_WINDOW
+    );
+    // The session's own rows stay as they are, beside the phantom.
+    expect(view?.windows).toEqual(expect.arrayContaining(target.windows));
   });
 
   test('a group’s only tab whose id its own session holds twice', () => {
     const source = s1();
     source.windows[1].tabs.push(tab('t4'));
-    expect(
-      landingView([source], 'S1', savedItem(tabRef('t4')), true)
-    ).toBeNull();
+    const view = landingView([source], 'S1', savedItem(tabRef('t4')), true);
+    expect(lastOf(shape(view))).toEqual({
+      windowId: NEW_LAST_WINDOW,
+      tabs: ['carried:t4'],
+      groups: [],
+    });
   });
 
   test('CONTROL: the same session with no clash takes it', () => {
@@ -364,7 +372,7 @@ describe('a carried pair (KAN-942)', () => {
     expect(view?.windows[0].tabs.map((t) => t.tabId)).toEqual(['m']);
   });
 
-  test('refuses when the session on screen holds the second half', () => {
+  test('the session on screen holding the second half keeps its row beside the phantom', () => {
     const other = session('O', 'Other', 2, [win('v', [tab('h2')])]);
     const view = landingView(
       [inWindow([half('h1'), half('h2')]), other],
@@ -372,6 +380,7 @@ describe('a carried pair (KAN-942)', () => {
       savedItem(pair),
       true
     );
-    expect(view).toBeNull();
+    expect(view?.windows[0].tabs.map((t) => t.tabId)).toEqual(['h2']);
+    expect(view?.windows[1].windowId).toBe(NEW_LAST_WINDOW);
   });
 });

@@ -1225,7 +1225,7 @@ describe('the trailing block (KAN-361/366)', () => {
     expect(seen(name)).toBe(true);
   });
 
-  test('a session that already draws one of the carried ids offers no exact spot', async () => {
+  test('a session that already draws one of the carried ids still offers an exact spot (KAN-409)', async () => {
     await renderWithProviders(
       <>
         <TabGroupDetailsContainer />
@@ -1249,8 +1249,11 @@ describe('the trailing block (KAN-361/366)', () => {
     expect(document.querySelector('[data-drop-window-id="z1"]')).not.toBeNull();
     carry(TAB_T1);
 
-    expect(trailing().querySelector('[data-drag-row-id]')).toBeNull();
-    expect(document.querySelector('[data-carry-phantom]')).toBeNull();
+    expect(
+      trailing().querySelector('[data-drag-row-id="carried:t1"]')
+    ).not.toBeNull();
+    // Its own row stays, under the id the phantom's is prefixed from.
+    expect(document.querySelector('[data-drag-row-id="t1"]')).not.toBeNull();
   });
 });
 
