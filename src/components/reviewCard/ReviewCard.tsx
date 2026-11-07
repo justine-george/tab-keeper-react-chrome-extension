@@ -14,7 +14,10 @@ import {
   setSkippedUserReviewOnce,
   setUserRatedAndReviewed,
 } from '../../redux/slices/settingsDataStateSlice';
-import { APP_CHROME_WEBSTORE_LINK } from '../../utils/constants/common';
+import {
+  APP_CHROME_WEBSTORE_LINK,
+  feedbackMailLink,
+} from '../../utils/constants/common';
 import { reviewCardCopy } from '../../utils/functions/reviewAsk';
 import { isTabView } from '../../utils/functions/viewMode';
 import { dialogButtonStyles } from '../modals/dialogButtons';
@@ -63,8 +66,9 @@ const CLOSE_BOX = CONTROL.ROW;
 /**
  * The review card (KAN-653): a corner card that asks for a rating. Not a
  * dialog -- nothing behind it is blocked, and it never takes focus, so it
- * cannot swallow a keystroke meant for the page. ✕ means Not now; "Never ask
- * again" is offered only to someone who has closed one before.
+ * cannot swallow a keystroke meant for the page. ✕ means Not now, and so does
+ * Share feedback once its mail opens; "Never ask again" is offered only to
+ * someone who has closed one before.
  *
  * Always mounted, so its live region exists before the card does: a region
  * that arrives with its content is not reliably announced.
@@ -97,6 +101,9 @@ function OpenReviewCard({
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
+  const language = useSelector(
+    (state: RootState) => state.settingsDataState.language
+  );
   const cardRef = useRef<HTMLElement>(null);
   // Pointer input waits for the rise. Reduced motion has no rise.
   const hasRisen = useHasRisen(cardRef);
@@ -193,9 +200,14 @@ function OpenReviewCard({
     width: 100%;
     height: ${CONTROL.DEFAULT};
   `;
-  const neverStyle = css`
-    display: block;
-    margin: 10px auto 0;
+  const quietLinksStyle = css`
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px 20px;
+    margin-top: 10px;
+  `;
+  const quietLinkStyle = css`
     padding: 0;
     background: none;
     border: none;
@@ -241,11 +253,21 @@ function OpenReviewCard({
         />
         <span>{t('Rate Tab Keeper')}</span>
       </button>
-      {offersNever && (
-        <button type="button" css={neverStyle} onClick={neverAskAgain}>
-          {t('Never ask again')}
-        </button>
-      )}
+      <div css={quietLinksStyle}>
+        {/* KAN-864. A real link: the click closes the card, the browser opens the mail. */}
+        <a
+          href={feedbackMailLink(language)}
+          css={quietLinkStyle}
+          onClick={notNow}
+        >
+          {t('Share feedback')}
+        </a>
+        {offersNever && (
+          <button type="button" css={quietLinkStyle} onClick={neverAskAgain}>
+            {t('Never ask again')}
+          </button>
+        )}
+      </div>
     </aside>
   );
 }

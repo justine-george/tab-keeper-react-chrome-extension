@@ -274,4 +274,91 @@ test.describe('translated UI still fits its layout', () => {
       expect(fit, lang).toEqual({ clearOfClose: true, onScreen: true });
     });
   }
+
+  // KAN-864. Share feedback and Never ask again share a line where they fit
+  // and stack where they don't. Either way each stays whole, inside the card.
+  const quietLinks = async (page: Page, lang: string) => {
+    const t = localeStrings(lang);
+    const card = page.getByTestId('review-card');
+    const feedback = card.getByRole('link', {
+      name: t['Share feedback'],
+      exact: true,
+    });
+    const never = card.getByRole('button', {
+      name: t['Never ask again'],
+      exact: true,
+    });
+    await expect(feedback).toBeVisible();
+    await expect(never).toBeVisible();
+    return card.evaluate(
+      (el, [one, two]) => {
+        const box = el.getBoundingClientRect();
+        const links = [...el.querySelectorAll('a, button')].filter((node) =>
+          [one, two].includes(node.textContent ?? '')
+        );
+        const rects = links.map((link) => link.getBoundingClientRect());
+        const lineBoxes = links.map((link) => {
+          const range = document.createRange();
+          range.selectNodeContents(link);
+          return new Set(
+            Array.from(range.getClientRects(), (r) => Math.round(r.top))
+          ).size;
+        });
+        return {
+          count: links.length,
+          insideCard: rects.every(
+            (r) =>
+              r.left >= box.left &&
+              r.right <= box.right &&
+              r.bottom <= box.bottom
+          ),
+          oneLineEach: lineBoxes.every((lines) => lines === 1),
+          onScreen: box.top >= 0 && box.bottom <= window.innerHeight,
+          sameLine: Math.abs(rects[0].top - rects[1].top) < 1,
+          sameHeight: Math.abs(rects[0].height - rects[1].height) < 1,
+        };
+      },
+      [t['Share feedback'], t['Never ask again']] as const
+    );
+  };
+
+  for (const lang of ALL_LOCALES) {
+    test(`the review card's quiet links fit in ${lang}`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openReviewCardIn(context, extensionId, lang);
+      expect(await quietLinks(page, lang), lang).toMatchObject({
+        count: 2,
+        insideCard: true,
+        oneLineEach: true,
+        onScreen: true,
+        sameHeight: true,
+      });
+    });
+  }
+
+  test('the review card keeps its height: English shares one line', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openReviewCardIn(context, extensionId, 'en');
+    expect((await quietLinks(page, 'en')).sameLine).toBe(true);
+  });
+
+  // Chrome's font size Large sets the root to 20px, and every rem grows with it.
+  test('the review card stacks its quiet links in ru at Large', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openReviewCardIn(context, extensionId, 'ru');
+    await page.addStyleTag({ content: 'html { font-size: 20px !important; }' });
+    expect(await quietLinks(page, 'ru')).toMatchObject({
+      count: 2,
+      insideCard: true,
+      oneLineEach: true,
+      onScreen: true,
+      sameLine: false,
+    });
+  });
 });
