@@ -53,7 +53,10 @@ import {
   UNINSTALL_SURVEY_LANGUAGE_KEY,
   uninstallSurveyInOrder,
 } from './utils/functions/uninstallSurvey';
-import { isRestoreSessionRequest } from './utils/functions/windows';
+import {
+  isRestoreSessionRequest,
+  type MadeWindow,
+} from './utils/functions/windows';
 
 // Lazy load restores every tab past the first as a placeholder document, and
 // something has to turn that placeholder into the real page when the user
@@ -215,10 +218,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (isRestoreSessionRequest(message)) {
-    // No response is sent: by the time this finishes there is no popup left
-    // to receive one.
-    void restoreSession(message);
-    return;
+    // No response is sent unless asked: an Open's popup is gone by the time this finishes.
+    if (message.answers !== true) {
+      void restoreSession(message);
+      return;
+    }
+    // KAN-893. A drop's page waits for the windows to keep its undo step; a throw answers none, never silence.
+    const answer = (made: MadeWindow[]) => {
+      try {
+        sendResponse(made);
+      } catch (error) {
+        console.warn('Could not answer the restore: ', error);
+      }
+    };
+    void restoreSession(message).then(answer, (error) => {
+      console.warn('Restore failed: ', error);
+      answer([]);
+    });
+    return true;
   }
 
   // KAN-892. Answers the created tab ids and what was left out, none when they went to new windows or the worker failed; a popup is gone by then.

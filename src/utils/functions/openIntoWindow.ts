@@ -15,6 +15,9 @@ import {
   restoreTargetIndex,
   splitPairs,
   splitRestoredPairs,
+  isIdList,
+  isMadeWindowList,
+  type MadeWindow,
   type TabGroupSpec,
   type WindowSpec,
 } from './windows';
@@ -38,14 +41,13 @@ export interface OpenIntoWindowRequest {
 }
 
 // ids: the tabs created, in merged order. leftOut: saved tabs not opened for the window already having their page; alreadyOpen: the ids of those open copies.
+// madeWindows: the windows opened instead or apart (KAN-893).
 export interface OpenIntoWindowAnswer {
   ids: number[];
   leftOut: number;
   alreadyOpen: number[];
+  madeWindows: MadeWindow[];
 }
-
-const isIdList = (value: unknown): value is number[] =>
-  Array.isArray(value) && value.every((id) => typeof id === 'number');
 
 export function isOpenIntoWindowAnswer(
   answer: unknown
@@ -55,7 +57,8 @@ export function isOpenIntoWindowAnswer(
   return (
     isIdList(candidate.ids) &&
     typeof candidate.leftOut === 'number' &&
-    isIdList(candidate.alreadyOpen)
+    isIdList(candidate.alreadyOpen) &&
+    isMadeWindowList(candidate.madeWindows)
   );
 }
 
@@ -63,6 +66,7 @@ export const NOTHING_OPENED: OpenIntoWindowAnswer = {
   ids: [],
   leftOut: 0,
   alreadyOpen: [],
+  madeWindows: [],
 };
 
 export function isOpenIntoWindowRequest(
@@ -151,15 +155,17 @@ export async function openIntoWindow(
 
   const targetWindow = await tabbedWindow(windowId);
   if (targetWindow === null) {
-    await inNewWindows(request.specs);
-    return NOTHING_OPENED;
+    return {
+      ...NOTHING_OPENED,
+      madeWindows: await inNewWindows(request.specs),
+    };
   }
   const { into, apart } = splitByKind(
     request.specs,
     targetWindow.incognito,
     await isIncognitoAllowed()
   );
-  if (apart.length > 0) await inNewWindows(apart);
+  const madeApart = apart.length > 0 ? await inNewWindows(apart) : [];
 
   // With the flag on, one read of the window serves the open pages and, later, the pinned run.
   const liveTabs = request.skipTabsAlreadyOpen
@@ -174,6 +180,7 @@ export async function openIntoWindow(
   const leftOutAnswer = {
     leftOut: skipped.leftOut,
     alreadyOpen: skipped.alreadyOpen,
+    madeWindows: madeApart,
   };
   const merged = skipped.leftOut === 0 ? whole : mergeForWindow(skipped.specs);
   const { tabs, groups } = merged;
@@ -222,8 +229,8 @@ export async function openIntoWindow(
   const firstId = await create(firstTab, 0);
   // Refused with the window gone or unusable: new windows rather than not at all. Refused with it fine: that page alone is skipped.
   if (firstId === undefined && (await tabbedWindow(windowId)) === null) {
-    await inNewWindows(into);
-    return NOTHING_OPENED;
+    const instead = await inNewWindows(into);
+    return { ...NOTHING_OPENED, madeWindows: [...madeApart, ...instead] };
   }
   // mergeForWindow put the pinned first. They go one at a time, each slot
   // known from the last; the rest all at once: Chrome runs one extension's

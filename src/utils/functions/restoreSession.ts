@@ -6,6 +6,7 @@ import {
 import {
   createWindowWithRetries,
   planWindowClosure,
+  type MadeWindow,
   type RestoreSessionRequest,
   type WindowSpec,
 } from './windows';
@@ -15,9 +16,10 @@ export const FULLSCREEN_FOCUS_SETTLE_MS = 800;
 
 // Every restore runs in the worker (see RestoreSessionRequest): the popup dies when the first window takes focus.
 // Switch is this plus closeOtherWindows; the page saved what it closes before sending.
+// Answers each window it made, as it stood before a Switch carried anything in (KAN-893).
 export async function restoreSession(
   request: RestoreSessionRequest
-): Promise<void> {
+): Promise<MadeWindow[]> {
   const before = request.closeOtherWindows
     ? await chrome.windows.getAll({ windowTypes: ['normal'], populate: true })
     : [];
@@ -46,20 +48,22 @@ export async function restoreSession(
 
   // Finally, so Open's early return gets the late re-focus too.
   try {
+    const stubs = new Map<number, number | null>();
     // The carried tab's window gets no stub.
     if (request.pinTabKeeper) {
       for (const win of created) {
         if (win?.id === undefined) continue;
         if (carried !== null && win === carryTo) continue;
-        await addPinnedStub(win.id);
+        stubs.set(win.id, await addPinnedStub(win.id));
       }
     }
+    const made = await madeWindows(created, stubs);
 
-    if (!request.closeOtherWindows) return;
+    if (!request.closeOtherWindows) return made;
 
     // Null: a window never opened. Closing nothing costs a tidy-up; the alternative costs the user's browser state.
     const toClose = planWindowClosure(snapshotIds, created);
-    if (!toClose) return;
+    if (!toClose) return made;
 
     // P4: a pinned Tab Keeper tab is never closed by a Switch, so with nowhere to carry it, its window stays.
     let keepOpen: number | undefined;
@@ -80,6 +84,7 @@ export async function restoreSession(
           void chrome.runtime.lastError;
         })
       );
+    return made;
   } finally {
     if (focusBack?.fullscreen) {
       await new Promise((resolve) =>
@@ -88,6 +93,30 @@ export async function restoreSession(
       await focusWindowOne(focusBack.windowId);
     }
   }
+}
+
+// Each window that opened, with its tabs in strip order; a window closed meanwhile is left out.
+async function madeWindows(
+  created: readonly (chrome.windows.Window | null)[],
+  stubs: ReadonlyMap<number, number | null>
+): Promise<MadeWindow[]> {
+  const made: MadeWindow[] = [];
+  for (const win of created) {
+    if (win?.id === undefined) continue;
+    const stubTabId = stubs.get(win.id) ?? null;
+    try {
+      const tabs = await chrome.tabs.query({ windowId: win.id });
+      const tabIds = tabs
+        .sort((a, b) => a.index - b.index)
+        .flatMap((tab) =>
+          tab.id === undefined || tab.id === stubTabId ? [] : [tab.id]
+        );
+      made.push({ windowId: win.id, tabIds, stubTabId });
+    } catch (error) {
+      console.warn('Could not read a restored window:', error);
+    }
+  }
+  return made;
 }
 
 // Null unless another restored window took a saved state: applying one can take focus from Window 1 (measured headed, KAN-460).

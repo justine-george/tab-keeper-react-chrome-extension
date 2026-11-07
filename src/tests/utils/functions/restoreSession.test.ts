@@ -464,7 +464,7 @@ describe('Window 1 gets focus back after other windows take their saved state', 
     await filled();
     await vi.advanceTimersByTimeAsync(FULLSCREEN_FOCUS_SETTLE_MS);
 
-    await expect(done).resolves.toBeUndefined();
+    await expect(done).resolves.toHaveLength(2);
     expect(warn.mock.calls).toEqual([
       ['Could not give the restored Window 1 focus back:', expect.any(Error)],
       ['Could not give the restored Window 1 focus back:', expect.any(Error)],

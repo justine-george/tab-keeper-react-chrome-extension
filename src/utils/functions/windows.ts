@@ -75,7 +75,32 @@ export interface RestoreSessionRequest {
   closeOtherWindows: boolean;
   // KAN-459. Settings → Quick access → Pin Tab Keeper in new windows, as the page read it.
   pinTabKeeper: boolean;
+  // KAN-893. The worker answers the windows it made; a drop's undo closes them. Absent: no answer, as the popup is gone.
+  answers?: true;
 }
+
+// A window a restore made: its tabs in strip order, its pinned Tab Keeper stub apart (null when none was added).
+export interface MadeWindow {
+  windowId: number;
+  tabIds: number[];
+  stubTabId: number | null;
+}
+
+export const isIdList = (value: unknown): value is number[] =>
+  Array.isArray(value) && value.every((id) => typeof id === 'number');
+
+export function isMadeWindow(value: unknown): value is MadeWindow {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.windowId === 'number' &&
+    isIdList(candidate.tabIds) &&
+    (candidate.stubTabId === null || typeof candidate.stubTabId === 'number')
+  );
+}
+
+export const isMadeWindowList = (value: unknown): value is MadeWindow[] =>
+  Array.isArray(value) && value.every(isMadeWindow);
 
 export function isRestoreSessionRequest(
   message: unknown

@@ -48,20 +48,22 @@ export function findCarriedTab(
   return inChosen.find((tab) => !isStub(tab)) ?? inChosen[0] ?? null;
 }
 
-// Never rejects: a missing stub costs the window its pinned tab, never the restore.
-export async function addPinnedStub(windowId: number): Promise<void> {
+// Never rejects: a missing stub costs the window its pinned tab, never the restore. The stub's id; null when none was added.
+export async function addPinnedStub(windowId: number): Promise<number | null> {
   try {
     // Chrome would open it in a normal window instead: an extension page cannot live in an incognito tab (KAN-485).
-    if ((await chrome.windows.get(windowId)).incognito) return;
-    await chrome.tabs.create({
+    if ((await chrome.windows.get(windowId)).incognito) return null;
+    const stub = await chrome.tabs.create({
       windowId,
       url: chrome.runtime.getURL(STUB_PATH),
       index: 0,
       pinned: true,
       active: false,
     });
+    return stub.id ?? null;
   } catch (error) {
     console.warn('Could not add the pinned Tab Keeper tab:', error);
+    return null;
   }
 }
 

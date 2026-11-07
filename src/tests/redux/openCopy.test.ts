@@ -583,7 +583,12 @@ describe('openCarriedCopy', () => {
         respond(answer);
         return true;
       });
-    const found = (ids: number[]) => ({ ids, leftOut: 0, alreadyOpen: [] });
+    const found = (ids: number[]) => ({
+      ids,
+      leftOut: 0,
+      alreadyOpen: [],
+      madeWindows: [],
+    });
     let heard: { windowId: number; tabIds: number[] }[] = [];
     let stopHearing = () => {};
     let ended = 0;
@@ -778,7 +783,7 @@ describe('openCarriedCopy with Skip tabs already open', () => {
 
     it('window drop off: today', async () => {
       // Off, the worker leaves nothing out.
-      answerWith({ ids: [31], leftOut: 0, alreadyOpen: [] });
+      answerWith({ ids: [31], leftOut: 0, alreadyOpen: [], madeWindows: [] });
       const { store } = readyOn(false);
 
       await expect(
@@ -791,7 +796,12 @@ describe('openCarriedCopy with Skip tabs already open', () => {
     });
 
     it('window drop leaves some out: arrival on new ids + left-out toast', async () => {
-      answerWith({ ids: [31, 32], leftOut: 2, alreadyOpen: [11] });
+      answerWith({
+        ids: [31, 32],
+        leftOut: 2,
+        alreadyOpen: [11],
+        madeWindows: [],
+      });
       const { store, actions } = readyOn(true);
 
       await expect(
@@ -807,7 +817,12 @@ describe('openCarriedCopy with Skip tabs already open', () => {
     });
 
     it('two window drops that leave some out: two left-out toasts, stacked', async () => {
-      answerWith({ ids: [31, 32], leftOut: 2, alreadyOpen: [11] });
+      answerWith({
+        ids: [31, 32],
+        leftOut: 2,
+        alreadyOpen: [11],
+        madeWindows: [],
+      });
       const { store } = readyOn(true);
 
       await store.dispatch(openCarriedCopy(windowItem, drop, GO_TO));
@@ -820,7 +835,12 @@ describe('openCarriedCopy with Skip tabs already open', () => {
     });
 
     it('window drop all open: arrival on open copies + "these tabs" toast, resolves true, no review moment', async () => {
-      answerWith({ ids: [], leftOut: 5, alreadyOpen: [11, 12] });
+      answerWith({
+        ids: [],
+        leftOut: 5,
+        alreadyOpen: [11, 12],
+        madeWindows: [],
+      });
       const { store, actions } = readyOn(true);
 
       await expect(
@@ -835,7 +855,7 @@ describe('openCarriedCopy with Skip tabs already open', () => {
     });
 
     it('a one-tab window drop all open: "this tab" toast', async () => {
-      answerWith({ ids: [], leftOut: 1, alreadyOpen: [11] });
+      answerWith({ ids: [], leftOut: 1, alreadyOpen: [11], madeWindows: [] });
       const { store } = readyOneTabOn();
 
       await expect(
@@ -852,7 +872,7 @@ describe('openCarriedCopy with Skip tabs already open', () => {
   describe('a window drop with some tabs refused', () => {
     it('is a refusal, not "already there": no toast, no arrival, resolves false', async () => {
       // Two of the five were left out; the rest were refused.
-      answerWith({ ids: [], leftOut: 2, alreadyOpen: [11] });
+      answerWith({ ids: [], leftOut: 2, alreadyOpen: [11], madeWindows: [] });
       const { store } = readyOn(true);
 
       await expect(
