@@ -31,6 +31,7 @@ import { subscribeArrival } from '../../utils/functions/arrival';
 import {
   isOpenIntoWindowRequest,
   OPEN_INTO_WINDOW_MESSAGE,
+  type OpenIntoWindowAnswer,
 } from '../../utils/functions/openIntoWindow';
 import { SAMPLE_ID_PREFIX } from '../../utils/functions/sampleSession';
 import { RESTORE_SESSION_MESSAGE } from '../../utils/functions/windows';
@@ -143,6 +144,13 @@ const restores = () =>
     (m): m is RestoreSessionRequest =>
       (m as { type?: unknown }).type === RESTORE_SESSION_MESSAGE
   );
+
+// The worker's answer names a saved tab per id; these tests read only the ids.
+type AnswerWithoutSaved = Omit<OpenIntoWindowAnswer, 'savedTabIds'>;
+const withSaved = (answer: AnswerWithoutSaved): OpenIntoWindowAnswer => ({
+  ...answer,
+  savedTabIds: answer.ids.map((id) => `saved-${id}`),
+});
 
 describe('copyWindowSpec', () => {
   // KAN-853. Every new window comes to the front.
@@ -577,12 +585,14 @@ describe('openCarriedCopy', () => {
     const intoWindows = () =>
       (handle?.sentMessages ?? []).filter(isOpenIntoWindowRequest);
     // The worker's answer, as background.ts sends it.
-    const answerWith = (answer: unknown) =>
+    const answerRaw = (answer: unknown) =>
       chrome.runtime.onMessage.addListener((message, _sender, respond) => {
         if (!isOpenIntoWindowRequest(message)) return false;
         respond(answer);
         return true;
       });
+    const answerWith = (answer: AnswerWithoutSaved) =>
+      answerRaw(withSaved(answer));
     const found = (ids: number[]) => ({
       ids,
       leftOut: 0,
@@ -666,10 +676,17 @@ describe('openCarriedCopy', () => {
       ['no tab ids', found([])],
       ['the old bare list of ids', [31, 32]],
       ['no answer', undefined],
-      ['an answer that is not tab ids', { ...found([]), ids: ['31'] }],
+      [
+        'an answer that is not tab ids',
+        { ...withSaved(found([])), ids: ['31'] },
+      ],
+      [
+        'saved tabs not one per id',
+        { ...withSaved(found([31])), savedTabIds: [] },
+      ],
     ] as const) {
       it(`${what}: not opened here, nothing told, no restore moment`, async () => {
-        answerWith(answer);
+        answerRaw(answer);
         const { store, actions } = ready();
 
         await expect(
@@ -721,10 +738,10 @@ describe('openCarriedCopy with Skip tabs already open', () => {
     actions.filter((a) => a.type.endsWith('setPendingReviewAsk')).length;
   const intoWindows = () =>
     (handle?.sentMessages ?? []).filter(isOpenIntoWindowRequest);
-  const answerWith = (answer: unknown) =>
+  const answerWith = (answer: AnswerWithoutSaved) =>
     chrome.runtime.onMessage.addListener((message, _sender, respond) => {
       if (!isOpenIntoWindowRequest(message)) return false;
-      respond(answer);
+      respond(withSaved(answer));
       return true;
     });
   // Window 1 holds a tab per address, ids 11, 12, ...

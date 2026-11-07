@@ -41,9 +41,10 @@ export interface OpenIntoWindowRequest {
 }
 
 // ids: the tabs created, in merged order. leftOut: saved tabs not opened for the window already having their page; alreadyOpen: the ids of those open copies.
-// madeWindows: the windows opened instead or apart (KAN-893).
+// savedTabIds: the saved tab behind each of ids. madeWindows: the windows opened instead or apart (KAN-893).
 export interface OpenIntoWindowAnswer {
   ids: number[];
+  savedTabIds: string[];
   leftOut: number;
   alreadyOpen: number[];
   madeWindows: MadeWindow[];
@@ -56,6 +57,9 @@ export function isOpenIntoWindowAnswer(
   const candidate = answer as Record<string, unknown>;
   return (
     isIdList(candidate.ids) &&
+    Array.isArray(candidate.savedTabIds) &&
+    candidate.savedTabIds.length === candidate.ids.length &&
+    candidate.savedTabIds.every((id) => typeof id === 'string') &&
     typeof candidate.leftOut === 'number' &&
     isIdList(candidate.alreadyOpen) &&
     isMadeWindowList(candidate.madeWindows)
@@ -64,6 +68,7 @@ export function isOpenIntoWindowAnswer(
 
 export const NOTHING_OPENED: OpenIntoWindowAnswer = {
   ids: [],
+  savedTabIds: [],
   leftOut: 0,
   alreadyOpen: [],
   madeWindows: [],
@@ -202,7 +207,7 @@ export async function openIntoWindow(
   if (tabs.length === 0) {
     if (skipped.leftOut > 0 && request.activate)
       await bringForward(windowId, openCopyId);
-    return { ids: [], ...leftOutAnswer };
+    return { ids: [], savedTabIds: [], ...leftOutAnswer };
   }
 
   const createSplit = createSplitApi();
@@ -262,8 +267,13 @@ export async function openIntoWindow(
   if (createSplit !== null) await splitRestoredPairs(createSplit, pairs, ids);
 
   if (request.activate) await bringForward(windowId, currentId);
+  const made = tabs.flatMap((tab, i) => {
+    const id = ids[i];
+    return id === undefined ? [] : [{ id, savedTabId: tab.tabId }];
+  });
   return {
-    ids: ids.filter((id): id is number => id !== undefined),
+    ids: made.map((m) => m.id),
+    savedTabIds: made.map((m) => m.savedTabId),
     ...leftOutAnswer,
   };
 }

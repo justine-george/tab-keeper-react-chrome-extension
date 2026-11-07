@@ -97,7 +97,13 @@ const nameOf = (t: chrome.tabs.Tab) => {
 const strip = async (windowId: number) =>
   (await tabsOf(windowId)).map((t) => nameOf(t).replace('~', ''));
 
-const none = { ids: [], leftOut: 0, alreadyOpen: [], madeWindows: [] };
+const none = {
+  ids: [],
+  savedTabIds: [],
+  leftOut: 0,
+  alreadyOpen: [],
+  madeWindows: [],
+};
 
 const windowIds = async () =>
   (await chrome.windows.getAll({ windowTypes: ['normal', 'popup'] })).map(
@@ -160,6 +166,26 @@ describe('placement', () => {
     );
     expect(await strip(1)).toEqual(['p0', 'a', 'b', 's0', 's2']);
     expect(ids).toHaveLength(2);
+  });
+
+  // KAN-893. A drop's redo opens again exactly the saved tabs it opened.
+  test('names the saved tab behind each id, refused and left-out ones left out', async () => {
+    handle = setupChromeFake(seed({ refusedUrls: [OTHER_EXTENSION] }));
+    const answer = await openIntoWindow(
+      req(
+        [
+          spec([
+            tab('s0'),
+            tab('x', { url: OTHER_EXTENSION }),
+            tab('a'),
+            tab('p1', { pinned: true }),
+          ]),
+        ],
+        { skipTabsAlreadyOpen: true }
+      )
+    );
+    expect(answer.savedTabIds).toEqual(['p1', 's0']);
+    expect(answer.ids).toHaveLength(2);
   });
 
   // Chrome (and the fake) clamp a pinned slot past the run, so the slot asked for is the rule.
@@ -587,6 +613,7 @@ describe('the message', () => {
   test('isOpenIntoWindowAnswer accepts only ids, a count, ids and made windows', () => {
     const ok = {
       ids: [1],
+      savedTabIds: ['s1'],
       leftOut: 0,
       alreadyOpen: [2],
       madeWindows: [{ windowId: 3, tabIds: [4], stubTabId: null }],
@@ -602,6 +629,7 @@ describe('the message', () => {
     expect(isOpenIntoWindowAnswer({ ...ok, madeWindows: undefined })).toBe(
       false
     );
+    expect(isOpenIntoWindowAnswer({ ...ok, savedTabIds: [1] })).toBe(false);
     expect(
       isOpenIntoWindowAnswer({
         ...ok,
@@ -620,6 +648,7 @@ describe('the message', () => {
     const added = (await tabsOf(1)).slice(3);
     expect(answer).toEqual({
       ids: added.map((t) => t.id),
+      savedTabIds: ['s0', 's1'],
       leftOut: 0,
       alreadyOpen: [],
       madeWindows: [],
@@ -666,6 +695,7 @@ describe('skip tabs already open', () => {
     expect(create).not.toHaveBeenCalled();
     expect(answer).toEqual({
       ids: [],
+      savedTabIds: [],
       leftOut: 2,
       alreadyOpen: [12, 10],
       madeWindows: [],
