@@ -2298,6 +2298,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
 
       try {
         if (drop) {
+          const rowIdsAtDrop = new Set(rows.current.keys());
           // The window is passed only by a list whose rows sit in windows. Every
           // other list is called exactly as it always was, and never learns the
           // argument exists.
@@ -2404,7 +2405,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
               : undefined;
           if (dropped !== undefined) {
             requestAnimationFrame(() => {
-              rows.current.get(dropped)?.scrollIntoView({ block: 'nearest' });
+              // A row already held that id, so the move re-minted the item:
+              // it is the one row that wasn't there (KAN-409).
+              const landed =
+                l.adopted && rowIdsAtDrop.has(dropped)
+                  ? [...rows.current.keys()].find((id) => !rowIdsAtDrop.has(id))
+                  : dropped;
+              if (landed === undefined) return;
+              rows.current.get(landed)?.scrollIntoView({ block: 'nearest' });
             });
           }
         } else if (

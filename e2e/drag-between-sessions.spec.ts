@@ -332,6 +332,126 @@ test.describe('the source emptied (S4 B, Q4 A)', () => {
   });
 });
 
+// KAN-409. Legacy or imported data: the target already holds one of the carried item's ids. The landing is the same as any other; the move re-mints.
+test.describe('an exact spot in a session already holding the ids', () => {
+  const target = (ids: { w?: string; t?: string; g?: string }) =>
+    session('S2', 'Target', [
+      win(
+        ids.w ?? 'd1',
+        [tab(ids.t ?? 'c0'), tab('c1'), tab('x0', ids.g ?? 'gamma')],
+        [{ groupId: ids.g ?? 'gamma', title: 'Gamma', color: 'green' }]
+      ),
+    ]);
+  const tabsNamed = (prefix: string, count: number) =>
+    Array.from({ length: count }, (_, i) => tab(`${prefix}${i}`));
+  const idsAreUnique = (s: tabContainerData) => {
+    const tabs = s.windows.flatMap((w) => w.tabs.map((t) => t.tabId));
+    const windows = s.windows.map((w) => w.windowId);
+    expect(new Set(tabs).size).toBe(tabs.length);
+    expect(new Set(windows).size).toBe(windows.length);
+  };
+
+  for (const c of [
+    {
+      name: 'a tab',
+      session: target({ t: 'a1' }),
+      grab: (page: Page) => tabHandle(page, 'a1'),
+      phantom: 'carried:a1',
+      aim: 'c1',
+      count: 4,
+    },
+    {
+      name: 'a group',
+      session: target({ g: 'alpha' }),
+      grab: (page: Page) => groupHandle(page, 'alpha'),
+      phantom: 'group:carried:alpha',
+      aim: 'tab:c1',
+      count: 5,
+    },
+  ]) {
+    test(`${c.name} lands where it was aimed`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId, [
+        S1(),
+        c.session,
+        S3(),
+      ]);
+      const at = await pickUp(page, c.grab(page));
+      await carryOutLeft(page, at);
+      await springOpen(page, 'S2');
+      await adoptPhantom(page, c.phantom);
+      const before = sessionOf(await stored(page), 'S2');
+      await aimAt(page, c.aim, 0.25);
+      await page.mouse.up();
+
+      await expect
+        .poll(async () => (await layout(page, 'S2'))[0].split(' ').length)
+        .toBe(c.count);
+      const after = sessionOf(await stored(page), 'S2');
+      expect(after.windows).toHaveLength(1);
+      idsAreUnique(after);
+      await expectOneUndoRestores(page, before);
+    });
+  }
+
+  test('a window lands first, under a new id', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId, [
+      S1(),
+      target({ w: 'w2' }),
+      S3(),
+    ]);
+    const at = await pickUp(page, windowHandle(page, 'w2'));
+    await carryOutLeft(page, at);
+    await springOpen(page, 'S2');
+    await adoptPhantom(page, 'carried:w2');
+    const before = sessionOf(await stored(page), 'S2');
+    await page.mouse.up();
+
+    await expect.poll(() => layout(page, 'S2')).toEqual(['b0 b1', 'c0 c1 x0*']);
+    idsAreUnique(sessionOf(await stored(page), 'S2'));
+    await expectOneUndoRestores(page, before);
+  });
+
+  // The landed row is under a new id: the row holding the old one is no place to follow to (KAN-155).
+  test('the list stays on the landed row, not the row with its old id', async ({
+    context,
+    extensionId,
+  }) => {
+    const long = session('S2', 'Target', [
+      win('d0', [tab('a1'), ...tabsNamed('p', 14)]),
+      win('d1', tabsNamed('q', 14)),
+    ]);
+    const page = await openPopup(context, extensionId, [S1(), long, S3()]);
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    await carryOutLeft(page, at);
+    await springOpen(page, 'S2');
+    await adoptPhantom(page, 'carried:a1');
+    const scrolled = (await detailPane(page)).scrollTop;
+    // PREMISE: the row with the same id is far above the view.
+    expect(scrolled).toBeGreaterThan(100);
+    await aimAt(page, 'q13', 0.75);
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => (await layout(page, 'S2'))[1].split(' ').length)
+      .toBe(15);
+    await settled(page);
+    // Two frames: the follow runs on the frame after the commit.
+    await page.evaluate(
+      () =>
+        new Promise((done) =>
+          requestAnimationFrame(() => requestAnimationFrame(done))
+        )
+    );
+    expect((await detailPane(page)).scrollTop).toBeGreaterThan(100);
+  });
+});
+
 test.describe('a spring-open, then an exact spot (S1 A, S5 A)', () => {
   // Each: carry out, rest on S2 until it opens, adopt the phantom, aim, let
   // go. A drop into the opened session gets no Moved toast (S5 A).
@@ -805,16 +925,16 @@ test.describe('only the session list carries (hand-off, KAN-352)', () => {
       await expect(trailing).toHaveAttribute('data-landing', '');
 
       const pane = await detailPane(page);
-      const own = await boxOf(page.locator(`[data-drag-row-id="${k.phantom}"]`));
+      const own = await boxOf(
+        page.locator(`[data-drag-row-id="${k.phantom}"]`)
+      );
       await page.mouse.move(pane.right + 4, own.y + own.height / 2, {
         steps: 6,
       });
       await expect(trailing).not.toHaveAttribute('data-landing', '');
       await page.mouse.up();
 
-      await expect
-        .poll(() => layout(page, 'S1'))
-        .toEqual([W1_START, 'b0 b1']);
+      await expect.poll(() => layout(page, 'S1')).toEqual([W1_START, 'b0 b1']);
       expect(await layout(page, 'S2')).toEqual([D1_START, 'e0 e1']);
     });
   }
