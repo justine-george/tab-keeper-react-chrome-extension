@@ -784,6 +784,41 @@ test.describe('only the session list carries (hand-off, KAN-352)', () => {
     expect(await layout(page, 'S1')).toEqual(['a0 a2 al0* al1*', 'b0 b1']);
   });
 
+  // KAN-369. An adopted carry's own window is the trailing block, so the overshoot beside the pane must not make a window.
+  for (const k of [
+    { kind: 'tab', phantom: 'carried:a1' },
+    { kind: 'group', phantom: 'group:carried:alpha' },
+  ]) {
+    test(`an adopted ${k.kind} let go beside the pane, level with its placeholder, moves nothing`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      const handle =
+        k.kind === 'tab' ? tabHandle(page, 'a1') : groupHandle(page, 'alpha');
+      const at = await pickUp(page, handle);
+      await carryOutLeft(page, at);
+      await springOpen(page, 'S2');
+      await adoptPhantom(page, k.phantom);
+      const trailing = page.locator('[data-new-window-target="last"]');
+      // PREMISE: on its placeholder it lights the block it would land in.
+      await expect(trailing).toHaveAttribute('data-landing', '');
+
+      const pane = await detailPane(page);
+      const own = await boxOf(page.locator(`[data-drag-row-id="${k.phantom}"]`));
+      await page.mouse.move(pane.right + 4, own.y + own.height / 2, {
+        steps: 6,
+      });
+      await expect(trailing).not.toHaveAttribute('data-landing', '');
+      await page.mouse.up();
+
+      await expect
+        .poll(() => layout(page, 'S1'))
+        .toEqual([W1_START, 'b0 b1']);
+      expect(await layout(page, 'S2')).toEqual([D1_START, 'e0 e1']);
+    });
+  }
+
   // KAN-367. The hand-back's move is the only one: a pointer that then stands still still lights the row and opens it.
   test('an adopted drag handed back in one move, then held still: the row lights and opens', async ({
     context,

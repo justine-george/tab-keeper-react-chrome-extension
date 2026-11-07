@@ -977,6 +977,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         return { windowId: l.newFirstWindowId, index: 0, clamped: false };
       }
 
+      // Off the trailing block, an adopted carry has no window of its own to
+      // overshoot (KAN-369): only landingBlock's bounds can make a new window.
+      if (block === null && l.heldWindow && isTrailingBlock(l.heldWindow)) {
+        return undefined;
+      }
+
       // Content space, matching how the rects were measured. Using the raw
       // viewport y here would misjudge both the containment test and the
       // landing index by however far the list had auto-scrolled.
