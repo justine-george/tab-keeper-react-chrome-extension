@@ -700,7 +700,8 @@ test.describe('a pair carried to the saved side (KAN-486)', () => {
     await expect
       .poll(async () => {
         const { tabGroups } = await stored(page);
-        return tabGroups[0]?.windows.at(-1)?.tabs.map((t) => t.title);
+        const windows = tabGroups[0]?.windows ?? [];
+        return windows[windows.length - 1]?.tabs.map((t) => t.title);
       })
       .toEqual(['B', 'C']);
   });
