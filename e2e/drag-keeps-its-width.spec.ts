@@ -9,6 +9,7 @@ import {
   detailPane,
   layout,
   scrollRange,
+  settled,
 } from './fixtures/betweenSessions';
 import { pickUp, tabHandle, groupHandle, boxOf } from './fixtures/sessionDrag';
 import { expect, grantedTest as test } from './fixtures/grantedExtension';
@@ -211,15 +212,19 @@ test.describe('a list with under half a row free', () => {
     const rest = await widths(page);
     const at = await pickUp(page, tabHandle(page, 't1'));
     await toTheRoom(page, at.x);
-    const last = await boxOf(tabHandle(page, 'u1'));
-    await page.mouse.move(at.x, last.y + last.height * 0.25, { steps: 3 });
+    await settled(page);
+    // Well above the bottom edge, so the list holds still under the aim.
+    const aim = await boxOf(tabHandle(page, 't5'));
+    await page.mouse.move(at.x, aim.y + aim.height * 0.25, { steps: 3 });
+    await settled(page);
     await page.mouse.up();
 
     await expect
       .poll(() => layout(page, 'S1'))
-      .toEqual(['t2 t3 t4 t5 t6 t7 t8 t9', 't1 u1']);
+      .toEqual(['t2 t3 t1 t4 t5 t6 t7 t8 t9', 'u1']);
+    await expect.poll(() => scrollRange(page)).toBe(0);
     await page.waitForTimeout(500);
-    expect((await widths(page)).bar).toBe(rest.bar);
+    expect(await widths(page)).toEqual(rest);
   });
 
   // CONTROL: half a row free or more, no room: the target lights where the list ends, and nothing scrolls.

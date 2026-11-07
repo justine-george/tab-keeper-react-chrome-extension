@@ -780,9 +780,17 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
 
     const pane = await detailPane(page);
     await page.mouse.move(at.x, pane.bottom - 4, { steps: 4 });
-    await expect(
-      page.locator('[data-new-window-target="last"][data-landing]')
-    ).toHaveCount(1);
+    const target = page.locator(
+      '[data-new-window-target="last"][data-landing]'
+    );
+    await expect(target).toHaveCount(1);
+    // The whole box comes into view, not the sliver the list had free.
+    await expect
+      .poll(async () => {
+        const b = await boxOf(target);
+        return b.y + b.height;
+      })
+      .toBeLessThanOrEqual(pane.bottom);
     await page.mouse.up();
     await expect
       .poll(async () => (await layout(page, 'S1')).slice(-1))

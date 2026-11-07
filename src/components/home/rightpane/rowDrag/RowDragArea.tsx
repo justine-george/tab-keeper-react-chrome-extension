@@ -858,6 +858,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       if (fit !== null) {
         l.maxScroll = Math.max(0, fit.contentHeight - fit.pane.clientHeight);
       }
+      if (!scrollFrame.current) {
+        scrollFrame.current = requestAnimationFrame(autoScroll);
+      }
     };
 
     // Whether a landing in `windowId` makes a new window: the session header's
