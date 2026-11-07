@@ -19,7 +19,14 @@ import {
   type SeedTab,
 } from './fixtures/betweenSessions';
 import { elementLanded } from './fixtures/landed';
-import { liveRow, openLiveWindow } from './fixtures/liveWindows';
+import {
+  carryTo,
+  dataUrl,
+  liveRow,
+  openLiveWindow,
+  strip,
+  topOf,
+} from './fixtures/liveWindows';
 import {
   boxOf,
   groupHandle,
@@ -561,6 +568,302 @@ test.describe('a saved pair is one row (KAN-942)', () => {
     await page.mouse.up();
     await expect(page.locator(HELD)).toHaveCount(0);
     expect((await stored(page)).lastModified).toBe(before.lastModified);
+  });
+});
+
+// The window's split ids by address: a pair shows one positive id twice.
+const splitOf = (worker: Worker, windowId: number) =>
+  worker.evaluate(async (id: number) => {
+    const tabs = await chrome.tabs.query({ windowId: id });
+    return tabs
+      .sort((a, b) => a.index - b.index)
+      .map((t) => ({
+        url: t.pendingUrl || t.url || '',
+        split: Reflect.get(t, 'splitViewId') as number,
+        groupId: t.groupId,
+        pinned: t.pinned,
+        active: t.active,
+      }));
+  }, windowId);
+
+const newestWindow = (worker: Worker, known: readonly number[]) =>
+  worker.evaluate(
+    async (ids: number[]) => {
+      const all = await chrome.windows.getAll({ windowTypes: ['normal'] });
+      return all.find((w) => !ids.includes(w.id ?? -1))?.id ?? null;
+    },
+    [...known]
+  );
+
+const windowIdsNow = (worker: Worker) =>
+  worker.evaluate(async () =>
+    (await chrome.windows.getAll({ windowTypes: ['normal'] })).map(
+      (w) => w.id ?? -1
+    )
+  );
+
+const H1 = 'https://h1.test/';
+const H2 = 'https://h2.test/';
+
+test.describe('a saved pair into Currently open (KAN-942)', () => {
+  test('19. at a slot: a live split there, the front tab and the session as they were', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const live = await openLiveWindow(worker, ['A', 'B', 'C']);
+    const page = await open(context, extensionId);
+    await expect(liveRow(page, live.idOf('C'))).toBeVisible();
+    const before = await stored(page);
+    const front = (await splitOf(worker, live.windowId)).find((t) => t.active);
+
+    await lift(page, halfRow(page, 'h1'));
+    await carryTo(page, await topOf(liveRow(page, live.idOf('B'))));
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => (await strip(worker, live.windowId)).map((t) => t.url))
+      .toEqual([dataUrl('A'), H1, H2, dataUrl('B'), dataUrl('C')]);
+    await expect
+      .poll(async () => {
+        const tabs = await splitOf(worker, live.windowId);
+        return tabs[1]?.split === tabs[2]?.split && (tabs[1]?.split ?? 0) > 0;
+      })
+      .toBe(true);
+    const after = await splitOf(worker, live.windowId);
+    expect(after.find((t) => t.active)?.url).toBe(front?.url);
+    expect(await stored(page)).toEqual(before);
+  });
+
+  test('20. into a live band and into the pinned run', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const live = await openLiveWindow(worker, ['A', 'B', 'C', 'D']);
+    await worker.evaluate(
+      async ({ ids, pin, windowId }) => {
+        await chrome.tabs.update(pin[0] ?? -1, { pinned: true });
+        await chrome.tabs.update(pin[1] ?? -1, { pinned: true });
+        await chrome.tabs.group({
+          tabIds: ids as [number, ...number[]],
+          createProperties: { windowId },
+        });
+      },
+      {
+        ids: [live.idOf('C'), live.idOf('D')],
+        pin: [live.idOf('A'), live.idOf('B')],
+        windowId: live.windowId,
+      }
+    );
+    const page = await open(context, extensionId);
+    await expect(liveRow(page, live.idOf('D'))).toBeVisible();
+
+    await lift(page, halfRow(page, 'h1'));
+    await carryTo(page, await topOf(liveRow(page, live.idOf('D'))));
+    await page.mouse.up();
+    await expect
+      .poll(async () => (await strip(worker, live.windowId)).map((t) => t.url))
+      .toEqual([
+        dataUrl('A'),
+        dataUrl('B'),
+        dataUrl('C'),
+        H1,
+        H2,
+        dataUrl('D'),
+      ]);
+    const banded = await splitOf(worker, live.windowId);
+    expect(banded[3]?.groupId).toBe(banded[2]?.groupId);
+    expect(banded[4]?.groupId).toBe(banded[2]?.groupId);
+    await expect
+      .poll(async () => {
+        const t = await splitOf(worker, live.windowId);
+        return t[3]?.split === t[4]?.split && (t[3]?.split ?? 0) > 0;
+      })
+      .toBe(true);
+
+    await settled(page);
+    await lift(page, halfRow(page, 'h2'));
+    await carryTo(page, await topOf(liveRow(page, live.idOf('B'))));
+    await page.mouse.up();
+    await expect
+      .poll(async () => (await strip(worker, live.windowId)).length)
+      .toBe(8);
+    const pinnedNow = await splitOf(worker, live.windowId);
+    expect(pinnedNow.slice(0, 4).map((t) => t.pinned)).toEqual([
+      true,
+      true,
+      true,
+      true,
+    ]);
+    expect(pinnedNow[1]?.url).toBe(H1);
+    expect(pinnedNow[2]?.url).toBe(H2);
+    await expect
+      .poll(async () => {
+        const t = await splitOf(worker, live.windowId);
+        return t[1]?.split === t[2]?.split && (t[1]?.split ?? 0) > 0;
+      })
+      .toBe(true);
+  });
+
+  test('21. on a New window target: a split in front, both real pages', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const live = await openLiveWindow(worker, ['A']);
+    const page = await open(context, extensionId);
+    await expect(liveRow(page, live.idOf('A'))).toBeVisible();
+    const known = await windowIdsNow(worker);
+
+    await lift(page, halfRow(page, 'h1'));
+    const row = await boxOf(liveRow(page, live.idOf('A')));
+    await carryTo(page, { x: row.x + 80, y: row.y + row.height + 90 });
+    const target = page.locator('[data-new-window-target="open-now-last"]');
+    await expect(target).toHaveAttribute('data-landing', /.*/);
+    await page.mouse.up();
+
+    await expect.poll(() => newestWindow(worker, known)).not.toBeNull();
+    const made = (await newestWindow(worker, known)) ?? -1;
+    await expect
+      .poll(async () => (await strip(worker, made)).map((t) => t.url))
+      .toEqual(expect.arrayContaining([H1, H2]));
+    await expect
+      .poll(async () => {
+        const t = (await splitOf(worker, made)).filter(
+          (x) => x.url === H1 || x.url === H2
+        );
+        return (
+          t.length === 2 &&
+          t[0]?.split === t[1]?.split &&
+          (t[0]?.split ?? 0) > 0
+        );
+      })
+      .toBe(true);
+  });
+
+  const groupOfPair = () =>
+    session('S1', 'Trip', [
+      win(
+        'w1',
+        [
+          tab('a0'),
+          tab('g0', 'day'),
+          half('h1', 'day'),
+          half('h2', 'day'),
+          tab('g1', 'day'),
+        ],
+        [DAY]
+      ),
+    ]);
+
+  test('22. a group holding a pair at a slot: the group, the split, both real pages', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const live = await openLiveWindow(worker, ['A', 'B']);
+    const page = await open(context, extensionId, [groupOfPair(), TARGET()]);
+    await expect(liveRow(page, live.idOf('B'))).toBeVisible();
+
+    await lift(page, groupHandle(page, 'day'));
+    await carryTo(page, await topOf(liveRow(page, live.idOf('B'))));
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => (await strip(worker, live.windowId)).length)
+      .toBe(6);
+    await expect
+      .poll(async () => {
+        const t = await splitOf(worker, live.windowId);
+        const pair = t.filter((x) => x.url === H1 || x.url === H2);
+        return (
+          pair.length === 2 &&
+          pair[0]?.split === pair[1]?.split &&
+          (pair[0]?.split ?? 0) > 0 &&
+          pair[0]?.groupId !== -1 &&
+          pair[0]?.groupId === pair[1]?.groupId
+        );
+      })
+      .toBe(true);
+  });
+
+  test('23. a group holding a pair on a New window target', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const live = await openLiveWindow(worker, ['A']);
+    const page = await open(context, extensionId, [groupOfPair(), TARGET()]);
+    await expect(liveRow(page, live.idOf('A'))).toBeVisible();
+    const known = await windowIdsNow(worker);
+
+    await lift(page, groupHandle(page, 'day'));
+    const row = await boxOf(liveRow(page, live.idOf('A')));
+    await carryTo(page, { x: row.x + 80, y: row.y + row.height + 90 });
+    await page.mouse.up();
+
+    await expect.poll(() => newestWindow(worker, known)).not.toBeNull();
+    const made = (await newestWindow(worker, known)) ?? -1;
+    await expect
+      .poll(async () => {
+        const t = (await splitOf(worker, made)).filter(
+          (x) => x.url === H1 || x.url === H2
+        );
+        return (
+          t.length === 2 &&
+          t[0]?.split === t[1]?.split &&
+          (t[0]?.split ?? 0) > 0
+        );
+      })
+      .toBe(true);
+  });
+
+  test('24. the spot over Currently open is two rows tall', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const live = await openLiveWindow(worker, ['A', 'B']);
+    const page = await open(context, extensionId);
+    await expect(liveRow(page, live.idOf('B'))).toBeVisible();
+    const row = (await boxOf(liveRow(page, live.idOf('A')))).height;
+
+    await lift(page, halfRow(page, 'h1'));
+    await carryTo(page, await topOf(liveRow(page, live.idOf('B'))));
+    await page.waitForTimeout(350);
+    const slot = await boxOf(page.locator(`${OPEN_NOW} ${SLOT}`));
+    expect(Math.abs(slot.height - 2 * row)).toBeLessThan(3);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  test('25. Skip tabs already open: both halves open, nothing opens', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const live = await openLiveWindow(worker, ['A']);
+    await worker.evaluate(
+      async ({ windowId, urls }) => {
+        for (const url of urls) await chrome.tabs.create({ windowId, url });
+      },
+      { windowId: live.windowId, urls: [H1, H2] }
+    );
+    const page = await open(context, extensionId, [TRIP(), TARGET()], {
+      skipTabsAlreadyOpen: true,
+    });
+    await expect(liveRow(page, live.idOf('A'))).toBeVisible();
+
+    await lift(page, halfRow(page, 'h1'));
+    await carryTo(page, await topOf(liveRow(page, live.idOf('A'))));
+    await page.mouse.up();
+    await expect(
+      page.locator('[data-toast]', {
+        hasText: 'This window already has these tabs.',
+      })
+    ).toHaveCount(1);
+    expect((await strip(worker, live.windowId)).length).toBe(3);
   });
 });
 

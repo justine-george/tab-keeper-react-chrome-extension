@@ -172,7 +172,7 @@ describe('copyWindowSpec', () => {
     ).toBe(true);
   });
 
-  it('a group: its tabs in order, unpinned, unsplit, and its look without the collapse', () => {
+  it('a group: its tabs in order, unpinned, its pair kept (KAN-942), and its look without the collapse', () => {
     const window = savedWindow();
     window.tabs[3] = { ...window.tabs[3], pinned: true };
     expect(
@@ -185,6 +185,7 @@ describe('copyWindowSpec', () => {
           title: 'A',
           url: 'https://a.example/',
           chromeGroupId: 'g1',
+          splitId: 'sq',
         },
         {
           tabId: 'gb',
@@ -192,6 +193,7 @@ describe('copyWindowSpec', () => {
           title: 'B',
           url: 'https://b.example/',
           chromeGroupId: 'g1',
+          splitId: 'sq',
         },
       ],
       groups: [{ groupId: 'g1', title: 'Work', color: 'blue' }],
@@ -1083,5 +1085,125 @@ describe('openCarriedCopy with Skip tabs already open', () => {
       expect(handle?.createdTabs).toHaveLength(2);
       expect(toasts(made.store)).toEqual([]);
     });
+  });
+});
+
+// KAN-942. A saved pair over Currently open: a live split, the saved session as it was.
+describe('openCarriedCopy with a pair', () => {
+  const pairItem = (partnerTabId = 't3'): CarriedItem =>
+    savedItem({
+      kind: 'pair',
+      tabGroupId: SESSION,
+      windowId: 'w1',
+      tabId: 't2',
+      partnerTabId,
+    });
+  const slot = { windowId: 1, index: 1, pinned: false };
+  const liveUrls = async () =>
+    (await chrome.tabs.query({ windowId: 1 }))
+      .sort((a, b) => a.index - b.index)
+      .map((t) => t.url ?? '');
+  const liveWith = (...urls: string[]) => {
+    handle?.restore();
+    handle = setupChromeFake({
+      splitView: true,
+      windows: [
+        {
+          id: 1,
+          tabs: urls.map((url, i) => ({ id: 11 + i, url, active: i === 0 })),
+        },
+      ],
+    });
+  };
+
+  it('opens both at the slot and leaves the session as it was', async () => {
+    liveWith('https://x.example/', 'https://y.example/');
+    const { store } = ready();
+    const before = store.getState().tabContainerDataState;
+    const opened = store.dispatch(
+      openCarriedCopy(pairItem(), { kind: 'tab', slot }, GO_TO)
+    );
+    expect(await opened).toBe(true);
+    expect(await liveUrls()).toEqual([
+      'https://x.example/',
+      'https://two.example/',
+      'https://three.example/',
+      'https://y.example/',
+    ]);
+    expect(store.getState().tabContainerDataState).toBe(before);
+  });
+
+  it('Skip tabs already open: one half open, both open', async () => {
+    liveWith('https://two.example/');
+    const { store } = ready();
+    store.dispatch(setSkipTabsAlreadyOpen(true));
+    await store.dispatch(
+      openCarriedCopy(pairItem(), { kind: 'tab', slot }, GO_TO)
+    );
+    expect(await liveUrls()).toHaveLength(3);
+  });
+
+  it('Skip tabs already open: both open, nothing opens, and it says so', async () => {
+    liveWith('https://two.example/', 'https://three.example/');
+    const { store } = ready();
+    store.dispatch(setSkipTabsAlreadyOpen(true));
+    const opened = store.dispatch(
+      openCarriedCopy(pairItem(), { kind: 'tab', slot }, GO_TO)
+    );
+    expect(await opened).toBe(true);
+    expect(await liveUrls()).toHaveLength(2);
+    expect(store.getState().globalState.toasts.map((t) => t.text)).toEqual([
+      TOAST_MESSAGES.THIS_WINDOW_ALREADY_HAS_THESE_TABS,
+    ]);
+  });
+
+  it('a half gone asks nothing', () => {
+    const { store } = ready();
+    expect(
+      store.dispatch(
+        openCarriedCopy(pairItem('gone'), { kind: 'tab', slot }, GO_TO)
+      )
+    ).toBeNull();
+  });
+
+  it('a new window keeps the pair’s splitId, in front', () => {
+    const { store } = ready();
+    store.dispatch(openCarriedCopy(pairItem(), { kind: 'newWindow' }, GO_TO));
+    const [spec] = restores()[0].specs;
+    expect(spec.tabs.map((t) => t.splitId)).toEqual(['sp', 'sp']);
+    expect(spec.focused).toBe(true);
+  });
+});
+
+describe('copyWindowSpec with a pair (KAN-942)', () => {
+  const pick = (partnerTabId = 't3') => ({
+    kind: 'pair' as const,
+    windowId: 'w1',
+    tabId: 't2',
+    partnerTabId,
+  });
+
+  it('a pair keeps its splitId', () => {
+    expect(
+      copyWindowSpec(savedWindow(), pick())?.tabs.map((t) => t.tabId)
+    ).toEqual(['t2', 't3']);
+  });
+
+  it('a half gone is null', () => {
+    expect(copyWindowSpec(savedWindow(), pick('gone'))).toBeNull();
+  });
+
+  it('a group keeps its pairs’ splitId, and still opens unpinned', () => {
+    const w = savedWindow();
+    w.tabs = w.tabs.map((t) =>
+      t.chromeGroupId === undefined ? t : { ...t, pinned: true }
+    );
+    const spec = copyWindowSpec(w, {
+      kind: 'group',
+      windowId: 'w1',
+      groupId: 'g1',
+    });
+    expect(spec?.tabs.map((t) => t.splitId)).toEqual(['sq', 'sq']);
+    expect(spec?.tabs.some((t) => t.pinned === true)).toBe(false);
   });
 });

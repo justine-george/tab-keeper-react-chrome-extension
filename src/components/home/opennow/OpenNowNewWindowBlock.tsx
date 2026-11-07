@@ -26,7 +26,7 @@ import { OPEN_ITEMS_SCOPE, OPEN_TABS_SCOPE } from './useOpenNowDrop';
 
 interface Props {
   // The phantom's row and the list that drags it; null for a window carry.
-  phantom: { rowId: string; kind: 'tab' | 'group' } | null;
+  phantom: { rowId: string; kind: 'tab' | 'group'; pair: boolean } | null;
 }
 
 export default function OpenNowNewWindowBlock({ phantom }: Props) {
@@ -88,7 +88,7 @@ export default function OpenNowNewWindowBlock({ phantom }: Props) {
         >
           <div
             css={css`
-              height: ${CONTROL.ROW};
+              height: ${phantom.pair ? `calc(2 * ${CONTROL.ROW})` : CONTROL.ROW};
             `}
           />
           <PhantomRestingSlot />

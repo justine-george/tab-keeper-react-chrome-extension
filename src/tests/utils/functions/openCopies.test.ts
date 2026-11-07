@@ -4,6 +4,7 @@ import type { tabData } from '../../../redux/slices/tabContainerDataStateSlice';
 import { generatePlaceholderURL } from '../../../utils/functions/local';
 import {
   openGroupCopy,
+  openPairCopy,
   openTabCopy,
 } from '../../../utils/functions/openCopies';
 import { copyLooks } from '../../../utils/functions/copyLooks';
@@ -411,5 +412,172 @@ describe('openGroupCopy', () => {
 
     expect(ids).toEqual([undefined, undefined]);
     expect(await tabsNow()).toBe(before);
+  });
+});
+
+// KAN-942. A saved pair at a slot: two tabs side by side, then one split, nothing focused.
+describe('openPairCopy', () => {
+  const live = (more: Parameters<typeof setupChromeFake>[0] = {}) =>
+    setupChromeFake({
+      splitView: true,
+      windows: [{ id: 1, tabs: [{ id: 11, active: true }, { id: 12 }] }],
+      ...more,
+    });
+  const split = async () =>
+    (await chrome.tabs.query({ windowId: 1 }))
+      .sort((a, b) => a.index - b.index)
+      .map((t) => t.splitViewId ?? -1)
+      .map((id) => id !== -1);
+  const a = saved(1, { splitId: 'sp' });
+  const b = saved(2, { splitId: 'sp' });
+  const slot = { windowId: 1, index: 1, pinned: false };
+
+  test('both tabs side by side at the slot, then one split, the front tab kept', async () => {
+    handle = live();
+    const [first, second] = await openPairCopy(a, b, slot);
+    expect(await strip(1)).toEqual([
+      '11*',
+      String(first),
+      String(second),
+      '12',
+    ]);
+    expect(await split()).toEqual([false, true, true, false]);
+  });
+
+  test('both halves open their real pages', async () => {
+    handle = live();
+    const [first, second] = await openPairCopy(a, b, slot);
+    expect((await chrome.tabs.get(first ?? -1)).url).toBe(a.url);
+    expect((await chrome.tabs.get(second ?? -1)).url).toBe(b.url);
+  });
+
+  test('the second opens beside where the first really landed', async () => {
+    handle = live();
+    const [first, second] = await openPairCopy(a, b, { ...slot, index: 99 });
+    expect(await strip(1)).toEqual([
+      '11*',
+      '12',
+      String(first),
+      String(second),
+    ]);
+  });
+
+  test('both take the slot’s pin', async () => {
+    handle = live({
+      windows: [
+        { id: 1, tabs: [{ id: 11, pinned: true, active: true }, { id: 12 }] },
+      ],
+    });
+    const [first, second] = await openPairCopy(a, b, { ...slot, pinned: true });
+    expect(await strip(1)).toEqual(['11P*', `${first}P`, `${second}P`, '12']);
+    expect(await split()).toEqual([false, true, true, false]);
+  });
+
+  test('both take the slot’s group', async () => {
+    handle = live({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 11, active: true },
+            { id: 12, groupId: 7 },
+            { id: 13, groupId: 7 },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 7, windowId: 1 }],
+    });
+    const [first, second] = await openPairCopy(a, b, {
+      ...slot,
+      index: 2,
+      groupId: 7,
+    });
+    expect(await strip(1)).toEqual([
+      '11*',
+      '12g7',
+      `${first}g7`,
+      `${second}g7`,
+      '13g7',
+    ]);
+  });
+
+  test('with no createSplit: two tabs, side by side, no split', async () => {
+    handle = live({ splitView: false });
+    const ids = await openPairCopy(a, b, slot);
+    expect(ids.every((id) => id !== undefined)).toBe(true);
+    expect(await tabsNow()).toBe(4);
+  });
+
+  test('a refused split leaves two tabs, and never throws', async () => {
+    handle = live();
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    Reflect.set(chrome.tabs, 'createSplit', () =>
+      Promise.reject(new Error('refused'))
+    );
+    const ids = await openPairCopy(a, b, slot);
+    expect(ids.every((id) => id !== undefined)).toBe(true);
+    expect(await tabsNow()).toBe(4);
+  });
+
+  test('a refused half asks no split', async () => {
+    handle = live();
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const createSplit = vi.fn(() => Promise.resolve(1));
+    Reflect.set(chrome.tabs, 'createSplit', createSplit);
+    const ids = await openPairCopy(a, b, { ...slot, windowId: 999 });
+    expect(ids).toEqual([undefined, undefined]);
+    expect(createSplit).not.toHaveBeenCalled();
+  });
+});
+
+// KAN-942. A group's pair opens as a split, its halves at their real pages.
+describe('openGroupCopy with a pair inside', () => {
+  const work = { groupId: 'g1', title: 'Work', color: 'blue' };
+  const live = (splitView = true) =>
+    setupChromeFake({
+      splitView,
+      tabGroups: [],
+      windows: [{ id: 1, tabs: [{ id: 11, active: true }] }],
+    });
+  const tabs = [
+    saved(1, { chromeGroupId: 'g1' }),
+    saved(2, { chromeGroupId: 'g1', splitId: 'sp' }),
+    saved(3, { chromeGroupId: 'g1', splitId: 'sp' }),
+    saved(4, { chromeGroupId: 'g1' }),
+  ];
+  const slot = { windowId: 1, index: 1 };
+
+  test('both halves open real pages, a plain tab stays a placeholder', async () => {
+    handle = live();
+    const ids = await openGroupCopy(tabs, work, slot, GO_TO);
+    const urls = await Promise.all(
+      ids.map(async (id) => (await chrome.tabs.get(id ?? -1)).url)
+    );
+    expect(urls).toEqual([
+      tabs[0].url,
+      tabs[1].url,
+      tabs[2].url,
+      placeholderOf(tabs[3]),
+    ]);
+  });
+
+  test('the pair ends up split, inside the group', async () => {
+    handle = live();
+    const ids = await openGroupCopy(tabs, work, slot, GO_TO);
+    const [second, third] = await Promise.all(
+      [ids[1], ids[2]].map((id) => chrome.tabs.get(id ?? -1))
+    );
+    expect(second.splitViewId).toBeGreaterThan(0);
+    expect(second.splitViewId).toBe(third.splitViewId);
+    expect(second.groupId).toBe(third.groupId);
+    expect(second.groupId).not.toBe(-1);
+  });
+
+  test('before Chrome 155 a pair is plain tabs in the group, a placeholder as ever', async () => {
+    handle = live(false);
+    const ids = await openGroupCopy(tabs, work, slot, GO_TO);
+    expect((await chrome.tabs.get(ids[2] ?? -1)).url).toBe(
+      placeholderOf(tabs[2])
+    );
   });
 });

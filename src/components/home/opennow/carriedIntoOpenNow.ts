@@ -3,7 +3,7 @@
 // after the last window, as the saved pane's carried item rests in its own
 // (TabGroupDetailsContainer, NEW_LAST_WINDOW). Adopting it moves nothing; a
 // release in a live window opens a copy there, in the block a new window.
-import { pickOf, sourceWindowOf } from '../../../redux/carriedItem';
+import { landsAsTab, pickOf, sourceWindowOf } from '../../../redux/carriedItem';
 import type { CarriedItem } from '../../../redux/carriedItem';
 import type { tabContainerData } from '../../../redux/slices/tabContainerDataStateSlice';
 import { phantomIdOf } from '../../../utils/functions/carriedView';
@@ -33,6 +33,8 @@ export interface CarriedIntoOpenNow {
   incognito: boolean;
   // The tab's saved pin; false for a group.
   pinned: boolean;
+  // KAN-942. A split's two tabs: one row, with two rows of room.
+  pair: boolean;
 }
 
 /**
@@ -52,7 +54,7 @@ export function carriedIntoOpenNow(
   const pick = pickOf(item);
   const incognito = from.incognito === true;
 
-  if (pick.kind === 'tab') {
+  if (landsAsTab(pick)) {
     const tab = from.tabs.find((t) => t.tabId === pick.tabId);
     if (tab === undefined) return null;
     const rowId = openNowPhantomIdOf(tab.tabId);
@@ -67,6 +69,7 @@ export function carriedIntoOpenNow(
       },
       incognito,
       pinned: tab.pinned === true,
+      pair: pick.kind === 'pair',
     };
   }
   if (pick.kind === 'group' && hasTabGroups) {
@@ -88,6 +91,7 @@ export function carriedIntoOpenNow(
       },
       incognito,
       pinned: false,
+      pair: false,
     };
   }
   return null;
