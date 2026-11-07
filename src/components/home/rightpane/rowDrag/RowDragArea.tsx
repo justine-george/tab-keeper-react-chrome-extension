@@ -466,11 +466,9 @@ interface LiveDrag {
   newFirstWindowId: string;
   // KAN-280 Part F (P1). Whether a point is left or right of handsOffOutside's box, read at activation; null without it.
   besidePane: ((x: number) => boolean) | null;
-  // KAN-366. In a list that fits, the space free below its last window
-  // (newWindowFree) when the drag started, read by the under-half-a-row
-  // refusal in landingBlock; null in a list given room, or one with no
-  // trailing block.
-  freeForNewWindow: number | null;
+  // KAN-944. The list fit at pick-up and scrolls only for the room this drag
+  // gave it, so its bar stays off like a list that fits.
+  fitsWithoutRoom: boolean;
   // The last target resolveDrop named, so the list hears only about changes
   // rather than once per pointer move (KAN-164).
   dropTarget: string | undefined;
@@ -586,7 +584,7 @@ function pressRecord(
     isOnNewFirstWindow: null,
     newFirstWindowId: NEW_FIRST_WINDOW,
     besidePane: null,
-    freeForNewWindow: null,
+    fitsWithoutRoom: false,
     dropTarget: undefined,
     slots: [],
     slotOfRow: [],
@@ -819,14 +817,6 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       if (block === null || !isTrailingBlock(block)) return block;
       const paneBottom = paneOf(l.heldEl)?.getBoundingClientRect().bottom;
       if (paneBottom === undefined || l.lastY > paneBottom) return null;
-      // NOR WITH TOO LITTLE ROOM (KAN-366 R3, Justine's pick). In a list
-      // that fits, with less than half a row free below the last window
-      // (publishNewWindowFree) -- the same half row the overshoot slack
-      // forgives -- the space is no new window: refused, as on main, and
-      // nothing lights. A list given room always has its row.
-      if (l.freeForNewWindow !== null && l.freeForNewWindow < l.height / 2) {
-        return null;
-      }
       return overshootsLastWindow(l) ? null : block;
     };
 
@@ -850,6 +840,24 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         l.height / 2,
         l.slots.find((s) => s.windowId === own)?.top
       );
+    };
+
+    // KAN-944. Under half a row free below the last window, a list that fits
+    // gets the room a list that scrolls has, so New window is reached at its
+    // end. Its bar stays off, as the list only scrolls for this drag.
+    const giveRoomIfTight = (l: NonNullable<typeof live.current>) => {
+      const free = newWindowFree();
+      const heldHeight = l.heldEl?.getBoundingClientRect().height ?? 0;
+      if (free === null || free >= heldHeight / 2) return;
+      const pane = paneOf(l.heldEl);
+      setDragNewWindow(true, true);
+      publishNewWindowFree(pane, true);
+      l.scroller = pane;
+      l.fitsWithoutRoom = true;
+      const fit = fittingOf(pane);
+      if (fit !== null) {
+        l.maxScroll = Math.max(0, fit.contentHeight - fit.pane.clientHeight);
+      }
     };
 
     // Whether a landing in `windowId` makes a new window: the session header's
@@ -1752,15 +1760,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         if (l.startX < rowLeft) l.pressOffRowX = rowLeft - l.startX;
       }
       // KAN-366 Q4. In a list given no room, the space free below its last
-      // window, which the rule that under half a row is no new window reads
-      // (publishNewWindowFree).
+      // window (publishNewWindowFree), which decides whether it needs some.
       // After the held row is marked, so a held group is measured folded
       // (KAN-160). An adoption's carry published it for the session it
       // shows.
       if (offersNewWindow && !l.adopted) {
         publishNewWindowFree(paneOf(l.heldEl), l.maxScroll > 0);
+        giveRoomIfTight(l);
       }
-      l.freeForNewWindow = offersNewWindow ? newWindowFree() : null;
       l.receiverAt =
         carryOut !== undefined || l.adopted ? measureCarryReceivers() : null;
       // KAN-361. The header's New window target, read once here like the
@@ -1927,7 +1934,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // fits must not draw a scrollbar for it, and narrow every row (App.css).
       paneOf(l.heldEl)?.toggleAttribute(
         'data-drag-fits',
-        l.fittedAtStart !== null
+        l.fittedAtStart !== null || l.fitsWithoutRoom
       );
 
       // Re-anchor the grab. Collapsing moves every row, so the row being held
@@ -2072,10 +2079,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         l.fromIndex,
         anyBandEdges()
       ));
-      // The space below the last window changed; the room does not (D8).
+      // The space below the last window changed, so it may now need room.
       if (offersNewWindow) {
         publishNewWindowFree(paneOf(l.heldEl), hasNewWindowRoom());
-        l.freeForNewWindow = newWindowFree();
+        if (!l.adopted) giveRoomIfTight(l);
       }
       previewAndMark(l);
     };
@@ -2276,6 +2283,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       if (!l.adopted) {
         setDragging(false);
         setDragNewWindow(false);
+        // KAN-944. A list that fits goes back to fitting: in one, scrolling
+        // up can't take a kept room out of view, so it would never leave.
+        if (l.fitsWithoutRoom) releaseKeptRoom(l.scroller);
         setDragNewSession(false);
         // KAN-379 Q2 A. The windows this drag opened fold back.
         foldedBack = foldBackSpringOpened();

@@ -4998,11 +4998,11 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
     expect(await windowIdsOf(page, 'S1')).toEqual(['w1', 'w2']);
   });
 
-  // KAN-366: in a list that fits, the space below is a new window only with half a row free (the held row's half). Both sides: f0's half, -/+2px.
+  // KAN-944, reversing KAN-366 R3: under half a row free the list gets the room row, so both sides of the held row's half light. f0's half, -/+2px.
   for (const side of ['under', 'over'] as const) {
     test(
       side === 'under'
-        ? 'a list that fits with half a row free less 2px: refused, nothing lit, nothing moves'
+        ? 'a list that fits with half a row free less 2px: lit, a new last window'
         : 'a list that fits with half a row free plus 2px: lit, a new last window',
       async ({ context, extensionId }) => {
         const { page, row } = await openTightFit(context, extensionId, (r) =>
@@ -5014,8 +5014,6 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
         expect(half).toBeCloseTo(row / 2, 0);
         const free = await freeBelowLastWindow(page);
         expect(free).toBeCloseTo(side === 'under' ? half - 2 : half + 2, 0);
-        const before = await stored(page);
-        const home = await boxOf(tabHandle(page, 'f0'));
         const fb = await boxOf(page.locator('[data-drop-window-id="fb"]'));
         // Below the last window, inside the pane.
         const y = fb.y + fb.height + 4;
@@ -5023,33 +5021,22 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
         const at = await pickUp(page, tabHandle(page, 'f0'));
         await page.mouse.move(at.x, y, { steps: 8 });
         await settled(page);
-        expect(await trailingLit(page)).toBe(side === 'over');
-        await expect(page.locator('[data-drag-landing-slot]')).toHaveCount(
-          side === 'over' ? 0 : 1
-        );
-        if (side === 'under') {
-          // Refused: the slot is back at f0's own place.
-          const slot = await boxOf(page.locator('[data-drag-landing-slot]'));
-          expect(Math.abs(slot.y - home.y)).toBeLessThanOrEqual(1);
-        }
+        expect(await trailingLit(page)).toBe(true);
+        await expect(page.locator('[data-drag-landing-slot]')).toHaveCount(0);
+        // Room only where the list needs it.
+        expect(
+          await page.evaluate(() =>
+            document.documentElement.getAttribute('data-drag-new-window')
+          )
+        ).toBe(side === 'under' ? 'room' : '');
         await page.mouse.up();
 
-        if (side === 'under') {
-          // NEGATIVE, so a fixed wait: a move is written on the release.
-          await page.waitForTimeout(200);
-          expect(sessionOf(await stored(page), 'S8')).toEqual(
-            sessionOf(before, 'S8')
-          );
-        } else {
-          await expect
-            .poll(async () => (await layout(page, 'S8')).slice(-1))
-            .toEqual(['f0']);
-          expect(
-            (await layout(page, 'S8')).filter((w) =>
-              w.split(' ').includes('f0')
-            )
-          ).toHaveLength(1);
-        }
+        await expect
+          .poll(async () => (await layout(page, 'S8')).slice(-1))
+          .toEqual(['f0']);
+        expect(
+          (await layout(page, 'S8')).filter((w) => w.split(' ').includes('f0'))
+        ).toHaveLength(1);
       }
     );
   }

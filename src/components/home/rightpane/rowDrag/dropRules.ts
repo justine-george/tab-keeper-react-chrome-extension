@@ -1095,14 +1095,13 @@ export function decideNewWindowRoom(scroller: HTMLElement): void {
 }
 
 // The custom property that carries the space free below the last window from
-// where it is measured to the engine's rule that too little is no new
-// window. See publishNewWindowFree.
+// where it is measured to the engine. See publishNewWindowFree.
 const NEW_WINDOW_FREE = '--new-window-free';
 
 // THE SPACE FREE BELOW THE LAST WINDOW, in a list that fits (KAN-366 Q4).
 // The lit trailing block is a full row and its borders whatever is free
-// (Justine's R2 pick), so this no longer limits it; it is what the engine's
-// rule that under half a row free is no new window reads (newWindowFree).
+// (Justine's R2 pick), so this no longer limits it. Under half a row free the
+// engine gives the list room (RowDragArea's giveRoomIfTight, KAN-944).
 // Measured from the block's top to the bottom of the pane's content box,
 // with the room decision -- as a drag starts (RowDragArea's activate), and
 // in the commit that shows a session for a carry (decideNewWindowRoom) --
@@ -1135,9 +1134,7 @@ export function publishNewWindowFree(
 }
 
 // The space free below the last window as published above, in px, or null
-// where none is: a list given room, or with no trailing block. Read by the
-// engine's rule that too little room is no new window (RowDragArea's
-// landingBlock).
+// where none is: a list given room, or with no trailing block.
 export function newWindowFree(): number | null {
   const value =
     document.documentElement.style.getPropertyValue(NEW_WINDOW_FREE);
