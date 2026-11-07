@@ -196,6 +196,7 @@ describe('undo', () => {
   });
 
   describe('refuses, closing nothing, when a dropped tab', () => {
+    // What the undo answered, which dropped tabs are still open, and which windows closed.
     const refusedAfter = async (
       change: (
         step: OpenedCopy,
@@ -207,36 +208,50 @@ describe('undo', () => {
       const fake = handle;
       const step = await make();
       await change(step, fake);
-      const result = await runOpenedCopy(step, 'undo', run);
-      expect(result).toEqual({ outcome: 'changedSince' });
-      for (const id of idsOf(step)) expect(await exists(id)).toBe(true);
-      expect(fake.removedWindowIds).toEqual([]);
+      const { outcome } = await runOpenedCopy(step, 'undo', run);
+      const kept = await Promise.all(idsOf(step).map(exists));
+      return { outcome, kept, windowsClosed: fake.removedWindowIds };
     };
+    const refused = (count: number) => ({
+      outcome: 'changedSince',
+      kept: Array<boolean>(count).fill(true),
+      windowsClosed: [],
+    });
 
-    test('moved to another window', () =>
-      refusedAfter((step, fake) =>
-        fake.browser.moveTabToWindow(idsOf(step)[0], 2)
-      ));
+    test('moved to another window', async () =>
+      expect(
+        await refusedAfter((step, fake) =>
+          fake.browser.moveTabToWindow(idsOf(step)[0], 2)
+        )
+      ).toEqual(refused(1)));
 
-    test('joined a group', () =>
-      refusedAfter(async (step) => {
-        await chrome.tabs.group({ groupId: 5, tabIds: idsOf(step)[0] });
-      }));
+    test('joined a group', async () =>
+      expect(
+        await refusedAfter(async (step) => {
+          await chrome.tabs.group({ groupId: 5, tabIds: idsOf(step)[0] });
+        })
+      ).toEqual(refused(1)));
 
-    test('was pinned', () =>
-      refusedAfter(async (step) => {
-        await chrome.tabs.update(idsOf(step)[0], { pinned: true });
-      }));
+    test('was pinned', async () =>
+      expect(
+        await refusedAfter(async (step) => {
+          await chrome.tabs.update(idsOf(step)[0], { pinned: true });
+        })
+      ).toEqual(refused(1)));
 
-    test('navigated to another page', () =>
-      refusedAfter((step, fake) =>
-        fake.browser.updateTab(idsOf(step)[0], { url: web('elsewhere') })
-      ));
+    test('navigated to another page', async () =>
+      expect(
+        await refusedAfter((step, fake) =>
+          fake.browser.updateTab(idsOf(step)[0], { url: web('elsewhere') })
+        )
+      ).toEqual(refused(1)));
 
-    test('was reordered among the dropped tabs', () =>
-      refusedAfter(async (step) => {
-        await chrome.tabs.move(idsOf(step)[1], { index: 3 });
-      }, groupDrop));
+    test('was reordered among the dropped tabs', async () =>
+      expect(
+        await refusedAfter(async (step) => {
+          await chrome.tabs.move(idsOf(step)[1], { index: 3 });
+        }, groupDrop)
+      ).toEqual(refused(2)));
 
     test('was closed (the rest stay)', async () => {
       handle = setupChromeFake(seed());
