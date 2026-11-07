@@ -919,6 +919,7 @@ export default function OpenNowWindow({
           rowId={rowId}
           left={grouped ? '-40px' : '-24px'}
           outsideRow
+          reachesRow={!grouped}
         />
         <ClickableRow
           ariaLabel={formatActionOnItem(t('Switch to tab'), tab.title, t)}

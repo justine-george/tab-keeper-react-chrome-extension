@@ -1367,6 +1367,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           rowId={rowId}
           left={grouped ? '-40px' : '-24px'}
           outsideRow
+          reachesRow={!grouped}
         />
         {/* The name reuses the string the tooltip already carried, so no new
             hardcoded English enters the app -- the 25 untranslated

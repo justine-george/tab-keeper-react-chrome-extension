@@ -63,8 +63,12 @@ export const DragHandle: React.FC<
     // pressed, the press reaches the row's DraggableRow as any press in the
     // row does. A click there is no row's, so it does nothing (KAN-703).
     outsideRow?: boolean;
+    // KAN-948. Nothing sits beside the dots (a loose tab), so the handle's box
+    // fills the strip to the row's edge. A grouped row's strip is the color
+    // bar's, whose hit area runs left past the dots above and below them.
+    reachesRow?: boolean;
   }
-> = ({ rowId, scope, left, outsideRow = false }) => {
+> = ({ rowId, scope, left, outsideRow = false, reachesRow = false }) => {
   const { canDrag, held } = useRowDragHandle(rowId, scope);
   if (!canDrag) return null;
   return (
@@ -74,9 +78,12 @@ export const DragHandle: React.FC<
       data-held={held ? '' : undefined}
       css={css`
         position: absolute;
-        top: 50%;
         left: ${left};
-        translate: 0 -50%;
+        ${
+          reachesRow
+            ? 'right: 100%; top: 0; bottom: 0; align-items: center;'
+            : 'top: 50%; translate: 0 -50%;'
+        }
         display: flex;
         ${
           outsideRow

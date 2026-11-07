@@ -122,7 +122,7 @@ async function expectHandleAt(
   const r = await boxOf(row);
   const h = await boxOf(handle);
   expect(Math.abs(h.x - (r.x + x))).toBeLessThanOrEqual(1);
-  expect(h.width).toBe(20);
+  expect((await boxOf(handle.locator('span'))).width).toBe(20);
   expect(Math.abs(h.y + h.height / 2 - (r.y + r.height / 2))).toBeLessThan(1);
   await park(page);
 }
@@ -182,6 +182,74 @@ test('a saved tab, grouped tab and group row show theirs in the column to their 
   await expectHandleAt(page, savedTab(page, 'w1-loose'), -24);
   await expectHandleAt(page, savedTab(page, 'gr-t0'), -40);
   await expectHandleAt(page, bandHandle(page, 'gr'), -40, { x: 200, y: 16 });
+});
+
+// KAN-948. The strip left of a loose tab belongs to the row, edge to edge and top to bottom.
+const stripPoints = (r: { x: number; y: number; height: number }) =>
+  [r.y + 1, r.y + r.height / 2, r.y + r.height - 2].flatMap((y) =>
+    [-24, -20, -6, -4, -3, -2, -1].map((dx) => ({ x: r.x + dx, y }))
+  );
+
+const hoveredAt = async (page: Page, row: Locator, x: number, y: number) => {
+  await page.mouse.move(x, y);
+  return row.evaluate((el) => el.matches(':hover'));
+};
+
+test('the strip left of a loose tab keeps its row hovered, saved and Open now', async ({
+  context,
+  extensionId,
+  serviceWorker,
+}) => {
+  const { page, block } = await openBoth(context, extensionId, serviceWorker);
+  const rows = [
+    savedTab(page, 'w1-loose'),
+    block.locator('[data-open-tab-id]', { hasText: 'Station' }),
+  ];
+  for (const row of rows) {
+    const r = await boxOf(row);
+    for (const { x, y } of stripPoints(r)) {
+      expect(await hoveredAt(page, row, x, y), `${x - r.x}, ${y - r.y}`).toBe(
+        true
+      );
+    }
+    // CONTROL: past the strip's left end the row lets go.
+    expect(await hoveredAt(page, row, r.x - 26, r.y + r.height / 2)).toBe(
+      false
+    );
+    await park(page);
+  }
+});
+
+test('a press in that strip picks up the tab', async ({
+  context,
+  extensionId,
+  serviceWorker,
+}) => {
+  const { page } = await openBoth(context, extensionId, serviceWorker);
+  const row = savedTab(page, 'w1-loose');
+  const r = await boxOf(row);
+  await page.mouse.move(r.x - 2, r.y + r.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(r.x - 2, r.y + r.height / 2 - 12, { steps: 4 });
+
+  await expect(page.locator('html')).toHaveAttribute('data-dragging', /.*/);
+
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+});
+
+// A grouped tab's strip is the group's color bar, a control of its own.
+test('the color bar beside a grouped tab stays its own', async ({
+  context,
+  extensionId,
+  serviceWorker,
+}) => {
+  const { page } = await openBoth(context, extensionId, serviceWorker);
+  const row = savedTab(page, 'gr-t0');
+  const r = await boxOf(row);
+  expect(await hoveredAt(page, row, r.x - 10, r.y + r.height / 2)).toBe(false);
+  // CONTROL: the dots beside it do hold the row.
+  expect(await hoveredAt(page, row, r.x - 30, r.y + r.height / 2)).toBe(true);
 });
 
 test('a session row shows its handle in its gutter', async ({
