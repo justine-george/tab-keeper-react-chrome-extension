@@ -16,7 +16,7 @@ import {
 } from '../../redux/slices/settingsDataStateSlice';
 import {
   APP_CHROME_WEBSTORE_LINK,
-  FEEDBACK_MAIL_LINK,
+  feedbackMailLink,
 } from '../../utils/constants/common';
 import { reviewCardCopy } from '../../utils/functions/reviewAsk';
 import { isTabView } from '../../utils/functions/viewMode';
@@ -101,6 +101,9 @@ function OpenReviewCard({
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
+  const language = useSelector(
+    (state: RootState) => state.settingsDataState.language
+  );
   const cardRef = useRef<HTMLElement>(null);
   // Pointer input waits for the rise. Reduced motion has no rise.
   const hasRisen = useHasRisen(cardRef);
@@ -252,7 +255,11 @@ function OpenReviewCard({
       </button>
       <div css={quietLinksStyle}>
         {/* KAN-864. A real link: the click closes the card, the browser opens the mail. */}
-        <a href={FEEDBACK_MAIL_LINK} css={quietLinkStyle} onClick={notNow}>
+        <a
+          href={feedbackMailLink(language)}
+          css={quietLinkStyle}
+          onClick={notNow}
+        >
           {t('Share feedback')}
         </a>
         {offersNever && (

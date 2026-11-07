@@ -280,7 +280,7 @@ test('✕ closes it as Not now, and the gap keeps it away on reload', async ({
 // KAN-864. Never click the real mailto: here: even headless, Chrome hands it
 // to the OS and Mail opens. Same-page, so the browser can follow it safely.
 const FEEDBACK_MAIL =
-  /^mailto:[^?]+\?subject=Feedback: Tab Keeper v\d+\.\d+\.\d+$/;
+  /^mailto:[^?]+\?subject=Feedback: Tab Keeper v\d+\.\d+\.\d+ \(en\)$/;
 const HARMLESS_TARGET = '#feedback-mail-followed';
 
 test('Share feedback follows its link and closes the card as a close', async ({

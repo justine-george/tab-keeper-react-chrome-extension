@@ -39,7 +39,9 @@ import {
 } from '../../redux/slices/globalStateSlice';
 import { PAGE_COVERS } from '../fixtures/pageCoversFixture';
 import type { ReviewMoment } from '../../utils/functions/reviewAsk';
-import { DEV_EMAIL, FEEDBACK_MAIL_SUBJECT } from '../../utils/constants/common';
+import { APP_VERSION, DEV_EMAIL } from '../../utils/constants/common';
+import { Language } from '../../utils/functions/languages';
+import { setLanguage } from '../../redux/slices/settingsDataStateSlice';
 
 // KAN-653. The review card: a corner card, not a dialog. It never takes
 // focus, takes no pointer input while it rises, and its ✕ means Not now.
@@ -215,10 +217,17 @@ describe('Share feedback', () => {
     expect(shareFeedback()).toBeTruthy();
   });
 
-  test('writes to the same address and subject as About', async () => {
-    await renderCard();
+  test('writes to the feedback address, naming the version and language', async () => {
+    await renderWithProviders(<ReviewCard />, {
+      seed: ACTIVE_TAB,
+      seedStore: (store) => {
+        store.dispatch(setLanguage(Language.DE));
+        open({ kind: 'time' })(store);
+      },
+    });
+
     expect(shareFeedback().getAttribute('href')).toBe(
-      `mailto:${DEV_EMAIL}?subject=${FEEDBACK_MAIL_SUBJECT}`
+      `mailto:${DEV_EMAIL}?subject=Feedback: Tab Keeper v${APP_VERSION} (de)`
     );
   });
 

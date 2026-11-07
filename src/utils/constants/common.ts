@@ -1,4 +1,5 @@
 import manifest from '../../../public/manifest.json';
+import type { Language } from '../functions/languages';
 
 // Constants related to colors moved to hook/useThemeColors
 
@@ -63,8 +64,8 @@ export const APP_CHROME_WEBSTORE_LINK =
 // depending on once the button says X.
 
 // feedback mail subject
-export const FEEDBACK_MAIL_SUBJECT = `Feedback: Tab Keeper v${APP_VERSION}`;
-export const FEEDBACK_MAIL_LINK = `mailto:${DEV_EMAIL}?subject=${FEEDBACK_MAIL_SUBJECT}`;
+export const feedbackMailLink = (language: Language) =>
+  `mailto:${DEV_EMAIL}?subject=Feedback: Tab Keeper v${APP_VERSION} (${language})`;
 
 // error messages
 //
