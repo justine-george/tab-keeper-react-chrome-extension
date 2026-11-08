@@ -3,9 +3,9 @@
 // windows.create({tabId}) makes the window from the first tab, so no New Tab is left anywhere. Measured
 // (Chromium 156, ledger probes 1-2): that tab arrives unpinned, out of its group and out of its split,
 // and the window takes focus. Each of those is put back here.
-import { readPlace } from './openNowMoves';
 import { addPinnedStub } from './pinnedTabKeeper';
-import type { GroupLook, MovedTab, MovedTabs, TabPlace } from './openNowMoves';
+import { readPlace } from './tabPlace';
+import type { GroupLook, MovedTab, MovedTabs, TabPlace } from './tabPlace';
 import { isStillOneSplit } from './splitPairMove';
 import type { SplitPair } from './splitPairMove';
 import { createSplitApi, SPLIT_VIEW_ID_NONE } from './splitView';
