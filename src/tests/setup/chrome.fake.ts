@@ -1173,6 +1173,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   // tab, active, with no New Tab. On the way the tab is unpinned, leaves its group (a group it empties goes) and
   // ends its split (the other half stays behind); the old window picks its next front tab, and closes if emptied.
   // `focused: true` takes focus (getLastFocused names it). Not modelled: a url alongside the tabId.
+  // Probe 3 (incognito allowed): without `incognito: true` an incognito tab is refused, "Tabs can only be moved
+  // between windows in the same profile."; with it the window is incognito.
   const createAround = (
     data: chrome.windows.CreateData,
     cb?: (win?: chrome.windows.Window | null) => void
@@ -1187,13 +1189,20 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       return fail<chrome.windows.Window>(`No tab with id: ${data.tabId}.`, cb);
     }
     const fromWindowId = target.windowId;
-    const from = windows.find((win) => win.id === fromWindowId);
+    const incognito = data.incognito ?? false;
+    // Probe 3: the window is made in the profile `incognito` names, and a tab of the other one is refused.
+    if (
+      (windows.find((win) => win.id === fromWindowId)?.incognito ?? false) !==
+      incognito
+    ) {
+      return fail<chrome.windows.Window>(OTHER_PROFILE, cb);
+    }
     const created = {
       id: nextId++,
       focused: false,
       type: data.type ?? 'normal',
       state: data.state ?? 'normal',
-      incognito: from?.incognito ?? false,
+      incognito,
     } as unknown as chrome.windows.Window;
     const windowId = created.id as number;
     endSplit(target);

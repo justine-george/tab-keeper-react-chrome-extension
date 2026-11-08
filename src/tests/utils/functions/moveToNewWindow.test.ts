@@ -136,6 +136,27 @@ describe('moveIntoNewWindow: a tab', () => {
     expect(await strip(1)).toEqual(['11*', '13g5']);
   });
 
+  test('an incognito tab moves into a new incognito window', async () => {
+    handle = seed({
+      incognitoAllowed: true,
+      windows: [
+        {
+          id: 1,
+          incognito: true,
+          tabs: [{ id: 11, active: true }, { id: 12 }],
+        },
+        { id: 2, tabs: [{ id: 21, active: true }] },
+      ],
+    });
+
+    const result = await moveIntoNewWindow({ kind: 'tab', tabId: 12 }, true);
+
+    expect(result).not.toBeNull();
+    const made = await chrome.windows.get(result?.windowId ?? -1);
+    expect(made.incognito).toBe(true);
+    expect(await strip(made.id ?? -1)).toEqual(['12*']);
+  });
+
   test('records each tab before and after', async () => {
     handle = seed();
 

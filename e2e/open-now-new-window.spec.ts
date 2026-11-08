@@ -51,9 +51,8 @@ async function middleOf(el: Locator) {
   return { x: b.x + Math.min(80, b.width / 2), y: b.y + b.height / 2 };
 }
 
-// The header's title: on the header, clear of its controls.
-const headerAim = (page: Page) =>
-  middleOf(page.locator(`${OPEN_NOW} [data-open-now-header] h2`));
+// The header's New window box, drawn from pick-up in place of the toolbar.
+const headerAim = (page: Page) => middleOf(page.locator(HEADER_BOX));
 
 const windowIds = (worker: Worker) =>
   worker.evaluate(async () =>
@@ -319,6 +318,51 @@ test.describe('a live tab let go on a box moves into a new window', () => {
     expect(await rowBoxes(page, held)).toEqual(atPickUp);
     await page.keyboard.press('Escape');
     await page.mouse.up();
+  });
+
+  test('while the box below is lit the rows do not move', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const live = await openLiveWindow(worker, ['A', 'B', 'C', 'D']);
+    const page = await setUp(context, extensionId);
+    await expect(liveRow(page, live.idOf('D'))).toBeVisible();
+    const held = live.idOf('B');
+
+    await pickUp(page, liveHandle(page, held));
+    await page.waitForTimeout(400);
+    const atPickUp = await rowBoxes(page, held);
+    await carryTo(page, await middleOf(page.locator(LAST_BOX)));
+    await expect(page.locator(LAST_BOX)).toHaveAttribute('data-landing', '');
+    await page.waitForTimeout(400);
+
+    expect(await rowBoxes(page, held)).toEqual(atPickUp);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  test('released on the search row, above the list: nothing moves', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const live = await openLiveWindow(worker, ['A', 'B', 'C']);
+    const page = await setUp(context, extensionId);
+    await expect(liveRow(page, live.idOf('C'))).toBeVisible();
+    const before = await windowIds(worker);
+    const search = page.getByPlaceholder('Search open tabs');
+
+    await pickUp(page, liveHandle(page, live.idOf('B')));
+    await carryTo(page, await middleOf(search));
+    await expect(page.locator(HEADER_BOX)).not.toHaveAttribute('data-landing');
+    await page.mouse.up();
+
+    await page.waitForTimeout(500);
+    expect(await windowIds(worker)).toEqual(before);
+    expect(await ids(worker, live.windowId)).toEqual(
+      ['A', 'B', 'C'].map(live.idOf)
+    );
   });
 
   test('a pinned tab stays pinned', async ({

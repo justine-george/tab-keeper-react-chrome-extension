@@ -1338,13 +1338,13 @@ export async function runLiveStep(
   // The look is only read or set with the grant, and chrome.tabGroups is
   // absent without it.
   const withLook = hasTabGroups && Boolean(chrome.tabGroups);
+  const { madeWindow } = drop;
   if (
     direction === 'redo' &&
-    drop.madeWindow !== undefined &&
-    (await attempt(() => chrome.windows.get(drop.madeWindow as number))) ===
-      REFUSED
+    madeWindow !== undefined &&
+    (await attempt(() => chrome.windows.get(madeWindow))) === REFUSED
   ) {
-    return remakeWindow(drop, drop.madeWindow, hasTabGroups);
+    return remakeWindow(drop, madeWindow, hasTabGroups);
   }
   const run = direction === 'undo' ? drop : reversed(drop);
   const outcome = await moveToBefore(run, withLook);

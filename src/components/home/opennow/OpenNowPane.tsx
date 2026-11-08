@@ -472,30 +472,50 @@ export default function OpenNowPane({
   // new window. Set in the drag's own task, before the engine measures
   // (onHeldChange), so the New window boxes drawn for it are laid out in the
   // frame it measures.
-  const [livesNewWindow, setLivesNewWindow] = useState(false);
+  const [heldOffersNewWindow, setHeldOffersNewWindow] = useState(false);
 
   const drop = useOpenNowDrop({
     windows: listed,
     hasTabGroups: hasTabGroupsPermission,
     collapsedIds: foldedIds,
     carriedIn,
-    liveNewWindow: carriedIn === null && livesNewWindow,
+    liveNewWindow: carriedIn === null && heldOffersNewWindow,
   });
   const { offersNewWindow } = drop;
   const onHeldChange = useCallback(
     (rowId: string | undefined) => {
-      if (rowId === undefined) setLivesNewWindow(false);
-      else if (offersNewWindow(rowId)) flushSync(() => setLivesNewWindow(true));
+      if (rowId === undefined) setHeldOffersNewWindow(false);
+      else if (offersNewWindow(rowId))
+        flushSync(() => setHeldOffersNewWindow(true));
     },
     [offersNewWindow]
   );
   // A live row that may go to a new window gets both boxes, as a saved carry does.
-  const showsNewWindow = carriedIn !== null || livesNewWindow;
+  const showsNewWindow = carriedIn !== null || heldOffersNewWindow;
   const drawsNewWindowBlock =
-    carriedIn !== null || drawsWindowBlock || livesNewWindow;
-  const liveHeaderLanding = useMemo(
-    () => ({ ...headerLanding, offers: offersNewWindow }),
-    [headerLanding, offersNewWindow]
+    carriedIn !== null || drawsWindowBlock || heldOffersNewWindow;
+  // KAN-949. A live row lands as New window on the drawn header box alone, not
+  // on the whole header a saved carry lands on: a release over the search row,
+  // just above the list, moves nothing (KAN-472).
+  const liveNewWindowLandings = useMemo(
+    () => ({
+      header: {
+        windowId: OPEN_NOW_HEADER_NEW_WINDOW,
+        measure: () => {
+          const box = paneRef.current
+            ?.querySelector(
+              `[data-new-window-target="${OPEN_NOW_FIRST_TARGET}"]`
+            )
+            ?.getBoundingClientRect();
+          if (box === undefined) return null;
+          return (x: number, y: number) =>
+            x >= box.left && x < box.right && y >= box.top && y < box.bottom;
+        },
+      },
+      endWindowId: OPEN_NOW_NEW_WINDOW,
+      offers: offersNewWindow,
+    }),
+    [offersNewWindow]
   );
 
   const toggleWindow = (id: number) =>
@@ -1290,7 +1310,7 @@ export default function OpenNowPane({
                 }
                 onLandingWindowChange={onCarriedLanding}
                 adoptedHeaderLanding={headerLanding}
-                liveHeaderLanding={liveHeaderLanding}
+                liveNewWindowLandings={liveNewWindowLandings}
                 onHeldChange={onHeldChange}
                 // KAN-280 Part F. Copied out to the saved side, beside the pane (P1); a card from pick-up (KAN-611).
                 // KAN-610: under the saved search nothing goes to the saved side; the drag stays in Open now.
@@ -1316,7 +1336,7 @@ export default function OpenNowPane({
                   }
                   onLandingWindowChange={onCarriedLanding}
                   adoptedHeaderLanding={headerLanding}
-                  liveHeaderLanding={liveHeaderLanding}
+                  liveNewWindowLandings={liveNewWindowLandings}
                   onHeldChange={onHeldChange}
                   carryOut={isSavedSearching ? undefined : carryGroupOut}
                   handsOffOutside={openNowRegion}
@@ -1375,7 +1395,7 @@ export default function OpenNowPane({
                   })}
                   {drawsNewWindowBlock && (
                     <OpenNowNewWindowBlock
-                      liveCarry={carriedIn === null && livesNewWindow}
+                      forLiveRow={carriedIn === null && heldOffersNewWindow}
                       phantom={
                         carriedIn === null
                           ? null

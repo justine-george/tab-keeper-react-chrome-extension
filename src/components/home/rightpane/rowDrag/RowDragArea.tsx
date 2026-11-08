@@ -463,13 +463,14 @@ interface LiveDrag {
   isOnNewFirstWindow: ((x: number, y: number) => boolean) | null;
   // The window a point on it lands as: NEW_FIRST_WINDOW, or an adopted
   // drag's header landing (adoptedHeaderLanding, KAN-815), or a list's own
-  // (liveHeaderLanding, KAN-949).
+  // (liveNewWindowLandings, KAN-949).
   newFirstWindowId: string;
   // KAN-949. onHeldChange was told this drag's row, so its end tells it the drag is over.
   toldHeld: boolean;
-  // KAN-949. The header box is this list's own (liveHeaderLanding): a landing that makes a new window leaves the
-  // room where the row was, so nothing moves while the user aims (spec 11).
-  roomStaysForNewWindow: boolean;
+  // KAN-949. The windows this list's own New window boxes land as (liveNewWindowLandings), for a held row it
+  // offers them to: a landing on one leaves the room where the row was, so nothing moves while the user aims
+  // (spec 11). Empty for every other drag.
+  ownNewWindowIds: readonly string[];
   // KAN-280 Part F (P1). Whether a point is left or right of handsOffOutside's box, read at activation; null without it.
   besidePane: ((x: number) => boolean) | null;
   // KAN-944. The list fit at pick-up and scrolls only for the room this drag
@@ -590,7 +591,7 @@ function pressRecord(
     isOnNewFirstWindow: null,
     newFirstWindowId: NEW_FIRST_WINDOW,
     toldHeld: false,
-    roomStaysForNewWindow: false,
+    ownNewWindowIds: [],
     besidePane: null,
     fitsWithoutRoom: false,
     dropTarget: undefined,
@@ -638,7 +639,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   onLandingWindowChange,
   offersNewWindow = false,
   adoptedHeaderLanding,
-  liveHeaderLanding,
+  liveNewWindowLandings,
   onHeldChange,
   keepWindowOpen,
   disabled = false,
@@ -1283,11 +1284,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       dwellOn(l, dwellTarget(l, block, landing));
 
       // KAN-949 (spec 11). A list's own drag on a New window box it draws for
-      // itself (liveHeaderLanding) is previewed as going nowhere: the room it
+      // itself (liveNewWindowLandings) is previewed as going nowhere: the room it
       // left stays open where it was, so nothing moves while the user aims.
       // The release still lands as a new window, and the box is still lit.
       const previewed =
-        l.roomStaysForNewWindow && makesNewWindow(l, landing?.windowId)
+        landing?.windowId !== undefined &&
+        l.ownNewWindowIds.includes(landing.windowId)
           ? undefined
           : landing;
 
@@ -1822,17 +1824,17 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // receivers above, and AFTER the marker that draws it: a target that
       // is not drawn is no landing, so read before the marker it would
       // never be one.
-      const header = l.adopted
-        ? adoptedHeaderLanding
-        : liveHeaderLanding?.offers(l.rowId) === true
-          ? liveHeaderLanding
+      const own =
+        !l.adopted && liveNewWindowLandings?.offers(l.rowId) === true
+          ? liveNewWindowLandings
           : undefined;
+      const header = l.adopted ? adoptedHeaderLanding : own?.header;
       l.isOnNewFirstWindow = offersNewWindow
         ? measureNewFirstWindowTarget(document)
         : (header?.measure() ?? null);
       l.newFirstWindowId = header?.windowId ?? NEW_FIRST_WINDOW;
-      l.roomStaysForNewWindow =
-        !l.adopted && header !== undefined && header === liveHeaderLanding;
+      l.ownNewWindowIds =
+        own === undefined ? [] : [own.header.windowId, own.endWindowId];
       // P1. The sides of the box the list hands off outside, read once like the receivers.
       // A box with no width is not laid out: it has no sides to cross.
       const paneBox = handsOffOutside?.()?.getBoundingClientRect();
@@ -2625,7 +2627,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     onLandingWindowChange,
     offersNewWindow,
     adoptedHeaderLanding,
-    liveHeaderLanding,
+    liveNewWindowLandings,
     onHeldChange,
     keepWindowOpen,
     clampDropToEnds,

@@ -14,7 +14,7 @@ import { createSplitApi, SPLIT_VIEW_ID_NONE } from './splitView';
 export type NewWindowMove =
   | { kind: 'tab'; tabId: number }
   | { kind: 'pair'; pair: SplitPair }
-  | { kind: 'group'; tabIds: [number, ...number[]]; look: GroupLook | null };
+  | { kind: 'group'; tabIds: [number, ...number[]]; look: GroupLook };
 
 const NO_GROUP = -1;
 
@@ -71,7 +71,7 @@ async function canStart(
 ): Promise<boolean> {
   if (move.kind === 'pair') return isStillOneSplit(move.pair);
   if (move.kind === 'tab') return (await readTab(move.tabId)) !== null;
-  if (!hasTabGroups || !chrome.tabGroups || move.look === null) return false;
+  if (!hasTabGroups || !chrome.tabGroups) return false;
   const head = await readTab(move.tabIds[0]);
   return head !== null && isTheWholeGroup(head, move.tabIds);
 }
@@ -171,6 +171,13 @@ export async function moveIntoNewWindow(
   const head = await readTab(first);
   if (head === null) return null;
   const { pinned } = head;
+  // The profile the window is made in: its own window's (probe 3).
+  let incognito: boolean;
+  try {
+    incognito = (await chrome.windows.get(head.windowId)).incognito;
+  } catch {
+    return null;
+  }
   const group: GroupBefore | null =
     move.kind === 'group'
       ? {
@@ -182,7 +189,12 @@ export async function moveIntoNewWindow(
 
   let windowId: number;
   try {
-    const made = await chrome.windows.create({ tabId: first, focused: true });
+    // Probe 3: without `incognito`, an incognito tab is refused as another profile's.
+    const made = await chrome.windows.create({
+      tabId: first,
+      focused: true,
+      incognito,
+    });
     if (made?.id === undefined) return null;
     windowId = made.id;
   } catch {
@@ -192,7 +204,6 @@ export async function moveIntoNewWindow(
   const broughtRest =
     move.kind === 'group'
       ? group !== null &&
-        move.look !== null &&
         (await bringGroup(move.tabIds, move.look, windowId, group))
       : await bringTheRest(move, windowId, pinned);
   if (!broughtRest) return null;

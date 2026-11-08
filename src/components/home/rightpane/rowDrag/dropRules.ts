@@ -534,7 +534,7 @@ export interface RowDragAreaProps {
    * OPT-IN, not keyed on the kind: only the saved detail's tab and item
    * lists pass it. A window drag makes no new window. Open now's lists never
    * pass it: they draw their own boxes for the rows that may go to a new
-   * window (liveHeaderLanding, onHeldChange; KAN-949).
+   * window (liveNewWindowLandings, onHeldChange; KAN-949).
    */
   offersNewWindow?: boolean;
   /**
@@ -549,14 +549,19 @@ export interface RowDragAreaProps {
     measure: () => ((x: number, y: number) => boolean) | null;
   };
   /**
-   * KAN-949. For this list's OWN drags, as adoptedHeaderLanding is for an
-   * adopted one: read once at activation, when `offers(rowId)` says the held
-   * row may go to a new window. A point on it lands as `windowId` and is never
-   * a hand-off.
+   * KAN-949. The New window boxes a list draws for its OWN drags, read once at
+   * activation when `offers(rowId)` says the held row may go to a new window:
+   * `header` as adoptedHeaderLanding is for an adopted drag (a point on it
+   * lands as its `windowId`, never a hand-off), and `endWindowId`, the window
+   * the list's box below its last window lands as. A landing on either leaves
+   * the held row's room where it was (spec 11).
    */
-  liveHeaderLanding?: {
-    windowId: string;
-    measure: () => ((x: number, y: number) => boolean) | null;
+  liveNewWindowLandings?: {
+    header: {
+      windowId: string;
+      measure: () => ((x: number, y: number) => boolean) | null;
+    };
+    endWindowId: string;
     offers: (rowId: string) => boolean;
   };
   /**

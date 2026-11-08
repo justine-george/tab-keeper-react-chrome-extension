@@ -29,12 +29,12 @@ interface Props {
   phantom: { rowId: string; kind: 'tab' | 'group'; pair: boolean } | null;
   // KAN-949. A live tab, pair or group of Currently open is held: drawn as for a carried tab (mock r1 A), a blank
   // row in the list until lit, with no phantom (the row is the list's own).
-  liveCarry?: boolean;
+  forLiveRow?: boolean;
 }
 
 export default function OpenNowNewWindowBlock({
   phantom,
-  liveCarry = false,
+  forLiveRow = false,
 }: Props) {
   const COLORS = useThemeColors();
   const { t } = useTranslation();
@@ -64,7 +64,7 @@ export default function OpenNowNewWindowBlock({
           }
         `,
         phantom === null &&
-          !liveCarry &&
+          !forLiveRow &&
           css`
             position: sticky;
             bottom: 0;
