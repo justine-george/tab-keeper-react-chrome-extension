@@ -3,24 +3,34 @@ import type { TabMasterContainer } from './tabContainerDataStateSlice';
 import { initialState as tabContainerDataInitialState } from './tabContainerInitialState';
 import type { RootState } from '../store';
 import { STACK_LEVEL } from '../../utils/constants/common';
-import type { OpenNowDrop } from '../../utils/functions/openNowMoves';
+import {
+  isOpenedCopy,
+  renameIds,
+  type LiveDrop,
+  type RenamedIds,
+} from '../../utils/functions/openedCopy';
 
-// An Open now move (sort or drag) that sits in the same history as saved edits
-// (KAN-744). `id` comes from nextActionNumber().
+// An Open now move (sort or drag), or a saved copy dropped into Currently open
+// (KAN-893), that sits in the same history as saved edits (KAN-744). `id`
+// comes from nextActionNumber().
 export interface LiveStep {
   id: number;
-  drop: OpenNowDrop;
+  drop: LiveDrop;
 }
 
 // Immer drafts are mutable, and a drop's `moved` is readonly; copying the array
 // is how a step gets into the draft without a cast.
 function writable(step: LiveStep) {
+  const { drop } = step;
+  if (isOpenedCopy(drop)) {
+    return { id: step.id, drop: { ...drop, tabs: [...drop.tabs] } };
+  }
   return {
     id: step.id,
     drop: {
-      kind: step.drop.kind,
-      moved: [...step.drop.moved],
-      pagesBefore: step.drop.pagesBefore && [...step.drop.pagesBefore],
+      kind: drop.kind,
+      moved: [...drop.moved],
+      pagesBefore: drop.pagesBefore && [...drop.pagesBefore],
     },
   };
 }
@@ -196,8 +206,13 @@ export const undoRedoSlice = createSlice({
         tabContainerDataState: state.present.tabContainerDataState,
       };
     },
-    liveStepRedone: (state, action: PayloadAction<LiveStep>) => {
-      if (state.future[0]?.liveStep?.id !== action.payload.id) return;
+    // KAN-893. `renamed`: a redo that opened new tabs; the steps still to redo get their ids.
+    liveStepRedone: (
+      state,
+      action: PayloadAction<LiveStep & { renamed?: RenamedIds }>
+    ) => {
+      const { renamed, ...step } = action.payload;
+      if (state.future[0]?.liveStep?.id !== step.id) return;
       state.past.push(state.present);
       if (state.past.length > STACK_LEVEL) {
         state.past.shift();
@@ -205,9 +220,17 @@ export const undoRedoSlice = createSlice({
       state.present = {
         tabContainerDataState: state.present.tabContainerDataState,
         addedTabGroupIds: [],
-        liveStep: writable(action.payload),
+        liveStep: writable(step),
       };
       state.future.shift();
+      if (renamed === undefined) return;
+      for (const later of state.future) {
+        if (later.liveStep === undefined) continue;
+        later.liveStep = writable({
+          id: later.liveStep.id,
+          drop: renameIds(later.liveStep.drop, renamed),
+        });
+      }
     },
     liveStepDropped: (state, action: PayloadAction<{ id: number }>) => {
       const { id } = action.payload;

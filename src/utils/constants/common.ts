@@ -142,6 +142,9 @@ export const TOAST_MESSAGES = {
   REDO_REFUSED_MOVE: 'RedoRefusedMove',
   UNDO_REFUSED_WINDOW_CLOSED: 'UndoRefusedWindowClosed',
   REDO_REFUSED_WINDOW_CLOSED: 'RedoRefusedWindowClosed',
+  // KAN-893. A drop into Currently open.
+  UNDO_REFUSED_DROP: 'UndoRefusedDrop',
+  REDO_REFUSED_DROP_WINDOW_CLOSED: 'RedoRefusedDropWindowClosed',
   // KAN-811. A drop that changed a saved tab's pin.
   TAB_PINNED: 'TabPinned',
   TAB_UNPINNED: 'TabUnpinned',

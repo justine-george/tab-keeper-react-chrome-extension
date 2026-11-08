@@ -128,7 +128,7 @@ describe('addPinnedStub / ensurePinnedStub', () => {
       refusedUrls: [STUB],
     });
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    await expect(addPinnedStub(5)).resolves.toBeUndefined();
+    await expect(addPinnedStub(5)).resolves.toBeNull();
     expect(warn).toHaveBeenCalled();
     expect(await tabsOf(5)).toEqual([
       { url: web('a'), pinned: false, active: true },

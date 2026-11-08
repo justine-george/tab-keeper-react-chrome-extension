@@ -798,7 +798,8 @@ describe('a saved item carried in', () => {
     await expect(done).resolves.toBe('copied');
     expect(handle?.createdTabs).toHaveLength(1);
     expect(moveOpenTab).not.toHaveBeenCalled();
-    expect(selectLiveStepOnTop(store.getState())).toBeNull();
+    // KAN-893. Not a move: its undo step closes the copy.
+    expect(selectLiveStepOnTop(store.getState())?.drop.kind).toBe('opened');
   });
 
   // KAN-850. Nothing will be drawn at the slot: the rows ease back.

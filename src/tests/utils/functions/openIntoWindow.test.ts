@@ -97,7 +97,13 @@ const nameOf = (t: chrome.tabs.Tab) => {
 const strip = async (windowId: number) =>
   (await tabsOf(windowId)).map((t) => nameOf(t).replace('~', ''));
 
-const none = { ids: [], leftOut: 0, alreadyOpen: [] };
+const none = {
+  ids: [],
+  savedTabIds: [],
+  leftOut: 0,
+  alreadyOpen: [],
+  madeWindows: [],
+};
 
 const windowIds = async () =>
   (await chrome.windows.getAll({ windowTypes: ['normal', 'popup'] })).map(
@@ -160,6 +166,26 @@ describe('placement', () => {
     );
     expect(await strip(1)).toEqual(['p0', 'a', 'b', 's0', 's2']);
     expect(ids).toHaveLength(2);
+  });
+
+  // KAN-893. A drop's redo opens again exactly the saved tabs it opened.
+  test('names the saved tab behind each id, refused and left-out ones left out', async () => {
+    handle = setupChromeFake(seed({ refusedUrls: [OTHER_EXTENSION] }));
+    const answer = await openIntoWindow(
+      req(
+        [
+          spec([
+            tab('s0'),
+            tab('x', { url: OTHER_EXTENSION }),
+            tab('a'),
+            tab('p1', { pinned: true }),
+          ]),
+        ],
+        { skipTabsAlreadyOpen: true }
+      )
+    );
+    expect(answer.savedTabIds).toEqual(['p1', 's0']);
+    expect(answer.ids).toHaveLength(2);
   });
 
   // Chrome (and the fake) clamp a pinned slot past the run, so the slot asked for is the rule.
@@ -414,10 +440,11 @@ describe('incognito', () => {
     expect(order).toEqual(['window', 'tab here']);
   });
 
-  test('every saved window of the other kind: nothing lands here and the answer is empty', async () => {
+  test('every saved window of the other kind: nothing lands here and the answer names only the window opened apart', async () => {
     handle = setupChromeFake(seed({ incognitoAllowed: true }));
     const answer = await openIntoWindow(req([inc]));
-    expect(answer).toEqual(none);
+    expect({ ...answer, madeWindows: [] }).toEqual(none);
+    expect(answer.madeWindows).toHaveLength(1);
     expect(await strip(1)).toEqual(['p0', 'a', 'b']);
     expect(await windowIds()).toHaveLength(3);
   });
@@ -435,6 +462,36 @@ describe('falls back to new windows', () => {
     const { ids } = await openIntoWindow(req(saved, { windowId: 999 }));
     expect(ids).toEqual([]);
     expect(await newWindowTabs()).toEqual([['s0', 's1']]);
+  });
+
+  // KAN-893. Its undo closes that window, so the answer names it.
+  test('answers the window it made instead, with its tabs', async () => {
+    handle = setupChromeFake(seed());
+    const answer = await openIntoWindow(
+      req(saved, { windowId: 999, pinTabKeeper: true })
+    );
+    expect(answer.ids).toEqual([]);
+    expect(answer.madeWindows).toHaveLength(1);
+    const [made] = answer.madeWindows;
+    const tabs = await tabsOf(made.windowId);
+    expect(made.stubTabId).toBe(tabs[0].id);
+    expect(made.tabIds).toEqual(tabs.slice(1).map((t) => t.id));
+    expect(isOpenIntoWindowAnswer(answer)).toBe(true);
+  });
+
+  test('when the first tab is refused with the window gone: the made window is answered too', async () => {
+    handle = setupChromeFake(seed());
+    const fake = handle;
+    vi.spyOn(
+      chrome.extension,
+      'isAllowedIncognitoAccess'
+    ).mockImplementationOnce(() => {
+      fake.browser.closeWindow(1);
+      return Promise.resolve(false);
+    });
+    const answer = await openIntoWindow(req(saved));
+    expect(answer.madeWindows).toHaveLength(1);
+    expect(answer.madeWindows[0].tabIds).toHaveLength(2);
   });
 
   test('when this window cannot hold tabs (a popup or app window)', async () => {
@@ -553,8 +610,14 @@ describe('the message', () => {
     ).toBe(false);
   });
 
-  test('isOpenIntoWindowAnswer accepts only ids, a count and ids', () => {
-    const ok = { ids: [1], leftOut: 0, alreadyOpen: [2] };
+  test('isOpenIntoWindowAnswer accepts only ids, a count, ids and made windows', () => {
+    const ok = {
+      ids: [1],
+      savedTabIds: ['s1'],
+      leftOut: 0,
+      alreadyOpen: [2],
+      madeWindows: [{ windowId: 3, tabIds: [4], stubTabId: null }],
+    };
     expect(isOpenIntoWindowAnswer(ok)).toBe(true);
     expect(isOpenIntoWindowAnswer([1, 2])).toBe(false);
     expect(isOpenIntoWindowAnswer(null)).toBe(false);
@@ -563,6 +626,16 @@ describe('the message', () => {
     expect(isOpenIntoWindowAnswer({ ...ok, alreadyOpen: undefined })).toBe(
       false
     );
+    expect(isOpenIntoWindowAnswer({ ...ok, madeWindows: undefined })).toBe(
+      false
+    );
+    expect(isOpenIntoWindowAnswer({ ...ok, savedTabIds: [1] })).toBe(false);
+    expect(
+      isOpenIntoWindowAnswer({
+        ...ok,
+        madeWindows: [{ windowId: 3, tabIds: ['4'], stubTabId: null }],
+      })
+    ).toBe(false);
   });
 
   test('the worker answers with the created ids', async () => {
@@ -575,8 +648,10 @@ describe('the message', () => {
     const added = (await tabsOf(1)).slice(3);
     expect(answer).toEqual({
       ids: added.map((t) => t.id),
+      savedTabIds: ['s0', 's1'],
       leftOut: 0,
       alreadyOpen: [],
+      madeWindows: [],
     });
     expect(added.map(nameOf)).toEqual(['s0', '~s1']);
   });
@@ -618,7 +693,13 @@ describe('skip tabs already open', () => {
       })
     );
     expect(create).not.toHaveBeenCalled();
-    expect(answer).toEqual({ ids: [], leftOut: 2, alreadyOpen: [12, 10] });
+    expect(answer).toEqual({
+      ids: [],
+      savedTabIds: [],
+      leftOut: 2,
+      alreadyOpen: [12, 10],
+      madeWindows: [],
+    });
     const active = (await tabsOf(1)).find((t) => t.active);
     expect(active?.id).toBe(12);
     expect((await chrome.windows.get(1)).focused).toBe(true);
@@ -722,7 +803,8 @@ describe('skip tabs already open', () => {
     const answer = await openIntoWindow(
       req([spec([tab('a'), tab('s1')])], { ...skip, windowId: 999 })
     );
-    expect(answer).toEqual(none);
+    expect({ ...answer, madeWindows: [] }).toEqual(none);
+    expect(answer.madeWindows[0]?.tabIds).toHaveLength(2);
     const all = await chrome.windows.getAll({ populate: true });
     const fresh = all.filter((w) => w.id !== 1 && w.id !== 2);
     expect(fresh.map((w) => (w.tabs ?? []).length)).toEqual([2]);

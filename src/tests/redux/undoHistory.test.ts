@@ -14,6 +14,7 @@ vi.mock('../../utils/functions/external', () => ({
 
 import {
   keepLiveStep,
+  keepOpenedStep,
   redoStep,
   tabMovesInFlight,
   undoStep,
@@ -34,6 +35,9 @@ import {
 import { toOpenWindows } from '../../utils/functions/openNow';
 import type { OpenWindow } from '../../utils/functions/openNow';
 import { moveOpenTab } from '../../utils/functions/openNowMoves';
+import { openTabCopy } from '../../utils/functions/openCopies';
+import { recordOpened } from '../../utils/functions/runOpenedCopy';
+import type { OpenedCopy } from '../../utils/functions/openedCopy';
 import type { OpenNowDrop } from '../../utils/functions/openNowMoves';
 import type { TabMove } from '../../components/home/rightpane/rowDrag/dropRules';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
@@ -495,5 +499,99 @@ describe('keepLiveStep', () => {
 
     expect(id).not.toBeNull();
     expect(s.store.getState().undoRedo.present.liveStep?.id).toBe(id);
+  });
+});
+
+// KAN-893. A saved tab dropped into window 1 at slot 1, kept as a step.
+describe('a drop into Currently open', () => {
+  const dropAndKeep = async (
+    s: ReturnType<typeof setup>
+  ): Promise<OpenedCopy> => {
+    const saved = {
+      tabId: 'z',
+      favicon: '',
+      title: 'z',
+      url: 'https://z.test/',
+    };
+    const id = await openTabCopy(saved, {
+      windowId: 1,
+      index: 1,
+      pinned: false,
+    });
+    const step: OpenedCopy = {
+      kind: 'opened',
+      tabs: await recordOpened([id], [saved], true),
+      group: null,
+      madeWindow: null,
+      reopen: { at: 'slot', windowId: 1, index: 1, groupId: null },
+      goToURLText: 'Visit Site',
+    };
+    if (keepOpenedStep(s.store.dispatch, step) === null) {
+      throw new Error('PREMISE: the drop was not kept');
+    }
+    return step;
+  };
+  const urls = async (windowId: number) =>
+    (await chrome.tabs.query({ windowId }))
+      .sort((a, b) => a.index - b.index)
+      .map((t) => t.url);
+
+  test('undo closes it and redo opens it again, with no toast', async () => {
+    handle = setupChromeFake(seed);
+    const s = setup();
+    await dropAndKeep(s);
+    expect(await s.undoing()).toBe('live');
+    expect(await urls(1)).not.toContain('https://z.test/');
+    expect(await s.redoing()).toBe('live');
+    expect((await urls(1))[1]).toBe('https://z.test/');
+    expect(toastTexts(s.store.getState())).toEqual([]);
+  });
+
+  test('a refused undo shows the drop string and leaves the history', async () => {
+    handle = setupChromeFake(seed);
+    const s = setup();
+    s.rename();
+    const step = await dropAndKeep(s);
+    await chrome.tabs.move(step.tabs[0].tabId, { windowId: 2, index: 0 });
+
+    expect(await s.undoing()).toBe('refused');
+    expect(newestToast(s.store.getState())?.text).toBe(
+      TOAST_MESSAGES.UNDO_REFUSED_DROP
+    );
+    expect(await s.undoing()).toBe('saved');
+    expect(s.title()).toBe(TITLE_BEFORE);
+  });
+
+  test('a redo with the window gone shows the drop’s window string', async () => {
+    handle = setupChromeFake(seed);
+    const s = setup();
+    await dropAndKeep(s);
+    expect(await s.undoing()).toBe('live');
+    handle.browser.closeWindow(1);
+
+    expect(await s.redoing()).toBe('refused');
+    expect(newestToast(s.store.getState())?.text).toBe(
+      TOAST_MESSAGES.REDO_REFUSED_DROP_WINDOW_CLOSED
+    );
+    expect(s.future()).toBe(0);
+  });
+
+  test('a done redo renames the tab in a later move of it, which then runs', async () => {
+    handle = setupChromeFake(seed);
+    const s = setup();
+    const step = await dropAndKeep(s);
+    await s.dragAndKeep({
+      tabId: String(step.tabs[0].tabId),
+      fromWindowId: '1',
+      toWindowId: '2',
+      toIndex: 0,
+    });
+    expect(await s.undoing()).toBe('live');
+    expect(await s.undoing()).toBe('live');
+    expect(await urls(2)).not.toContain('https://z.test/');
+
+    expect(await s.redoing()).toBe('live');
+    expect(await s.redoing()).toBe('live');
+    expect((await urls(2))[0]).toBe('https://z.test/');
   });
 });

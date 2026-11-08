@@ -163,6 +163,8 @@
   "RedoRefusedMove": "Das Verschieben konnte nicht wiederholt werden. Diese Tabs wurden seitdem verschoben oder geschlossen.",
   "UndoRefusedWindowClosed": "Das Verschieben konnte nicht rückgängig gemacht werden. Das Fenster, aus dem die Tabs kamen, ist geschlossen.",
   "RedoRefusedWindowClosed": "Das Verschieben konnte nicht wiederholt werden. Das Fenster, in das die Tabs verschoben wurden, ist geschlossen.",
+  "UndoRefusedDrop": "Das Ablegen der Tabs konnte nicht rückgängig gemacht werden. Diese Tabs wurden seitdem geändert oder geschlossen.",
+  "RedoRefusedDropWindowClosed": "Das Ablegen der Tabs konnte nicht wiederholt werden. Das Fenster, in dem sie abgelegt wurden, ist geschlossen.",
   "Date saved": "Speicherdatum",
   "Name": "Name",
   "Tab count": "Tab-Anzahl",

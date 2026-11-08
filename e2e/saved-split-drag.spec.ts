@@ -956,9 +956,14 @@ test.describe('a click on a saved pair (KAN-942)', () => {
   }) => {
     const live = await openLiveWindow(worker, ['A']);
     await openApart(worker, live.windowId, [H1, H2]);
-    await expect.poll(async () => (await pairTabs(worker)).length).toBe(2);
-    const [a, b] = await pairTabs(worker);
-    await splitTabs(worker, [a?.id ?? -1, b?.id ?? -1]);
+    // The ids come from the read the poll accepted: a tab's address is briefly "" as it commits.
+    let pair: Awaited<ReturnType<typeof pairTabs>> = [];
+    await expect
+      .poll(async () => (pair = await pairTabs(worker)).length)
+      .toBe(2);
+    const [a, b] = pair;
+    if (a === undefined || b === undefined) throw new Error('no pair');
+    await splitTabs(worker, [a.id, b.id]);
     const page = await open(context, extensionId);
     await expect(liveRow(page, live.idOf('A'))).toBeVisible();
 

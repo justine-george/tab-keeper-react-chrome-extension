@@ -15,6 +15,9 @@ import {
   restoreTargetIndex,
   splitPairs,
   splitRestoredPairs,
+  isIdList,
+  isMadeWindowList,
+  type MadeWindow,
   type TabGroupSpec,
   type WindowSpec,
 } from './windows';
@@ -38,14 +41,14 @@ export interface OpenIntoWindowRequest {
 }
 
 // ids: the tabs created, in merged order. leftOut: saved tabs not opened for the window already having their page; alreadyOpen: the ids of those open copies.
+// savedTabIds: the saved tab behind each of ids. madeWindows: the windows opened instead or apart (KAN-893).
 export interface OpenIntoWindowAnswer {
   ids: number[];
+  savedTabIds: string[];
   leftOut: number;
   alreadyOpen: number[];
+  madeWindows: MadeWindow[];
 }
-
-const isIdList = (value: unknown): value is number[] =>
-  Array.isArray(value) && value.every((id) => typeof id === 'number');
 
 export function isOpenIntoWindowAnswer(
   answer: unknown
@@ -54,15 +57,21 @@ export function isOpenIntoWindowAnswer(
   const candidate = answer as Record<string, unknown>;
   return (
     isIdList(candidate.ids) &&
+    Array.isArray(candidate.savedTabIds) &&
+    candidate.savedTabIds.length === candidate.ids.length &&
+    candidate.savedTabIds.every((id) => typeof id === 'string') &&
     typeof candidate.leftOut === 'number' &&
-    isIdList(candidate.alreadyOpen)
+    isIdList(candidate.alreadyOpen) &&
+    isMadeWindowList(candidate.madeWindows)
   );
 }
 
 export const NOTHING_OPENED: OpenIntoWindowAnswer = {
   ids: [],
+  savedTabIds: [],
   leftOut: 0,
   alreadyOpen: [],
+  madeWindows: [],
 };
 
 export function isOpenIntoWindowRequest(
@@ -151,15 +160,17 @@ export async function openIntoWindow(
 
   const targetWindow = await tabbedWindow(windowId);
   if (targetWindow === null) {
-    await inNewWindows(request.specs);
-    return NOTHING_OPENED;
+    return {
+      ...NOTHING_OPENED,
+      madeWindows: await inNewWindows(request.specs),
+    };
   }
   const { into, apart } = splitByKind(
     request.specs,
     targetWindow.incognito,
     await isIncognitoAllowed()
   );
-  if (apart.length > 0) await inNewWindows(apart);
+  const madeApart = apart.length > 0 ? await inNewWindows(apart) : [];
 
   // With the flag on, one read of the window serves the open pages and, later, the pinned run.
   const liveTabs = request.skipTabsAlreadyOpen
@@ -174,6 +185,7 @@ export async function openIntoWindow(
   const leftOutAnswer = {
     leftOut: skipped.leftOut,
     alreadyOpen: skipped.alreadyOpen,
+    madeWindows: madeApart,
   };
   const merged = skipped.leftOut === 0 ? whole : mergeForWindow(skipped.specs);
   const { tabs, groups } = merged;
@@ -195,7 +207,7 @@ export async function openIntoWindow(
   if (tabs.length === 0) {
     if (skipped.leftOut > 0 && request.activate)
       await bringForward(windowId, openCopyId);
-    return { ids: [], ...leftOutAnswer };
+    return { ids: [], savedTabIds: [], ...leftOutAnswer };
   }
 
   const createSplit = createSplitApi();
@@ -222,8 +234,8 @@ export async function openIntoWindow(
   const firstId = await create(firstTab, 0);
   // Refused with the window gone or unusable: new windows rather than not at all. Refused with it fine: that page alone is skipped.
   if (firstId === undefined && (await tabbedWindow(windowId)) === null) {
-    await inNewWindows(into);
-    return NOTHING_OPENED;
+    const instead = await inNewWindows(into);
+    return { ...NOTHING_OPENED, madeWindows: [...madeApart, ...instead] };
   }
   // mergeForWindow put the pinned first. They go one at a time, each slot
   // known from the last; the rest all at once: Chrome runs one extension's
@@ -255,8 +267,13 @@ export async function openIntoWindow(
   if (createSplit !== null) await splitRestoredPairs(createSplit, pairs, ids);
 
   if (request.activate) await bringForward(windowId, currentId);
+  const made = tabs.flatMap((tab, i) => {
+    const id = ids[i];
+    return id === undefined ? [] : [{ id, savedTabId: tab.tabId }];
+  });
   return {
-    ids: ids.filter((id): id is number => id !== undefined),
+    ids: made.map((m) => m.id),
+    savedTabIds: made.map((m) => m.savedTabId),
     ...leftOutAnswer,
   };
 }

@@ -19,21 +19,31 @@ import {
   clearNewWindowFollow,
   pendingNewWindow,
 } from '../../redux/newWindowFollow';
-import { onTabMovesEnded } from '../../redux/undoHistory';
+import { onTabMovesEnded, undoStep } from '../../redux/undoHistory';
 import {
   restoreContainer,
   toWindowSpec,
   type windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
-import { setSkipTabsAlreadyOpen } from '../../redux/slices/settingsDataStateSlice';
+import {
+  setPinTabKeeperInNewWindows,
+  setSkipTabsAlreadyOpen,
+} from '../../redux/slices/settingsDataStateSlice';
+import { isOpenedCopy } from '../../utils/functions/openedCopy';
+import { openIntoWindow } from '../../utils/functions/openIntoWindow';
+import { restoreSession } from '../../utils/functions/restoreSession';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { subscribeArrival } from '../../utils/functions/arrival';
 import {
   isOpenIntoWindowRequest,
   OPEN_INTO_WINDOW_MESSAGE,
+  type OpenIntoWindowAnswer,
 } from '../../utils/functions/openIntoWindow';
 import { SAMPLE_ID_PREFIX } from '../../utils/functions/sampleSession';
-import { RESTORE_SESSION_MESSAGE } from '../../utils/functions/windows';
+import {
+  isRestoreSessionRequest,
+  RESTORE_SESSION_MESSAGE,
+} from '../../utils/functions/windows';
 import type { RestoreSessionRequest } from '../../utils/functions/windows';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { setupChromeFake } from '../setup/chrome.fake';
@@ -143,6 +153,13 @@ const restores = () =>
     (m): m is RestoreSessionRequest =>
       (m as { type?: unknown }).type === RESTORE_SESSION_MESSAGE
   );
+
+// The worker's answer names a saved tab per id; these tests read only the ids.
+type AnswerWithoutSaved = Omit<OpenIntoWindowAnswer, 'savedTabIds'>;
+const withSaved = (answer: AnswerWithoutSaved): OpenIntoWindowAnswer => ({
+  ...answer,
+  savedTabIds: answer.ids.map((id) => `saved-${id}`),
+});
 
 describe('copyWindowSpec', () => {
   // KAN-853. Every new window comes to the front.
@@ -280,7 +297,7 @@ describe('openCarriedCopy', () => {
       openCarriedCopy(tabItem(), { kind: 'newWindow' }, GO_TO)
     );
 
-    // The worker's restore sends no answer: taken as opened.
+    // Taken as opened at once; the worker's answer only keeps the undo step (KAN-893).
     await expect(asked).resolves.toBe(true);
     expect(restores()).toEqual([
       {
@@ -295,6 +312,7 @@ describe('openCarriedCopy', () => {
         goToURLText: GO_TO,
         closeOtherWindows: false,
         pinTabKeeper: false,
+        answers: true,
       },
     ]);
     expect(store.getState().tabContainerDataState).toEqual(before);
@@ -577,13 +595,20 @@ describe('openCarriedCopy', () => {
     const intoWindows = () =>
       (handle?.sentMessages ?? []).filter(isOpenIntoWindowRequest);
     // The worker's answer, as background.ts sends it.
-    const answerWith = (answer: unknown) =>
+    const answerRaw = (answer: unknown) =>
       chrome.runtime.onMessage.addListener((message, _sender, respond) => {
         if (!isOpenIntoWindowRequest(message)) return false;
         respond(answer);
         return true;
       });
-    const found = (ids: number[]) => ({ ids, leftOut: 0, alreadyOpen: [] });
+    const answerWith = (answer: AnswerWithoutSaved) =>
+      answerRaw(withSaved(answer));
+    const found = (ids: number[]) => ({
+      ids,
+      leftOut: 0,
+      alreadyOpen: [],
+      madeWindows: [],
+    });
     let heard: { windowId: number; tabIds: number[] }[] = [];
     let stopHearing = () => {};
     let ended = 0;
@@ -661,10 +686,17 @@ describe('openCarriedCopy', () => {
       ['no tab ids', found([])],
       ['the old bare list of ids', [31, 32]],
       ['no answer', undefined],
-      ['an answer that is not tab ids', { ...found([]), ids: ['31'] }],
+      [
+        'an answer that is not tab ids',
+        { ...withSaved(found([])), ids: ['31'] },
+      ],
+      [
+        'saved tabs not one per id',
+        { ...withSaved(found([31])), savedTabIds: [] },
+      ],
     ] as const) {
       it(`${what}: not opened here, nothing told, no restore moment`, async () => {
-        answerWith(answer);
+        answerRaw(answer);
         const { store, actions } = ready();
 
         await expect(
@@ -716,10 +748,10 @@ describe('openCarriedCopy with Skip tabs already open', () => {
     actions.filter((a) => a.type.endsWith('setPendingReviewAsk')).length;
   const intoWindows = () =>
     (handle?.sentMessages ?? []).filter(isOpenIntoWindowRequest);
-  const answerWith = (answer: unknown) =>
+  const answerWith = (answer: AnswerWithoutSaved) =>
     chrome.runtime.onMessage.addListener((message, _sender, respond) => {
       if (!isOpenIntoWindowRequest(message)) return false;
-      respond(answer);
+      respond(withSaved(answer));
       return true;
     });
   // Window 1 holds a tab per address, ids 11, 12, ...
@@ -778,7 +810,7 @@ describe('openCarriedCopy with Skip tabs already open', () => {
 
     it('window drop off: today', async () => {
       // Off, the worker leaves nothing out.
-      answerWith({ ids: [31], leftOut: 0, alreadyOpen: [] });
+      answerWith({ ids: [31], leftOut: 0, alreadyOpen: [], madeWindows: [] });
       const { store } = readyOn(false);
 
       await expect(
@@ -791,7 +823,12 @@ describe('openCarriedCopy with Skip tabs already open', () => {
     });
 
     it('window drop leaves some out: arrival on new ids + left-out toast', async () => {
-      answerWith({ ids: [31, 32], leftOut: 2, alreadyOpen: [11] });
+      answerWith({
+        ids: [31, 32],
+        leftOut: 2,
+        alreadyOpen: [11],
+        madeWindows: [],
+      });
       const { store, actions } = readyOn(true);
 
       await expect(
@@ -807,7 +844,12 @@ describe('openCarriedCopy with Skip tabs already open', () => {
     });
 
     it('two window drops that leave some out: two left-out toasts, stacked', async () => {
-      answerWith({ ids: [31, 32], leftOut: 2, alreadyOpen: [11] });
+      answerWith({
+        ids: [31, 32],
+        leftOut: 2,
+        alreadyOpen: [11],
+        madeWindows: [],
+      });
       const { store } = readyOn(true);
 
       await store.dispatch(openCarriedCopy(windowItem, drop, GO_TO));
@@ -820,7 +862,12 @@ describe('openCarriedCopy with Skip tabs already open', () => {
     });
 
     it('window drop all open: arrival on open copies + "these tabs" toast, resolves true, no review moment', async () => {
-      answerWith({ ids: [], leftOut: 5, alreadyOpen: [11, 12] });
+      answerWith({
+        ids: [],
+        leftOut: 5,
+        alreadyOpen: [11, 12],
+        madeWindows: [],
+      });
       const { store, actions } = readyOn(true);
 
       await expect(
@@ -835,7 +882,7 @@ describe('openCarriedCopy with Skip tabs already open', () => {
     });
 
     it('a one-tab window drop all open: "this tab" toast', async () => {
-      answerWith({ ids: [], leftOut: 1, alreadyOpen: [11] });
+      answerWith({ ids: [], leftOut: 1, alreadyOpen: [11], madeWindows: [] });
       const { store } = readyOneTabOn();
 
       await expect(
@@ -852,7 +899,7 @@ describe('openCarriedCopy with Skip tabs already open', () => {
   describe('a window drop with some tabs refused', () => {
     it('is a refusal, not "already there": no toast, no arrival, resolves false', async () => {
       // Two of the five were left out; the rest were refused.
-      answerWith({ ids: [], leftOut: 2, alreadyOpen: [11] });
+      answerWith({ ids: [], leftOut: 2, alreadyOpen: [11], madeWindows: [] });
       const { store } = readyOn(true);
 
       await expect(
@@ -1205,5 +1252,313 @@ describe('copyWindowSpec with a pair (KAN-942)', () => {
     });
     expect(spec?.tabs.map((t) => t.splitId)).toEqual(['sq', 'sq']);
     expect(spec?.tabs.some((t) => t.pinned === true)).toBe(false);
+  });
+});
+
+// KAN-893. Every drop that opened tabs leaves one step naming exactly those.
+describe('openCarriedCopy keeps an undo step', () => {
+  // The worker's two answers, from the worker's own code.
+  const workLikeTheWorker = () =>
+    chrome.runtime.onMessage.addListener((message, _sender, respond) => {
+      if (isOpenIntoWindowRequest(message)) {
+        void openIntoWindow(message).then(respond);
+        return true;
+      }
+      if (isRestoreSessionRequest(message) && message.answers === true) {
+        void restoreSession(message).then(respond);
+        return true;
+      }
+      return false;
+    });
+  const live = (splitView = false) => {
+    handle?.restore();
+    handle = setupChromeFake({
+      splitView,
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 11, url: 'https://x.example/', active: true },
+            { id: 12, url: 'https://y.example/' },
+          ],
+        },
+      ],
+    });
+    workLikeTheWorker();
+  };
+  const stepOf = (store: ReturnType<typeof ready>['store']) => {
+    const drop = store.getState().undoRedo.present.liveStep?.drop;
+    return drop !== undefined && isOpenedCopy(drop) ? drop : undefined;
+  };
+  const steps = (store: ReturnType<typeof ready>['store']) =>
+    [
+      ...store.getState().undoRedo.past,
+      store.getState().undoRedo.present,
+    ].filter((s) => s.liveStep !== undefined).length;
+  const strip = async (windowId: number) =>
+    (await chrome.tabs.query({ windowId }))
+      .sort((a, b) => a.index - b.index)
+      .map((t) => t.id);
+  const slot = { windowId: 1, index: 1, pinned: false };
+
+  it('a tab at a slot: its one tab, where it landed, reopened at that slot', async () => {
+    live();
+    const { store } = ready();
+    await store.dispatch(
+      openCarriedCopy(tabItem(), { kind: 'tab', slot }, GO_TO)
+    );
+    const step = stepOf(store);
+    const [, id] = await strip(1);
+    expect(
+      step?.tabs.map((t) => [t.tabId, t.place.index, t.saved.tabId])
+    ).toEqual([[id, 1, 't2']]);
+    // A lone half opens plain.
+    expect(step?.tabs[0].saved.splitId).toBeUndefined();
+    expect(step?.reopen).toEqual({
+      at: 'slot',
+      windowId: 1,
+      index: 1,
+      groupId: null,
+    });
+    expect(step?.goToURLText).toBe(GO_TO);
+  });
+
+  it('a tab into a live group: the group is where redo opens it', async () => {
+    live();
+    const { store } = ready();
+    await chrome.tabs.group({ groupId: undefined, tabIds: [12] });
+    const [groupId] = (await chrome.tabs.query({ windowId: 1 }))
+      .filter((t) => t.groupId !== -1)
+      .map((t) => t.groupId);
+    await store.dispatch(
+      openCarriedCopy(
+        tabItem(),
+        { kind: 'tab', slot: { ...slot, index: 2, groupId } },
+        GO_TO
+      )
+    );
+    expect(stepOf(store)?.reopen).toEqual({
+      at: 'slot',
+      windowId: 1,
+      index: 2,
+      groupId,
+    });
+  });
+
+  it('a pair at a slot: both halves', async () => {
+    live(true);
+    const { store } = ready();
+    await store.dispatch(
+      openCarriedCopy(
+        savedItem({
+          kind: 'pair',
+          tabGroupId: SESSION,
+          windowId: 'w1',
+          tabId: 't2',
+          partnerTabId: 't3',
+        }),
+        { kind: 'tab', slot },
+        GO_TO
+      )
+    );
+    expect(stepOf(store)?.tabs.map((t) => t.saved.tabId)).toEqual(['t2', 't3']);
+  });
+
+  it('a group at a slot: its tabs and its look', async () => {
+    live();
+    const { store } = ready();
+    await store.dispatch(
+      openCarriedCopy(
+        groupItem,
+        { kind: 'group', slot: { windowId: 1, index: 1 } },
+        GO_TO
+      )
+    );
+    const step = stepOf(store);
+    expect(step?.tabs.map((t) => t.saved.tabId)).toEqual(['ga', 'gb']);
+    expect(step?.group).toEqual({
+      groupId: 'g1',
+      title: 'Work',
+      color: 'blue',
+    });
+    expect(step?.reopen).toEqual({
+      at: 'slot',
+      windowId: 1,
+      index: 1,
+      groupId: null,
+    });
+  });
+
+  it('a window at the end of an open one: its tabs, reopened at that end with only them', async () => {
+    live();
+    const { store } = ready();
+    await store.dispatch(
+      openCarriedCopy(windowItem, { kind: 'intoWindow', windowId: 1 }, GO_TO)
+    );
+    const step = stepOf(store);
+    expect(step?.tabs.map((t) => t.saved.tabId)).toEqual([
+      't1',
+      't2',
+      't3',
+      'ga',
+      'gb',
+    ]);
+    expect(step?.reopen.at).toBe('windowEnd');
+    if (step?.reopen.at !== 'windowEnd') return;
+    expect(step.reopen.windowId).toBe(1);
+    expect(step.reopen.spec.tabs.map((t) => t.tabId)).toEqual([
+      't1',
+      't2',
+      't3',
+      'ga',
+      'gb',
+    ]);
+  });
+
+  it('a window with some pages already there (skip on): only what it opened', async () => {
+    live();
+    const { store } = ready(
+      SESSION,
+      savedWindow({
+        tabs: [
+          { tabId: 'x', favicon: '', title: 'X', url: 'https://x.example/' },
+          { tabId: 'n', favicon: '', title: 'N', url: 'https://n.example/' },
+        ],
+        chromeTabGroups: [],
+      })
+    );
+    store.dispatch(setSkipTabsAlreadyOpen(true));
+    await store.dispatch(
+      openCarriedCopy(windowItem, { kind: 'intoWindow', windowId: 1 }, GO_TO)
+    );
+    const step = stepOf(store);
+    expect(step?.tabs.map((t) => t.saved.tabId)).toEqual(['n']);
+    if (step?.reopen.at !== 'windowEnd') throw new Error('PREMISE');
+    expect(step.reopen.spec.tabs.map((t) => t.tabId)).toEqual(['n']);
+  });
+
+  it('a group with a page already there (skip on): only the tabs it opened', async () => {
+    live();
+    const w = savedWindow();
+    w.tabs = w.tabs.map((tab) =>
+      tab.tabId === 'ga'
+        ? { ...tab, url: 'https://x.example/', splitId: undefined }
+        : { ...tab, splitId: undefined }
+    );
+    const { store } = ready(SESSION, w);
+    store.dispatch(setSkipTabsAlreadyOpen(true));
+    await store.dispatch(
+      openCarriedCopy(
+        groupItem,
+        { kind: 'group', slot: { windowId: 1, index: 1 } },
+        GO_TO
+      )
+    );
+    expect(stepOf(store)?.tabs.map((t) => t.saved.tabId)).toEqual(['gb']);
+  });
+
+  it('a drop whose every page is there, or that Chrome refused, keeps no step', async () => {
+    live();
+    const w = savedWindow();
+    w.tabs = w.tabs.map((tab) =>
+      tab.tabId === 't2' ? { ...tab, url: 'https://x.example/' } : tab
+    );
+    const { store } = ready(SESSION, w);
+    store.dispatch(setSkipTabsAlreadyOpen(true));
+    await store.dispatch(
+      openCarriedCopy(tabItem(), { kind: 'tab', slot }, GO_TO)
+    );
+    await store.dispatch(
+      openCarriedCopy(
+        tabItem('t3'),
+        { kind: 'tab', slot: { ...slot, windowId: 99 } },
+        GO_TO
+      )
+    );
+    expect(steps(store)).toBe(0);
+  });
+
+  it('a New window drop: the window the worker made, with its stub, reopened as a new window', async () => {
+    live();
+    const { store } = ready();
+    store.dispatch(setPinTabKeeperInNewWindows(true));
+    await store.dispatch(
+      openCarriedCopy(groupItem, { kind: 'newWindow' }, GO_TO)
+    );
+    await vi.waitFor(() => expect(stepOf(store)).toBeDefined());
+    const step = stepOf(store);
+    const made = step?.madeWindow;
+    expect(made?.windowId).not.toBe(1);
+    const there = await strip(made?.windowId ?? -1);
+    expect(there).toEqual([
+      made?.stubTabId,
+      ...(step?.tabs.map((t) => t.tabId) ?? []),
+    ]);
+    expect(step?.reopen).toEqual({
+      at: 'newWindow',
+      spec: restores()[0].specs[0],
+    });
+    expect(restores()[0].answers).toBe(true);
+  });
+
+  it('a press while a New window drop waits for its answer is ignored', async () => {
+    const { store } = ready();
+    let answer: (value: unknown) => void = () => {};
+    const late = new Promise<unknown>((resolve) => {
+      answer = resolve;
+    });
+    vi.spyOn(chrome.runtime, 'sendMessage').mockImplementation(() => late);
+    await store.dispatch(
+      openCarriedCopy(tabItem(), { kind: 'newWindow' }, GO_TO)
+    );
+    expect(await store.dispatch(undoStep()).unwrap()).toBe('busy');
+    answer(undefined);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(await store.dispatch(undoStep()).unwrap()).toBe('nothing');
+  });
+
+  it('a New window drop with no answer keeps no step, and does not reject', async () => {
+    const { store } = ready();
+    vi.spyOn(chrome.runtime, 'sendMessage').mockResolvedValue(undefined);
+    await expect(
+      store.dispatch(openCarriedCopy(tabItem(), { kind: 'newWindow' }, GO_TO))
+    ).resolves.toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(steps(store)).toBe(0);
+  });
+
+  it('a New window drop whose worker is gone keeps no step, and does not reject', async () => {
+    const { store } = ready();
+    vi.spyOn(chrome.runtime, 'sendMessage').mockRejectedValue(
+      new Error('gone')
+    );
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await expect(
+      store.dispatch(openCarriedCopy(tabItem(), { kind: 'newWindow' }, GO_TO))
+    ).resolves.toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(steps(store)).toBe(0);
+  });
+
+  it('a window into a window that closed: the new window the worker opened instead, as a New window drop', async () => {
+    live();
+    const { store } = ready();
+    await store.dispatch(
+      openCarriedCopy(windowItem, { kind: 'intoWindow', windowId: 99 }, GO_TO)
+    );
+    const step = stepOf(store);
+    expect(step?.madeWindow?.windowId).toBeDefined();
+    expect(step?.reopen.at).toBe('newWindow');
+    expect(step?.tabs).toHaveLength(5);
+  });
+
+  it('a drop from the sample keeps a step like any other', async () => {
+    live();
+    const sample = `${SAMPLE_ID_PREFIX}tour`;
+    const { store } = ready(sample);
+    await store.dispatch(
+      openCarriedCopy(tabItem('t2', sample), { kind: 'tab', slot }, GO_TO)
+    );
+    expect(stepOf(store)?.tabs).toHaveLength(1);
   });
 });
