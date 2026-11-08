@@ -467,6 +467,9 @@ interface LiveDrag {
   newFirstWindowId: string;
   // KAN-949. onHeldChange was told this drag's row, so its end tells it the drag is over.
   toldHeld: boolean;
+  // KAN-949. The header box is this list's own (liveHeaderLanding): a landing that makes a new window leaves the
+  // room where the row was, so nothing moves while the user aims (spec 11).
+  roomStaysForNewWindow: boolean;
   // KAN-280 Part F (P1). Whether a point is left or right of handsOffOutside's box, read at activation; null without it.
   besidePane: ((x: number) => boolean) | null;
   // KAN-944. The list fit at pick-up and scrolls only for the room this drag
@@ -587,6 +590,7 @@ function pressRecord(
     isOnNewFirstWindow: null,
     newFirstWindowId: NEW_FIRST_WINDOW,
     toldHeld: false,
+    roomStaysForNewWindow: false,
     besidePane: null,
     fitsWithoutRoom: false,
     dropTarget: undefined,
@@ -1278,19 +1282,28 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
 
       dwellOn(l, dwellTarget(l, block, landing));
 
+      // KAN-949 (spec 11). A list's own drag on a New window box it draws for
+      // itself (liveHeaderLanding) is previewed as going nowhere: the room it
+      // left stays open where it was, so nothing moves while the user aims.
+      // The release still lands as a new window, and the box is still lit.
+      const previewed =
+        l.roomStaysForNewWindow && makesNewWindow(l, landing?.windowId)
+          ? undefined
+          : landing;
+
       // The whole preview in the list AS DRAWN, decided once (KAN-166). The
       // shifts, the frame and the landing slot all come off this one pair of
       // indices, so there is no second derivation to disagree with the first --
       // which is exactly how the slot came to be drawn on an occupied row.
       const from = l.slotOfRow[l.fromIndex] ?? l.fromIndex;
       const beside =
-        landing === undefined
+        previewed === undefined
           ? undefined
           : landsBesideFixedRow?.(
               l.rowId,
-              landing.index,
+              previewed.index,
               target,
-              landing.windowId
+              previewed.windowId
             );
       // What the drop REMOVES (KAN-169): a span of fixed rows the list says
       // will not survive this release -- a group's title row and tail marker,
@@ -1303,7 +1316,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       //
       // Asked only where a release lands: a refused one changes nothing, and
       // must not preview a group vanishing (the KAN-172 lesson, again).
-      const removedSpan = removedSpanOf(l, landing, target);
+      const removedSpan = removedSpanOf(l, previewed, target);
       const span =
         removedSpan === undefined
           ? undefined
@@ -1324,10 +1337,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // and a loose row between them makes each keep its own margin instead.
       // Asked only where a release lands, like the removal above.
       const gapChanges =
-        landing === undefined
+        previewed === undefined
           ? []
-          : (gapChangesBy?.(l.rowId, landing.index, target, landing.windowId) ??
-            []);
+          : (gapChangesBy?.(
+              l.rowId,
+              previewed.index,
+              target,
+              previewed.windowId
+            ) ?? []);
       // Each resolved to the band's own title row, which is the first thing
       // the gap above it displaces. A band this list cannot place is dropped
       // rather than guessed at.
@@ -1361,7 +1378,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       const gapCarriedTo = (at: number, landsInsideFixed: boolean) =>
         gapAnchors.reduce(
           (total, { anchor, delta }) =>
-            l.slots[anchor]?.windowId === landing?.windowId &&
+            l.slots[anchor]?.windowId === previewed?.windowId &&
             (at > anchor || (landsInsideFixed && fixedSlot === anchor))
               ? total + delta
               : total,
@@ -1384,9 +1401,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // A) -- see DragState.sourceRoomDelta. Null unless set below.
       let sourceRoomDelta: number | null = null;
       if (
-        landing !== undefined &&
-        landing.windowId !== undefined &&
-        landing.windowId !== l.heldWindow?.dataset.dropWindowId
+        previewed !== undefined &&
+        previewed.windowId !== undefined &&
+        previewed.windowId !== l.heldWindow?.dataset.dropWindowId
       ) {
         // Into ANOTHER window: each window previewed in its own frame, not one
         // range across both (KAN-132) -- see previewShiftsAcross for what the
@@ -1399,20 +1416,26 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // with no outline (KAN-378 C, below), and nothing else moves --
         // windowShiftsAcross makes room in no block for a window the order
         // does not hold -- and no slot is drawn (landingSlotShown).
-        const at = insertionSlotOf(l, landing, beside);
+        const at = insertionSlotOf(l, previewed, beside);
         // The span is in the SOURCE window, so only its shifts change: the
         // landing is measured in the destination's frame and the source keeps
         // its box (KAN-184), the freed room showing as a gap inside it.
         shifts = summed(
-          previewShiftsAcross(l.slots, from, landing.windowId, at, l.footprint),
+          previewShiftsAcross(
+            l.slots,
+            from,
+            previewed.windowId,
+            at,
+            l.footprint
+          ),
           besides
         );
         landingDelta = landingDeltaAcross(
           l.slots,
           from,
-          landing.windowId,
+          previewed.windowId,
           at,
-          l.windowBottoms.get(landing.windowId)
+          l.windowBottoms.get(previewed.windowId)
         );
         // The same correction a landing in the row's OWN window takes
         // (KAN-167). A tab arriving from another window is never in the
@@ -1428,7 +1451,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         landingDelta += gapCarriedTo(at, false);
         windowShifts = windowShiftsAcross(
           l.windowOrder,
-          landing.windowId,
+          previewed.windowId,
           l.footprint
         );
         // The room the row leaves is at the BOTTOM of its own window, not
@@ -1448,7 +1471,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // as the landing.
         const heldRect = l.rects[l.fromIndex];
         if (
-          !makesNewWindow(l, landing.windowId) &&
+          !makesNewWindow(l, previewed.windowId) &&
           l.card !== null &&
           heldRect !== undefined
         ) {
@@ -1464,7 +1487,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       } else {
         const to =
           fixedSlot === undefined || beside === undefined
-            ? slotOfLanding(l, landing, from)
+            ? slotOfLanding(l, previewed, from)
             : slotLandingBeside(from, fixedSlot, beside.side);
         shifts = summed(previewShifts(l.slots, from, to, l.footprint), besides);
         landingDelta = landingDeltaOf(l.slots, from, to);
@@ -1498,7 +1521,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // loose box is wrong for a held member (measured: 435.5 for al0's
       // 451.5, over its band's colour bar).
       const landingInset =
-        landing === undefined ||
+        previewed === undefined ||
         heldEdges === undefined ||
         landingEdges === null
           ? NO_INSET
@@ -1525,7 +1548,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // the ghost would sit a row away from the landing it names.
         heldWindowShift:
           windowShifts[l.heldWindow?.dataset.dropWindowId ?? ''] ?? 0,
-        landingWindowShift: windowShifts[landing?.windowId ?? ''] ?? 0,
+        landingWindowShift: windowShifts[previewed?.windowId ?? ''] ?? 0,
         removedFixedRows: span?.keys ?? [],
         // A card is up for the held row: this drag's own, or the carry's an
         // adopted drag came from (KAN-354).
@@ -1537,8 +1560,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // would be drawn in the list -- or at an adopted phantom's own place
         // in the trailing block -- where it is not going.
         landingSlotShown:
-          !makesNewWindow(l, landing?.windowId) &&
-          !(l.adopted && landing === undefined),
+          !makesNewWindow(l, previewed?.windowId) &&
+          !(l.adopted && previewed === undefined),
         newlyMeasured: l.newlyMeasured,
         settling: false,
       };
@@ -1808,6 +1831,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         ? measureNewFirstWindowTarget(document)
         : (header?.measure() ?? null);
       l.newFirstWindowId = header?.windowId ?? NEW_FIRST_WINDOW;
+      l.roomStaysForNewWindow =
+        !l.adopted && header !== undefined && header === liveHeaderLanding;
       // P1. The sides of the box the list hands off outside, read once like the receivers.
       // A box with no width is not laid out: it has no sides to cross.
       const paneBox = handsOffOutside?.()?.getBoundingClientRect();

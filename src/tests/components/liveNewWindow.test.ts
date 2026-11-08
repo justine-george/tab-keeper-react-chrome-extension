@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
-import { offersLiveNewWindow } from '../../components/home/opennow/liveNewWindow';
+import {
+  newWindowMoveFor,
+  offersLiveNewWindow,
+} from '../../components/home/opennow/liveNewWindow';
 import { toOpenWindows } from '../../utils/functions/openNow';
 import { groupItemIdOf } from '../../utils/functions/tabGroups';
 import { setupChromeFake } from '../setup/chrome.fake';
@@ -67,13 +70,17 @@ const windowsOf = (...windows: Seed[][]) =>
 describe('offersLiveNewWindow', () => {
   test('a tab beside others: true', () => {
     expect(
-      offersLiveNewWindow('11', windowsOf([{ id: 11 }, { id: 12 }]), null)
+      offersLiveNewWindow('11', windowsOf([{ id: 11 }, { id: 12 }]), undefined)
     ).toBe(true);
   });
 
   test("a window's only tab: false", () => {
     expect(
-      offersLiveNewWindow('21', windowsOf([{ id: 11 }], [{ id: 21 }]), null)
+      offersLiveNewWindow(
+        '21',
+        windowsOf([{ id: 11 }], [{ id: 21 }]),
+        undefined
+      )
     ).toBe(false);
   });
 
@@ -82,7 +89,7 @@ describe('offersLiveNewWindow', () => {
       offersLiveNewWindow(
         '11',
         windowsOf([{ id: 11 }, { id: 12, url: TAB_KEEPER_PAGE }]),
-        null
+        undefined
       )
     ).toBe(false);
   });
@@ -95,7 +102,7 @@ describe('offersLiveNewWindow', () => {
           { id: 11, split: 9 },
           { id: 12, split: 9 },
         ]),
-        null
+        undefined
       )
     ).toBe(false);
   });
@@ -105,7 +112,7 @@ describe('offersLiveNewWindow', () => {
       offersLiveNewWindow(
         '11',
         windowsOf([{ id: 11, split: 9 }, { id: 12, split: 9 }, { id: 13 }]),
-        null
+        undefined
       )
     ).toBe(true);
   });
@@ -118,7 +125,7 @@ describe('offersLiveNewWindow', () => {
           { id: 12, groupId: 5 },
           { id: 13, groupId: 5 },
         ]),
-        null
+        undefined
       )
     ).toBe(true);
   });
@@ -128,7 +135,7 @@ describe('offersLiveNewWindow', () => {
       offersLiveNewWindow(
         groupItemIdOf('5'),
         windowsOf([{ id: 11 }, { id: 12, groupId: 5 }]),
-        null
+        undefined
       )
     ).toBe(true);
   });
@@ -141,7 +148,7 @@ describe('offersLiveNewWindow', () => {
           { id: 12, groupId: 5 },
           { id: 13, groupId: 5 },
         ]),
-        null
+        undefined
       )
     ).toBe(false);
   });
@@ -154,7 +161,7 @@ describe('offersLiveNewWindow', () => {
           { id: 12, groupId: 5 },
           { id: 13, groupId: 6 },
         ]),
-        null
+        undefined
       )
     ).toBe(true);
   });
@@ -164,7 +171,7 @@ describe('offersLiveNewWindow', () => {
       offersLiveNewWindow(
         groupItemIdOf('5'),
         windowsOf([{ id: 11 }, { id: 12, groupId: 5 }]),
-        5
+        '5'
       )
     ).toBe(false);
   });
@@ -174,15 +181,84 @@ describe('offersLiveNewWindow', () => {
       offersLiveNewWindow(
         '11',
         windowsOf([{ id: 11, pinned: true }, { id: 12 }]),
-        null
+        undefined
       )
     ).toBe(true);
   });
 
   test('an unknown row id: false', () => {
     const windows = windowsOf([{ id: 11 }, { id: 12 }]);
-    expect(offersLiveNewWindow('99', windows, null)).toBe(false);
-    expect(offersLiveNewWindow(groupItemIdOf('5'), windows, null)).toBe(false);
-    expect(offersLiveNewWindow('', windows, null)).toBe(false);
+    expect(offersLiveNewWindow('99', windows, undefined)).toBe(false);
+    expect(offersLiveNewWindow(groupItemIdOf('5'), windows, undefined)).toBe(
+      false
+    );
+    expect(offersLiveNewWindow('', windows, undefined)).toBe(false);
+  });
+});
+
+describe('newWindowMoveFor', () => {
+  // The fake's windows as Open now reads them.
+  const snapshot = async () =>
+    toOpenWindows(
+      await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] }),
+      await chrome.tabGroups.query({}),
+      null
+    );
+
+  const seeded = () => {
+    handle?.restore();
+    handle = setupChromeFake({
+      splitView: true,
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 11, active: true },
+            { id: 12, splitViewId: 9 },
+            { id: 13, splitViewId: 9 },
+            { id: 14, groupId: 5 },
+            { id: 15, groupId: 5, url: TAB_KEEPER_PAGE },
+            { id: 16, groupId: 5 },
+          ],
+        },
+      ],
+      tabGroups: [
+        { id: 5, windowId: 1, title: 'Work', color: 'red', collapsed: true },
+      ],
+    });
+  };
+
+  test('a tab: itself', async () => {
+    seeded();
+    expect(await newWindowMoveFor('11', await snapshot())).toEqual({
+      kind: 'tab',
+      tabId: 11,
+    });
+  });
+
+  test('a pair, named by its head: both halves in strip order', async () => {
+    seeded();
+    expect(await newWindowMoveFor('12', await snapshot())).toEqual({
+      kind: 'pair',
+      pair: { first: 12, second: 13 },
+    });
+  });
+
+  test("a group: every tab Chrome has in it, its hidden Tab Keeper page too, with the list's look", async () => {
+    seeded();
+    expect(
+      await newWindowMoveFor(groupItemIdOf('5'), await snapshot())
+    ).toEqual({
+      kind: 'group',
+      tabIds: [14, 15, 16],
+      look: { title: 'Work', color: 'red', collapsed: true },
+    });
+  });
+
+  test('a row the snapshot does not hold: null', async () => {
+    seeded();
+    const windows = await snapshot();
+    expect(await newWindowMoveFor('99', windows)).toBeNull();
+    expect(await newWindowMoveFor(groupItemIdOf('7'), windows)).toBeNull();
   });
 });

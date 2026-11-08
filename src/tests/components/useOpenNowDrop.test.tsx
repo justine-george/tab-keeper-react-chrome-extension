@@ -136,6 +136,7 @@ function renderDrop(
     () =>
       useOpenNowDrop({
         windows,
+        liveNewWindow: false,
         hasTabGroups: options.hasTabGroups ?? true,
         collapsedIds: options.collapsedIds ?? new Set(),
         carriedIn,
@@ -403,6 +404,7 @@ describe('acceptsWindow: which windows take a held row at all', () => {
       ({ windows }: { windows: readonly OpenWindow[] }) =>
         useOpenNowDrop({
           windows,
+          liveNewWindow: false,
           hasTabGroups: true,
           collapsedIds: new Set(),
           carriedIn: null,

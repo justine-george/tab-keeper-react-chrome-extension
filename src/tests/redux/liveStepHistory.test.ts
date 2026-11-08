@@ -401,6 +401,25 @@ describe('a drop into Currently open in the undo history (KAN-893)', () => {
     });
   });
 
+  // KAN-949. Found by the e2e: the store kept kind and moved only, so redo never knew the window was made.
+  it('the store keeps the made window of a live step through push, undo and redo', () => {
+    const { store, history } = setup();
+    const step: LiveStep = {
+      id: 7,
+      drop: {
+        kind: 'tab',
+        moved: [{ tabId: 11, before: place, after: { ...place, windowId: 3 } }],
+        madeWindow: 3,
+      },
+    };
+    store.dispatch(pushLiveStep(step));
+    expect(history().present.liveStep).toEqual(step);
+    store.dispatch(liveStepUndone(step));
+    expect(history().future[0]?.liveStep).toEqual(step);
+    store.dispatch(liveStepRedone(step));
+    expect(history().present.liveStep).toEqual(step);
+  });
+
   // KAN-949. A live move to New window names the window it made; a redo that made it again renames it.
   it('a live step names its made window, and renameIds renames it', () => {
     const moved: OpenNowDrop = {
