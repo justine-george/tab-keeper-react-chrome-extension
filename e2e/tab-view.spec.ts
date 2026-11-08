@@ -212,6 +212,56 @@ test.describe('Open full view (KAN-279 D4, D5)', () => {
 
     await tabPage.screenshot({ path: testInfo.outputPath('tab-view.png') });
   });
+
+  // KAN-953. Focusing another window can move the user to another Windows virtual desktop.
+  test('a full view only in another window stays there; the click opens one in its own window', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await seedSessions(context);
+    const fullView = await openPage(
+      context,
+      extensionId,
+      VIEW_TAB,
+      TAB_VIEWPORT
+    );
+    const first = await tabOf(serviceWorker, fullView);
+
+    const popupUrl = `chrome-extension://${extensionId}/index.html`;
+    const opened = context.waitForEvent('page', (p) => p.url() === popupUrl);
+    const secondWindowId = await serviceWorker.evaluate(
+      (url: string) =>
+        chrome.windows.create({ url, focused: true }).then((w) => w?.id),
+      popupUrl
+    );
+    if (secondWindowId === undefined) throw new Error('no second window');
+    const popup = await opened;
+    await popup.setViewportSize(POPUP_VIEWPORT);
+    await popup.getByRole('button', { name: 'Sort sessions' }).waitFor();
+    // PREMISE: the popup page is in a second window, with no full view of its own.
+    expect((await tabOf(serviceWorker, popup)).windowId).toBe(secondWindowId);
+    expect(secondWindowId).not.toBe(first.windowId);
+
+    await popup
+      .getByRole('button', { name: 'Open full view', exact: true })
+      .click();
+
+    await expect
+      .poll(async () =>
+        (await viewTabs(serviceWorker))
+          .map((t) => ({ windowId: t.windowId, active: t.active }))
+          .sort((a, b) => a.windowId - b.windowId)
+      )
+      .toEqual(
+        [
+          { windowId: first.windowId, active: first.active },
+          { windowId: secondWindowId, active: true },
+        ].sort((a, b) => a.windowId - b.windowId)
+      );
+    // The first window's full view is the same page, not one made again.
+    expect(fullView.isClosed()).toBe(false);
+  });
 });
 
 // A session with one window holding one Chrome group, selected, so every

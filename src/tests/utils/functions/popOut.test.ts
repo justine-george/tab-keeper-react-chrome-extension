@@ -161,16 +161,98 @@ describe('isOpenInTabRequest', () => {
   });
 });
 
-describe('openOrFocusTabView', () => {
-  test('an existing tab view is activated and its window focused, nothing created', async () => {
+describe('KAN-953: a full view opens in the asking window, never another', () => {
+  // On Windows, focusing a window on another virtual desktop moves the user to that desktop.
+  test('a full view only in another window is left alone; a new one opens in the asking window', async () => {
     const { api, calls } = makeTabApi({
       matches: [fakeTab({ id: 7, windowId: 3 })],
     });
 
     await openOrFocusTabView(api, request(5));
 
+    expect(calls.updates).toEqual([]);
+    expect(calls.focusWindows).toEqual([]);
+    expect(calls.creates).toEqual([
+      {
+        url: 'chrome-extension://x/index.html?view=tab',
+        index: 0,
+        windowId: 5,
+        active: true,
+      },
+    ]);
+  });
+
+  test('a pinned Tab Keeper tab only in another window is left alone too', async () => {
+    const { api, calls } = makeTabApi({
+      stubMatches: [
+        fakeTab({
+          id: 9,
+          windowId: 3,
+          url: 'chrome-extension://x/pinned.html',
+        }),
+      ],
+    });
+
+    await openOrFocusTabView(api, request(5));
+
+    expect(calls.updates).toEqual([]);
+    expect(calls.focusWindows).toEqual([]);
+    expect(calls.creates).toEqual([expect.objectContaining({ windowId: 5 })]);
+  });
+
+  test('a dialog asked for with the full view only elsewhere rides on the new one’s address, announced to no one', async () => {
+    const { api, calls } = makeTabApi({
+      matches: [fakeTab({ id: 7, windowId: 3 })],
+    });
+
+    await openOrFocusTabView(api, { ...request(5), show: 'pinGuide' });
+
+    expect(calls.announces).toEqual([]);
+    expect(calls.creates).toEqual([
+      expect.objectContaining({
+        url: 'chrome-extension://x/index.html?view=tab&show=pinGuide',
+        windowId: 5,
+      }),
+    ]);
+  });
+
+  test('the new one remembers the asking window’s tab for Back, not the other full view', async () => {
+    const { api, calls } = makeTabApi({
+      matches: [fakeTab({ id: 7, windowId: 3 })],
+      activeTabs: { 5: 50 },
+    });
+
+    await openOrFocusTabView(api, request(5));
+
+    expect(calls.remembered).toEqual([
+      { fullView: { tabId: 99, windowId: 5 }, origin: 50 },
+    ]);
+  });
+
+  // No window named: Chrome would create in the last-focused one, which this cannot see, so any full view is reused.
+  test('an asking window it cannot name still reuses an open full view rather than add one', async () => {
+    const { api, calls } = makeTabApi({
+      matches: [fakeTab({ id: 7, windowId: 3 })],
+    });
+
+    await openOrFocusTabView(api, request(undefined));
+
     expect(calls.updates).toEqual([{ tabId: 7, props: { active: true } }]);
     expect(calls.focusWindows).toEqual([3]);
+    expect(calls.creates).toEqual([]);
+  });
+});
+
+describe('openOrFocusTabView', () => {
+  test('an existing tab view is activated and its window focused, nothing created', async () => {
+    const { api, calls } = makeTabApi({
+      matches: [fakeTab({ id: 7, windowId: 5 })],
+    });
+
+    await openOrFocusTabView(api, request(5));
+
+    expect(calls.updates).toEqual([{ tabId: 7, props: { active: true } }]);
+    expect(calls.focusWindows).toEqual([5]);
     expect(calls.creates).toEqual([]);
   });
 
@@ -257,21 +339,6 @@ describe('openOrFocusTabView', () => {
     await openOrFocusTabView(api, request(5));
     expect(calls.updates).toEqual([{ tabId: 9, props: { active: true } }]);
     expect(calls.focusWindows).toEqual([5]);
-    expect(calls.creates).toEqual([]);
-  });
-
-  test('KAN-459: a stub elsewhere still counts as existing; nothing is created', async () => {
-    const { api, calls } = makeTabApi({
-      stubMatches: [
-        fakeTab({
-          id: 9,
-          windowId: 5,
-          url: 'chrome-extension://x/pinned.html',
-        }),
-      ],
-    });
-    await openOrFocusTabView(api, request(2));
-    expect(calls.updates).toEqual([{ tabId: 9, props: { active: true } }]);
     expect(calls.creates).toEqual([]);
   });
 
@@ -406,10 +473,10 @@ describe('a request to show a dialog in the full view (KAN-7)', () => {
 
   test('a full view open: it is focused, then told by tab id what to show', async () => {
     const { api, calls } = makeTabApi({
-      matches: [fakeTab({ id: 7, windowId: 3 })],
+      matches: [fakeTab({ id: 7, windowId: 5 })],
     });
     await openOrFocusTabView(api, { ...request(5), show: 'pinGuide' });
-    expect(calls.focusWindows).toEqual([3]);
+    expect(calls.focusWindows).toEqual([5]);
     expect(calls.announces).toEqual([
       { type: SHOW_IN_FULL_VIEW_MESSAGE, tabId: 7, show: 'pinGuide' },
     ]);
@@ -418,7 +485,7 @@ describe('a request to show a dialog in the full view (KAN-7)', () => {
 
   test('a plain open asks nothing to be shown', async () => {
     const { api, calls } = makeTabApi({
-      matches: [fakeTab({ id: 7, windowId: 3 })],
+      matches: [fakeTab({ id: 7, windowId: 5 })],
     });
     await openOrFocusTabView(api, request(5));
     expect(calls.announces).toEqual([]);
@@ -426,7 +493,7 @@ describe('a request to show a dialog in the full view (KAN-7)', () => {
 
   test('KAN-624: the run, asked of an open full view, is announced to it', async () => {
     const { api, calls } = makeTabApi({
-      matches: [fakeTab({ id: 7, windowId: 3 })],
+      matches: [fakeTab({ id: 7, windowId: 5 })],
     });
     await openOrFocusTabView(api, { ...request(5), show: 'run' });
     expect(calls.updates).toEqual([{ tabId: 7, props: { active: true } }]);
@@ -474,7 +541,7 @@ describe('a request to show a dialog in the full view (KAN-7)', () => {
   test('no page listening is logged, never thrown', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { api } = makeTabApi({
-      matches: [fakeTab({ id: 7 })],
+      matches: [fakeTab({ id: 7, windowId: 5 })],
       rejectAnnounce: true,
     });
     await expect(
@@ -484,9 +551,9 @@ describe('a request to show a dialog in the full view (KAN-7)', () => {
 });
 
 describe('KAN-507: the tab the full view was opened from', () => {
-  test('an existing full view elsewhere: the asking window’s active tab is read first, then remembered for that full view', async () => {
+  test('an existing full view in the asking window: the asking window’s active tab is read first, then remembered for that full view', async () => {
     const { api, calls } = makeTabApi({
-      matches: [fakeTab({ id: 7, windowId: 3 })],
+      matches: [fakeTab({ id: 7, windowId: 5 })],
       activeTabs: { 5: 50 },
     });
 
@@ -497,7 +564,7 @@ describe('KAN-507: the tab the full view was opened from', () => {
       calls.order.indexOf('update')
     );
     expect(calls.remembered).toEqual([
-      { fullView: { tabId: 7, windowId: 3 }, origin: 50 },
+      { fullView: { tabId: 7, windowId: 5 }, origin: 50 },
     ]);
   });
 
@@ -541,7 +608,7 @@ describe('KAN-507: the tab the full view was opened from', () => {
     await openOrFocusTabView(already.api, request(5));
     expect(already.calls.remembered).toEqual([]);
 
-    const none = makeTabApi({ matches: [fakeTab({ id: 7, windowId: 3 })] });
+    const none = makeTabApi({ matches: [fakeTab({ id: 7, windowId: 5 })] });
     await openOrFocusTabView(none.api, request(5));
     expect(none.calls.remembered).toEqual([]);
     expect(none.calls.updates).toEqual([{ tabId: 7, props: { active: true } }]);
@@ -550,7 +617,7 @@ describe('KAN-507: the tab the full view was opened from', () => {
   test('a refused remember is logged; the full view is still shown', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { api, calls } = makeTabApi({
-      matches: [fakeTab({ id: 7, windowId: 3 })],
+      matches: [fakeTab({ id: 7, windowId: 5 })],
       activeTabs: { 5: 50 },
       rejectRemember: true,
     });
@@ -558,7 +625,7 @@ describe('KAN-507: the tab the full view was opened from', () => {
     await expect(openOrFocusTabView(api, request(5))).resolves.toBeUndefined();
 
     expect(calls.updates).toEqual([{ tabId: 7, props: { active: true } }]);
-    expect(calls.focusWindows).toEqual([3]);
+    expect(calls.focusWindows).toEqual([5]);
     expect(warn).toHaveBeenCalled();
   });
 });
