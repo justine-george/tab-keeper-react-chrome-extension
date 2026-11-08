@@ -805,7 +805,8 @@ describe('KAN-507 against the chrome fake: ⤢, then Open compact view', () => {
     expect(handle.removedTabIds).toEqual([fullView]);
   });
 
-  test('⤢ jumped to a pinned full view in another window: back in the first window, the pinned tab stays', async () => {
+  // KAN-953. ⤢ no longer jumps to another window's full view.
+  test('⤢ with a pinned full view only in another window: a new one opens here, and closing it leaves the pinned one', async () => {
     handle = setupChromeFake({
       action: {},
       windows: [
@@ -826,14 +827,21 @@ describe('KAN-507 against the chrome fake: ⤢, then Open compact view', () => {
     recordRecentTabs();
     recordFullViewOrigins();
 
-    const fullView = await pressOpenFullView(2);
-    expect(fullView).toBe(10);
-    // PREMISE: ⤢ moved the user to window 1.
-    expect((await chrome.windows.getLastFocused()).id).toBe(1);
-    await openInPopup(chromePopupApi, fullView);
-
+    await openOrFocusTabView(chromeTabApi, {
+      type: OPEN_IN_TAB_MESSAGE,
+      windowId: 2,
+    });
+    const [fullView] = await chrome.tabs.query({
+      url: `${FAKE_VIEW}*`,
+      windowId: 2,
+    });
+    if (fullView?.id === undefined) throw new Error('no full view in window 2');
+    // PREMISE: the user stayed in window 2.
     expect((await chrome.windows.getLastFocused()).id).toBe(2);
-    expect(handle.removedTabIds).toEqual([]);
+    await openInPopup(chromePopupApi, fullView.id);
+
+    expect(await activeIn(2)).toBe(21);
+    expect(handle.removedTabIds).toEqual([fullView.id]);
     expect(handle.openPopupCalls).toEqual([
       { windowId: 2, popup: 'index.html' },
     ]);

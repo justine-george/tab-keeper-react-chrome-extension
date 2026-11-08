@@ -190,8 +190,8 @@ test('1. from the full view: the full view is active again and the preview is go
   ]);
 });
 
-// Off the happy path: the opener moved to another window. Only the worker's switch reaches it; Chrome's own pick stays in the preview's window.
-test('1b. the full view moved to another window: that window is focused, on the full view', async ({
+// Off the happy path: the opener moved to another window, and Chrome forgets it. KAN-953: Back stays in this window, never moves the user to that one.
+test('1b. the full view moved to another window: Back opens one in this window, and the moved one stays', async ({
   context,
   serviceWorker,
   extensionId,
@@ -226,17 +226,25 @@ test('1b. the full view moved to another window: that window is focused, on the 
   await backLink(preview).click();
 
   await expect.poll(() => tabsAt(serviceWorker, 'export.html')).toEqual([]);
+  // A new full view, active in the preview's window, which keeps focus.
   await expect
-    .poll(() =>
-      serviceWorker.evaluate(() =>
-        chrome.windows.getLastFocused().then((w) => w.id)
-      )
+    .poll(async () =>
+      (await tabsAt(serviceWorker, FULL_VIEW))
+        .filter((t) => t.windowId === previewTab.windowId)
+        .map((t) => ({ isTheMovedOne: t.id === fullView.id, active: t.active }))
     )
-    .toBe(movedTo);
-  expect(await activeIn(serviceWorker, movedTo ?? -1)).toBe(fullView.id);
-  expect((await tabsAt(serviceWorker, FULL_VIEW)).map((t) => t.id)).toEqual([
-    fullView.id,
-  ]);
+    .toEqual([{ isTheMovedOne: false, active: true }]);
+  expect(
+    await serviceWorker.evaluate(() =>
+      chrome.windows.getLastFocused().then((w) => w.id)
+    )
+  ).toBe(previewTab.windowId);
+  // The moved full view is left where it is.
+  expect(
+    (await tabsAt(serviceWorker, FULL_VIEW))
+      .filter((t) => t.id === fullView.id)
+      .map((t) => t.windowId)
+  ).toEqual([movedTo]);
 });
 
 test('2. with a hidden tab: the card asks, Stay keeps the page, Go back closes it without "Leave site?"', async ({

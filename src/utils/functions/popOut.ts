@@ -33,8 +33,8 @@ export const isFullViewShow = (value: unknown): value is FullViewShow =>
 
 export interface OpenInTabRequest {
   type: typeof OPEN_IN_TAB_MESSAGE;
-  // The window the popup was sent from. Used only when no tab view exists
-  // yet, to open the new one there. `undefined` is a normal value here (the
+  // The window the popup was sent from: its full view is shown, or a new one
+  // opens there (KAN-953). `undefined` is a normal value here (the
   // popup's own chrome.windows.getCurrent() can itself answer undefined),
   // not a missing field -- create() below treats it as "let Chrome use the
   // last-focused window" rather than defaulting it to anything.
@@ -150,7 +150,7 @@ export const chromeTabApi: TabApi = {
     chromeFullViewOrigins.remember(fullView, originTabId),
 };
 
-// Finds the extension's own tab-view tab and focuses it, or opens a new one.
+// Focuses the asking window's own tab-view tab, or opens a new one there.
 //
 // Never throws and never returns a rejected promise: like applyTabGroups in
 // windows.ts, a query/update/create rejection here has no popup left to
@@ -189,9 +189,12 @@ export async function openOrFocusTabView(
     ].filter(
       (tab): tab is chrome.tabs.Tab & { id: number } => tab.id !== undefined
     );
-    // With a Tab Keeper tab pinned in every window, the asking window's is the one to show.
+    // KAN-953. Only the asking window's: focusing another can move the user to another Windows desktop.
+    // A window it cannot name (Chrome picks the last-focused for a create) still reuses any.
     const existing =
-      matches.find((tab) => tab.windowId === request.windowId) ?? matches[0];
+      request.windowId === undefined
+        ? matches[0]
+        : matches.find((tab) => tab.windowId === request.windowId);
 
     if (existing) {
       const isStubTab = tabKeeperPageOf(existing, api.getURL) === 'stub';
