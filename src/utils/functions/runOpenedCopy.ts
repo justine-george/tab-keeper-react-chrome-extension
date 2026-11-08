@@ -14,7 +14,12 @@ import {
 import type { OpenIntoWindowRequest } from './openIntoWindow';
 import { readPlace } from './openNowMoves';
 import type { LiveRun } from './openNowMoves';
-import { forgetSettled, showsItsPage, watchSettling } from './settledPages';
+import {
+  forgetSettled,
+  settleIfLoaded,
+  showsItsPage,
+  watchSettling,
+} from './settledPages';
 import { isMadeWindowList, RESTORE_SESSION_MESSAGE } from './windows';
 import type { RestoreSessionRequest } from './windows';
 
@@ -45,6 +50,9 @@ export async function recordOpened(
   hasTabGroups: boolean
 ): Promise<OpenedTab[]> {
   const withLook = hasTabGroups && Boolean(chrome.tabGroups);
+  // Watched before the reads: a load that completes between them is caught by one or the other.
+  const watched = ids.flatMap((id) => (id === undefined ? [] : [id]));
+  watchSettling(watched);
   const opened: OpenedTab[] = [];
   for (const [i, tabId] of ids.entries()) {
     const savedTab = saved[i];
@@ -52,6 +60,7 @@ export async function recordOpened(
     const tab = await attempt(() => chrome.tabs.get(tabId));
     const place = await readPlace(tabId, withLook);
     if (tab === REFUSED || tab === undefined || place === null) continue;
+    settleIfLoaded(tab);
     opened.push({
       tabId,
       place,
@@ -59,7 +68,8 @@ export async function recordOpened(
       saved: savedTab,
     });
   }
-  watchSettling(opened.map((t) => t.tabId));
+  const kept = new Set(opened.map((t) => t.tabId));
+  forgetSettled(watched.filter((id) => !kept.has(id)));
   return opened.sort((a, b) => a.place.index - b.place.index);
 }
 

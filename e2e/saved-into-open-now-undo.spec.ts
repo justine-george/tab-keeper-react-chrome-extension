@@ -109,10 +109,17 @@ async function dropS2(
   await landed(page, worker, windowId, 'https://s2.test/');
 }
 
+// Polled: a tab's address is briefly "" as its first load commits, so one read can miss it.
 const idOfUrl = async (worker: Worker, windowId: number, url: string) => {
-  const found = (await strip(worker, windowId)).find((t) => t.url === url);
-  if (found === undefined) throw new Error(`no tab at ${url}`);
-  return found.id;
+  let id: number | undefined;
+  await expect
+    .poll(async () => {
+      id = (await strip(worker, windowId)).find((t) => t.url === url)?.id;
+      return id;
+    }, SETTLE)
+    .toBeDefined();
+  if (id === undefined) throw new Error(`no tab at ${url}`);
+  return id;
 };
 
 // The drop's step is kept once its moves end, and Open now draws the copy only
@@ -353,8 +360,17 @@ test.describe('undo and redo of a drop into Currently open', () => {
       ],
       [
         'navigated to another page',
-        (worker, id) =>
-          worker
+        // After its first load: a change during it counts as a redirect (spec Goal 6).
+        async (worker, id) => {
+          await expect
+            .poll(() =>
+              worker.evaluate(
+                async (tabId: number) => (await chrome.tabs.get(tabId)).status,
+                id
+              )
+            )
+            .toBe('complete');
+          return worker
             .evaluate(([tabId, url]) => chrome.tabs.update(tabId, { url }), [
               id,
               standIn('elsewhere'),
@@ -368,7 +384,8 @@ test.describe('undo and redo of a drop into Currently open', () => {
                   )
                 )
                 .toBe(standIn('elsewhere'))
-            ),
+            );
+        },
       ],
       [
         'closed',

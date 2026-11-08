@@ -28,7 +28,10 @@ const GO_TO = 'Visit Site';
 const LOOK = { groupId: 'g', title: 'Trip', color: 'green' };
 
 let handle: ChromeFakeHandle | undefined;
-afterEach(() => {
+afterEach(async () => {
+  // Every fake numbers its tabs from 1000: a watched id left over would carry its settle into the next test.
+  if (handle)
+    forgetSettled((await chrome.tabs.query({})).flatMap((t) => t.id ?? []));
   handle?.restore();
   handle = undefined;
   vi.restoreAllMocks();
@@ -243,6 +246,39 @@ describe('undo', () => {
       expect(
         await refusedAfter((step, fake) =>
           fake.browser.updateTab(idsOf(step)[0], { url: web('elsewhere') })
+        )
+      ).toEqual(refused(1)));
+
+    // A fast page settles before the drop's record reads it; the next page is the user's, not a redirect.
+    test('navigated after a first load that settled before the record', async () =>
+      expect(
+        await refusedAfter(
+          (step, fake) => {
+            const id = idsOf(step)[0];
+            fake.browser.updateTab(id, {
+              url: web('elsewhere'),
+              status: 'loading',
+            });
+            fake.browser.updateTab(id, { status: 'complete' });
+          },
+          async () => {
+            const tab = saved('s');
+            const id = await openTabCopy(tab, {
+              windowId: 1,
+              index: 2,
+              pinned: false,
+            });
+            if (id === undefined) throw new Error('no copy opened');
+            handle?.browser.updateTab(id, { status: 'complete' });
+            return {
+              kind: 'opened',
+              tabs: await recordOpened([id], [tab], true),
+              group: null,
+              madeWindow: null,
+              reopen: { at: 'slot', windowId: 1, index: 2, groupId: null },
+              goToURLText: GO_TO,
+            };
+          }
         )
       ).toEqual(refused(1)));
 

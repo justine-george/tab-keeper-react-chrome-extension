@@ -9,15 +9,20 @@ import type { OpenedTab } from './openedCopy';
 const settled = new Map<number, string | null>();
 let listening = false;
 
+// A watched tab's first completed load, unless it is the placeholder or has no address yet.
+function settle(tabId: number, tab: chrome.tabs.Tab): void {
+  if (tab.status !== 'complete' || settled.get(tabId) !== null) return;
+  const url = tab.url ?? '';
+  if (url === '' || isLazyPlaceholder(url)) return;
+  settled.set(tabId, url);
+}
+
 function onUpdated(
   tabId: number,
   change: chrome.tabs.OnUpdatedInfo,
   tab: chrome.tabs.Tab
 ): void {
-  if (change.status !== 'complete' || settled.get(tabId) !== null) return;
-  const url = tab.url ?? '';
-  if (url === '' || isLazyPlaceholder(url)) return;
-  settled.set(tabId, url);
+  if (change.status === 'complete') settle(tabId, tab);
 }
 
 function onRemoved(tabId: number): void {
@@ -30,6 +35,11 @@ export function watchSettling(tabIds: readonly number[]): void {
   listening = true;
   chrome.tabs.onUpdated.addListener(onUpdated);
   chrome.tabs.onRemoved.addListener(onRemoved);
+}
+
+// For a tab read after watchSettling: a first load that completed before the watch began counts too.
+export function settleIfLoaded(tab: chrome.tabs.Tab): void {
+  if (tab.id !== undefined) settle(tab.id, tab);
 }
 
 export function forgetSettled(tabIds: readonly number[]): void {
