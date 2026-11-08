@@ -25,7 +25,7 @@
 // over tables built once per snapshot.
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 
 import { currentCarry, endCarry } from '../../../redux/carry';
 import type { CarriedItem } from '../../../redux/carriedItem';
@@ -45,7 +45,7 @@ import {
   tabCopySlot,
   type MovedTabs,
 } from '../../../utils/functions/openNowMoves';
-import type { AppDispatch } from '../../../redux/store';
+import type { AppDispatch, RootState } from '../../../redux/store';
 import { keepLiveStep, whileMovingTabs } from '../../../redux/undoHistory';
 import {
   clearNewWindowFollow,
@@ -186,6 +186,10 @@ export function useOpenNowDrop({
   liveNewWindow,
 }: Options) {
   const dispatch: AppDispatch = useDispatch();
+  // KAN-949 Goal 3a. "Pin Tab Keeper in new windows" covers a window a live drag makes, as every window Tab Keeper makes.
+  const pinTabKeeper = useSelector(
+    (state: RootState) => state.settingsDataState.pinTabKeeperInNewWindows
+  );
   const { t } = useTranslation();
   // The trailing block comes last, as the pane draws it.
   // T1. The group, if any, holding the Tab Keeper page this pane is on. Open
@@ -368,7 +372,7 @@ export function useOpenNowDrop({
       if (move === null) return null;
       expectNewWindow();
       const made = await whileMovingTabs(() =>
-        moveIntoNewWindow(move, hasTabGroups)
+        moveIntoNewWindow(move, hasTabGroups, pinTabKeeper)
       );
       if (made === null) {
         clearNewWindowFollow();
@@ -377,11 +381,11 @@ export function useOpenNowDrop({
       keepLiveStep(dispatch, {
         kind: move.kind,
         moved: made.moved,
-        madeWindow: made.windowId,
+        madeWindow: { windowId: made.windowId, stubTabId: made.stubTabId },
       });
       return made.moved;
     },
-    [offersNewWindow, windows, hasTabGroups, dispatch]
+    [offersNewWindow, windows, hasTabGroups, pinTabKeeper, dispatch]
   );
 
   // KAN-815. A copy is asked of Chrome, or nothing is; either way the carry

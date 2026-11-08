@@ -4,6 +4,7 @@
 // (Chromium 156, ledger probes 1-2): that tab arrives unpinned, out of its group and out of its split,
 // and the window takes focus. Each of those is put back here.
 import { readPlace } from './openNowMoves';
+import { addPinnedStub } from './pinnedTabKeeper';
 import type { GroupLook, MovedTab, MovedTabs, TabPlace } from './openNowMoves';
 import { isStillOneSplit } from './splitPairMove';
 import type { SplitPair } from './splitPairMove';
@@ -153,10 +154,18 @@ async function splitPartnerOf(
 
 // Never throws. Null when Chrome refused, or the move could not start (nothing moved then); a refusal part way
 // leaves the tabs where Chrome has them. Otherwise the new window's id and each tab's place before and after.
+// `pinTabKeeper` ("Pin Tab Keeper in new windows", KAN-949 Goal 3a): the window also gets the pinned Tab Keeper
+// tab, first; `stubTabId` is its id, null when none was added (asked not to, an incognito window, or Chrome
+// refused it, which costs only that tab).
 export async function moveIntoNewWindow(
   move: NewWindowMove,
-  hasTabGroups: boolean
-): Promise<{ windowId: number; moved: MovedTabs } | null> {
+  hasTabGroups: boolean,
+  pinTabKeeper: boolean
+): Promise<{
+  windowId: number;
+  stubTabId: number | null;
+  moved: MovedTabs;
+} | null> {
   if (!(await canStart(move, hasTabGroups))) return null;
   const withLook = hasTabGroups && Boolean(chrome.tabGroups);
   const tabIds = tabIdsOf(move);
@@ -207,6 +216,7 @@ export async function moveIntoNewWindow(
         (await bringGroup(move.tabIds, move.look, windowId, group))
       : await bringTheRest(move, windowId, pinned);
   if (!broughtRest) return null;
+  const stubTabId = pinTabKeeper ? await addPinnedStub(windowId) : null;
 
   const moved: MovedTab[] = [];
   for (const { tabId, before } of befores) {
@@ -214,7 +224,7 @@ export async function moveIntoNewWindow(
     if (after === null) return null;
     moved.push({ tabId, before, after });
   }
-  return { windowId, moved };
+  return { windowId, stubTabId, moved };
 }
 
 // The tab of `tabIds` that is its window's front tab, if one is.

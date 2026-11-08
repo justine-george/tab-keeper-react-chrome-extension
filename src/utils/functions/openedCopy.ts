@@ -80,7 +80,13 @@ export function renameIds(drop: LiveDrop, renamed: RenamedIds): LiveDrop {
         })),
       }),
       ...(drop.madeWindow !== undefined && {
-        madeWindow: win(drop.madeWindow),
+        madeWindow: {
+          windowId: win(drop.madeWindow.windowId),
+          stubTabId:
+            drop.madeWindow.stubTabId === null
+              ? null
+              : tab(drop.madeWindow.stubTabId),
+        },
       }),
     };
   }

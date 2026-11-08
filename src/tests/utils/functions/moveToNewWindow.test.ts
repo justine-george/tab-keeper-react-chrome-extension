@@ -54,7 +54,11 @@ describe('moveIntoNewWindow: a tab', () => {
   test('moves into a new focused window that holds only it', async () => {
     handle = seed();
 
-    const result = await moveIntoNewWindow({ kind: 'tab', tabId: 12 }, true);
+    const result = await moveIntoNewWindow(
+      { kind: 'tab', tabId: 12 },
+      true,
+      false
+    );
 
     expect(result).not.toBeNull();
     const windowId = result?.windowId ?? -1;
@@ -67,7 +71,11 @@ describe('moveIntoNewWindow: a tab', () => {
   test('the active tab leaves no blank tab: the old window keeps the rest in order', async () => {
     handle = seed();
 
-    const result = await moveIntoNewWindow({ kind: 'tab', tabId: 11 }, true);
+    const result = await moveIntoNewWindow(
+      { kind: 'tab', tabId: 11 },
+      true,
+      false
+    );
 
     expect(await strip(result?.windowId ?? -1)).toEqual(['11*']);
     expect((await strip(1)).map((t) => t.replace('*', ''))).toEqual([
@@ -91,7 +99,11 @@ describe('moveIntoNewWindow: a tab', () => {
       ],
     });
 
-    const result = await moveIntoNewWindow({ kind: 'tab', tabId: 11 }, true);
+    const result = await moveIntoNewWindow(
+      { kind: 'tab', tabId: 11 },
+      true,
+      false
+    );
 
     expect(await strip(result?.windowId ?? -1)).toEqual(['11P*']);
     expect(result?.moved).toEqual([
@@ -130,7 +142,11 @@ describe('moveIntoNewWindow: a tab', () => {
       tabGroups: [{ id: 5, windowId: 1, title: 'Work', color: 'blue' }],
     });
 
-    const result = await moveIntoNewWindow({ kind: 'tab', tabId: 12 }, true);
+    const result = await moveIntoNewWindow(
+      { kind: 'tab', tabId: 12 },
+      true,
+      false
+    );
 
     expect(await strip(result?.windowId ?? -1)).toEqual(['12*']);
     expect(await strip(1)).toEqual(['11*', '13g5']);
@@ -149,7 +165,11 @@ describe('moveIntoNewWindow: a tab', () => {
       ],
     });
 
-    const result = await moveIntoNewWindow({ kind: 'tab', tabId: 12 }, true);
+    const result = await moveIntoNewWindow(
+      { kind: 'tab', tabId: 12 },
+      true,
+      false
+    );
 
     expect(result).not.toBeNull();
     const made = await chrome.windows.get(result?.windowId ?? -1);
@@ -160,7 +180,11 @@ describe('moveIntoNewWindow: a tab', () => {
   test('records each tab before and after', async () => {
     handle = seed();
 
-    const result = await moveIntoNewWindow({ kind: 'tab', tabId: 13 }, false);
+    const result = await moveIntoNewWindow(
+      { kind: 'tab', tabId: 13 },
+      false,
+      false
+    );
 
     expect(result?.moved).toEqual([
       {
@@ -186,10 +210,72 @@ describe('moveIntoNewWindow: a tab', () => {
   test('a closed tab refuses: null, and no window is made', async () => {
     handle = seed();
 
-    expect(await moveIntoNewWindow({ kind: 'tab', tabId: 99 }, true)).toBe(
-      null
-    );
+    expect(
+      await moveIntoNewWindow({ kind: 'tab', tabId: 99 }, true, false)
+    ).toBe(null);
     expect(await windowIds()).toEqual([1, 2]);
+  });
+});
+
+// KAN-949 Goal 3a: "Pin Tab Keeper in new windows" covers this window too.
+describe('moveIntoNewWindow: the pinned Tab Keeper tab', () => {
+  const STUB = 'chrome-extension://faketestid/pinned.html';
+
+  test('asked for, it is added first and pinned, beside the moved tab', async () => {
+    handle = seed();
+
+    const result = await moveIntoNewWindow(
+      { kind: 'tab', tabId: 12 },
+      true,
+      true
+    );
+
+    const windowId = result?.windowId ?? -1;
+    const tabs = (await chrome.tabs.query({ windowId })).sort(
+      (a, b) => a.index - b.index
+    );
+    expect(tabs.map((t) => [t.url, t.pinned])).toEqual([
+      [STUB, true],
+      [expect.not.stringContaining('pinned.html'), false],
+    ]);
+    expect(result?.stubTabId).toBe(tabs[0]?.id);
+    expect(result?.moved[0]?.after.index).toBe(1);
+    expect((await chrome.tabs.get(12)).active).toBe(true);
+  });
+
+  test('not asked for, the window holds only the moved tab', async () => {
+    handle = seed();
+
+    const result = await moveIntoNewWindow(
+      { kind: 'tab', tabId: 12 },
+      true,
+      false
+    );
+
+    expect(result?.stubTabId).toBeNull();
+    expect(await strip(result?.windowId ?? -1)).toEqual(['12*']);
+  });
+
+  test('an incognito window gets none', async () => {
+    handle = seed({
+      incognitoAllowed: true,
+      windows: [
+        {
+          id: 1,
+          incognito: true,
+          tabs: [{ id: 11, active: true }, { id: 12 }],
+        },
+      ],
+    });
+
+    const result = await moveIntoNewWindow(
+      { kind: 'tab', tabId: 12 },
+      true,
+      true
+    );
+
+    expect(result?.stubTabId).toBeNull();
+    expect(await strip(result?.windowId ?? -1)).toEqual(['12*']);
   });
 });
 
@@ -203,7 +289,8 @@ describe('moveIntoNewWindow: a pair', () => {
 
     const result = await moveIntoNewWindow(
       { kind: 'pair', pair: { first: 12, second: 13 } },
-      true
+      true,
+      false
     );
 
     const windowId = result?.windowId ?? -1;
@@ -244,7 +331,8 @@ describe('moveIntoNewWindow: a pair', () => {
 
     const result = await moveIntoNewWindow(
       { kind: 'pair', pair: { first: 11, second: 12 } },
-      true
+      true,
+      false
     );
 
     const windowId = result?.windowId ?? -1;
@@ -261,7 +349,8 @@ describe('moveIntoNewWindow: a pair', () => {
     expect(
       await moveIntoNewWindow(
         { kind: 'pair', pair: { first: 12, second: 13 } },
-        true
+        true,
+        false
       )
     ).toBe(null);
     expect(await windowIds()).toEqual([1, 2]);
@@ -294,7 +383,8 @@ describe('moveIntoNewWindow: a group', () => {
 
     const result = await moveIntoNewWindow(
       { kind: 'group', tabIds: [12, 13, 14], look: BLUE },
-      true
+      true,
+      false
     );
 
     const windowId = result?.windowId ?? -1;
@@ -335,7 +425,8 @@ describe('moveIntoNewWindow: a group', () => {
 
     const result = await moveIntoNewWindow(
       { kind: 'group', tabIds: [12], look: BLUE },
-      true
+      true,
+      false
     );
 
     const groupId = (await chrome.tabs.get(12)).groupId;
@@ -358,7 +449,8 @@ describe('moveIntoNewWindow: a group', () => {
 
     await moveIntoNewWindow(
       { kind: 'group', tabIds: [12, 13, 14], look: BLUE },
-      true
+      true,
+      false
     );
 
     const [a, b] = await Promise.all([
@@ -375,6 +467,7 @@ describe('moveIntoNewWindow: a group', () => {
     expect(
       await moveIntoNewWindow(
         { kind: 'group', tabIds: [12, 13, 14], look: BLUE },
+        false,
         false
       )
     ).toBe(null);
@@ -387,7 +480,8 @@ describe('moveIntoNewWindow: a group', () => {
     expect(
       await moveIntoNewWindow(
         { kind: 'group', tabIds: [12, 13], look: BLUE },
-        true
+        true,
+        false
       )
     ).toBe(null);
     expect(await windowIds()).toEqual([1, 2]);

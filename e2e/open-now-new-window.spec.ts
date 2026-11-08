@@ -538,6 +538,54 @@ test.describe('undo and redo', () => {
     await expect(toasts(page)).toHaveCount(0);
   });
 
+  // Goal 3a: with "Pin Tab Keeper in new windows" on, the window gets the pinned Tab Keeper tab too.
+  test('with Pin Tab Keeper on: the Tab Keeper tab comes and goes with the window', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const live = await openLiveWindow(worker, ['A', 'B', 'C']);
+    const page = await openTabView(
+      context,
+      extensionId,
+      false,
+      [session('S1', 'Trip', [win('w1', [tab('s0'), tab('s1')])])],
+      undefined,
+      { pinTabKeeperInNewWindows: true }
+    );
+    await expect(liveRow(page, live.idOf('C'))).toBeVisible();
+    const before = await windowIds(worker);
+
+    await pickUp(page, liveHandle(page, live.idOf('B')));
+    await carryTo(page, await headerAim(page));
+    await page.mouse.up();
+
+    const made = await madeWindow(worker, before);
+    const pinnedTabKeeper = (windowId: number) =>
+      strip(worker, windowId).then((tabs) =>
+        tabs.map((t) =>
+          t.url.endsWith('pinned.html')
+            ? `TK${t.pinned ? ' pinned' : ''}`
+            : t.id
+        )
+      );
+    await expect
+      .poll(() => pinnedTabKeeper(made))
+      .toEqual(['TK pinned', live.idOf('B')]);
+
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect
+      .poll(() => ids(worker, live.windowId))
+      .toEqual(['A', 'B', 'C'].map(live.idOf));
+    await expect.poll(() => windowIds(worker)).toEqual(before);
+
+    await page.keyboard.press('ControlOrMeta+Shift+z');
+    const again = await madeWindow(worker, before);
+    await expect
+      .poll(() => pinnedTabKeeper(again))
+      .toEqual(['TK pinned', live.idOf('B')]);
+  });
+
   test('⌘Z after the tab was moved since refuses with the move toast', async ({
     context,
     extensionId,

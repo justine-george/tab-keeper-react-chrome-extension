@@ -32,7 +32,9 @@ function writable(step: LiveStep) {
       moved: [...drop.moved],
       pagesBefore: drop.pagesBefore && [...drop.pagesBefore],
       // KAN-949. Redo makes the window again once Chrome closed it.
-      ...(drop.madeWindow !== undefined && { madeWindow: drop.madeWindow }),
+      ...(drop.madeWindow !== undefined && {
+        madeWindow: { ...drop.madeWindow },
+      }),
     },
   };
 }

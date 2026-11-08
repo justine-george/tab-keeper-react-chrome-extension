@@ -136,7 +136,13 @@ async function takeStep(
             hasTabGroups,
             pinTabKeeper: getState().settingsDataState.pinTabKeeperInNewWindows,
           })
-        : runLiveStep(drop, direction, hasTabGroups)
+        : runLiveStep(
+            drop,
+            direction,
+            hasTabGroups,
+            // KAN-949. A redo that makes a closed window again follows the setting now.
+            getState().settingsDataState.pinTabKeeperInNewWindows
+          )
     );
     if (run.outcome === 'done') {
       const reply = { id: step.id, drop: run.drop };

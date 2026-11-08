@@ -409,7 +409,7 @@ describe('a drop into Currently open in the undo history (KAN-893)', () => {
       drop: {
         kind: 'tab',
         moved: [{ tabId: 11, before: place, after: { ...place, windowId: 3 } }],
-        madeWindow: 3,
+        madeWindow: { windowId: 3, stubTabId: 30 },
       },
     };
     store.dispatch(pushLiveStep(step));
@@ -425,14 +425,14 @@ describe('a drop into Currently open in the undo history (KAN-893)', () => {
     const moved: OpenNowDrop = {
       kind: 'tab',
       moved: [{ tabId: 11, before: place, after: { ...place, windowId: 3 } }],
-      madeWindow: 3,
+      madeWindow: { windowId: 3, stubTabId: 30 },
     };
     expect(
-      renameIds(moved, { tabs: [], windows: [[3, 4]], groups: [] })
+      renameIds(moved, { tabs: [[30, 40]], windows: [[3, 4]], groups: [] })
     ).toEqual({
       kind: 'tab',
       moved: [{ tabId: 11, before: place, after: { ...place, windowId: 4 } }],
-      madeWindow: 4,
+      madeWindow: { windowId: 4, stubTabId: 40 },
     });
   });
 });

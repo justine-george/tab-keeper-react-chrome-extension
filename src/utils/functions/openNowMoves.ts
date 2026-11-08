@@ -846,15 +846,22 @@ export async function moveOpenGroup(
 // (`kind: 'groupOrder'`, every tab of the window but Tab Keeper pages, only
 // the groups moved; KAN-746 Part 2), or an ended split (`kind: 'endSplit'`, its
 // two tabs, which stay where they are; KAN-942).
+// KAN-949. A window a move to New window made, and the pinned Tab Keeper tab it added there, or null.
+export interface MadeWindow {
+  windowId: number;
+  stubTabId: number | null;
+}
+
 export interface OpenNowDrop {
   kind:
     'tab' | 'pair' | 'group' | 'sort' | 'groupSort' | 'groupOrder' | 'endSplit';
   moved: MovedTabs;
   // A window sort's Tab Keeper pages, where they stood: its moves shift them (KAN-745).
   pagesBefore?: readonly { tabId: number; index: number }[];
-  // KAN-949. The window a move to New window made (its tabs' `after` window): a redo makes it again once Chrome
-  // has closed it.
-  madeWindow?: number;
+  // KAN-949. The window a move to New window made (its tabs' `after` window), with the pinned Tab Keeper tab it
+  // added (null for none): undo closes that tab with the window, and a redo makes both again once Chrome has
+  // closed the window.
+  madeWindow?: MadeWindow;
 }
 
 // The kinds that reorder one window: they never change window, and a refused one is told as a sort.
@@ -1329,10 +1336,14 @@ async function runEndSplitStep(
 // tabs at `before`, redo at `after`. Once done, the side just reached is read
 // again from Chrome (R8: a rebuilt group has a new id); a read Chrome refuses
 // is 'couldNotRun'.
+//
+// KAN-949. `pinTabKeeper`: a redo that makes a closed window again adds the
+// pinned Tab Keeper tab ("Pin Tab Keeper in new windows"); off when omitted.
 export async function runLiveStep(
   drop: OpenNowDrop,
   direction: 'undo' | 'redo',
-  hasTabGroups: boolean
+  hasTabGroups: boolean,
+  pinTabKeeper = false
 ): Promise<LiveRun> {
   if (drop.kind === 'endSplit') return runEndSplitStep(drop, direction);
   // The look is only read or set with the grant, and chrome.tabGroups is
@@ -1342,13 +1353,16 @@ export async function runLiveStep(
   if (
     direction === 'redo' &&
     madeWindow !== undefined &&
-    (await attempt(() => chrome.windows.get(madeWindow))) === REFUSED
+    (await attempt(() => chrome.windows.get(madeWindow.windowId))) === REFUSED
   ) {
-    return remakeWindow(drop, madeWindow, hasTabGroups);
+    return remakeWindow(drop, madeWindow, hasTabGroups, pinTabKeeper);
   }
   const run = direction === 'undo' ? drop : reversed(drop);
   const outcome = await moveToBefore(run, withLook);
   if (outcome !== 'done') return { outcome };
+  if (direction === 'undo' && madeWindow !== undefined) {
+    await closeLoneStub(madeWindow);
+  }
 
   const moved: MovedTab[] = [];
   for (const tab of drop.moved) {
@@ -1393,19 +1407,31 @@ function newWindowMoveOf(drop: OpenNowDrop): NewWindowMove | null {
   };
 }
 
+// KAN-949. Once undo has moved the tabs back: the pinned Tab Keeper tab the move added is closed when it is all
+// the made window holds, and Chrome closes the window with it (as KAN-893's undo). A tab the user opened there
+// since keeps both. Not a reason to fail the step: the tabs the user moved are back.
+async function closeLoneStub({ windowId, stubTabId }: MadeWindow) {
+  if (stubTabId === null) return;
+  const there = await attempt(() => chrome.tabs.query({ windowId }));
+  if (there === REFUSED || !there.every((tab) => tab.id === stubTabId)) return;
+  await attempt(() => chrome.tabs.remove(stubTabId));
+}
+
 // KAN-949. Redo of a move to New window whose window Chrome has closed: the tabs, still where undo put them, go
-// into a new window again. Later steps naming the old window, or a group whose id changed, follow `renamed`.
+// into a new window again, with the pinned Tab Keeper tab when `pinTabKeeper`. Later steps naming the old window,
+// its Tab Keeper tab, or a group whose id changed, follow `renamed`.
 async function remakeWindow(
   drop: OpenNowDrop,
-  closed: number,
-  hasTabGroups: boolean
+  closed: MadeWindow,
+  hasTabGroups: boolean,
+  pinTabKeeper: boolean
 ): Promise<LiveRun> {
   if ((await whereTheLastRunLeftThem(reversed(drop).moved)) === null) {
     return { outcome: 'changedSince' };
   }
   const move = newWindowMoveOf(drop);
   if (move === null) return { outcome: 'couldNotRun' };
-  const made = await moveIntoNewWindow(move, hasTabGroups);
+  const made = await moveIntoNewWindow(move, hasTabGroups, pinTabKeeper);
   if (made === null) return { outcome: 'couldNotRun' };
   const groups = new Map<number, number>();
   for (const { tabId, after } of drop.moved) {
@@ -1416,10 +1442,17 @@ async function remakeWindow(
   }
   return {
     outcome: 'done',
-    drop: { kind: drop.kind, moved: made.moved, madeWindow: made.windowId },
+    drop: {
+      kind: drop.kind,
+      moved: made.moved,
+      madeWindow: { windowId: made.windowId, stubTabId: made.stubTabId },
+    },
     renamed: {
-      tabs: [],
-      windows: [[closed, made.windowId]],
+      tabs:
+        closed.stubTabId !== null && made.stubTabId !== null
+          ? [[closed.stubTabId, made.stubTabId]]
+          : [],
+      windows: [[closed.windowId, made.windowId]],
       groups: [...groups],
     },
   };
