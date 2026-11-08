@@ -24,6 +24,8 @@ import {
   holdsSplitView,
   orderBeforeSort,
 } from './openNowSort';
+import { moveIntoNewWindow } from './moveToNewWindow';
+import type { NewWindowMove } from './moveToNewWindow';
 import { carryPair, frontTabOf, isStillOneSplit } from './splitPairMove';
 import { createSplitApi, SPLIT_VIEW_ID_NONE, unsplitApi } from './splitView';
 import {
@@ -850,6 +852,9 @@ export interface OpenNowDrop {
   moved: MovedTabs;
   // A window sort's Tab Keeper pages, where they stood: its moves shift them (KAN-745).
   pagesBefore?: readonly { tabId: number; index: number }[];
+  // KAN-949. The window a move to New window made (its tabs' `after` window): a redo makes it again once Chrome
+  // has closed it.
+  madeWindow?: number;
 }
 
 // The kinds that reorder one window: they never change window, and a refused one is told as a sort.
@@ -1333,6 +1338,14 @@ export async function runLiveStep(
   // The look is only read or set with the grant, and chrome.tabGroups is
   // absent without it.
   const withLook = hasTabGroups && Boolean(chrome.tabGroups);
+  if (
+    direction === 'redo' &&
+    drop.madeWindow !== undefined &&
+    (await attempt(() => chrome.windows.get(drop.madeWindow as number))) ===
+      REFUSED
+  ) {
+    return remakeWindow(drop, drop.madeWindow, hasTabGroups);
+  }
   const run = direction === 'undo' ? drop : reversed(drop);
   const outcome = await moveToBefore(run, withLook);
   if (outcome !== 'done') return { outcome };
@@ -1347,5 +1360,67 @@ export async function runLiveStep(
         : { ...tab, after: place }
     );
   }
-  return { outcome: 'done', drop: { kind: drop.kind, moved } };
+  return {
+    outcome: 'done',
+    drop: {
+      kind: drop.kind,
+      moved,
+      ...(drop.madeWindow !== undefined && { madeWindow: drop.madeWindow }),
+    },
+  };
+}
+
+// KAN-949. The move a step to a new window redoes, from where its tabs are now (`before`): a group's tabs in
+// strip order, with the look they have now. Null for a step of another kind, or a group without its look.
+function newWindowMoveOf(drop: OpenNowDrop): NewWindowMove | null {
+  const ordered = [...drop.moved].sort(
+    (a, b) => a.before.index - b.before.index
+  );
+  const [head, ...rest] = ordered;
+  if (head === undefined) return null;
+  if (drop.kind === 'tab') return { kind: 'tab', tabId: head.tabId };
+  const second = rest[0];
+  if (drop.kind === 'pair') {
+    return second === undefined
+      ? null
+      : { kind: 'pair', pair: { first: head.tabId, second: second.tabId } };
+  }
+  if (drop.kind !== 'group' || head.before.group === null) return null;
+  return {
+    kind: 'group',
+    tabIds: [head.tabId, ...rest.map((tab) => tab.tabId)],
+    look: head.before.group,
+  };
+}
+
+// KAN-949. Redo of a move to New window whose window Chrome has closed: the tabs, still where undo put them, go
+// into a new window again. Later steps naming the old window, or a group whose id changed, follow `renamed`.
+async function remakeWindow(
+  drop: OpenNowDrop,
+  closed: number,
+  hasTabGroups: boolean
+): Promise<LiveRun> {
+  if ((await whereTheLastRunLeftThem(reversed(drop).moved)) === null) {
+    return { outcome: 'changedSince' };
+  }
+  const move = newWindowMoveOf(drop);
+  if (move === null) return { outcome: 'couldNotRun' };
+  const made = await moveIntoNewWindow(move, hasTabGroups);
+  if (made === null) return { outcome: 'couldNotRun' };
+  const groups = new Map<number, number>();
+  for (const { tabId, after } of drop.moved) {
+    const now = made.moved.find((tab) => tab.tabId === tabId)?.after;
+    if (now !== undefined && now.groupId !== after.groupId) {
+      groups.set(after.groupId, now.groupId);
+    }
+  }
+  return {
+    outcome: 'done',
+    drop: { kind: drop.kind, moved: made.moved, madeWindow: made.windowId },
+    renamed: {
+      tabs: [],
+      windows: [[closed, made.windowId]],
+      groups: [...groups],
+    },
+  };
 }

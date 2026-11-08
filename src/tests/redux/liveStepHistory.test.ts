@@ -400,6 +400,22 @@ describe('a drop into Currently open in the undo history (KAN-893)', () => {
       madeWindow: { windowId: 4, stubTabId: 40 },
     });
   });
+
+  // KAN-949. A live move to New window names the window it made; a redo that made it again renames it.
+  it('a live step names its made window, and renameIds renames it', () => {
+    const moved: OpenNowDrop = {
+      kind: 'tab',
+      moved: [{ tabId: 11, before: place, after: { ...place, windowId: 3 } }],
+      madeWindow: 3,
+    };
+    expect(
+      renameIds(moved, { tabs: [], windows: [[3, 4]], groups: [] })
+    ).toEqual({
+      kind: 'tab',
+      moved: [{ tabId: 11, before: place, after: { ...place, windowId: 4 } }],
+      madeWindow: 4,
+    });
+  });
 });
 
 describe('nextActionNumber', () => {

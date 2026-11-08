@@ -79,6 +79,9 @@ export function renameIds(drop: LiveDrop, renamed: RenamedIds): LiveDrop {
           tabId: tab(p.tabId),
         })),
       }),
+      ...(drop.madeWindow !== undefined && {
+        madeWindow: win(drop.madeWindow),
+      }),
     };
   }
   const { reopen, madeWindow } = drop;
