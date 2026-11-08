@@ -746,12 +746,24 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
       // Held at the bottom edge, the list scrolls until w2's last row shows.
       const pane = await detailPane(page);
       await page.mouse.move(at.x, pane.bottom - 4, { steps: 4 });
-      await expect
-        .poll(async () => (await boxOf(tabHandle(page, 'b9'))).y)
-        .toBeLessThan(pane.bottom - 40);
+      // KAN-952. Caught the first frame b9 clears the edge, while it still slides up as New window's room opens.
+      const b9Row = await tabHandle(page, 'b9').elementHandle();
+      await page.waitForFunction(
+        ([row, line]) => row.getBoundingClientRect().top < line,
+        [b9Row, pane.bottom - 40] as const,
+        { polling: 'raf' }
+      );
+      // Aim at where b9 comes to rest, not where it was caught.
+      await settled(page);
       const b9 = await boxOf(tabHandle(page, 'b9'));
       expect(b9.y + b9.height).toBeLessThanOrEqual(pane.bottom);
-      await page.mouse.move(at.x, b9.y + b9.height * 0.75, { steps: 2 });
+      const y = b9.y + b9.height * 0.6;
+      // PREMISE: clear of the 48px edge band, so the list holds still under the aim.
+      expect(y).toBeLessThan(pane.bottom - 48);
+      const scrollTop = (await detailPane(page)).scrollTop;
+      await page.mouse.move(at.x, y, { steps: 2 });
+      await settled(page);
+      expect((await detailPane(page)).scrollTop).toBe(scrollTop);
       await page.mouse.up();
       await expect
         .poll(() => layout(page, 'S1'))
