@@ -18,6 +18,9 @@ import type {
   OpenNowDrop,
   TabPlace,
 } from '../../../utils/functions/openNowMoves';
+import { moveIntoNewWindow } from '../../../utils/functions/moveToNewWindow';
+import type { NewWindowMove } from '../../../utils/functions/moveToNewWindow';
+import { isOpenedCopy, renameIds } from '../../../utils/functions/openedCopy';
 import { setupChromeFake } from '../../setup/chrome.fake';
 import type { ChromeFakeHandle, ChromeSeed } from '../../setup/chrome.fake';
 
@@ -1045,5 +1048,280 @@ describe('changedAnyPlace (ledger R23)', () => {
         { tabId: 2, before: at(1, 1), after: at(1, 2) },
       ])
     ).toBe(true);
+  });
+});
+
+// KAN-949. A move into a new window: undo puts the tabs back and Chrome closes the emptied window; redo moves them
+// back into it while it is open, else makes a new one and names the old id's replacement.
+describe('runLiveStep: a move to a new window (KAN-949)', () => {
+  const windowIds = async () =>
+    (await chrome.windows.getAll({})).map((w) => w.id).sort();
+
+  async function dropOut(
+    move: NewWindowMove,
+    pinTabKeeper = false
+  ): Promise<OpenNowDrop> {
+    const made = await moveIntoNewWindow(move, true, pinTabKeeper);
+    if (made === null) throw new Error('PREMISE: the move was refused');
+    const kind = move.kind;
+    return {
+      kind,
+      moved: made.moved,
+      madeWindow: { windowId: made.windowId, stubTabId: made.stubTabId },
+    };
+  }
+
+  const madeWindowOf = (drop: OpenNowDrop) => {
+    if (drop.madeWindow === undefined)
+      throw new Error('PREMISE: no made window');
+    return drop.madeWindow.windowId;
+  };
+  const stubOf = (drop: OpenNowDrop) => {
+    const stub = drop.madeWindow?.stubTabId;
+    if (stub === undefined || stub === null)
+      throw new Error('PREMISE: no stub');
+    return stub;
+  };
+  // Closed: Chrome rejects, the fake resolves with nothing.
+  const tabGone = async (tabId: number) =>
+    chrome.tabs.get(tabId).then(
+      (tab) => tab === undefined,
+      () => true
+    );
+
+  test('undo puts the tab back and the made window closes', async () => {
+    handle = setupChromeFake(plain);
+    const drop = await dropOut({ kind: 'tab', tabId: 12 });
+
+    const undone = await ran(runLiveStep(drop, 'undo', true));
+
+    expect(await strip(1)).toEqual(['11*', '12', '13', '14']);
+    expect(await windowIds()).toEqual([1, 2]);
+    expect(undone.madeWindow).toEqual(drop.madeWindow);
+  });
+
+  test('undo after the user opened a tab in the made window: that tab and window stay', async () => {
+    handle = setupChromeFake(plain);
+    const drop = await dropOut({ kind: 'tab', tabId: 12 });
+    const made = madeWindowOf(drop);
+    const theirs = await chrome.tabs.create({
+      windowId: made,
+      url: 'https://a.example/',
+    });
+
+    await ran(runLiveStep(drop, 'undo', true));
+
+    expect(await strip(1)).toEqual(['11*', '12', '13', '14']);
+    expect(
+      (await chrome.tabs.query({ windowId: made })).map((t) => t.id)
+    ).toEqual([theirs.id]);
+  });
+
+  test('redo after the made window closed makes a new window and renames it', async () => {
+    handle = setupChromeFake(plain);
+    const drop = await dropOut({ kind: 'tab', tabId: 12 });
+    const old = madeWindowOf(drop);
+    const undone = await ran(runLiveStep(drop, 'undo', true));
+
+    const run = await runLiveStep(undone, 'redo', true);
+
+    expect(run.outcome).toBe('done');
+    if (run.outcome !== 'done') return;
+    const fresh = madeWindowOf(run.drop);
+    expect(fresh).not.toBe(old);
+    expect(await strip(fresh)).toEqual(['12*']);
+    expect(await strip(1)).toEqual(['11*', '13', '14']);
+    expect(run.renamed).toEqual({
+      tabs: [],
+      windows: [[old, fresh]],
+      groups: [],
+    });
+    expect(run.drop.moved[0]?.after.windowId).toBe(fresh);
+  });
+
+  test('redo while the made window is still open moves back into it', async () => {
+    handle = setupChromeFake(plain);
+    const drop = await dropOut({ kind: 'tab', tabId: 12 });
+    const made = madeWindowOf(drop);
+    await chrome.tabs.create({ windowId: made, url: 'https://a.example/' });
+    const undone = await ran(runLiveStep(drop, 'undo', true));
+    const create = vi.spyOn(chrome.windows, 'create');
+
+    const run = await runLiveStep(undone, 'redo', true);
+
+    expect(run.outcome).toBe('done');
+    expect(create).not.toHaveBeenCalled();
+    expect((await chrome.tabs.get(12)).windowId).toBe(made);
+    expect((await chrome.tabs.get(12)).index).toBe(0);
+    expect(run.outcome === 'done' && run.renamed).toBeFalsy();
+  });
+
+  test('redo of a group after its window closed restores its look', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 11, active: true },
+            { id: 12, groupId: 5 },
+            { id: 13, groupId: 5 },
+          ],
+        },
+      ],
+      tabGroups: [
+        { id: 5, windowId: 1, title: 'Work', color: 'blue', collapsed: true },
+      ],
+    });
+    const drop = await dropOut({
+      kind: 'group',
+      tabIds: [12, 13],
+      look: { title: 'Work', color: 'blue', collapsed: true },
+    });
+    const undone = await ran(runLiveStep(drop, 'undo', true));
+    expect(await windowIds()).toEqual([1]);
+
+    const run = await runLiveStep(undone, 'redo', true);
+
+    expect(run.outcome).toBe('done');
+    const groupId = await groupOf(12);
+    expect(await groupOf(13)).toBe(groupId);
+    const look = await chrome.tabGroups.get(groupId);
+    expect([look.title, look.color, look.collapsed]).toEqual([
+      'Work',
+      'blue',
+      true,
+    ]);
+    expect((await chrome.tabs.get(12)).windowId).toBe(
+      run.outcome === 'done' ? run.drop.madeWindow?.windowId : -1
+    );
+  });
+
+  test('a later step in the made window follows its renamed id', async () => {
+    handle = setupChromeFake(plain);
+    const first = await dropOut({ kind: 'tab', tabId: 12 });
+    const made = madeWindowOf(first);
+    const second = await dropTab(tabMove(13, 1, made, 1), true);
+    const secondBack = await ran(runLiveStep(second, 'undo', true));
+    const firstBack = await ran(runLiveStep(first, 'undo', true));
+    expect(await windowIds()).toEqual([1, 2]);
+
+    const redone = await runLiveStep(firstBack, 'redo', true);
+    if (redone.outcome !== 'done' || redone.renamed === undefined) {
+      throw new Error('PREMISE: the first redo made a window');
+    }
+    const next = renameIds(secondBack, redone.renamed);
+    if (isOpenedCopy(next)) throw new Error('PREMISE: a live step');
+    const run = await runLiveStep(next, 'redo', true);
+
+    expect(run.outcome).toBe('done');
+    expect(await strip(madeWindowOf(redone.drop))).toEqual(['12*', '13']);
+  });
+
+  // Goal 3a: the pinned Tab Keeper tab the move added goes and comes back with the window.
+  test('undo closes the Tab Keeper tab the move added, and the window with it', async () => {
+    handle = setupChromeFake(plain);
+    const drop = await dropOut({ kind: 'tab', tabId: 12 }, true);
+    const stub = stubOf(drop);
+
+    await ran(runLiveStep(drop, 'undo', true));
+
+    expect(await strip(1)).toEqual(['11*', '12', '13', '14']);
+    expect(await tabGone(stub)).toBe(true);
+    expect(await windowIds()).toEqual([1, 2]);
+  });
+
+  test('undo after the user opened a tab there: the Tab Keeper tab and the window stay', async () => {
+    handle = setupChromeFake(plain);
+    const drop = await dropOut({ kind: 'tab', tabId: 12 }, true);
+    const made = madeWindowOf(drop);
+    const theirs = await chrome.tabs.create({
+      windowId: made,
+      url: 'https://a.example/',
+    });
+
+    await ran(runLiveStep(drop, 'undo', true));
+
+    expect(
+      (await chrome.tabs.query({ windowId: made }))
+        .sort((a, b) => a.index - b.index)
+        .map((t) => t.id)
+    ).toEqual([stubOf(drop), theirs.id]);
+  });
+
+  test('redo after the window closed adds the Tab Keeper tab again when asked', async () => {
+    handle = setupChromeFake(plain);
+    const drop = await dropOut({ kind: 'tab', tabId: 12 }, true);
+    const oldStub = stubOf(drop);
+    const undone = await ran(runLiveStep(drop, 'undo', true));
+
+    const run = await runLiveStep(undone, 'redo', true, true);
+
+    if (run.outcome !== 'done') throw new Error(`redo was ${run.outcome}`);
+    const fresh = madeWindowOf(run.drop);
+    const newStub = stubOf(run.drop);
+    expect(
+      (await chrome.tabs.query({ windowId: fresh }))
+        .sort((a, b) => a.index - b.index)
+        .map((t) => [t.id, t.pinned])
+    ).toEqual([
+      [newStub, true],
+      [12, false],
+    ]);
+    expect(run.renamed?.tabs).toEqual([[oldStub, newStub]]);
+  });
+
+  test('redo after the window closed, the setting now off: no Tab Keeper tab', async () => {
+    handle = setupChromeFake(plain);
+    const drop = await dropOut({ kind: 'tab', tabId: 12 }, true);
+    const undone = await ran(runLiveStep(drop, 'undo', true));
+
+    const run = await runLiveStep(undone, 'redo', true, false);
+
+    if (run.outcome !== 'done') throw new Error(`redo was ${run.outcome}`);
+    expect(run.drop.madeWindow?.stubTabId).toBeNull();
+    expect(await strip(madeWindowOf(run.drop))).toEqual(['12*']);
+    expect(run.renamed?.tabs).toEqual([]);
+  });
+
+  test('redo while the window is open moves back beside its Tab Keeper tab', async () => {
+    handle = setupChromeFake(plain);
+    const drop = await dropOut({ kind: 'tab', tabId: 12 }, true);
+    const made = madeWindowOf(drop);
+    const theirs = await chrome.tabs.create({
+      windowId: made,
+      url: 'https://a.example/',
+    });
+    const undone = await ran(runLiveStep(drop, 'undo', true));
+
+    const run = await runLiveStep(undone, 'redo', true, true);
+
+    expect(run.outcome).toBe('done');
+    expect(
+      (await chrome.tabs.query({ windowId: made }))
+        .sort((a, b) => a.index - b.index)
+        .map((t) => t.id)
+    ).toEqual([stubOf(drop), 12, theirs.id]);
+  });
+
+  test('undo refuses when the tab was moved since: nothing moves', async () => {
+    handle = setupChromeFake(plain);
+    const drop = await dropOut({ kind: 'tab', tabId: 12 });
+    await chrome.tabs.move(12, { windowId: 2, index: 0 });
+
+    const run = await runLiveStep(drop, 'undo', true);
+
+    expect(run.outcome).toBe('changedSince');
+    expect((await chrome.tabs.get(12)).windowId).toBe(2);
+  });
+
+  test('undo refuses when the old window closed', async () => {
+    handle = setupChromeFake(plain);
+    const drop = await dropOut({ kind: 'tab', tabId: 12 });
+    await chrome.windows.remove(1);
+
+    const run = await runLiveStep(drop, 'undo', true);
+
+    expect(run.outcome).toBe('windowClosed');
+    expect((await chrome.tabs.get(12)).windowId).toBe(madeWindowOf(drop));
   });
 });

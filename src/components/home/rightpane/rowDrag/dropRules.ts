@@ -532,8 +532,9 @@ export interface RowDragAreaProps {
    * nothing: the carry it belongs to owns the flag, and ends it.
    *
    * OPT-IN, not keyed on the kind: only the saved detail's tab and item
-   * lists pass it. A window drag makes no new window, and Open now's lists
-   * drag tabs too and must never show the target.
+   * lists pass it. A window drag makes no new window. Open now's lists never
+   * pass it: they draw their own boxes for the rows that may go to a new
+   * window (liveNewWindowLandings, onHeldChange; KAN-949).
    */
   offersNewWindow?: boolean;
   /**
@@ -547,6 +548,30 @@ export interface RowDragAreaProps {
     windowId: string;
     measure: () => ((x: number, y: number) => boolean) | null;
   };
+  /**
+   * KAN-949. The New window boxes a list draws for its OWN drags, read once at
+   * activation when `offers(rowId)` says the held row may go to a new window:
+   * `header` as adoptedHeaderLanding is for an adopted drag (a point on it
+   * lands as its `windowId`, never a hand-off), and `endWindowId`, the window
+   * the list's box below its last window lands as. A landing on either leaves
+   * the held row's room where it was (spec 11).
+   */
+  liveNewWindowLandings?: {
+    header: {
+      windowId: string;
+      measure: () => ((x: number, y: number) => boolean) | null;
+    };
+    endWindowId: string;
+    offers: (rowId: string) => boolean;
+  };
+  /**
+   * KAN-949. Called with the held row's id when one of this list's own drags
+   * activates -- before anything is measured, so what the list draws for it is
+   * laid out in the measured frame -- and with undefined once, however that
+   * drag ends: released, cancelled, handed off to a carry, or unmounted. Never
+   * for an adopted drag.
+   */
+  onHeldChange?: (rowId: string | undefined) => void;
   /**
    * KAN-379. Present, a tab or group resting on a collapsed window's title
    * row for SPRING_OPEN_MS opens it for the rest of the gesture; the windows
@@ -946,7 +971,8 @@ export function setDragging(on: boolean, kind: DragKind = 'tab'): void {
 //
 // Its own flag rather than a kind: whether a drag offers a new window is the
 // LIST's to say (RowDragAreaProps.offersNewWindow), not the drag kind's. Open
-// now's lists drag tabs too, and must never show the target.
+// now's lists drag tabs too, and never show the session header's target: they
+// draw their own (KAN-949).
 //
 // `withRoom` writes the value `room`: the list's trailing block also takes
 // its row of room below the last window (KAN-366 Q4, App.css). The engine

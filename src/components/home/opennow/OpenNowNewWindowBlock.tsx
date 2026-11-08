@@ -25,11 +25,17 @@ import { OPEN_NOW_NEW_WINDOW } from './carriedIntoOpenNow';
 import { OPEN_ITEMS_SCOPE, OPEN_TABS_SCOPE } from './useOpenNowDrop';
 
 interface Props {
-  // The phantom's row and the list that drags it; null for a window carry.
+  // The phantom's row and the list that drags it; null for a window carry, or a live row's drag.
   phantom: { rowId: string; kind: 'tab' | 'group'; pair: boolean } | null;
+  // KAN-949. A live tab, pair or group of Currently open is held: drawn as for a carried tab (mock r1 A), a blank
+  // row in the list until lit, with no phantom (the row is the list's own).
+  forLiveRow?: boolean;
 }
 
-export default function OpenNowNewWindowBlock({ phantom }: Props) {
+export default function OpenNowNewWindowBlock({
+  phantom,
+  forLiveRow = false,
+}: Props) {
   const COLORS = useThemeColors();
   const { t } = useTranslation();
   return (
@@ -58,6 +64,7 @@ export default function OpenNowNewWindowBlock({ phantom }: Props) {
           }
         `,
         phantom === null &&
+          !forLiveRow &&
           css`
             position: sticky;
             bottom: 0;

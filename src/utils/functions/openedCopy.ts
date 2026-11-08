@@ -79,6 +79,15 @@ export function renameIds(drop: LiveDrop, renamed: RenamedIds): LiveDrop {
           tabId: tab(p.tabId),
         })),
       }),
+      ...(drop.madeWindow !== undefined && {
+        madeWindow: {
+          windowId: win(drop.madeWindow.windowId),
+          stubTabId:
+            drop.madeWindow.stubTabId === null
+              ? null
+              : tab(drop.madeWindow.stubTabId),
+        },
+      }),
     };
   }
   const { reopen, madeWindow } = drop;

@@ -25,7 +25,7 @@
 // over tables built once per snapshot.
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 
 import { currentCarry, endCarry } from '../../../redux/carry';
 import type { CarriedItem } from '../../../redux/carriedItem';
@@ -45,8 +45,14 @@ import {
   tabCopySlot,
   type MovedTabs,
 } from '../../../utils/functions/openNowMoves';
-import type { AppDispatch } from '../../../redux/store';
+import type { AppDispatch, RootState } from '../../../redux/store';
 import { keepLiveStep, whileMovingTabs } from '../../../redux/undoHistory';
+import {
+  clearNewWindowFollow,
+  expectNewWindow,
+} from '../../../redux/newWindowFollow';
+import { moveIntoNewWindow } from '../../../utils/functions/moveToNewWindow';
+import type { NewWindowMove } from '../../../utils/functions/moveToNewWindow';
 import { TOAST_MESSAGES } from '../../../utils/constants/common';
 import { noRowsTabIndex } from '../../../utils/functions/pinnedRun';
 import {
@@ -62,6 +68,7 @@ import {
   OPEN_NOW_NEW_WINDOW,
 } from './carriedIntoOpenNow';
 import type { CarriedIntoOpenNow } from './carriedIntoOpenNow';
+import { newWindowMoveFor, offersLiveNewWindow } from './liveNewWindow';
 
 // Open now's two lists, named apart from the saved pane's `tabs` and `items`
 // so a row can never join a list of the other pane.
@@ -73,6 +80,17 @@ export const OPEN_WINDOWS_SCOPE = 'openWindows';
 // chrome.tabGroups.TAB_GROUP_ID_NONE, spelled out: chrome.tabGroups is absent
 // without the grant, and tab.groupId still reports -1 then.
 const NO_GROUP = -1;
+
+// KAN-949. The box below the last window, to the drop geometry, while a live row that may go to a new window is
+// held: a window with nothing in it, as a saved carry's is (carriedIntoOpenNow).
+const LIVE_NEW_WINDOW: DragWindows[number] = {
+  windowId: OPEN_NOW_NEW_WINDOW,
+  tabs: [],
+  chromeTabGroups: [],
+};
+
+const isNewWindowTarget = (windowId: string | undefined): boolean =>
+  windowId === OPEN_NOW_NEW_WINDOW || windowId === OPEN_NOW_HEADER_NEW_WINDOW;
 
 /**
  * The live windows as the drop geometry reads them: ids as strings, each
@@ -152,6 +170,8 @@ interface Options {
   // KAN-815. A saved tab or group carried in, or null. Memoized by the
   // caller, like `windows`: the tables are built from it.
   carriedIn: CarriedIntoOpenNow | null;
+  // KAN-949. A live row the New window boxes are drawn for is held (offersNewWindow said yes at its pick-up).
+  liveNewWindow: boolean;
 }
 
 /**
@@ -163,16 +183,49 @@ export function useOpenNowDrop({
   hasTabGroups,
   collapsedIds,
   carriedIn,
+  liveNewWindow,
 }: Options) {
   const dispatch: AppDispatch = useDispatch();
+  // KAN-949 Goal 3a. "Pin Tab Keeper in new windows" covers a window a live drag makes, as every window Tab Keeper makes.
+  const pinTabKeeper = useSelector(
+    (state: RootState) => state.settingsDataState.pinTabKeeperInNewWindows
+  );
   const { t } = useTranslation();
   // The trailing block comes last, as the pane draws it.
+  // T1. The group, if any, holding the Tab Keeper page this pane is on. Open
+  // now leaves that page out, so only Chrome can say; read again with each
+  // snapshot, since the page can be grouped after the pane opened. Undefined
+  // in the popup, which is no tab (getCurrent answers undefined). A ref, not
+  // state: acceptsWindow reads it at the moment it is asked, and a re-render
+  // would re-bind the engine's listeners for nothing.
+  const pageGroupId = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    let live = true;
+    chrome.tabs.getCurrent().then(
+      (tab) => {
+        if (!live) return;
+        pageGroupId.current =
+          tab === undefined || tab.groupId === NO_GROUP
+            ? undefined
+            : String(tab.groupId);
+      },
+      // Unanswered, the last answer stands.
+      () => undefined
+    );
+    return () => {
+      live = false;
+    };
+  }, [windows]);
   const dragWindows = useMemo(
     () => [
       ...openDragWindows(windows, hasTabGroups),
-      ...(carriedIn === null ? [] : [carriedIn.window]),
+      ...(carriedIn !== null
+        ? [carriedIn.window]
+        : liveNewWindow
+          ? [LIVE_NEW_WINDOW]
+          : []),
     ],
-    [windows, hasTabGroups, carriedIn]
+    [windows, hasTabGroups, carriedIn, liveNewWindow]
   );
   const { describeTabMove, ...tabGeometry } = useTabDropGeometry(
     dragWindows,
@@ -237,31 +290,6 @@ export function useOpenNowDrop({
     return { shown, incognito, tabs, items, pairHeads };
   }, [dragWindows, windows, collapsedIds, carriedIn]);
 
-  // T1. The group, if any, holding the Tab Keeper page this pane is on. Open
-  // now leaves that page out, so only Chrome can say; read again with each
-  // snapshot, since the page can be grouped after the pane opened. Undefined
-  // in the popup, which is no tab (getCurrent answers undefined). A ref, not
-  // state: acceptsWindow reads it at the moment it is asked, and a re-render
-  // would re-bind the engine's listeners for nothing.
-  const pageGroupId = useRef<string | undefined>(undefined);
-  useEffect(() => {
-    let live = true;
-    chrome.tabs.getCurrent().then(
-      (tab) => {
-        if (!live) return;
-        pageGroupId.current =
-          tab === undefined || tab.groupId === NO_GROUP
-            ? undefined
-            : String(tab.groupId);
-      },
-      // Unanswered, the last answer stands.
-      () => undefined
-    );
-    return () => {
-      live = false;
-    };
-  }, [windows]);
-
   const accepts = useCallback(
     (held: Held | undefined, windowId: string): boolean => {
       // A row the snapshot does not hold describes no move either; nothing to
@@ -298,16 +326,6 @@ export function useOpenNowDrop({
     },
     [tables]
   );
-  const tabAcceptsWindow = useCallback(
-    (rowId: string, windowId: string) =>
-      accepts(tables.tabs.get(rowId), windowId),
-    [accepts, tables]
-  );
-  const itemAcceptsWindow = useCallback(
-    (rowId: string, windowId: string) =>
-      accepts(tables.items.get(rowId), windowId),
-    [accepts, tables]
-  );
 
   // KAN-815. The saved item an adopted phantom stands for, when `rowId` is it.
   const carriedFor = useCallback(
@@ -320,6 +338,54 @@ export function useOpenNowDrop({
         : undefined;
     },
     [carriedIn]
+  );
+
+  // KAN-949. Whether a live row may go to a new window: it has company in its window and is not the group holding
+  // this page (offersLiveNewWindow). Read when asked, as `accepts` reads the page's group.
+  const offersNewWindow = useCallback(
+    (rowId: string): boolean =>
+      offersLiveNewWindow(rowId, windows, pageGroupId.current),
+    [windows]
+  );
+  // A New window box takes a live row only when it is offered one; a saved carry's own window answers as before.
+  const tabAcceptsWindow = useCallback(
+    (rowId: string, windowId: string) =>
+      isNewWindowTarget(windowId) && carriedFor(rowId) === undefined
+        ? offersNewWindow(rowId)
+        : accepts(tables.tabs.get(rowId), windowId),
+    [accepts, tables, carriedFor, offersNewWindow]
+  );
+  const itemAcceptsWindow = useCallback(
+    (rowId: string, windowId: string) =>
+      isNewWindowTarget(windowId) && carriedFor(rowId) === undefined
+        ? offersNewWindow(rowId)
+        : accepts(tables.items.get(rowId), windowId),
+    [accepts, tables, carriedFor, offersNewWindow]
+  );
+
+  // KAN-949. A live row let go on a New window box moves into a new window of its own, followed into view, and
+  // undoable as a live step. Null when it is not offered one, or Chrome refused.
+  const moveToNewWindow = useCallback(
+    async (rowId: string): Promise<MovedTabs | null> => {
+      if (!offersNewWindow(rowId)) return null;
+      const move: NewWindowMove | null = await newWindowMoveFor(rowId, windows);
+      if (move === null) return null;
+      expectNewWindow();
+      const made = await whileMovingTabs(() =>
+        moveIntoNewWindow(move, hasTabGroups, pinTabKeeper)
+      );
+      if (made === null) {
+        clearNewWindowFollow();
+        return null;
+      }
+      keepLiveStep(dispatch, {
+        kind: move.kind,
+        moved: made.moved,
+        madeWindow: { windowId: made.windowId, stubTabId: made.stubTabId },
+      });
+      return made.moved;
+    },
+    [offersNewWindow, windows, hasTabGroups, pinTabKeeper, dispatch]
   );
 
   // KAN-815. A copy is asked of Chrome, or nothing is; either way the carry
@@ -388,6 +454,7 @@ export function useOpenNowDrop({
           return slot === null ? null : { kind: 'tab', slot };
         });
       }
+      if (isNewWindowTarget(toWindowId)) return moveToNewWindow(rowId);
       const index =
         folded === undefined
           ? toIndex
@@ -433,6 +500,7 @@ export function useOpenNowDrop({
       carriedFor,
       carriedIn,
       openCopy,
+      moveToNewWindow,
     ]
   );
   const onItemMove = useCallback(
@@ -450,6 +518,7 @@ export function useOpenNowDrop({
           return slot === null ? null : { kind: 'group', slot };
         });
       }
+      if (isNewWindowTarget(toWindowId)) return moveToNewWindow(rowId);
       const move = describeGroupMove(rowId, toIndex, toWindowId);
       if (move === undefined) return null;
       const moved = await whileMovingTabs(() => moveOpenGroup(move, windows));
@@ -458,10 +527,18 @@ export function useOpenNowDrop({
       }
       return moved;
     },
-    [describeGroupMove, windows, dispatch, carriedFor, openCopy]
+    [
+      describeGroupMove,
+      windows,
+      dispatch,
+      carriedFor,
+      openCopy,
+      moveToNewWindow,
+    ]
   );
 
   return {
+    offersNewWindow,
     tabs: {
       ...tabGeometry,
       landingRange: tabLandingRange,
