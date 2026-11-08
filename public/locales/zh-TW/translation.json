@@ -420,7 +420,7 @@
   "Type in the search box to find an open tab. Press {{icon}} to show the saved session beside it.": "在搜尋框中輸入，即可找到開啟的分頁。按 {{icon}} 可在旁邊顯示已儲存的工作階段。",
   "Show me here": "在這裡看看",
   "In a split view with {{title}}": "與「{{title}}」分割畫面顯示",
-  "End split view": "結束分割畫面顯示",
+  "End split view": "結束分割畫面",
   "Sync limit used": "已用同步上限",
   "SyncLimitUsed": "你的工作階段使用 {{used}}（同步上限 {{limit}}）。",
   "SyncLimitUsedNear": "你的工作階段使用 {{used}}（同步上限 {{limit}}）。達到 {{limit}} 時將停止同步：請刪除不再需要的工作階段。",
