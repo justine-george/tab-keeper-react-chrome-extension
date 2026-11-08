@@ -8,6 +8,7 @@ import { toOpenWindows } from '../../../utils/functions/openNow';
 import type { OpenWindow } from '../../../utils/functions/openNow';
 import {
   changedAnyPlace,
+  liveStepOf,
   moveOpenGroup,
   moveOpenTab,
   runLiveStep,
@@ -1219,6 +1220,41 @@ describe('runLiveStep: a move to a new window (KAN-949)', () => {
 
     expect(run.outcome).toBe('done');
     expect(await strip(madeWindowOf(redone.drop))).toEqual(['12*', '13']);
+  });
+
+  // KAN-950. A group move Chrome stopped part way is kept as a step of its tabs, so ⌘Z puts each back.
+  test('a group move stopped part way is undone: every tab back in its group, in order', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 11, active: true },
+            { id: 12, groupId: 5 },
+            { id: 13, groupId: 5 },
+            { id: 14 },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 5, windowId: 1, title: 'Work', color: 'blue' }],
+    });
+    vi.spyOn(chrome.tabGroups, 'move').mockRejectedValueOnce(
+      new Error('refused')
+    );
+    const move: NewWindowMove = {
+      kind: 'group',
+      tabIds: [12, 13],
+      look: { title: 'Work', color: 'blue', collapsed: false },
+    };
+    const made = await moveIntoNewWindow(move, true, false);
+    if (made === null) throw new Error('PREMISE: the window was made');
+    // PREMISE: the head went alone.
+    expect(await strip(1)).toEqual(['11*', '13g5', '14']);
+
+    await ran(runLiveStep(liveStepOf(move, made), 'undo', true));
+
+    expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
+    expect(await windowIds()).toEqual([1]);
   });
 
   // KAN-950. A redo that makes the window again follows it into view, as the drop does (expectNewWindow).

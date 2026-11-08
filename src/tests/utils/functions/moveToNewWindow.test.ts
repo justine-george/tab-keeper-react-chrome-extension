@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { moveIntoNewWindow } from '../../../utils/functions/moveToNewWindow';
 import type { GroupLook } from '../../../utils/functions/openNowMoves';
@@ -459,6 +459,39 @@ describe('moveIntoNewWindow: a group', () => {
     ]);
     expect(a.splitViewId).toBeGreaterThan(0);
     expect(b.splitViewId).toBe(a.splitViewId);
+  });
+
+  // KAN-950. Past windows.create a refusal no longer loses the move: it is reported, with where each tab is.
+  test('refused after the window is made: reported as stopped part way, with each tab where it is', async () => {
+    handle = grouped();
+    vi.spyOn(chrome.tabGroups, 'move').mockRejectedValueOnce(
+      new Error('refused')
+    );
+
+    const result = await moveIntoNewWindow(
+      { kind: 'group', tabIds: [12, 13, 14], look: BLUE },
+      true,
+      false
+    );
+
+    expect(result?.finished).toBe(false);
+    expect(result?.moved.map((t) => [t.tabId, t.after.windowId])).toEqual([
+      [12, result?.windowId],
+      [13, 1],
+      [14, 1],
+    ]);
+  });
+
+  test('a move that went through says so', async () => {
+    handle = grouped();
+
+    const result = await moveIntoNewWindow(
+      { kind: 'group', tabIds: [12, 13, 14], look: BLUE },
+      true,
+      false
+    );
+
+    expect(result?.finished).toBe(true);
   });
 
   test('without the tabGroups grant a group refuses: null, nothing moved', async () => {

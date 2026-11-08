@@ -4,6 +4,7 @@ import {
   newWindowMoveFor,
   offersLiveNewWindow,
 } from '../../components/home/opennow/liveNewWindow';
+import { liveStepOf } from '../../utils/functions/openNowMoves';
 import { toOpenWindows } from '../../utils/functions/openNow';
 import { groupItemIdOf } from '../../utils/functions/tabGroups';
 import { setupChromeFake } from '../setup/chrome.fake';
@@ -260,5 +261,43 @@ describe('newWindowMoveFor', () => {
     const windows = await snapshot();
     expect(await newWindowMoveFor('99', windows)).toBeNull();
     expect(await newWindowMoveFor(groupItemIdOf('7'), windows)).toBeNull();
+  });
+});
+
+describe('liveStepOf (KAN-950)', () => {
+  const at = (windowId: number, index: number) => ({
+    windowId,
+    index,
+    groupId: -1,
+    group: null,
+    pinned: false,
+  });
+  const moved = [{ tabId: 12, before: at(1, 1), after: at(9, 0) }];
+  const look = { title: 'W', color: 'blue' as const, collapsed: false };
+
+  test('a move that went through: a step of its own kind, with the window it made', () => {
+    expect(
+      liveStepOf(
+        { kind: 'group', tabIds: [12], look },
+        { windowId: 9, stubTabId: 30, moved, finished: true }
+      )
+    ).toEqual({
+      kind: 'group',
+      moved,
+      madeWindow: { windowId: 9, stubTabId: 30 },
+    });
+  });
+
+  test('a move stopped part way: a step of single tabs, each put back on its own', () => {
+    expect(
+      liveStepOf(
+        { kind: 'group', tabIds: [12], look },
+        { windowId: 9, stubTabId: null, moved, finished: false }
+      )
+    ).toEqual({
+      kind: 'tab',
+      moved,
+      madeWindow: { windowId: 9, stubTabId: null },
+    });
   });
 });

@@ -29,7 +29,7 @@ import {
   expectNewWindow,
 } from '../../redux/newWindowFollow';
 import { moveIntoNewWindow } from './moveToNewWindow';
-import type { NewWindowMove } from './moveToNewWindow';
+import type { NewWindowMove, NewWindowResult } from './moveToNewWindow';
 import { carryPair, frontTabOf, isStillOneSplit } from './splitPairMove';
 import { createSplitApi, SPLIT_VIEW_ID_NONE, unsplitApi } from './splitView';
 import {
@@ -1337,6 +1337,19 @@ async function closeLoneStub({ windowId, stubTabId }: MadeWindow) {
   await attempt(() => chrome.tabs.remove(stubTabId));
 }
 
+// KAN-949. The undo step a move into a new window leaves. KAN-950: one Chrome stopped part way is kept as single
+// tabs ('tab'), each put back where it was on its own, since the pair or group it moved is no longer one unit.
+export function liveStepOf(
+  move: NewWindowMove,
+  made: NewWindowResult
+): OpenNowDrop {
+  return {
+    kind: made.finished ? move.kind : 'tab',
+    moved: made.moved,
+    madeWindow: { windowId: made.windowId, stubTabId: made.stubTabId },
+  };
+}
+
 // KAN-949. Redo of a move to New window whose window Chrome has closed: the tabs, still where undo put them, go
 // into a new window again, with the pinned Tab Keeper tab when `pinTabKeeper`. Later steps naming the old window,
 // its Tab Keeper tab, or a group whose id changed, follow `renamed`.
@@ -1367,11 +1380,7 @@ async function remakeWindow(
   }
   return {
     outcome: 'done',
-    drop: {
-      kind: drop.kind,
-      moved: made.moved,
-      madeWindow: { windowId: made.windowId, stubTabId: made.stubTabId },
-    },
+    drop: liveStepOf(move, made),
     renamed: {
       tabs:
         closed.stubTabId !== null && made.stubTabId !== null

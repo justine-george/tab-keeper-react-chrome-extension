@@ -41,6 +41,7 @@ import {
   groupCopySlot,
   moveOpenGroup,
   moveOpenPair,
+  liveStepOf,
   moveOpenTab,
   tabCopySlot,
   type MovedTabs,
@@ -378,11 +379,7 @@ export function useOpenNowDrop({
         clearNewWindowFollow();
         return null;
       }
-      keepLiveStep(dispatch, {
-        kind: move.kind,
-        moved: made.moved,
-        madeWindow: { windowId: made.windowId, stubTabId: made.stubTabId },
-      });
+      keepLiveStep(dispatch, liveStepOf(move, made));
       return made.moved;
     },
     [offersNewWindow, windows, hasTabGroups, pinTabKeeper, dispatch]

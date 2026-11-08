@@ -10,6 +10,16 @@ import { isStillOneSplit } from './splitPairMove';
 import type { SplitPair } from './splitPairMove';
 import { createSplitApi, SPLIT_VIEW_ID_NONE } from './splitView';
 
+// A move into a new window that was made: the window, the pinned Tab Keeper tab added there (null for none), each
+// tab's place before and after, and whether every step went through. `finished: false` is a move Chrome refused
+// part way: the tabs are where Chrome left them, which `moved` records (KAN-950).
+export interface NewWindowResult {
+  windowId: number;
+  stubTabId: number | null;
+  moved: MovedTabs;
+  finished: boolean;
+}
+
 // What is moved: one tab; a split's two tabs in strip order; or every tab of one group in strip order,
 // with the look the new group gets.
 export type NewWindowMove =
@@ -152,8 +162,8 @@ async function splitPartnerOf(
   }
 }
 
-// Never throws. Null when Chrome refused, or the move could not start (nothing moved then); a refusal part way
-// leaves the tabs where Chrome has them. Otherwise the new window's id and each tab's place before and after.
+// Never throws. Null when the move could not start or Chrome refused to make the window (nothing moved then), or a
+// place could not be read. Otherwise the result, finished or stopped part way.
 // `pinTabKeeper` ("Pin Tab Keeper in new windows", KAN-949 Goal 3a): the window also gets the pinned Tab Keeper
 // tab, first; `stubTabId` is its id, null when none was added (asked not to, an incognito window, or Chrome
 // refused it, which costs only that tab).
@@ -161,11 +171,7 @@ export async function moveIntoNewWindow(
   move: NewWindowMove,
   hasTabGroups: boolean,
   pinTabKeeper: boolean
-): Promise<{
-  windowId: number;
-  stubTabId: number | null;
-  moved: MovedTabs;
-} | null> {
+): Promise<NewWindowResult | null> {
   if (!(await canStart(move, hasTabGroups))) return null;
   const withLook = hasTabGroups && Boolean(chrome.tabGroups);
   const tabIds = tabIdsOf(move);
@@ -215,8 +221,9 @@ export async function moveIntoNewWindow(
       ? group !== null &&
         (await bringGroup(move.tabIds, move.look, windowId, group))
       : await bringTheRest(move, windowId, pinned);
-  if (!broughtRest) return null;
-  const stubTabId = pinTabKeeper ? await addPinnedStub(windowId) : null;
+  // KAN-950. Past the window's making, a refusal is reported with where each tab is, so the move can be undone.
+  const stubTabId =
+    broughtRest && pinTabKeeper ? await addPinnedStub(windowId) : null;
 
   const moved: MovedTab[] = [];
   for (const { tabId, before } of befores) {
@@ -224,7 +231,7 @@ export async function moveIntoNewWindow(
     if (after === null) return null;
     moved.push({ tabId, before, after });
   }
-  return { windowId, stubTabId, moved };
+  return { windowId, stubTabId, moved, finished: broughtRest };
 }
 
 // The tab of `tabIds` that is its window's front tab, if one is.
