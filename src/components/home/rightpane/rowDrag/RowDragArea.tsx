@@ -1790,6 +1790,25 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         l.toldHeld = true;
         onHeldChange(l.rowId);
       }
+      // KAN-950. What the list drew for that row can tip a list that fit
+      // over its end (Currently open's box below its last window): as
+      // giveRoomIfTight does for the saved list (KAN-944), it scrolls for this
+      // drag alone, its bar kept off before anything is measured, so holding
+      // at the bottom edge brings the box into view.
+      if (l.toldHeld && l.scroller === null) {
+        const fit = fittingOf(paneOf(rows.current.get(l.rowId) ?? null));
+        const overflow =
+          fit === null ? 0 : fit.contentHeight - fit.pane.clientHeight;
+        if (fit !== null && overflow > 0) {
+          fit.pane.setAttribute('data-drag-fits', '');
+          l.scroller = fit.pane;
+          l.fitsWithoutRoom = true;
+          l.maxScroll = overflow;
+          if (!scrollFrame.current) {
+            scrollFrame.current = requestAnimationFrame(autoScroll);
+          }
+        }
+      }
 
       // Which row is held, for rules that apply to it alone (KAN-160: a
       // group drag compresses only the held group). Written straight to the
