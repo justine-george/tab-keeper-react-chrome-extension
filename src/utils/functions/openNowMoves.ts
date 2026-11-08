@@ -24,8 +24,12 @@ import {
   holdsSplitView,
   orderBeforeSort,
 } from './openNowSort';
+import {
+  clearNewWindowFollow,
+  expectNewWindow,
+} from '../../redux/newWindowFollow';
 import { moveIntoNewWindow } from './moveToNewWindow';
-import type { NewWindowMove } from './moveToNewWindow';
+import type { NewWindowMove, NewWindowResult } from './moveToNewWindow';
 import { carryPair, frontTabOf, isStillOneSplit } from './splitPairMove';
 import { createSplitApi, SPLIT_VIEW_ID_NONE, unsplitApi } from './splitView';
 import {
@@ -33,35 +37,18 @@ import {
   rowSpansOf,
   withoutSplitFollowers,
 } from './splitPartners';
-import { partitionTabsIntoItems, sanitizeTabGroupColor } from './tabGroups';
-import type { TabGroupColor } from './tabGroups';
+import { partitionTabsIntoItems } from './tabGroups';
+import { placeOf, readPlace, readTab } from './tabPlace';
+import type {
+  GroupLook,
+  MovedTab,
+  MovedTabs,
+  TabPlace,
+  TabState,
+} from './tabPlace';
 
-export interface GroupLook {
-  title: string;
-  color: TabGroupColor;
-  collapsed: boolean;
-}
-
-// Where a tab is, as Chrome reports it. `groupId` is Chrome's id, -1 when
-// ungrouped (readable without the tabGroups grant). `group` is that group's
-// look, read at the same moment: null when the tab is ungrouped or the grant
-// is missing.
-export interface TabPlace {
-  windowId: number;
-  index: number;
-  groupId: number;
-  group: GroupLook | null;
-  // KAN-814. A drop can pin or unpin, so undo puts the pin back too.
-  pinned: boolean;
-}
-
-export interface MovedTab {
-  tabId: number;
-  before: TabPlace;
-  after: TabPlace;
-}
-
-export type MovedTabs = readonly MovedTab[];
+export type { GroupLook, MovedTab, MovedTabs, TabPlace } from './tabPlace';
+export { readPlace } from './tabPlace';
 
 // chrome.tabGroups.TAB_GROUP_ID_NONE, spelled out: chrome.tabGroups is absent
 // without the grant, and tab.groupId still reports -1 then.
@@ -76,73 +63,6 @@ async function attempt<T>(call: () => Promise<T>): Promise<T | typeof REFUSED> {
   } catch {
     return REFUSED;
   }
-}
-
-// The fields of a chrome.tabs.Tab this module reads, copied out at once: the
-// object a call resolves with is not promised to stay as it was.
-interface TabState {
-  windowId: number;
-  index: number;
-  groupId: number;
-  pinned: boolean;
-  active: boolean;
-}
-
-async function readTab(tabId: number): Promise<TabState | null> {
-  // Chrome rejects for a closed tab; the annotation admits `undefined` too,
-  // so a resolve with nothing is a refusal here, not a crash.
-  const tab: chrome.tabs.Tab | undefined | typeof REFUSED = await attempt(() =>
-    chrome.tabs.get(tabId)
-  );
-  if (tab === REFUSED || tab === undefined) return null;
-  return {
-    windowId: tab.windowId,
-    index: tab.index,
-    groupId: tab.groupId,
-    pinned: tab.pinned,
-    active: tab.active,
-  };
-}
-
-// A group's look, read with tabGroups.get: null for no group, or when the
-// look is not to be read (the grant is missing); REFUSED when Chrome refuses.
-async function readLook(
-  groupId: number,
-  withLook: boolean
-): Promise<GroupLook | null | typeof REFUSED> {
-  if (!withLook || groupId === NO_GROUP) return null;
-  const group = await attempt(() => chrome.tabGroups.get(groupId));
-  if (group === REFUSED) return REFUSED;
-  return {
-    title: group.title ?? '',
-    color: sanitizeTabGroupColor(group.color),
-    collapsed: group.collapsed,
-  };
-}
-
-async function placeOf(
-  tab: TabState,
-  withLook: boolean
-): Promise<TabPlace | null> {
-  const group = await readLook(tab.groupId, withLook);
-  if (group === REFUSED) return null;
-  return {
-    windowId: tab.windowId,
-    index: tab.index,
-    groupId: tab.groupId,
-    group,
-    pinned: tab.pinned,
-  };
-}
-
-// Where a tab is now, with its group's look when `withLook`. Null when Chrome
-// refuses either read.
-export async function readPlace(
-  tabId: number,
-  withLook: boolean
-): Promise<TabPlace | null> {
-  const tab = await readTab(tabId);
-  return tab === null ? null : placeOf(tab, withLook);
 }
 
 // The snapshot's windows and tabs by the string ids the drag engine carries
@@ -1417,6 +1337,19 @@ async function closeLoneStub({ windowId, stubTabId }: MadeWindow) {
   await attempt(() => chrome.tabs.remove(stubTabId));
 }
 
+// KAN-949. The undo step a move into a new window leaves. KAN-950: one Chrome stopped part way is kept as single
+// tabs ('tab'), each put back where it was on its own, since the pair or group it moved is no longer one unit.
+export function liveStepOf(
+  move: NewWindowMove,
+  made: NewWindowResult
+): OpenNowDrop {
+  return {
+    kind: made.finished ? move.kind : 'tab',
+    moved: made.moved,
+    madeWindow: { windowId: made.windowId, stubTabId: made.stubTabId },
+  };
+}
+
 // KAN-949. Redo of a move to New window whose window Chrome has closed: the tabs, still where undo put them, go
 // into a new window again, with the pinned Tab Keeper tab when `pinTabKeeper`. Later steps naming the old window,
 // its Tab Keeper tab, or a group whose id changed, follow `renamed`.
@@ -1431,8 +1364,13 @@ async function remakeWindow(
   }
   const move = newWindowMoveOf(drop);
   if (move === null) return { outcome: 'couldNotRun' };
+  // KAN-950. Followed into view once listed, as the drop's window is.
+  expectNewWindow();
   const made = await moveIntoNewWindow(move, hasTabGroups, pinTabKeeper);
-  if (made === null) return { outcome: 'couldNotRun' };
+  if (made === null) {
+    clearNewWindowFollow();
+    return { outcome: 'couldNotRun' };
+  }
   const groups = new Map<number, number>();
   for (const { tabId, after } of drop.moved) {
     const now = made.moved.find((tab) => tab.tabId === tabId)?.after;
@@ -1442,11 +1380,7 @@ async function remakeWindow(
   }
   return {
     outcome: 'done',
-    drop: {
-      kind: drop.kind,
-      moved: made.moved,
-      madeWindow: { windowId: made.windowId, stubTabId: made.stubTabId },
-    },
+    drop: liveStepOf(move, made),
     renamed: {
       tabs:
         closed.stubTabId !== null && made.stubTabId !== null

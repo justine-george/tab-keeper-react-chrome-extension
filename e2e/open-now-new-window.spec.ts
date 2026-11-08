@@ -9,6 +9,7 @@ import {
   strip,
   tabCount,
 } from './fixtures/liveWindows';
+import { stubsStayHidden } from './fixtures/pinnedStub';
 import { boxOf, pickUp } from './fixtures/sessionDrag';
 
 // KAN-949 on the real artifact: an open tab, pair or group dragged in Currently open is offered the header's
@@ -544,6 +545,8 @@ test.describe('undo and redo', () => {
     extensionId,
     serviceWorker: worker,
   }) => {
+    // Playwright shows every page, and a shown stub becomes the full view: kept hidden, as in real Chrome.
+    await stubsStayHidden(context);
     const live = await openLiveWindow(worker, ['A', 'B', 'C']);
     const page = await openTabView(
       context,
@@ -614,5 +617,111 @@ test.describe('undo and redo', () => {
     expect(await ids(worker, live.windowId)).toEqual(
       ['B', 'A', 'C'].map(live.idOf)
     );
+  });
+});
+
+// KAN-950. In a list that just fits, the box below the last window is drawn past the bottom at pick-up. As the
+// saved list does (KAN-944), the list scrolls for that drag alone, with no bar, so holding at the bottom edge
+// reaches the box; and no row narrows for a bar.
+test.describe('a list that just fits', () => {
+  test.use({ showScrollbars: true });
+
+  test('held at the bottom edge, the box below scrolls into reach and lands, rows keep their width', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const live = await openLiveWindow(worker, ['A', 'B']);
+    const page = await setUp(context, extensionId);
+    await expect(liveRow(page, live.idOf('B'))).toBeVisible();
+    const scroller = page.locator(SCROLLER);
+    const range = () =>
+      scroller.evaluate((el) => el.scrollHeight - el.clientHeight);
+    // Fill until the list scrolls, then close the last tab: it fits, with under a row free.
+    let last = -1;
+    for (let n = 0; (await range()) === 0; n += 1) {
+      last = await worker.evaluate(
+        async ({ windowId, url }) =>
+          (await chrome.tabs.create({ windowId, url, active: false })).id ?? -1,
+        { windowId: live.windowId, url: `data:text/html,<title>F${n}</title>` }
+      );
+      await expect(liveRow(page, last)).toBeVisible();
+    }
+    await worker.evaluate((id) => chrome.tabs.remove(id), last);
+    await expect(liveRow(page, last)).toHaveCount(0);
+    // PREMISE: it fits, with under a row free.
+    expect(
+      await scroller.evaluate((el) => el.scrollHeight - el.clientHeight)
+    ).toBe(0);
+    const rowWidth = () =>
+      boxOf(liveRow(page, live.idOf('B'))).then((b) => Math.round(b.width));
+    const atRest = await rowWidth();
+    const before = await windowIds(worker);
+
+    const at = await pickUp(page, liveHandle(page, live.idOf('A')));
+    expect(await rowWidth()).toBe(atRest);
+    const view = await boxOf(scroller);
+    await page.mouse.move(at.x, view.y + view.height - 4, { steps: 8 });
+    await expect(page.locator(LAST_BOX)).toHaveAttribute('data-landing', '');
+    await expect
+      .poll(() => scroller.evaluate((el) => el.scrollTop))
+      .toBeGreaterThan(0);
+    expect(await rowWidth()).toBe(atRest);
+    await page.mouse.up();
+
+    const made = await madeWindow(worker, before);
+    await expect.poll(() => ids(worker, made)).toEqual([live.idOf('A')]);
+  });
+
+  test('Esc at the bottom moves nothing, and the list fits again as it was', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const live = await openLiveWindow(worker, ['A', 'B']);
+    const page = await setUp(context, extensionId);
+    await expect(liveRow(page, live.idOf('B'))).toBeVisible();
+    const scroller = page.locator(SCROLLER);
+    const range = () =>
+      scroller.evaluate((el) => el.scrollHeight - el.clientHeight);
+    // Fill until the list scrolls, then close the last tab: it fits, with under a row free.
+    let last = -1;
+    for (let n = 0; (await range()) === 0; n += 1) {
+      last = await worker.evaluate(
+        async ({ windowId, url }) =>
+          (await chrome.tabs.create({ windowId, url, active: false })).id ?? -1,
+        { windowId: live.windowId, url: `data:text/html,<title>F${n}</title>` }
+      );
+      await expect(liveRow(page, last)).toBeVisible();
+    }
+    await worker.evaluate((id) => chrome.tabs.remove(id), last);
+    await expect(liveRow(page, last)).toHaveCount(0);
+    // PREMISE: it fits, with under a row free.
+    expect(
+      await scroller.evaluate((el) => el.scrollHeight - el.clientHeight)
+    ).toBe(0);
+    const rowWidth = () =>
+      boxOf(liveRow(page, live.idOf('B'))).then((b) => Math.round(b.width));
+    const atRest = await rowWidth();
+    const before = await windowIds(worker);
+
+    const at = await pickUp(page, liveHandle(page, live.idOf('A')));
+    expect(await rowWidth()).toBe(atRest);
+    const view = await boxOf(scroller);
+    await page.mouse.move(at.x, view.y + view.height - 4, { steps: 8 });
+    await expect(page.locator(LAST_BOX)).toHaveAttribute('data-landing', '');
+    await expect
+      .poll(() => scroller.evaluate((el) => el.scrollTop))
+      .toBeGreaterThan(0);
+    expect(await rowWidth()).toBe(atRest);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+
+    await expect.poll(range).toBe(0);
+    expect(await scroller.evaluate((el) => el.scrollTop)).toBe(0);
+    await page.waitForTimeout(500);
+    expect(await rowWidth()).toBe(atRest);
+    expect(await windowIds(worker)).toEqual(before);
+    expect((await ids(worker, live.windowId))[0]).toBe(live.idOf('A'));
   });
 });
