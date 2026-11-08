@@ -21,6 +21,10 @@ import type {
 import { moveIntoNewWindow } from '../../../utils/functions/moveToNewWindow';
 import type { NewWindowMove } from '../../../utils/functions/moveToNewWindow';
 import { isOpenedCopy, renameIds } from '../../../utils/functions/openedCopy';
+import {
+  clearNewWindowFollow,
+  pendingNewWindow,
+} from '../../../redux/newWindowFollow';
 import { setupChromeFake } from '../../setup/chrome.fake';
 import type { ChromeFakeHandle, ChromeSeed } from '../../setup/chrome.fake';
 
@@ -1215,6 +1219,35 @@ describe('runLiveStep: a move to a new window (KAN-949)', () => {
 
     expect(run.outcome).toBe('done');
     expect(await strip(madeWindowOf(redone.drop))).toEqual(['12*', '13']);
+  });
+
+  // KAN-950. A redo that makes the window again follows it into view, as the drop does (expectNewWindow).
+  test('redo that makes the window again asks the list to follow the new window', async () => {
+    handle = setupChromeFake(plain);
+    const drop = await dropOut({ kind: 'tab', tabId: 12 });
+    const undone = await ran(runLiveStep(drop, 'undo', true));
+    clearNewWindowFollow();
+
+    const run = await runLiveStep(undone, 'redo', true);
+
+    expect(run.outcome).toBe('done');
+    expect(pendingNewWindow()).not.toBeNull();
+    clearNewWindowFollow();
+  });
+
+  test('a redo that cannot make the window again follows nothing', async () => {
+    handle = setupChromeFake(plain);
+    const drop = await dropOut({ kind: 'tab', tabId: 12 });
+    const undone = await ran(runLiveStep(drop, 'undo', true));
+    clearNewWindowFollow();
+    vi.spyOn(chrome.windows, 'create').mockRejectedValueOnce(
+      new Error('refused')
+    );
+
+    const run = await runLiveStep(undone, 'redo', true);
+
+    expect(run.outcome).toBe('couldNotRun');
+    expect(pendingNewWindow()).toBeNull();
   });
 
   // Goal 3a: the pinned Tab Keeper tab the move added goes and comes back with the window.

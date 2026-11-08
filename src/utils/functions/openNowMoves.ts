@@ -24,6 +24,10 @@ import {
   holdsSplitView,
   orderBeforeSort,
 } from './openNowSort';
+import {
+  clearNewWindowFollow,
+  expectNewWindow,
+} from '../../redux/newWindowFollow';
 import { moveIntoNewWindow } from './moveToNewWindow';
 import type { NewWindowMove } from './moveToNewWindow';
 import { carryPair, frontTabOf, isStillOneSplit } from './splitPairMove';
@@ -1431,8 +1435,13 @@ async function remakeWindow(
   }
   const move = newWindowMoveOf(drop);
   if (move === null) return { outcome: 'couldNotRun' };
+  // KAN-950. Followed into view once listed, as the drop's window is.
+  expectNewWindow();
   const made = await moveIntoNewWindow(move, hasTabGroups, pinTabKeeper);
-  if (made === null) return { outcome: 'couldNotRun' };
+  if (made === null) {
+    clearNewWindowFollow();
+    return { outcome: 'couldNotRun' };
+  }
   const groups = new Map<number, number>();
   for (const { tabId, after } of drop.moved) {
     const now = made.moved.find((tab) => tab.tabId === tabId)?.after;
