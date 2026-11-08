@@ -462,8 +462,11 @@ interface LiveDrag {
   // hand-off (onMoveEvent, Q3 i).
   isOnNewFirstWindow: ((x: number, y: number) => boolean) | null;
   // The window a point on it lands as: NEW_FIRST_WINDOW, or an adopted
-  // drag's header landing (adoptedHeaderLanding, KAN-815).
+  // drag's header landing (adoptedHeaderLanding, KAN-815), or a list's own
+  // (liveHeaderLanding, KAN-949).
   newFirstWindowId: string;
+  // KAN-949. onHeldChange was told this drag's row, so its end tells it the drag is over.
+  toldHeld: boolean;
   // KAN-280 Part F (P1). Whether a point is left or right of handsOffOutside's box, read at activation; null without it.
   besidePane: ((x: number) => boolean) | null;
   // KAN-944. The list fit at pick-up and scrolls only for the room this drag
@@ -583,6 +586,7 @@ function pressRecord(
     receiverAt: null,
     isOnNewFirstWindow: null,
     newFirstWindowId: NEW_FIRST_WINDOW,
+    toldHeld: false,
     besidePane: null,
     fitsWithoutRoom: false,
     dropTarget: undefined,
@@ -630,6 +634,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   onLandingWindowChange,
   offersNewWindow = false,
   adoptedHeaderLanding,
+  liveHeaderLanding,
+  onHeldChange,
   keepWindowOpen,
   disabled = false,
   handsOffOutside,
@@ -1605,9 +1611,17 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // drag on from here (a carry, KAN-350) owns all three. finish() for a
     // refused release, minus those three. Nor the New window marker
     // (KAN-361): a tab or group carry writes its own, and endCarry ends it.
+    // KAN-949. However a drag this list was told about ends -- released, cancelled, handed off to a carry.
+    const tellLetGo = (l: LiveDrag) => {
+      if (!l.toldHeld) return;
+      l.toldHeld = false;
+      onHeldChange?.(undefined);
+    };
+
     const letGo = (l: LiveDrag) => {
       live.current = null;
       setDrag(null);
+      tellLetGo(l);
       hideDragCard(cardOwner);
       if (scrollFrame.current) {
         cancelAnimationFrame(scrollFrame.current);
@@ -1743,6 +1757,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // new -- because the rule is that the kind is on BEFORE anything is
       // measured, and an adoption measures.
       if (!l.adopted) beginDragHold();
+      // KAN-949. The list is told which row it holds before anything below is
+      // measured, so what it draws for that row (Currently open's New window
+      // boxes) is laid out when the rects are read. An adoption's carry has
+      // already drawn its own.
+      if (!l.adopted && onHeldChange !== undefined) {
+        l.toldHeld = true;
+        onHeldChange(l.rowId);
+      }
 
       // Which row is held, for rules that apply to it alone (KAN-160: a
       // group drag compresses only the held group). Written straight to the
@@ -1777,7 +1799,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // receivers above, and AFTER the marker that draws it: a target that
       // is not drawn is no landing, so read before the marker it would
       // never be one.
-      const header = l.adopted ? adoptedHeaderLanding : undefined;
+      const header = l.adopted
+        ? adoptedHeaderLanding
+        : liveHeaderLanding?.offers(l.rowId) === true
+          ? liveHeaderLanding
+          : undefined;
       l.isOnNewFirstWindow = offersNewWindow
         ? measureNewFirstWindowTarget(document)
         : (header?.measure() ?? null);
@@ -2283,6 +2309,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // An adopted drag's kind is the carry's, and endCarry unpublishes it
       // below, after the move -- the same order the session list's take()
       // runs in (KAN-350). So is its New window marker (KAN-361).
+      tellLetGo(l);
       if (!l.adopted) {
         setDragging(false);
         setDragNewWindow(false);
@@ -2573,6 +2600,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     onLandingWindowChange,
     offersNewWindow,
     adoptedHeaderLanding,
+    liveHeaderLanding,
+    onHeldChange,
     keepWindowOpen,
     clampDropToEnds,
     clicks,
@@ -2589,6 +2618,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   useEffect(() => {
     landingWindowChange.current = onLandingWindowChange;
   }, [onLandingWindowChange]);
+  // KAN-949. As above, for the unmount's word that the held row was let go.
+  const heldChange = useRef(onHeldChange);
+  useEffect(() => {
+    heldChange.current = onHeldChange;
+  }, [onHeldChange]);
 
   // A drag interrupted by UNMOUNT must not leave the document stuck in a drag.
   //
@@ -2622,6 +2656,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       if (l?.landingWindow !== undefined) {
         landingWindowChange.current?.(undefined, container);
       }
+      if (l?.toldHeld === true) heldChange.current?.(undefined);
       if (l) endDwell(l);
       if (l?.adopted) {
         // The hold and the kind are the carry's: ending it ends both, and
