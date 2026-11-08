@@ -1169,6 +1169,44 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     lastFocusedWindowId = windowId;
   };
 
+  // KAN-949, measured (ledger probe 1-2, Chromium 156): windows.create({tabId}) makes a window holding only that
+  // tab, active, with no New Tab. On the way the tab is unpinned, leaves its group (a group it empties goes) and
+  // ends its split (the other half stays behind); the old window picks its next front tab, and closes if emptied.
+  // `focused: true` takes focus (getLastFocused names it). Not modelled: a url alongside the tabId.
+  const createAround = (
+    data: chrome.windows.CreateData,
+    cb?: (win?: chrome.windows.Window | null) => void
+  ) => {
+    if (data.url !== undefined) {
+      throw new Error(
+        'windows.create with both tabId and url is not modelled by the chrome fake -- model it before depending on it.'
+      );
+    }
+    const target = tabs.find((tab) => tab.id === data.tabId);
+    if (!target) {
+      return fail<chrome.windows.Window>(`No tab with id: ${data.tabId}.`, cb);
+    }
+    const fromWindowId = target.windowId;
+    const from = windows.find((win) => win.id === fromWindowId);
+    const created = {
+      id: nextId++,
+      focused: false,
+      type: data.type ?? 'normal',
+      state: data.state ?? 'normal',
+      incognito: from?.incognito ?? false,
+    } as unknown as chrome.windows.Window;
+    const windowId = created.id as number;
+    endSplit(target);
+    windows.push(created);
+    windowsOnCreated.fire(created);
+    transferTab(target, windowId, 0);
+    target.active = true;
+    tabsOnActivated.fire({ tabId: idOf(target), windowId });
+    if (data.focused === true) focusWindow(windowId);
+    closeIfEmpty(fromWindowId);
+    return settle(populate(created), cb);
+  };
+
   // The recently-closed list, newest first. Recorded whatever the grant --
   // Chrome keeps its list regardless of the extension's permission; only
   // the API calls are gated.
@@ -2624,6 +2662,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           handle.unseenIncognitoWindows += 1;
           return settle(null, cb);
         }
+        if (data.tabId !== undefined) return createAround(data, cb);
         const urls =
           typeof data.url === 'string'
             ? [data.url]
