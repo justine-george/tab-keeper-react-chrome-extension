@@ -704,7 +704,8 @@ test.describe('the popup page and the tab view together (KAN-279 D8, D9, D12)', 
   });
 
   // KAN-666. Chrome sometimes never fires the storage event (3 in 4,000 runs
-  // of the test above). Swallowed here, so it misses every time.
+  // of the test above). Swallowed here, and the popup's post (KAN-925) is
+  // dropped too, so the tab view misses the save every time.
   test("a save in the tab view keeps the popup's save it never heard", async ({
     context,
     extensionId,
@@ -712,7 +713,13 @@ test.describe('the popup page and the tab view together (KAN-279 D8, D9, D12)', 
     // Added before the app's own listener, so it runs first: listeners on
     // window run in the order they were added, capturing or not.
     await context.addInitScript(() => {
-      if (!location.search.includes('view=tab')) return;
+      if (!location.search.includes('view=tab')) {
+        const post = BroadcastChannel.prototype.postMessage;
+        BroadcastChannel.prototype.postMessage = function (message: unknown) {
+          if (message !== 'tabContainerData') post.call(this, message);
+        };
+        return;
+      }
       const swallowed: string[] = [];
       window.addEventListener('storage', (e) => {
         if (e.key !== 'tabContainerData') return;
@@ -755,7 +762,13 @@ test.describe('the popup page and the tab view together (KAN-279 D8, D9, D12)', 
     extensionId,
   }) => {
     await context.addInitScript(() => {
-      if (!location.search.includes('view=tab')) return;
+      if (!location.search.includes('view=tab')) {
+        const post = BroadcastChannel.prototype.postMessage;
+        BroadcastChannel.prototype.postMessage = function (message: unknown) {
+          if (message !== 'settingsData') post.call(this, message);
+        };
+        return;
+      }
       window.addEventListener('storage', (e) => {
         if (e.key !== 'settingsData') return;
         e.stopImmediatePropagation();

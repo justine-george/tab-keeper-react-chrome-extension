@@ -268,6 +268,86 @@ describe('events that carry nothing to take in (KAN-279 D9)', () => {
   });
 });
 
+// KAN-925. Chrome sometimes fires no `storage` event for another page's write;
+// the writer's post on the channel is then the only signal. Posts each key as
+// another page would, and returns once a listener here heard them all.
+const otherPagePosts = async (...keys: string[]) => {
+  const writer = new BroadcastChannel('tab-keeper-stored');
+  const listener = new BroadcastChannel('tab-keeper-stored');
+  const landed = new Promise<void>((resolve) => {
+    listener.onmessage = (e: MessageEvent<unknown>) => {
+      if (e.data === 'marker') resolve();
+    };
+  });
+  for (const key of keys) writer.postMessage(key);
+  writer.postMessage('marker');
+  await act(async () => {
+    await landed;
+  });
+  writer.close();
+  listener.close();
+};
+
+const takeIns = (seen: string[]) =>
+  seen.filter((type) => /\/hydrate(Settings)?FromOtherPage$/.test(type)).length;
+
+describe('a write whose storage event never came (KAN-925)', () => {
+  test('a session saved in another page still appears here', async () => {
+    await renderApp(buildContainer([session('Research')]));
+
+    localStorage.setItem(
+      'tabContainerData',
+      JSON.stringify(buildContainer([session('Holiday'), session('Research')]))
+    );
+    await otherPagePosts('tabContainerData');
+
+    expect(await screen.findByText('Holiday')).toBeTruthy();
+  });
+
+  test('a language chosen in another page still switches this one', async () => {
+    const { store } = await renderApp(buildContainer([session('Research')]));
+
+    localStorage.setItem(
+      'settingsData',
+      JSON.stringify({ ...store.getState().settingsDataState, language: 'de' })
+    );
+    await otherPagePosts('settingsData');
+
+    await waitFor(() => expect(testI18n.language).toBe('de'));
+    expect(store.getState().settingsDataState.language).toBe('de');
+  });
+
+  test('both signals for one write: it is taken in once', async () => {
+    const { seen } = await renderApp(buildContainer([session('Research')]));
+    seen.length = 0;
+
+    otherPageWrites(
+      'tabContainerData',
+      buildContainer([session('Holiday'), session('Research')])
+    );
+    await otherPagePosts('tabContainerData', 'settingsData');
+
+    expect(await screen.findByText('Holiday')).toBeTruthy();
+    expect(takeIns(seen)).toBe(1);
+  });
+
+  test('after unmount, a post dispatches nothing', async () => {
+    const { seen, unmount } = await renderApp(
+      buildContainer([session('Research')])
+    );
+    unmount();
+    seen.length = 0;
+
+    localStorage.setItem(
+      'tabContainerData',
+      JSON.stringify(buildContainer([session('Holiday'), session('Research')]))
+    );
+    await otherPagePosts('tabContainerData');
+
+    expect(seen).toEqual([]);
+  });
+});
+
 describe('the rename editor when its session goes (KAN-279 D9)', () => {
   test('the other page deleted the session being renamed: no rename field is left', async () => {
     const user = userEvent.setup();
