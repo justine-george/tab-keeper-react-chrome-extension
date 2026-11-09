@@ -199,11 +199,17 @@ test.describe('undo and redo of a drop into Currently open', () => {
     const tabs = await strip(worker, live.windowId);
     expect(tabs[1].groupId).not.toBe(-1);
     expect(tabs[2].groupId).toBe(tabs[1].groupId);
-    const group = await worker.evaluate(
-      (id: number) => chrome.tabGroups.get(id),
-      tabs[1].groupId
-    );
-    expect(group).toMatchObject({ title: 'Day trips', color: 'green' });
+    // The look lands in its own call after the group forms (KAN-931).
+    await expect
+      .poll(
+        () =>
+          worker.evaluate(
+            (id: number) => chrome.tabGroups.get(id),
+            tabs[1].groupId
+          ),
+        SETTLE
+      )
+      .toMatchObject({ title: 'Day trips', color: 'green' });
   });
 
   test('a pair: ⌘Z closes both halves; ⌘⇧Z opens them split again', async ({
