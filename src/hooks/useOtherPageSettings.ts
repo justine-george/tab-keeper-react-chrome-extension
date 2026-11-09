@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import type { AppDispatch } from '../redux/store';
 import { applyOtherPageSettings } from '../redux/otherPageChanges';
+import { onOtherPageWrite } from '../utils/functions/otherPageSignal';
 
 /**
  * KAN-279 D9, the settings half. Takes in the settings another open page of
@@ -14,22 +15,20 @@ import { applyOtherPageSettings } from '../redux/otherPageChanges';
  * next save, whatever another page changed meanwhile.
  *
  * The browser fires `storage` in every OTHER page of the origin when one
- * writes, never in the writer. The thunk re-reads localStorage rather than
- * trusting `e.newValue`, so a burst of writes lands on the latest. A
- * `removeItem` or `clear()` (newValue null) is ignored: nothing in the app
- * does either, and there is no value to take in.
+ * writes, never in the writer, and not always even there: the writer's post
+ * is the second signal (KAN-925, otherPageSignal.ts). The thunk re-reads
+ * localStorage, so a burst of writes lands on the latest.
  */
 export function useOtherPageSettings(): void {
   const dispatch: AppDispatch = useDispatch();
   const { i18n } = useTranslation();
 
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key !== 'settingsData' || e.newValue === null) return;
-      const { languageChanged } = dispatch(applyOtherPageSettings());
-      if (languageChanged !== null) void i18n.changeLanguage(languageChanged);
-    };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
-  }, [dispatch, i18n]);
+  useEffect(
+    () =>
+      onOtherPageWrite('settingsData', () => {
+        const { languageChanged } = dispatch(applyOtherPageSettings());
+        if (languageChanged !== null) void i18n.changeLanguage(languageChanged);
+      }),
+    [dispatch, i18n]
+  );
 }

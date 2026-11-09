@@ -11,6 +11,7 @@ import type {
 // Type only: src/background.ts imports this module (see FALLBACK_LOCALE).
 import type { TimeFormat } from '../../redux/slices/settingsDataStateSlice';
 import { searchTermOf } from './openNowSearch';
+import { announceStoredWrite } from './otherPageSignal';
 import { CORNER_SHAPE, RADIUS } from '../../styles/scale';
 
 // check validity of the timestamp
@@ -324,6 +325,7 @@ export const saveToLocalStorage = (key: string, data: any): void => {
   try {
     localStorage.setItem(key, JSON.stringify(data));
     behindPage.delete(key);
+    announceStoredWrite(key);
   } catch (error) {
     noteRefusedSave(key, error);
   }
@@ -334,6 +336,7 @@ export const saveJsonToLocalStorage = (key: string, json: string): boolean => {
   try {
     localStorage.setItem(key, json);
     behindPage.delete(key);
+    announceStoredWrite(key);
     return true;
   } catch (error) {
     noteRefusedSave(key, error);
