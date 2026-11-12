@@ -502,5 +502,11 @@
   "WhatsNewGroupColorTitle": "Gruppenfarbe über das Menü ändern",
   "WhatsNewGroupColorBody": "Klicken Sie mit der rechten Maustaste auf den Titel einer Gruppe oder öffnen Sie ihr ⋮-Menü und wählen Sie eine Farbe. Das funktioniert bei gespeicherten Gruppen und in „Offene Tabs“.",
   "WhatsNewOpenNewWindowTitle": "Gespeicherte Tabs in einem neuen Fenster öffnen",
-  "WhatsNewOpenNewWindowBody": "Klicken Sie mit der rechten Maustaste auf einen gespeicherten Tab oder eine Gruppe und wählen Sie „In neuem Fenster öffnen“."
+  "WhatsNewOpenNewWindowBody": "Klicken Sie mit der rechten Maustaste auf einen gespeicherten Tab oder eine Gruppe und wählen Sie „In neuem Fenster öffnen“.",
+  "WhatsNewSplitViewTitle": "Geteilte Ansichten bleiben zusammen",
+  "WhatsNewSplitViewBody": "Eine geteilte Ansicht in „Offene Tabs“ oder in einer gespeicherten Sitzung wird beim Ziehen als Ganzes verschoben. Zum Beenden klicken Sie mit der rechten Maustaste auf eine der beiden Hälften und wählen „Geteilte Ansicht beenden“.",
+  "WhatsNewLiveNewWindowTitle": "Offenen Tab in ein neues Fenster ziehen",
+  "WhatsNewLiveNewWindowBody": "Ziehen Sie in „Offene Tabs“ einen Tab, eine geteilte Ansicht oder eine Gruppe auf „Neues Fenster“, um daraus ein eigenes Fenster zu machen.",
+  "WhatsNewUndoDropTitle": "Ablegen in „Offene Tabs“ rückgängig machen",
+  "WhatsNewUndoDropBody": "Versehentlich einen gespeicherten Tab, eine Gruppe oder ein Fenster in „Offene Tabs“ abgelegt? „Rückgängig“ schließt die dabei geöffneten Tabs."
 }

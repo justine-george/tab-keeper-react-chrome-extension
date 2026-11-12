@@ -485,5 +485,11 @@
   "WhatsNewGroupColorTitle": "从菜单更改群组颜色",
   "WhatsNewGroupColorBody": "右键点击群组标题，或打开其 ⋮ 菜单，然后选择颜色。已保存的群组和“当前打开的标签页”中均可使用。",
   "WhatsNewOpenNewWindowTitle": "在新窗口中打开已保存的标签页",
-  "WhatsNewOpenNewWindowBody": "右键点击已保存的标签页或群组，然后选择“在新窗口中打开”。"
+  "WhatsNewOpenNewWindowBody": "右键点击已保存的标签页或群组，然后选择“在新窗口中打开”。",
+  "WhatsNewSplitViewTitle": "分屏可整体移动",
+  "WhatsNewSplitViewBody": "在“当前打开的标签页”或已保存的会话中拖动分屏，它会整体移动。要结束分屏，请右键点击任意一侧，然后选择“结束分屏”。",
+  "WhatsNewLiveNewWindowTitle": "将打开的标签页拖到新窗口",
+  "WhatsNewLiveNewWindowBody": "在“当前打开的标签页”中，将标签页、分屏或群组拖到“新窗口”上，即可将其移到单独的窗口中。",
+  "WhatsNewUndoDropTitle": "撤销拖放到“当前打开的标签页”",
+  "WhatsNewUndoDropBody": "不小心把已保存的标签页、群组或窗口拖放到了“当前打开的标签页”？“撤销”会关闭因此打开的标签页。"
 }

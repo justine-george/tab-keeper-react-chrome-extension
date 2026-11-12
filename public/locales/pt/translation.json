@@ -519,5 +519,11 @@
   "WhatsNewGroupColorTitle": "Altere a cor de um grupo pelo menu dele",
   "WhatsNewGroupColorBody": "Clique com o botão direito no título de um grupo, ou abra o menu ⋮ dele, e escolha uma cor. Funciona em grupos salvos e em “Abas abertas”.",
   "WhatsNewOpenNewWindowTitle": "Abra abas salvas em uma nova janela",
-  "WhatsNewOpenNewWindowBody": "Clique com o botão direito em uma aba ou grupo salvo e escolha “Abrir em nova janela”."
+  "WhatsNewOpenNewWindowBody": "Clique com o botão direito em uma aba ou grupo salvo e escolha “Abrir em nova janela”.",
+  "WhatsNewSplitViewTitle": "Telas divididas ficam juntas",
+  "WhatsNewSplitViewBody": "Arraste uma tela dividida em “Abas abertas” ou em uma sessão salva, e ela se move como uma só. Para encerrá-la, clique com o botão direito em qualquer uma das metades e escolha “Encerrar tela dividida”.",
+  "WhatsNewLiveNewWindowTitle": "Arraste uma aba aberta para uma nova janela",
+  "WhatsNewLiveNewWindowBody": "Em “Abas abertas”, arraste uma aba, tela dividida ou grupo até “Nova janela” para movê-lo para uma janela própria.",
+  "WhatsNewUndoDropTitle": "Desfaça o arrastar e soltar em “Abas abertas”",
+  "WhatsNewUndoDropBody": "Arrastou por engano uma aba, um grupo ou uma janela salvos para “Abas abertas”? “Desfazer” fecha as abas que foram abertas."
 }

@@ -502,5 +502,11 @@
   "WhatsNewGroupColorTitle": "Ändra en grupps färg från dess meny",
   "WhatsNewGroupColorBody": "Högerklicka på en grupps titel, eller öppna dess ⋮-meny, och välj en färg. Det fungerar för sparade grupper och i ”Öppna flikar”.",
   "WhatsNewOpenNewWindowTitle": "Öppna sparade flikar i ett nytt fönster",
-  "WhatsNewOpenNewWindowBody": "Högerklicka på en sparad flik eller grupp och välj ”Öppna i nytt fönster”."
+  "WhatsNewOpenNewWindowBody": "Högerklicka på en sparad flik eller grupp och välj ”Öppna i nytt fönster”.",
+  "WhatsNewSplitViewTitle": "Delade vyer hålls ihop",
+  "WhatsNewSplitViewBody": "Dra en delad vy i ”Öppna flikar” eller i en sparad session så flyttas den som en enhet. Avsluta den genom att högerklicka på någon av halvorna och välja ”Avsluta delad vy”.",
+  "WhatsNewLiveNewWindowTitle": "Dra en öppen flik till ett nytt fönster",
+  "WhatsNewLiveNewWindowBody": "I ”Öppna flikar” drar du en flik, delad vy eller grupp till ”Nytt fönster” för att flytta den till ett eget fönster.",
+  "WhatsNewUndoDropTitle": "Ångra ett släpp i ”Öppna flikar”",
+  "WhatsNewUndoDropBody": "Råkade du släppa en sparad flik, grupp eller ett sparat fönster i ”Öppna flikar”? ”Ångra” stänger flikarna som öppnades."
 }

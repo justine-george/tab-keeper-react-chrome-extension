@@ -42,16 +42,16 @@ const start = (localArea?: Record<string, unknown>) => {
 
 describe('deciding', () => {
   test('after an update, it opens the shipped release', async () => {
-    const store = start({ [WHATS_NEW_SINCE_KEY]: '2.2.1' });
+    const store = start({ [WHATS_NEW_SINCE_KEY]: '2.3.0' });
 
     const opener = await decideWhatsNew(store.dispatch);
 
     expect(opener).not.toBeNull();
     opener?.();
     const shown = store.getState().globalState.whatsNew;
-    expect(shown?.map((r) => r.version)).toEqual(['2.3.0']);
-    expect(shown?.[0].entries[0].titleKey).toBe('WhatsNewToolbarIconTitle');
-    expect(stored()).toBe('2.2.1');
+    expect(shown?.map((r) => r.version)).toEqual(['2.4.0']);
+    expect(shown?.[0].entries[0].titleKey).toBe('WhatsNewSplitViewTitle');
+    expect(stored()).toBe('2.3.0');
   });
 
   test('no key: nothing, and nothing written', async () => {

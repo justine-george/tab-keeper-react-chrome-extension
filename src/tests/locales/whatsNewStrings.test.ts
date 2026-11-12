@@ -87,4 +87,23 @@ describe.each(locales)('%s', (_, dict) => {
       dict['Open in new window']
     );
   });
+
+  test('the split view body names Currently open and End split view as shown', () => {
+    const body = dict.WhatsNewSplitViewBody;
+    expect(body).toContain(dict['Open now']);
+    expect(body).toContain(dict['End split view']);
+  });
+
+  test('the live new window body names Currently open and New window as shown', () => {
+    const body = dict.WhatsNewLiveNewWindowBody;
+    expect(body).toContain(dict['Open now']);
+    expect(body).toContain(dict.CarryNewWindowTarget);
+  });
+
+  test('the undo drop title and body name Currently open, and the body Undo, as shown', () => {
+    expect(dict.WhatsNewUndoDropTitle).toContain(dict['Open now']);
+    const body = dict.WhatsNewUndoDropBody;
+    expect(body).toContain(dict['Open now']);
+    expect(body).toContain(dict.Undo);
+  });
 });

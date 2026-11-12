@@ -519,5 +519,11 @@
   "WhatsNewGroupColorTitle": "Cambia el color de un grupo desde su menú",
   "WhatsNewGroupColorBody": "Haz clic derecho en el título de un grupo, o abre su menú ⋮, y elige un color. Funciona en los grupos guardados y en «Pestañas abiertas».",
   "WhatsNewOpenNewWindowTitle": "Abre pestañas guardadas en una ventana nueva",
-  "WhatsNewOpenNewWindowBody": "Haz clic derecho en una pestaña o un grupo guardado y elige «Abrir en nueva ventana»."
+  "WhatsNewOpenNewWindowBody": "Haz clic derecho en una pestaña o un grupo guardado y elige «Abrir en nueva ventana».",
+  "WhatsNewSplitViewTitle": "Las vistas divididas se mantienen juntas",
+  "WhatsNewSplitViewBody": "Arrastra una vista dividida en «Pestañas abiertas» o en una sesión guardada y se moverá como una sola. Para terminarla, haz clic derecho en cualquiera de sus mitades y elige «Finalizar vista dividida».",
+  "WhatsNewLiveNewWindowTitle": "Arrastra una pestaña abierta a una ventana nueva",
+  "WhatsNewLiveNewWindowBody": "En «Pestañas abiertas», arrastra una pestaña, una vista dividida o un grupo a «Nueva ventana» para llevarlo a una ventana propia.",
+  "WhatsNewUndoDropTitle": "Deshaz lo que sueltes en «Pestañas abiertas»",
+  "WhatsNewUndoDropBody": "¿Soltaste por error una pestaña, un grupo o una ventana guardados en «Pestañas abiertas»? «Deshacer» cierra las pestañas que se abrieron."
 }

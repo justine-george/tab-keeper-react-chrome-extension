@@ -485,5 +485,11 @@
   "WhatsNewGroupColorTitle": "グループの色をメニューから変更できます",
   "WhatsNewGroupColorBody": "グループのタイトルを右クリックするか、⋮ メニューを開いて色を選びます。保存済みのグループと「現在開いているタブ」で使えます。",
   "WhatsNewOpenNewWindowTitle": "保存済みタブを新しいウィンドウで開けます",
-  "WhatsNewOpenNewWindowBody": "保存済みのタブまたはグループを右クリックして、「新しいウィンドウで開く」を選びます。"
+  "WhatsNewOpenNewWindowBody": "保存済みのタブまたはグループを右クリックして、「新しいウィンドウで開く」を選びます。",
+  "WhatsNewSplitViewTitle": "分割表示をまとめて移動できます",
+  "WhatsNewSplitViewBody": "「現在開いているタブ」や保存済みセッションで分割表示をドラッグすると、まとめて移動します。終了するには、どちらかのタブを右クリックして「分割表示を終了」を選びます。",
+  "WhatsNewLiveNewWindowTitle": "開いているタブを新しいウィンドウへドラッグできます",
+  "WhatsNewLiveNewWindowBody": "「現在開いているタブ」で、タブ、分割表示、またはグループを「新しいウィンドウ」にドラッグすると、独立したウィンドウに移動できます。",
+  "WhatsNewUndoDropTitle": "「現在開いているタブ」へのドロップを元に戻せます",
+  "WhatsNewUndoDropBody": "保存済みのタブ、グループ、ウィンドウを誤って「現在開いているタブ」にドロップしても、「元に戻す」でそのとき開いたタブを閉じられます。"
 }

@@ -502,5 +502,11 @@
   "WhatsNewGroupColorTitle": "Change a group's color from its menu",
   "WhatsNewGroupColorBody": "Right-click a group's title, or open its ⋮ menu, and pick a color. It works on saved groups and in Currently open.",
   "WhatsNewOpenNewWindowTitle": "Open saved tabs in a new window",
-  "WhatsNewOpenNewWindowBody": "Right-click a saved tab or group and choose Open in new window."
+  "WhatsNewOpenNewWindowBody": "Right-click a saved tab or group and choose Open in new window.",
+  "WhatsNewSplitViewTitle": "Split views stay together",
+  "WhatsNewSplitViewBody": "Drag a split view in Currently open or in a saved session, and it moves as one. To end one, right-click either half and choose End split view.",
+  "WhatsNewLiveNewWindowTitle": "Drag an open tab into a new window",
+  "WhatsNewLiveNewWindowBody": "In Currently open, drag a tab, split view or group onto New window to move it into a window of its own.",
+  "WhatsNewUndoDropTitle": "Undo a drop into Currently open",
+  "WhatsNewUndoDropBody": "Dropped a saved tab, group or window into Currently open by mistake? Undo closes the tabs it opened."
 }

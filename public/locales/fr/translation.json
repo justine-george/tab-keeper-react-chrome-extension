@@ -519,5 +519,11 @@
   "WhatsNewGroupColorTitle": "Changez la couleur d’un groupe depuis son menu",
   "WhatsNewGroupColorBody": "Faites un clic droit sur le titre d’un groupe, ou ouvrez son menu ⋮, et choisissez une couleur. Cela fonctionne pour les groupes enregistrés et dans « Onglets ouverts ».",
   "WhatsNewOpenNewWindowTitle": "Ouvrez des onglets enregistrés dans une nouvelle fenêtre",
-  "WhatsNewOpenNewWindowBody": "Faites un clic droit sur un onglet ou un groupe enregistré et choisissez « Ouvrir dans une nouvelle fenêtre »."
+  "WhatsNewOpenNewWindowBody": "Faites un clic droit sur un onglet ou un groupe enregistré et choisissez « Ouvrir dans une nouvelle fenêtre ».",
+  "WhatsNewSplitViewTitle": "Les vues partagées restent ensemble",
+  "WhatsNewSplitViewBody": "Faites glisser une vue partagée dans « Onglets ouverts » ou dans une session enregistrée, et elle se déplace d’un seul bloc. Pour la quitter, faites un clic droit sur l’une des deux moitiés et choisissez « Quitter la vue partagée ».",
+  "WhatsNewLiveNewWindowTitle": "Faites glisser un onglet ouvert dans une nouvelle fenêtre",
+  "WhatsNewLiveNewWindowBody": "Dans « Onglets ouverts », faites glisser un onglet, une vue partagée ou un groupe sur « Nouvelle fenêtre » pour le placer dans une fenêtre à part.",
+  "WhatsNewUndoDropTitle": "Annulez un glisser-déposer dans « Onglets ouverts »",
+  "WhatsNewUndoDropBody": "Vous avez déposé par erreur un onglet, un groupe ou une fenêtre enregistrés dans « Onglets ouverts » ? « Annuler » ferme les onglets ainsi ouverts."
 }

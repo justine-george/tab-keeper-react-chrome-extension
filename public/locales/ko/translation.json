@@ -485,5 +485,11 @@
   "WhatsNewGroupColorTitle": "메뉴에서 그룹 색상 변경",
   "WhatsNewGroupColorBody": "그룹 제목을 마우스 오른쪽 버튼으로 클릭하거나 ⋮ 메뉴를 열고 색상을 선택하세요. 저장된 그룹과 “지금 열려 있는 탭”에서 사용할 수 있습니다.",
   "WhatsNewOpenNewWindowTitle": "저장된 탭을 새 창에서 열기",
-  "WhatsNewOpenNewWindowBody": "저장된 탭이나 그룹을 마우스 오른쪽 버튼으로 클릭하고 “새 창에서 열기”를 선택하세요."
+  "WhatsNewOpenNewWindowBody": "저장된 탭이나 그룹을 마우스 오른쪽 버튼으로 클릭하고 “새 창에서 열기”를 선택하세요.",
+  "WhatsNewSplitViewTitle": "분할 보기를 한 번에 이동",
+  "WhatsNewSplitViewBody": "“지금 열려 있는 탭”이나 저장된 세션에서 분할 보기를 드래그하면 하나로 묶여 이동합니다. 종료하려면 양쪽 중 하나를 마우스 오른쪽 버튼으로 클릭하고 “분할 보기 종료”를 선택하세요.",
+  "WhatsNewLiveNewWindowTitle": "열린 탭을 새 창으로 드래그",
+  "WhatsNewLiveNewWindowBody": "“지금 열려 있는 탭”에서 탭, 분할 보기 또는 그룹을 “새 창”으로 드래그하면 별도의 창으로 옮길 수 있습니다.",
+  "WhatsNewUndoDropTitle": "“지금 열려 있는 탭”에 놓은 항목 실행취소",
+  "WhatsNewUndoDropBody": "저장된 탭, 그룹 또는 창을 실수로 “지금 열려 있는 탭”에 놓았나요? “실행취소”를 누르면 그때 열린 탭이 닫힙니다."
 }
