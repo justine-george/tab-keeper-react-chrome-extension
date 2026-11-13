@@ -54,7 +54,32 @@ Read the full [privacy policy](PRIVACY.md).
 
 ## Changelog
 
-### v.2.3.0 (Latest)
+### v.2.4.0 (Latest)
+
+#### Features
+
+- A Chrome split view moves as one, in Currently open and in saved sessions. Right-click either half for End split view
+- Drag an open tab, split view or group onto New window in Currently open to move it into a window of its own. Pin Tab Keeper in new windows applies
+- A saved tab, group or window dropped into Currently open can be undone, and redone
+
+#### Improvements
+
+- Open full view stays in the window you're in, instead of switching to a full view in another window. On Windows, that kept it from jumping to another virtual desktop
+- Saving a new session slides the header mark's shutter
+- Tooltips show sooner: 200 ms after the pointer arrives
+- A new install starts on the clock its language normally uses: 24-hour in German, Spanish, French, Italian, Japanese, Portuguese, Russian, Swedish and Simplified Chinese; 12-hour in the rest. Settings › Display still switches it
+- Swedish drop messages and End split view in four languages read more naturally
+
+#### Fixes
+
+- Another open Tab Keeper page no longer misses a change made in this one
+- The strip left of a loose tab keeps its row hovered, edge to edge
+- A list with little room left still offers New window at its end while you drag
+- A list that fits no longer grows a scrollbar mid-drag
+- A carried tab let go beside the pane, level with its own spot, no longer makes a new window
+- A carried item lands in a session that already holds its ids
+
+### v.2.3.0
 
 #### Features
 
@@ -91,34 +116,6 @@ Read the full [privacy policy](PRIVACY.md).
 #### Improvements
 
 - Dialogs look more consistent: titles share one style, and their icons line up with the text
-
-### v.2.2.0
-
-#### Features
-
-- Open saved windows in the window you're in instead of a new one, with Open saved windows in Settings › Sessions, or by dropping a saved window onto an open one. The ⋮ menus offer whichever way the setting didn't pick
-- Skip duplicate tabs, in Settings › Sessions: adding or moving tabs into a saved session leaves out pages it already has, and a new session keeps one copy of each
-- Skip tabs already open, in Settings › Sessions: opening or dropping saved tabs into an open window leaves out pages it already has
-- Clicking a saved tab that's already open switches to it. Middle-click or Ctrl-click (⌘-click on a Mac) opens a copy in the background. The row's name says Switch to tab or Open in new tab to match
-- A saved group's Open goes to the group when it's already open, and says Go to group
-
-#### Improvements
-
-- A softer look: corners round by role across the app, and so do the logo, Chrome's toolbar icons, the theme tiles, the default-view drawings and the switches. Scrollbars stop short of rounded corners
-- Add current window dims when only Tab Keeper is in the window, and a dimmed Back says why
-- A session's row shows its new name while you type it in the header
-- Clicking a saved session row slides it in when the saved session is folded away
-- Links in the Save as PDF preview open nothing and say they open from the saved PDF. The Save as PDF… pointer stays until your second press
-- The tour rings the search row and the selected session, and a press on its dim says everything else works after the tour
-- Incognito windows are tagged Incognito in Currently open
-
-#### Fixes
-
-- A drop scrolled into the end of the list no longer jumps
-- A group's tint stops at its last tab when a group above it is removed
-- Dragging a group's only tab out lands where the rows below are drawn, instead of joining the group above
-- Holding a saved window near Currently open's edge scrolls the list
-- The Japanese session menu fits its pane
 
 ## Blog Posts
 

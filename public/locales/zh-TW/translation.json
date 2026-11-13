@@ -485,5 +485,11 @@
   "WhatsNewGroupColorTitle": "從選單變更群組顏色",
   "WhatsNewGroupColorBody": "在群組標題上按右鍵，或開啟該群組的 ⋮ 選單，然後選擇顏色。已儲存的群組和「目前開啟的分頁」都能使用。",
   "WhatsNewOpenNewWindowTitle": "在新視窗中開啟已儲存的分頁",
-  "WhatsNewOpenNewWindowBody": "在已儲存的分頁或群組上按右鍵，然後選擇「在新視窗中開啟」。"
+  "WhatsNewOpenNewWindowBody": "在已儲存的分頁或群組上按右鍵，然後選擇「在新視窗中開啟」。",
+  "WhatsNewSplitViewTitle": "分割畫面可整個移動",
+  "WhatsNewSplitViewBody": "在「目前開啟的分頁」或已儲存的工作階段中拖曳分割畫面，它會整個移動。如要結束，請在任一側上按右鍵，然後選擇「結束分割畫面」。",
+  "WhatsNewLiveNewWindowTitle": "將開啟的分頁拖曳到新視窗",
+  "WhatsNewLiveNewWindowBody": "在「目前開啟的分頁」中，將分頁、分割畫面或群組拖曳到「新視窗」，即可移到獨立的視窗。",
+  "WhatsNewUndoDropTitle": "復原拖放到「目前開啟的分頁」",
+  "WhatsNewUndoDropBody": "不小心把已儲存的分頁、群組或視窗拖放到「目前開啟的分頁」？「復原」會關閉因此開啟的分頁。"
 }
