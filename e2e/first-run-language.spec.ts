@@ -41,15 +41,18 @@ const open = async (context: BrowserContext, extensionId: string) => {
   return page;
 };
 
-const savedLanguage = (page: Page) =>
+const saved = (page: Page, key: 'language' | 'timeFormat') =>
   page.evaluate(
-    () =>
+    (k) =>
       (
-        JSON.parse(localStorage.getItem('settingsData') ?? '{}') as {
-          language?: string;
-        }
-      ).language
+        JSON.parse(localStorage.getItem('settingsData') ?? '{}') as Record<
+          string,
+          unknown
+        >
+      )[k],
+    key
   );
+const savedLanguage = (page: Page) => saved(page, 'language');
 
 test.describe('a fresh install opens in Chrome’s language (KAN-282)', () => {
   test.describe('on a fresh profile', () => {
@@ -95,6 +98,29 @@ test.describe('a fresh install opens in Chrome’s language (KAN-282)', () => {
       await expect.poll(() => savedLanguage(page)).toBe('zh-TW');
     });
 
+    // KAN-954. The first open saves the language's usual clock, so it stays after a reload.
+    test('Chrome in German: the first open saves 24-hour, and keeps it', async ({
+      context,
+      extensionId,
+    }) => {
+      await chromeSays(context, 'de-DE');
+      const page = await open(context, extensionId);
+      await expect.poll(() => saved(page, 'timeFormat')).toBe('h23');
+
+      await page.reload();
+      await expect(page.locator('html')).toHaveAttribute('lang', 'de');
+      expect(await saved(page, 'timeFormat')).toBe('h23');
+    });
+
+    test('Chrome in Traditional Chinese: the first open saves 12-hour', async ({
+      context,
+      extensionId,
+    }) => {
+      await chromeSays(context, 'zh-TW');
+      const page = await open(context, extensionId);
+      await expect.poll(() => saved(page, 'timeFormat')).toBe('h12');
+    });
+
     // An unshipped language never reaches i18next as a raw tag (#42: a
     // detector did that once, i18next fetched /locales/<tag>/translation.json,
     // and the popup lost every string). English, with its strings.
@@ -124,5 +150,18 @@ test.describe('a fresh install opens in Chrome’s language (KAN-282)', () => {
     const page = await open(context, extensionId);
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     expect(await savedLanguage(page)).toBe('en');
+  });
+
+  // KAN-954. Settings saved before the clock existed keep 12-hour, whatever the language.
+  test('Chrome in German, German saved without a clock: stays 12-hour', async ({
+    context,
+    extensionId,
+  }) => {
+    await chromeSays(context, 'de');
+    await seedSettings(context, { language: 'de' });
+
+    const page = await open(context, extensionId);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'de');
+    await expect.poll(() => saved(page, 'timeFormat')).toBe('h12');
   });
 });
