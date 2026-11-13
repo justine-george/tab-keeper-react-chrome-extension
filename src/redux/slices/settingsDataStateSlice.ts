@@ -331,9 +331,26 @@ export type SessionDateBasis = 'edited' | 'created';
 /**
  * KAN-587. How times read: Intl's own hourCycle values, passed straight
  * through, so the stored word and what Intl draws cannot drift apart.
- * 12-hour unless chosen; there is no "follow the language" value.
+ * There is no "follow the language" value: a first run picks one (KAN-954).
  */
 export type TimeFormat = 'h12' | 'h23';
+
+/** KAN-954. Each shipped language's usual clock, as Intl draws it; a first run starts on it. */
+export const USUAL_CLOCK: Readonly<Record<Language, TimeFormat>> = {
+  [Language.DE]: 'h23',
+  [Language.EN]: 'h12',
+  [Language.ES]: 'h23',
+  [Language.FR]: 'h23',
+  [Language.HI]: 'h12',
+  [Language.IT]: 'h23',
+  [Language.JA]: 'h23',
+  [Language.KO]: 'h12',
+  [Language.PT]: 'h23',
+  [Language.RU]: 'h23',
+  [Language.SV]: 'h23',
+  [Language.ZH]: 'h23',
+  [Language.ZH_TW]: 'h12',
+};
 
 export type OpenSavedWindowsIn = 'new-window' | 'this-window';
 
@@ -378,6 +395,11 @@ const withoutRetiredKeys = (stored: unknown): unknown =>
     : stored;
 
 const storedSettings = loadFromLocalStorage('settingsData');
+// KAN-954. Nothing readable saved: every setting write saves the whole object.
+const isFirstRun =
+  typeof storedSettings !== 'object' ||
+  storedSettings === null ||
+  Array.isArray(storedSettings);
 const hasRetiredKeys =
   typeof storedSettings === 'object' &&
   storedSettings !== null &&
@@ -438,16 +460,18 @@ const defaultSettings: SettingsData = {
   ...ONBOARDING_DEFAULTS,
 };
 
+// KAN-282. Decided here, and read by i18n.tsx from here, so what renders
+// and what the first setting write saves are the same language. Detecting
+// only in i18n.tsx showed German once: this still held `en`, the first-run
+// consent answer saved it, and every later open was English.
+const language = startupLanguage(settingsDataLocal.language, readUiLanguage());
+
 export const initialState: SettingsData = {
   ...defaultSettings,
   ...settingsDataLocal,
   // KAN-731. Guarded: a theme this build does not know gets the default.
   theme: asTheme(settingsDataLocal.theme),
-  // KAN-282. Decided here, and read by i18n.tsx from here, so what renders
-  // and what the first setting write saves are the same language. Detecting
-  // only in i18n.tsx showed German once: this still held `en`, the first-run
-  // consent answer saved it, and every later open was English.
-  language: startupLanguage(settingsDataLocal.language, readUiLanguage()),
+  language,
   // KAN-321 O1a. Guarded rather than spread straight through: settingsDataLocal
   // is unvalidated (asPartialSettings checks only "is an object"), so a
   // hand-edited or corrupted value must not survive into the grid.
@@ -466,7 +490,10 @@ export const initialState: SettingsData = {
       defaultSettings.foldSavedSessionInTabView
     ),
   // KAN-587. Guarded: an unknown hourCycle would throw in every row's render.
-  timeFormat: asTimeFormat(settingsDataLocal.timeFormat),
+  // KAN-954. A first run starts on its language's clock; saved settings without one keep 12-hour.
+  timeFormat: isFirstRun
+    ? USUAL_CLOCK[language]
+    : asTimeFormat(settingsDataLocal.timeFormat),
   // KAN-635. Guarded: settingsDataLocal is unvalidated.
   defaultSaveScope: asDefaultSaveScope(settingsDataLocal.defaultSaveScope),
   // KAN-859. Guarded: settingsDataLocal is unvalidated.
