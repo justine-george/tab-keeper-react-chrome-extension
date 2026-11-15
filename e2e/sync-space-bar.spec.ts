@@ -8,10 +8,9 @@ import {
   seedSettings,
 } from './fixtures/seed';
 import { stored } from './fixtures/savedWindows';
-import {
-  estimateFirestoreBytes,
-  FIRESTORE_MAX_DOCUMENT_BYTES,
-} from '../src/utils/functions/local';
+import { FIRESTORE_MAX_DOCUMENT_BYTES } from '../src/utils/functions/local';
+import { syncBytes } from '../src/utils/functions/cloudDocument';
+import { incompressible } from '../src/tests/fixtures/incompressible';
 import { CHALK_THEME } from '../src/hooks/useThemeColors';
 import { formatSyncUsed } from '../src/utils/functions/syncSpace';
 import { rgb } from './fixtures/pixels';
@@ -44,7 +43,7 @@ async function openSync(
   return page;
 }
 
-// One session whose single tab's address carries `pad` extra characters.
+// One session whose single tab's address carries `pad` extra characters gzip cannot shrink (KAN-6).
 function padded(pad: number) {
   const base = buildSession({ tabGroupId: 'big' });
   const tab = base.windows[0].tabs[0];
@@ -54,7 +53,7 @@ function padded(pad: number) {
       windows: [
         {
           ...base.windows[0],
-          tabs: [{ ...tab, url: `${tab.url}${'a'.repeat(pad)}` }],
+          tabs: [{ ...tab, url: `${tab.url}${incompressible(pad)}` }],
         },
       ],
     },
@@ -73,9 +72,11 @@ test('the bar reads what the sync would write, in the shipped build', async ({
     buildContainer([
       buildSession({ tabGroupId: 'a', title: 'Reading list' }),
       buildSession({ tabGroupId: 'b', title: '東京旅行' }),
+      // KAN-6. Two short sessions gzip under 1 kB; this keeps the use at a few kB.
+      buildSession({ tabGroupId: 'c', title: incompressible(2000) }),
     ])
   );
-  const bytes = estimateFirestoreBytes(await stored(page));
+  const bytes = await syncBytes(await stored(page));
   await expect(bar(page)).toHaveText(
     `Your sessions use ${formatSyncUsed(bytes, 'en')} of the 1 MB sync limit.`
   );
@@ -85,7 +86,8 @@ test('the bar reads what the sync would write, in the shipped build', async ({
     String(Math.round((bytes / FIRESTORE_MAX_DOCUMENT_BYTES) * 100))
   );
   await expect(bar(page)).toHaveAttribute('data-level', 'ok');
-  // KAN-625. About 1 kB, a tenth of a percent: drawn, as at least a 3px sliver.
+  // KAN-625. A few kB, under half a percent: drawn, as at least a 3px sliver.
+  expect(bytes).toBeGreaterThan(1024);
   expect(bytes / FIRESTORE_MAX_DOCUMENT_BYTES).toBeLessThan(0.005);
   const fill = await meter.locator(':scope > div').boundingBox();
   expect(fill?.width ?? 0).toBeGreaterThanOrEqual(3);
@@ -95,7 +97,7 @@ test('near the limit it turns red and says what to do', async ({
   context,
   extensionId,
 }) => {
-  const page = await openSync(context, extensionId, padded(900_000));
+  const page = await openSync(context, extensionId, padded(1_200_000));
   await expect(bar(page)).toHaveAttribute('data-level', 'near');
   await expect(bar(page)).toContainText(
     'Sync stops at 1 MB: delete sessions you no longer need.'
@@ -108,7 +110,7 @@ test('with sync off, past the limit, the bar says it is too large before any yes
   context,
   extensionId,
 }) => {
-  const page = await openSync(context, extensionId, padded(1_150_000), true);
+  const page = await openSync(context, extensionId, padded(1_600_000), true);
   await expect(bar(page)).toHaveAttribute('data-level', 'full');
   await expect(bar(page)).toContainText(
     'Too large to sync: delete sessions you no longer need.'

@@ -437,6 +437,7 @@
   "SyncLimitUsed": "Ihre Sitzungen belegen {{used}} des Sync-Limits von {{limit}}.",
   "SyncLimitUsedNear": "Ihre Sitzungen belegen {{used}} des Sync-Limits von {{limit}}. Bei {{limit}} stoppt die Synchronisierung: Löschen Sie Sitzungen, die Sie nicht mehr brauchen.",
   "SyncLimitUsedFull": "Ihre Sitzungen belegen {{used}} des Sync-Limits von {{limit}}. Zu groß für die Synchronisierung: Löschen Sie Sitzungen, die Sie nicht mehr brauchen.",
+  "SyncLimitUsedUnder": "Ihre Sitzungen belegen weniger als {{size}} des Sync-Limits von {{limit}}.",
   "Recently deleted": "Zuletzt gelöscht",
   "Kept for 30 days, then permanently deleted.": "Auf diesem Gerät gelöschte Sitzungen werden 30 Tage aufbewahrt und dann endgültig gelöscht.",
   "RestoreDeletedSession": "Wiederherstellen",

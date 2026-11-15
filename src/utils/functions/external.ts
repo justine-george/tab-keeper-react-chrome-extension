@@ -1,6 +1,6 @@
 // Lite build - see the note in src/config/firebase.ts. Must match the import
 // there, since db is created by that module's getFirestore.
-import { deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore/lite';
+import { Bytes, deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore/lite';
 import {
   cloudUnavailable,
   db,
@@ -9,8 +9,7 @@ import {
   ensureCloudSessionReady,
 } from '../../config/firebase';
 import { TabMasterContainer } from '../../redux/slices/tabContainerDataStateSlice';
-import { stripEmbeddedFavicons } from './local';
-import { withoutSamples } from './sampleSession';
+import { encodeCloudDocument } from './cloudDocument';
 import { isMissingDocumentError } from './firestoreErrors';
 
 // load data from Firestore
@@ -54,14 +53,13 @@ export async function loadFromFirestore(
 // Which client shape last wrote this document.
 //
 // 1 is implied by absence: every version shipped before KAN-6 phase 1. 2 means
-// "this writer can also READ a compressed document", which is the only question
-// phase 2 needs answered before it may compress.
+// "this writer can also READ a compressed document".
 //
-// A BACKOFF RATCHET, not an authorisation. Seeing 1 proves an old client is
-// still active on the account and phase 2 must not compress. Seeing 2 proves
-// nothing about a second device that has simply not written lately - and an old
-// client crashes in the merge before it can write, so it cannot self-report.
-// Only Web Store adoption data can authorise the flip.
+// KAN-6 phase 2 compresses past 80% (cloudDocument.ts) while a pre-1.5.0 tail
+// remains: about 27 daily users, flat since mid-October (store CSV to
+// 2026-11-13). Below the line nothing changes for them; above it their sync
+// was about to stop anyway. A 1.3.x write throws before setDoc on a document
+// without tabGroups, so an old device cannot write an empty copy back.
 export const CURRENT_WRITER_VERSION = 2;
 
 // save data to Firestore
@@ -75,9 +73,16 @@ export async function saveToFirestore(
   if (db === null) throw cloudUnavailable();
 
   try {
+    // KAN-600 and KAN-6. The example stays here; big accounts go as gzip Bytes.
+    const encoded = await encodeCloudDocument(data);
+    const fields = encoded.compressed
+      ? {
+          ...encoded.fields,
+          tabGroupsZ: Bytes.fromUint8Array(encoded.fields.tabGroupsZ),
+        }
+      : encoded.fields;
     await setDoc(doc(db, 'tabGroupData', userId), {
-      // KAN-600. The run's example and its grave stay on this device.
-      ...stripEmbeddedFavicons(withoutSamples(data)),
+      ...fields,
       writerVersion: CURRENT_WRITER_VERSION,
     });
   } catch (error: any) {

@@ -437,6 +437,7 @@
   "SyncLimitUsed": "Your sessions use {{used}} of the {{limit}} sync limit.",
   "SyncLimitUsedNear": "Your sessions use {{used}} of the {{limit}} sync limit. Sync stops at {{limit}}: delete sessions you no longer need.",
   "SyncLimitUsedFull": "Your sessions use {{used}} of the {{limit}} sync limit. Too large to sync: delete sessions you no longer need.",
+  "SyncLimitUsedUnder": "Your sessions use under {{size}} of the {{limit}} sync limit.",
   "Recently deleted": "Recently deleted",
   "Kept for 30 days, then permanently deleted.": "Sessions deleted on this device are kept for 30 days, then permanently deleted.",
   "RestoreDeletedSession": "Restore",

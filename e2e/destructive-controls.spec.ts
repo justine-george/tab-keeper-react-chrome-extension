@@ -20,6 +20,8 @@ import {
   session,
 } from './fixtures/savedWindows';
 import type { ThemeColors } from '../src/hooks/useThemeColors';
+// KAN-6. The meter reads the compressed size: pad with text gzip cannot shrink.
+import { incompressible } from '../src/tests/fixtures/incompressible';
 
 // KAN-725 on the real artifact: every kind of destructive control, in all five
 // themes, measured from computed styles at rest, hover, press (held) and
@@ -280,7 +282,7 @@ function padded(pad: number) {
       windows: [
         {
           ...base.windows[0],
-          tabs: [{ ...tab, url: `${tab.url}${'a'.repeat(pad)}` }],
+          tabs: [{ ...tab, url: `${tab.url}${incompressible(pad)}` }],
         },
       ],
     },
@@ -669,8 +671,8 @@ for (const [theme, COLORS] of THEMES) {
     // The sync meter, near the limit and past it.
     const meters: Partial<Record<'near' | 'full', MeterPaint>> = {};
     for (const [level, pad] of [
-      ['near', 900_000],
-      ['full', 1_150_000],
+      ['near', 1_200_000],
+      ['full', 1_600_000],
     ] as const) {
       await seedSessions(context, padded(pad));
       await openSyncPane(page, extensionId);

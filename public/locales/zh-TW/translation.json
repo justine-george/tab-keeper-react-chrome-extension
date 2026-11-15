@@ -425,6 +425,7 @@
   "SyncLimitUsed": "你的工作階段使用 {{used}}（同步上限 {{limit}}）。",
   "SyncLimitUsedNear": "你的工作階段使用 {{used}}（同步上限 {{limit}}）。達到 {{limit}} 時將停止同步：請刪除不再需要的工作階段。",
   "SyncLimitUsedFull": "你的工作階段使用 {{used}}（同步上限 {{limit}}）。過大，無法同步：請刪除不再需要的工作階段。",
+  "SyncLimitUsedUnder": "你的工作階段使用不到 {{size}}（同步上限 {{limit}}）。",
   "Recently deleted": "最近刪除",
   "Kept for 30 days, then permanently deleted.": "在這部裝置上刪除的工作階段會保留 30 天，之後永久刪除。",
   "RestoreDeletedSession": "復原",

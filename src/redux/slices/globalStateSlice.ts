@@ -43,13 +43,13 @@ import {
 } from '../../utils/functions/external';
 import {
   bytesToMB,
-  estimateFirestoreBytes,
   FIRESTORE_MAX_DOCUMENT_BYTES,
   isValidTabMasterContainer,
   SYNC_SIZE_REFUSAL,
   syncLimitInMB,
   TranslatableError,
 } from '../../utils/functions/local';
+import { encodeCloudDocument } from '../../utils/functions/cloudDocument';
 import {
   readLocalSessions,
   saveLocalSessions,
@@ -408,10 +408,13 @@ export const saveToFirestoreIfDirty = createAsyncThunk(
       if (state.globalState.isDirty) {
         // Firestore rejects an over-limit document, and the rejection leaves
         // isDirty set, so every later change retries the same doomed write and
-        // sync wedges with nothing on screen to explain it. readImportedContainer
+        // sync wedges with nothing on screen to explain it. refuseOversizeImport
         // already refuses this on the import path; this is the same refusal on
         // the sync path, phrased the same way.
-        const bytes = estimateFirestoreBytes(state.tabContainerDataState);
+        // KAN-6. The size of what is written: plain, or gzipped past 80%.
+        const { bytes } = await encodeCloudDocument(
+          state.tabContainerDataState
+        );
         if (bytes > FIRESTORE_MAX_DOCUMENT_BYTES) {
           // A key plus its values, not a composed sentence: this used to be
           // built by concatenation, which matched no key and so reached every

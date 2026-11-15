@@ -32,15 +32,27 @@ import {
   setLanguage,
 } from '../../redux/slices/settingsDataStateSlice';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
-import { SYNC_SIZE_REFUSAL } from '../../utils/functions/local';
+import { bytesToMB, SYNC_SIZE_REFUSAL } from '../../utils/functions/local';
 import {
-  FIRESTORE_MAX_DOCUMENT_BYTES,
-  estimateFirestoreBytes,
-} from '../../utils/functions/local';
+  encodeCloudDocument,
+  syncBytes,
+} from '../../utils/functions/cloudDocument';
+import { incompressible } from '../fixtures/incompressible';
+import { FIRESTORE_MAX_DOCUMENT_BYTES } from '../../utils/functions/local';
 
-// A session whose tab titles alone exceed the document limit. Built from real
-// field names so estimateFirestoreBytes measures the same JSON production does.
+// KAN-6. Titles gzip cannot shrink, so the document is over the limit even compressed.
 function oversizedContainer() {
+  const sessions = Array.from({ length: 600 }, (_, i) =>
+    buildSession({
+      tabGroupId: `big-${i}`,
+      title: incompressible(2600, i + 1),
+    })
+  );
+  return buildContainer(sessions);
+}
+
+// KAN-6. Over the limit as plain JSON, a fraction of it gzipped.
+function compressibleOversized() {
   const filler = 'x'.repeat(2000);
   const sessions = Array.from({ length: 600 }, (_, i) =>
     buildSession({ tabGroupId: `big-${i}`, title: `${filler}-${i}` })
@@ -55,9 +67,8 @@ describe('the sync write refuses a document Firestore would reject', () => {
   });
 
   it('does not call setDoc with an over-limit container', async () => {
-    // The premise: the fixture really is over the limit, or this passes vacuously.
-    const json = JSON.stringify(oversizedContainer());
-    expect(new TextEncoder().encode(json).byteLength).toBeGreaterThan(
+    // The premise: over the limit even compressed, or this passes vacuously.
+    expect(await syncBytes(oversizedContainer())).toBeGreaterThan(
       FIRESTORE_MAX_DOCUMENT_BYTES
     );
     const { store } = makeTestStore();
@@ -92,6 +103,36 @@ describe('the sync write refuses a document Firestore would reject', () => {
       limit: '1',
     });
     expect(Number(toast?.params?.used)).toBeGreaterThan(1.0);
+  });
+
+  // KAN-6. The toast names the size that did not fit: the compressed one.
+  it('names the compressed size in the refusal', async () => {
+    const { store } = makeTestStore();
+    store.dispatch(setUserId('u1'));
+    store.dispatch(replaceState(oversizedContainer()));
+    store.dispatch(setIsDirtyWithoutSync());
+    await store.dispatch(saveToFirestoreIfDirty());
+    expect(newestToast(store.getState())?.params?.used).toBe(
+      bytesToMB(await syncBytes(oversizedContainer()), 'en')
+    );
+  });
+
+  // KAN-6. The point of phase 2: over 1 MB plain no longer stops sync.
+  it('writes a plain document over 1 MB that fits compressed', async () => {
+    const container = compressibleOversized();
+    expect(
+      new TextEncoder().encode(JSON.stringify(container)).byteLength
+    ).toBeGreaterThan(FIRESTORE_MAX_DOCUMENT_BYTES);
+    expect(await syncBytes(container)).toBeLessThan(
+      FIRESTORE_MAX_DOCUMENT_BYTES
+    );
+    const { store } = makeTestStore();
+    store.dispatch(setUserId('u1'));
+    store.dispatch(replaceState(container));
+    store.dispatch(setIsDirtyWithoutSync());
+    await store.dispatch(saveToFirestoreIfDirty());
+    expect(mocks.saveToFirestore).toHaveBeenCalledTimes(1);
+    expect(toastTexts(store.getState())).not.toContain(SYNC_SIZE_REFUSAL);
   });
 
   // KAN-288. The numbers are formatted in the UI language, read from the
@@ -139,7 +180,7 @@ describe('the sync write refuses a document Firestore would reject', () => {
 // `g-0-0-a` understates the real per-tab cost (the encoded JSON key/value
 // pair costs 19 + len(id) bytes), so this pads any short id out to 36
 // characters. It does not need to be a real uuid -- only the right length,
-// since estimateFirestoreBytes only counts encoded bytes.
+// since the size check only counts encoded bytes.
 function id36(prefix: string): string {
   return prefix.padEnd(36, '0').slice(0, 36);
 }
@@ -191,9 +232,10 @@ function sizedContainer(grouped: boolean) {
   return buildContainer(sessions);
 }
 
-it('tab group metadata does not materially change the size estimate', () => {
-  const withoutGroups = estimateFirestoreBytes(sizedContainer(false));
-  const withGroups = estimateFirestoreBytes(sizedContainer(true));
+it('tab group metadata does not materially change the written size', async () => {
+  const withoutGroups = (await encodeCloudDocument(sizedContainer(false)))
+    .bytes;
+  const withGroups = (await encodeCloudDocument(sizedContainer(true))).bytes;
 
   // Measured with production-length (36-char) uuids, on a container where
   // EVERY tab is grouped -- the realistic ceiling for this feature, not a

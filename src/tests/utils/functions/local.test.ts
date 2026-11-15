@@ -27,11 +27,16 @@ import {
   stripEmbeddedFavicons,
   resolveFaviconUrl,
   FIRESTORE_MAX_DOCUMENT_BYTES,
-  estimateFirestoreBytes,
   readImportedContainer,
   bytesToMB,
 } from '../../../utils/functions/local';
 import { TabMasterContainer } from '../../../redux/slices/tabContainerDataStateSlice';
+import {
+  encodeCloudDocument,
+  refuseOversizeImport,
+  syncBytes,
+} from '../../../utils/functions/cloudDocument';
+import { incompressible } from '../../fixtures/incompressible';
 
 // The worker passes chrome.runtime.id.
 const OWN_ID = 'tabkeeperownid';
@@ -1380,7 +1385,8 @@ describe('placeholderTarget', () => {
 // was persisted to localStorage, the toast said "Restored tabs successfully!",
 // and the write then failed -- leaving isDirty set against a document that can
 // never be written, so every later change failed to sync too.
-describe('estimateFirestoreBytes', () => {
+// KAN-6. Measured by the encoder now: the bytes of what sync writes.
+describe('the cloud document size', () => {
   const buildContainer = (
     tabsPerWindow: number,
     favicon: string,
@@ -1421,14 +1427,14 @@ describe('estimateFirestoreBytes', () => {
   // The whole reason the estimate is not just JSON.stringify(data).length:
   // saveToFirestore strips embedded favicons before writing, so those bytes
   // never reach the document and must not count against the limit.
-  test('should measure the container as saveToFirestore would write it', () => {
+  test('should measure the container as saveToFirestore would write it', async () => {
     const heavyFavicon = 'data:image/png;base64,' + 'A'.repeat(12000);
     const withFavicons = buildContainer(120, heavyFavicon);
 
     expect(JSON.stringify(withFavicons).length).toBeGreaterThan(
       FIRESTORE_MAX_DOCUMENT_BYTES
     );
-    expect(estimateFirestoreBytes(withFavicons)).toBeLessThan(
+    expect((await encodeCloudDocument(withFavicons)).bytes).toBeLessThan(
       FIRESTORE_MAX_DOCUMENT_BYTES
     );
   });
@@ -1436,10 +1442,10 @@ describe('estimateFirestoreBytes', () => {
   // Titles are user data and routinely non-ASCII. String.length counts UTF-16
   // code units, so it under-reports the bytes Firestore actually stores and
   // would let a document through that the write then rejects.
-  test('should count UTF-8 bytes rather than characters', () => {
+  test('should count UTF-8 bytes rather than characters', async () => {
     const container = buildContainer(10, '', () => '日本語のタイトル');
 
-    expect(estimateFirestoreBytes(container)).toBeGreaterThan(
+    expect((await encodeCloudDocument(container)).bytes).toBeGreaterThan(
       JSON.stringify(container).length
     );
   });
@@ -1476,88 +1482,70 @@ describe('readImportedContainer', () => {
   };
 
   test('should return the container for a valid backup', () => {
-    expect(readImportedContainer(JSON.stringify(validContainer), 'en')).toEqual(
+    expect(readImportedContainer(JSON.stringify(validContainer))).toEqual(
       validContainer
     );
   });
 
-  test('formats the refusal numbers in the language it is given (KAN-288)', () => {
-    const huge: TabMasterContainer = {
-      lastModified: 1,
-      selectedTabGroupId: null,
-      tabGroups: [
-        {
-          tabGroupId: 'g',
-          title: 'x'.repeat(1_200_000),
-          createdTime: '2026-07-27 04:08:12',
-          windowCount: 0,
-          tabCount: 0,
-          isAutoSave: false,
-          isSelected: false,
-          windows: [],
-        },
-      ],
-    };
-
-    try {
-      readImportedContainer(JSON.stringify(huge), 'de');
-      throw new Error('expected readImportedContainer to throw');
-    } catch (error) {
-      expect((error as TranslatableError).i18nParams).toEqual({
-        used: expect.stringMatching(/^\d+,\d$/),
-        limit: '1',
-      });
-    }
+  // KAN-6. One session titled `title`, the way a backup file carries it.
+  const backupTitled = (title: string): TabMasterContainer => ({
+    lastModified: 1,
+    selectedTabGroupId: null,
+    tabGroups: [
+      {
+        tabGroupId: 'g',
+        title,
+        createdTime: '2026-07-27 04:08:12',
+        windowCount: 0,
+        tabCount: 0,
+        isAutoSave: false,
+        isSelected: false,
+        windows: [],
+      },
+    ],
   });
 
-  test('should reject a backup that would exceed the Firestore limit', () => {
-    const huge: TabMasterContainer = {
-      lastModified: 1,
-      selectedTabGroupId: null,
-      tabGroups: [
-        {
-          tabGroupId: 'g',
-          title: 'x'.repeat(1_200_000),
-          createdTime: '2026-07-27 04:08:12',
-          windowCount: 0,
-          tabCount: 0,
-          isAutoSave: false,
-          isSelected: false,
-          windows: [],
-        },
-      ],
-    };
+  test('formats the refusal numbers in the language it is given (KAN-288)', async () => {
+    const huge = backupTitled(incompressible(1_600_000));
+    await expect(refuseOversizeImport(huge, 'de')).rejects.toMatchObject({
+      i18nParams: { used: expect.stringMatching(/^\d+,\d$/), limit: '1' },
+    });
+  });
 
-    // KAN-86. The refusal now travels as an i18n key plus the two numbers it
-    // interpolates, rather than as a pre-composed English sentence. Asserting
-    // the key AND the params, because a key with no numbers would render
-    // "(  MB of a   MB limit)" -- still translated, still useless.
-    expect(() => readImportedContainer(JSON.stringify(huge), 'en')).toThrow(
-      TranslatableError
+  // KAN-6. Sync writes it gzipped, so 1 MB of plain JSON that compresses imports.
+  test('accepts a backup over 1 MB plain that fits compressed', async () => {
+    const big = backupTitled('x'.repeat(1_200_000));
+    expect(JSON.stringify(big).length).toBeGreaterThan(
+      FIRESTORE_MAX_DOCUMENT_BYTES
     );
+    expect(readImportedContainer(JSON.stringify(big)).tabGroups).toHaveLength(
+      1
+    );
+    await expect(refuseOversizeImport(big, 'en')).resolves.toBeUndefined();
+  });
 
-    try {
-      readImportedContainer(JSON.stringify(huge), 'en');
-      throw new Error('expected readImportedContainer to throw');
-    } catch (error) {
-      const refusal = error as TranslatableError;
-      expect(refusal.i18nKey).toBe(IMPORT_SIZE_REFUSAL);
-      expect(refusal.i18nParams).toEqual({
-        used: expect.stringMatching(/^\d+\.\d$/),
-        limit: '1',
-      });
-      // The whole point of the guard: it reports what was used against what
-      // is allowed, and the first must exceed the second.
-      expect(Number(refusal.i18nParams!.used)).toBeGreaterThan(
-        Number(refusal.i18nParams!.limit)
-      );
-    }
+  test('should reject a backup that would exceed the Firestore limit even compressed', async () => {
+    const huge = backupTitled(incompressible(1_600_000));
+    // KAN-86. An i18n key plus the two numbers it interpolates; KAN-6: the compressed size.
+    const refusal = await refuseOversizeImport(huge, 'en').then(
+      () => {
+        throw new Error('expected refuseOversizeImport to reject');
+      },
+      (error: unknown) => error as TranslatableError
+    );
+    expect(refusal).toBeInstanceOf(TranslatableError);
+    expect(refusal.i18nKey).toBe(IMPORT_SIZE_REFUSAL);
+    expect(refusal.i18nParams).toEqual({
+      used: bytesToMB(await syncBytes(huge), 'en'),
+      limit: '1',
+    });
+    expect(Number(refusal.i18nParams!.used)).toBeGreaterThan(1);
   });
 
   // The other refusal, and the one a user is far more likely to meet.
   test('should reject a structurally invalid backup with a translatable key', () => {
     try {
-      readImportedContainer(JSON.stringify({ nope: true }), 'en');
+      readImportedContainer(JSON.stringify({ nope: true }));
       throw new Error('expected readImportedContainer to throw');
     } catch (error) {
       expect(error).toBeInstanceOf(TranslatableError);
@@ -1573,7 +1561,7 @@ describe('readImportedContainer', () => {
   test('should reject a file that is not JSON with a translatable key, logging the parser error', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
-      readImportedContainer('{not json', 'en');
+      readImportedContainer('{not json');
       throw new Error('expected readImportedContainer to throw');
     } catch (error) {
       expect(error).toBeInstanceOf(TranslatableError);
@@ -1627,7 +1615,7 @@ describe('readImportedContainer', () => {
     const serialized = JSON.stringify(container);
 
     expect(serialized.length).toBeGreaterThan(FIRESTORE_MAX_DOCUMENT_BYTES);
-    expect(readImportedContainer(serialized, 'en')).toEqual(container);
+    expect(readImportedContainer(serialized)).toEqual(container);
   });
 });
 

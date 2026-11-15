@@ -672,25 +672,6 @@ export function stripEmbeddedFavicons(
   };
 }
 
-// How big this container would be as a Firestore document, in bytes.
-//
-// Measured AFTER stripEmbeddedFavicons because that is exactly what
-// saveToFirestore writes: an embedded favicon is 5-20KB on disk and 0 bytes in
-// the document, so measuring the raw container would refuse backups that
-// actually fit. TextEncoder, not String.length, because length counts UTF-16
-// code units -- a title in a non-Latin script is one character and three bytes,
-// and under-reporting is the failure that lets a doomed write through.
-//
-// This is an estimate, not Firestore's own accounting, which also charges for
-// field names and a per-document overhead. JSON's structural bytes (quotes,
-// colons, braces) stand in for that roughly, and the gap is nowhere near the
-// margin that matters here -- the case this exists to catch is a multi-megabyte
-// file, not one a kilobyte over.
-export function estimateFirestoreBytes(data: TabMasterContainer): number {
-  return new TextEncoder().encode(JSON.stringify(stripEmbeddedFavicons(data)))
-    .byteLength;
-}
-
 // Chrome keeps a favicon cache for pages the user has visited, reachable through
 // the `favicon` permission. Deriving the icon from the page URL costs no storage,
 // so a tab whose embedded favicon was dropped by stripEmbeddedFavicons still
@@ -811,23 +792,14 @@ export class TranslatableError extends Error {
   }
 }
 
-// Parse, validate and size-check the contents of an imported backup file.
+// Parse and validate the contents of an imported backup file. KAN-6: the size check is refuseOversizeImport.
 //
 // Every rejection throws, because the import handler already turns a throw
 // into a toast -- a caller that returned a result object would need new UI for
 // a path that already has one. Every rejection is a TranslatableError:
 // JSON.parse's own SyntaxError is English with no full stop, so it goes to the
 // console and the user reads IMPORT_NOT_JSON (KAN-618).
-//
-// The size check is the KAN-27 guard, and it refuses rather than importing and
-// warning. An oversized container is persisted to localStorage by
-// restoreContainer and leaves isDirty set against a document Firestore will
-// never accept, so importing anyway does not just fail once -- it wedges sync
-// for every subsequent change until the user deletes sessions by hand.
-export function readImportedContainer(
-  content: string,
-  locale: string
-): TabMasterContainer {
+export function readImportedContainer(content: string): TabMasterContainer {
   let parsed: unknown;
   try {
     parsed = JSON.parse(content);
@@ -838,14 +810,6 @@ export function readImportedContainer(
 
   if (!isValidTabMasterContainer(parsed)) {
     throw new TranslatableError(IMPORT_INVALID_STRUCTURE);
-  }
-
-  const bytes = estimateFirestoreBytes(parsed);
-  if (bytes > FIRESTORE_MAX_DOCUMENT_BYTES) {
-    throw new TranslatableError(IMPORT_SIZE_REFUSAL, {
-      used: bytesToMB(bytes, locale),
-      limit: syncLimitInMB(locale),
-    });
   }
 
   // KAN-91. Older versions refuse a session without it, and an import syncs.

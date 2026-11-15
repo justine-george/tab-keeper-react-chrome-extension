@@ -425,6 +425,7 @@
   "SyncLimitUsed": "セッションは同期上限 {{limit}} のうち {{used}} を使っています。",
   "SyncLimitUsedNear": "セッションは同期上限 {{limit}} のうち {{used}} を使っています。{{limit}} で同期が止まります。不要なセッションを削除してください。",
   "SyncLimitUsedFull": "セッションは同期上限 {{limit}} のうち {{used}} を使っています。大きすぎて同期できません。不要なセッションを削除してください。",
+  "SyncLimitUsedUnder": "セッションは同期上限 {{limit}} のうち {{size}} 未満を使っています。",
   "Recently deleted": "最近削除した項目",
   "Kept for 30 days, then permanently deleted.": "このデバイスで削除したセッションは 30 日間保持され、その後完全に削除されます。",
   "RestoreDeletedSession": "復元",

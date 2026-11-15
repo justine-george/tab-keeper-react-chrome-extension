@@ -454,14 +454,13 @@ describe('a session without isAutoSave (KAN-91)', () => {
   });
 
   test('a backup without it imports, and every session gets it back', () => {
-    const imported = readImportedContainer(JSON.stringify(session({})), 'en');
+    const imported = readImportedContainer(JSON.stringify(session({})));
     expect(imported.tabGroups[0].isAutoSave).toBe(false);
   });
 
   test('an imported value is kept as written', () => {
     const imported = readImportedContainer(
-      JSON.stringify(session({ isAutoSave: true })),
-      'en'
+      JSON.stringify(session({ isAutoSave: true }))
     );
     expect(imported.tabGroups[0].isAutoSave).toBe(true);
   });
