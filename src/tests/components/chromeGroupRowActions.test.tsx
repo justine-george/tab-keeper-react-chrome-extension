@@ -667,8 +667,8 @@ describe('the group title renames, and Open opens', () => {
   });
 });
 
-// KAN-906. Both group Adds follow Skip duplicate tabs: a page the session has anywhere is left out, and said.
-describe('add current tab to group with Skip duplicate tabs', () => {
+// KAN-906. Both group Adds follow Skip duplicates when saving: a page the session has anywhere is left out, and said.
+describe('add current tab to group with Skip duplicates when saving', () => {
   // The active tab is the session's loose tab, in another part of the window.
   const HAS_IT: ChromeSeed = {
     windows: [{ id: 1 }],

@@ -9,7 +9,7 @@ import {
   selectCategory,
 } from '../../redux/slices/settingsCategoryStateSlice';
 
-// KAN-906. Settings › Sessions › Skip duplicate tabs: On or Off, right after Save tab groups.
+// KAN-906. Settings › Sessions › Skip duplicates when saving: On or Off, right after Save tab groups.
 const HELP =
   'When you add or move a window or tabs to a saved session, pages it already has are left out, and a new session keeps one copy of each.';
 
@@ -20,7 +20,7 @@ const renderSessions = () =>
     },
   });
 
-describe('Settings › Sessions › Skip duplicate tabs', () => {
+describe('Settings › Sessions › Skip duplicates when saving', () => {
   it('sits directly after Save tab groups', async () => {
     const { container } = await renderSessions();
     const titles = [
@@ -28,13 +28,15 @@ describe('Settings › Sessions › Skip duplicate tabs', () => {
     ].map((s) => s.querySelector('span')?.textContent);
     const at = titles.indexOf('Save tab groups');
     expect(at).toBeGreaterThanOrEqual(0);
-    expect(titles[at + 1]).toBe('Skip duplicate tabs');
+    expect(titles[at + 1]).toBe('Skip duplicates when saving');
   });
 
   it('starts Off, is described by its help line, and On dispatches and shows On pressed', async () => {
     const user = userEvent.setup();
     const { store } = await renderSessions();
-    const pair = screen.getByRole('group', { name: 'Skip duplicate tabs' });
+    const pair = screen.getByRole('group', {
+      name: 'Skip duplicates when saving',
+    });
     expect(within(pair).getByRole('button', { name: 'Off' })).toHaveAttribute(
       'aria-pressed',
       'true'

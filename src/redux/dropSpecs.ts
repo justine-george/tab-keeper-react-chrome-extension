@@ -257,7 +257,7 @@ function landingListIds(
   return w.tabs.map((t) => t.tabId);
 }
 
-// skipDuplicates: Skip duplicate tabs as read at the drop (KAN-914).
+// skipDuplicates: Skip duplicates when saving as read at the drop (KAN-914).
 export function sessionMoveDrop(
   move: SessionMove,
   skipDuplicates = false

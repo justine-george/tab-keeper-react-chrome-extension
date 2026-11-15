@@ -48,7 +48,7 @@ import {
   windowIn,
 } from '../fixtures/sessionMoveFixture';
 
-// KAN-914. A move from one saved session to another leaves out pages the target has while Skip duplicate tabs is on; a left-out tab leaves the source too.
+// KAN-914. A move from one saved session to another leaves out pages the target has while Skip duplicates when saving is on; a left-out tab leaves the source too.
 
 type Store = ReturnType<typeof makeTestStore>['store'];
 
@@ -125,7 +125,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('KAN-914: a move between saved sessions with Skip duplicate tabs', () => {
+describe('KAN-914: a move between saved sessions with Skip duplicates when saving', () => {
   it('off: a move keeps repeats (today)', () => {
     const store = ready(false);
     store.dispatch(moveToSession({ move: TAB_A, announceMoved: true }));

@@ -32,7 +32,7 @@ import { revealSavedWindow } from '../components/home/rightpane/revealSavedWindo
 
 type Took = ThunkAction<boolean, RootState, unknown, UnknownAction>;
 
-// KAN-906. What the copy lands, read at the drop: with Skip duplicate tabs on, the picked tabs the target has are left out.
+// KAN-906. What the copy lands, read at the drop: with Skip duplicates when saving on, the picked tabs the target has are left out.
 function landingAtDrop(
   state: RootState,
   copy: SessionCopy,
@@ -47,7 +47,7 @@ function landingAtDrop(
 }
 
 // Returns whether anything was saved. Every copy says so, wherever it lands (KAN-607), and copies everything,
-// duplicates included (KAN-608), unless Skip duplicate tabs is on; Show only when the target is not on screen after the drop.
+// duplicates included (KAN-608), unless Skip duplicates when saving is on; Show only when the target is not on screen after the drop.
 const copyToSession =
   (copy: SessionCopy, live: LiveSnapshot): Took =>
   (dispatch, getState) => {

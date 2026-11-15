@@ -32,7 +32,7 @@ import {
   snapshotWindow,
 } from '../fixtures/liveSnapshotFixture';
 
-// KAN-906. A new session keeps one copy of each address when Skip duplicate tabs is on.
+// KAN-906. A new session keeps one copy of each address when Skip duplicates when saving is on.
 
 const A = 'https://a.test/';
 const B = 'https://b.test/';

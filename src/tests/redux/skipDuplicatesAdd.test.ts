@@ -27,7 +27,7 @@ import { undo } from '../../redux/slices/undoRedoSlice';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { buildSession } from '../fixtures/sessionFixture';
 
-// KAN-906. Add current window / Add current tab leave out what the session already has when Skip duplicate tabs is on.
+// KAN-906. Add current window / Add current tab leave out what the session already has when Skip duplicates when saving is on.
 
 const A = 'https://a.test/';
 const B = 'https://b.test/';

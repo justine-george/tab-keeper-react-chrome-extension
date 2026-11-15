@@ -46,14 +46,14 @@ const openQuickAccess = (
 ) => openPane(context, extensionId, 'Quick access', 'Default view');
 
 test.describe('the Sessions pane (KAN-249, KAN-250, KAN-253)', () => {
-  test('five pairs, Save Tab Groups with Off pressed on the popup scale, Skip duplicate tabs (KAN-906), Open saved windows (KAN-892), Skip tabs already open (KAN-910), then Copy links; no memory setting, no history setting, no backup', async ({
+  test('five pairs, Save Tab Groups with Off pressed on the popup scale, Skip duplicates when saving (KAN-906), Open saved windows (KAN-892), Skip duplicates when opening (KAN-910), then Copy links; no memory setting, no history setting, no backup', async ({
     context,
     extensionId,
   }) => {
     const page = await openSessions(context, extensionId);
 
     // Default view and Pin Tab Keeper moved to Quick access (KAN-652); tab
-    // history is always on, with no setting (KAN-663). Copy links is KAN-859, Skip duplicate tabs KAN-906, Skip tabs already open KAN-910.
+    // history is always on, with no setting (KAN-663). Copy links is KAN-859, Skip duplicates when saving KAN-906, Skip duplicates when opening KAN-910.
     const groups = page.getByRole('group');
     await expect(groups).toHaveCount(5);
     expect(
@@ -62,9 +62,9 @@ test.describe('the Sessions pane (KAN-249, KAN-250, KAN-253)', () => {
       )
     ).toEqual([
       'Save tab groups',
-      'Skip duplicate tabs',
+      'Skip duplicates when saving',
       'Open saved windows',
-      'Skip tabs already open',
+      'Skip duplicates when opening',
       'Copy links',
     ]);
     await expect(

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-// KAN-910. The setting's label and help, the two toasts, and the reworded Skip duplicate tabs help.
+// KAN-910. The setting's label and help, the two toasts, and the reworded Skip duplicates when saving help.
 const NEW_KEYS = [
-  'Skip tabs already open',
+  'Skip duplicates when opening',
   'Opening or dropping saved tabs into a window that’s already open leaves out pages it already has.',
   'This window already has this tab.',
   'This window already has these tabs.',
@@ -16,7 +16,7 @@ const files = import.meta.glob<Record<string, string>>(
   { import: 'default', eager: true }
 );
 
-describe('Skip tabs already open strings', () => {
+describe('Skip duplicates when opening strings', () => {
   it('reads all 13 locales', () => {
     expect(Object.keys(files)).toHaveLength(13);
   });

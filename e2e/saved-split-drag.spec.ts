@@ -431,7 +431,7 @@ test.describe('a saved pair is one row (KAN-942)', () => {
     expect(await layout(page, 'S1')).toEqual(START);
   });
 
-  test('13. Skip duplicate tabs: one half repeated lands whole, both repeated say so', async ({
+  test('13. Skip duplicates when saving: one half repeated lands whole, both repeated say so', async ({
     context,
     extensionId,
   }) => {
@@ -842,7 +842,7 @@ test.describe('a saved pair into Currently open (KAN-942)', () => {
     await page.mouse.up();
   });
 
-  test('25. Skip tabs already open: both halves open, nothing opens', async ({
+  test('25. Skip duplicates when opening: both halves open, nothing opens', async ({
     context,
     extensionId,
     serviceWorker: worker,

@@ -469,7 +469,7 @@ test.describe('undo and redo of a drop into Currently open', () => {
     await expect(toasts(page)).toHaveCount(0);
   });
 
-  test('Skip tabs already open: a group with one page there; ⌘Z closes only the tab it opened', async ({
+  test('Skip duplicates when opening: a group with one page there; ⌘Z closes only the tab it opened', async ({
     context,
     extensionId,
     serviceWorker: worker,

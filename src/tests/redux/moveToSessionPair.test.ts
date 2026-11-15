@@ -259,7 +259,7 @@ describe('a saved pair moved to another session (KAN-942)', () => {
   });
 });
 
-describe('Skip duplicate tabs (KAN-942)', () => {
+describe('Skip duplicates when saving (KAN-942)', () => {
   const repeating = (...urls: string[]) =>
     session('S2', 'Target', T0 - 2_000, [
       win(

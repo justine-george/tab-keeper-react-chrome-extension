@@ -738,9 +738,9 @@ describe('openCarriedCopy', () => {
   });
 });
 
-// KAN-910. With Skip tabs already open on, a saved drop into an open window
+// KAN-910. With Skip duplicates when opening on, a saved drop into an open window
 // leaves out pages the window has, says so, and lights the rows.
-describe('openCarriedCopy with Skip tabs already open', () => {
+describe('openCarriedCopy with Skip duplicates when opening', () => {
   const A = 'https://a.example/';
   const B = 'https://b.example/';
   const TWO = 'https://two.example/';
@@ -1180,7 +1180,7 @@ describe('openCarriedCopy with a pair', () => {
     expect(store.getState().tabContainerDataState).toBe(before);
   });
 
-  it('Skip tabs already open: one half open, both open', async () => {
+  it('Skip duplicates when opening: one half open, both open', async () => {
     liveWith('https://two.example/');
     const { store } = ready();
     store.dispatch(setSkipTabsAlreadyOpen(true));
@@ -1190,7 +1190,7 @@ describe('openCarriedCopy with a pair', () => {
     expect(await liveUrls()).toHaveLength(3);
   });
 
-  it('Skip tabs already open: both open, nothing opens, and it says so', async () => {
+  it('Skip duplicates when opening: both open, nothing opens, and it says so', async () => {
     liveWith('https://two.example/', 'https://three.example/');
     const { store } = ready();
     store.dispatch(setSkipTabsAlreadyOpen(true));

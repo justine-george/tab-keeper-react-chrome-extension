@@ -32,7 +32,7 @@ import { standIn } from './fixtures/standInPages';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
 import type { TabMasterContainer } from '../src/redux/slices/tabContainerDataStateSlice';
 
-// KAN-906 on the real artifact: Settings › Sessions › Skip duplicate tabs. Off, every path adds and saves what it is
+// KAN-906 on the real artifact: Settings › Sessions › Skip duplicates when saving. Off, every path adds and saves what it is
 // given; On, a page a session already has is left out, and the toast says so. Replace is a whole new fill: unchanged.
 
 const FULL = { width: 1280, height: 800 };
@@ -105,7 +105,7 @@ async function saveByEnter(page: Page, name: string): Promise<void> {
 }
 
 test.describe('the setting', () => {
-  test('Settings › Sessions shows Skip duplicate tabs Off by default; On survives a reload', async ({
+  test('Settings › Sessions shows Skip duplicates when saving Off by default; On survives a reload', async ({
     context,
     extensionId,
   }) => {
@@ -118,7 +118,7 @@ test.describe('the setting', () => {
     const open = async () => {
       await page.getByRole('button', { name: 'Settings' }).click();
       await page.getByRole('button', { name: 'Sessions', exact: true }).click();
-      return page.getByRole('group', { name: 'Skip duplicate tabs' });
+      return page.getByRole('group', { name: 'Skip duplicates when saving' });
     };
 
     let pair = await open();
@@ -157,7 +157,7 @@ test.describe('the setting', () => {
     await page.getByRole('button', { name: 'Sessions', exact: true }).click();
 
     await expect(
-      page.getByRole('group', { name: 'Skip duplicate tabs' })
+      page.getByRole('group', { name: 'Skip duplicates when saving' })
     ).toHaveAccessibleDescription(
       'When you add or move a window or tabs to a saved session, pages it already has are left out, and a new session keeps one copy of each.'
     );

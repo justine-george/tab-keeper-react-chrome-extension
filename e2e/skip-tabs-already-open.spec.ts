@@ -1,4 +1,4 @@
-// KAN-910 on the real artifact: Settings › Sessions › Skip tabs already open.
+// KAN-910 on the real artifact: Settings › Sessions › Skip duplicates when opening.
 // On, saved tabs opened or dropped into a window that is already open leave
 // out pages it has; the open copy stays where and as it is. Off, every path
 // opens everything, as before. Every check reads Chrome back.
@@ -166,7 +166,7 @@ const noLeftOutToast = async (page: Page) =>
   );
 
 test.describe('the setting', () => {
-  test('Settings shows Skip tabs already open, Off, right under Open saved windows, and keeps On', async ({
+  test('Settings shows Skip duplicates when opening, Off, right under Open saved windows, and keeps On', async ({
     context,
     extensionId,
   }) => {
@@ -180,14 +180,14 @@ test.describe('the setting', () => {
     const open = async () => {
       await page.getByRole('button', { name: 'Settings' }).click();
       await page.getByRole('button', { name: 'Sessions', exact: true }).click();
-      return page.getByRole('group', { name: 'Skip tabs already open' });
+      return page.getByRole('group', { name: 'Skip duplicates when opening' });
     };
 
     let pair = await open();
     const order = await page
       .getByRole('group')
       .evaluateAll((pairs) => pairs.map((p) => p.getAttribute('aria-label')));
-    expect(order.indexOf('Skip tabs already open')).toBe(
+    expect(order.indexOf('Skip duplicates when opening')).toBe(
       order.indexOf('Open saved windows') + 1
     );
     expect(order.indexOf('Open saved windows')).toBeGreaterThanOrEqual(0);
