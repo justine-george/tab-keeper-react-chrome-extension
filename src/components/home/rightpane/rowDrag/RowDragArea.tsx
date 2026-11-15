@@ -527,6 +527,8 @@ interface LiveDrag {
   // The window the last preview landed in, so the list hears only about
   // changes (onLandingWindowChange).
   landingWindow: string | undefined;
+  // KAN-822. The last preview joined a folded band: a committed move with no landing slot or row to glide to.
+  joinsFoldedBand: boolean;
   // The card this drag shows at the pointer while it is still a drag in its
   // own list (KAN-354), or null for a drag that shows none: its list has no
   // carryOut, the carryOut has no card for this row, or the drag is adopted
@@ -613,6 +615,7 @@ function pressRecord(
     listTops: new Map(),
     adopted,
     landingWindow: undefined,
+    joinsFoldedBand: false,
     card: null,
     cardShown: false,
     memberEdges: new Map(),
@@ -1433,6 +1436,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
             '[data-band-id]'
           ) ?? []),
         ].some((band) => band.dataset.bandId === target && isBandFolded(band));
+      l.joinsFoldedBand = joinsFoldedBand;
       if (joinsFoldedBand) {
         // The source closes up behind the row and nothing opens.
         shifts = summed(closingShifts(l.slots, from, l.footprint), besides);
@@ -2471,9 +2475,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           // An adopted drop too (KAN-849): its list draws the carried row in
           // this task, where the rows that made room for it must not ease.
           const later = moving instanceof Promise;
+          // KAN-822. A join into a folded band moves the row though its landing delta is 0: it holds the rows too.
           if (
             l.shown !== null &&
-            l.shown.landingDelta !== 0 &&
+            (l.shown.landingDelta !== 0 || l.joinsFoldedBand) &&
             !(later && foldedBack)
           ) {
             const s: Settle = {
@@ -2485,7 +2490,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
               keptFold: later && FOLDING_KINDS.has(dragKind) ? l.heldEl : null,
               // A fold coming off changes the blocks' heights, a drag's own or a window it opened folding back: not a glide.
               landing:
-                FOLDING_KINDS.has(dragKind) || foldedBack
+                FOLDING_KINDS.has(dragKind) || foldedBack || l.joinsFoldedBand
                   ? null
                   : {
                       tops: landingTops(

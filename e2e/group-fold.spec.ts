@@ -359,6 +359,44 @@ async function holdOver(page: Page, row: Locator, y: () => Promise<number>) {
   await page.waitForTimeout(400);
 }
 
+// KAN-822. Records `selector`'s top on every frame for 450ms from now, to read the release's motion.
+const recordTops = (page: Page, selector: string) =>
+  page.evaluate((sel) => {
+    const tops: number[] = [];
+    Reflect.set(window, '__tops', tops);
+    const t0 = performance.now();
+    const tick = () => {
+      const el = document.querySelector(sel);
+      if (el !== null) tops.push(el.getBoundingClientRect().top);
+      if (performance.now() - t0 < 450) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, selector);
+const recordedTops = async (page: Page) => {
+  await page.waitForTimeout(500);
+  return page.evaluate(() => {
+    const tops: unknown = Reflect.get(window, '__tops');
+    return Array.isArray(tops) ? tops.map(Number) : [];
+  });
+};
+
+// Every frame moves the row only toward where it rests, never more than 1px past it and back.
+function expectOnlyTowardRest(tops: readonly number[], rest: number) {
+  expect(tops.length).toBeGreaterThan(10);
+  const side = Math.sign((tops[0] ?? rest) - rest);
+  tops.forEach((top, i) => {
+    const where = `frame ${i} at ${top}, resting at ${rest}: ${JSON.stringify(tops)}`;
+    if (side === 0) expect(Math.abs(top - rest), where).toBeLessThanOrEqual(1);
+    else {
+      expect((top - rest) * side, where).toBeGreaterThanOrEqual(-1);
+      if (i > 0)
+        expect(Math.abs(top - rest), where).toBeLessThanOrEqual(
+          Math.abs(tops[i - 1] - rest) + 1
+        );
+    }
+  });
+}
+
 test.describe('a tab dropped on a folded saved group', () => {
   test.beforeEach(async ({ context }) => {
     await seedSessions(context, {
@@ -394,6 +432,27 @@ test.describe('a tab dropped on a folded saved group', () => {
     await expect(bandHandle(page, 'g1').getByText('3 tabs')).toBeVisible();
     await expect(memberRows(page)).toHaveCount(0);
     await expect(band(page)).toHaveAttribute('data-group-folded', '');
+  });
+
+  test('a tab dropped from above into a folded group: the rows below never jump past their place', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await context.newPage();
+    await openTrip(page, extensionId);
+    await holdOver(page, savedRow(page, 'c'), async () => {
+      const row = await boxOf(bandHandle(page, 'g1'));
+      return row.y + row.height / 2;
+    });
+    await expect(band(page)).toHaveAttribute('data-drop-target', '');
+    await recordTops(page, '[data-pane="detail"] [data-drag-row-id="lead"]');
+    await page.mouse.up();
+    const tops = await recordedTops(page);
+    await expect
+      .poll(() => storedOrder(page))
+      .toEqual(['lead', 'a:g1', 'b:g1', 'c:g1', 'tail']);
+    await elementLanded(savedRow(page, 'lead'), 'ancestors');
+    expectOnlyTowardRest(tops, (await boxOf(savedRow(page, 'lead'))).y);
   });
 
   // KAN-822 (his rule): above the band the tab lands before the group, as above any row.
@@ -794,8 +853,7 @@ async function sweepThrough(
 
 const overlaps = (a: Box, b: Box) => a.top < b.bottom && a.bottom > b.top;
 
-// Above the band, the slot is above its title row; on it, the wash and no slot; below it, the slot below.
-// The colour strip stays with the title row. The zones come in `order`.
+// Above the band the slot is above its title, on it no slot, below it below; the strip keeps to the title; zones in `order`.
 function expectSlotFollowsPointer(
   steps: readonly SweepStep[],
   order: readonly Zone[]
@@ -995,21 +1053,40 @@ const placeOf = (worker: Worker, id: number) =>
     const t = await chrome.tabs.get(tabId);
     return { index: t.index, groupId: t.groupId };
   }, id);
-// Every group change Chrome reports for the tab from now on: a transient join would show here.
-const watchGroupOf = (worker: Worker, id: number) =>
+// Every move and group change Chrome reports for the tab from now on: a transient join would show as `group N`.
+const watchTab = (worker: Worker, id: number) =>
   worker.evaluate((tabId) => {
-    const seen: number[] = [];
-    Reflect.set(globalThis, '__groupEvents', seen);
+    const seen: string[] = [];
+    Reflect.set(globalThis, '__tabEvents', seen);
+    chrome.tabs.onMoved.addListener((moved, info) => {
+      if (moved === tabId) seen.push(`moved ${info.toIndex}`);
+    });
     chrome.tabs.onUpdated.addListener((updated, change) => {
       if (updated === tabId && change.groupId !== undefined)
-        seen.push(change.groupId);
+        seen.push(`group ${change.groupId}`);
     });
   }, id);
-const groupEventsOf = (worker: Worker) =>
-  worker.evaluate(() => {
-    const log: unknown = Reflect.get(globalThis, '__groupEvents');
-    return Array.isArray(log) ? log.map(Number) : [];
-  });
+// The log once settled: the same length on two reads 150ms apart, so a late event is in it.
+async function tabEventsOf(worker: Worker): Promise<string[]> {
+  const read = () =>
+    worker.evaluate(() => {
+      const log: unknown = Reflect.get(globalThis, '__tabEvents');
+      return Array.isArray(log) ? log.map(String) : [];
+    });
+  let lastLength = -1;
+  await expect
+    .poll(
+      async () => {
+        const length = (await read()).length;
+        const settled = length === lastLength;
+        lastLength = length;
+        return settled;
+      },
+      { intervals: [150] }
+    )
+    .toBe(true);
+  return read();
+}
 
 test.describe('a group in Currently open', () => {
   test('the chevron collapses the Chrome group, and the band folds', async ({
@@ -1223,6 +1300,39 @@ test.describe('a group in Currently open', () => {
     expect(await chromeCollapsed(serviceWorker, k.groupId)).toBe(true);
     await expectLiveFolded(page, k, 3);
   });
+
+  test('a tab dropped from above into a collapsed group: the rows below never jump past their place', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+    const w = await openNara(serviceWorker, [
+      'Held',
+      'Lead',
+      'Deer',
+      'Park',
+      'Tail',
+    ]);
+    const naraBand = await foldedNaraBand(page, w);
+    await holdOver(page, liveRow(page, w, w.tabs[0]), async () => {
+      const row = await boxOf(naraBand.locator('[data-group-drag-handle]'));
+      return row.y + row.height / 2;
+    });
+    await expect(naraBand).toHaveAttribute('data-drop-target', '');
+    await recordTops(
+      page,
+      `[data-open-window-id="${w.windowId}"] [data-drag-row-id="${w.tabs[1]}"]`
+    );
+    await page.mouse.up();
+    const tops = await recordedTops(page);
+    await expect
+      .poll(() => placeOf(serviceWorker, w.tabs[0]))
+      .toEqual({ index: 3, groupId: w.groupId });
+    const lead = liveRow(page, w, w.tabs[1]);
+    await elementLanded(lead, 'ancestors');
+    expectOnlyTowardRest(tops, (await boxOf(lead)).y);
+  });
   // Review critical 1: a join at an open group's tail stays in that group, though a collapsed one follows it.
   test("a tab joining an open group's tail above a collapsed group stays in the open group", async ({
     context,
@@ -1380,13 +1490,14 @@ test.describe('a group in Currently open', () => {
     await page.mouse.move(steps[0].x, steps[0].rest.top - 3, { steps: 4 });
     await settledPreview(naraBand);
     await expect(landingSlot(page)).toHaveCount(1);
-    await watchGroupOf(serviceWorker, w.tabs[0]);
+    await watchTab(serviceWorker, w.tabs[0]);
     await page.mouse.up();
     // Before Nara, ungrouped, never joined on the way; Nara whole and still collapsed.
     await expect
       .poll(() => placeOf(serviceWorker, w.tabs[0]))
       .toEqual({ index: 1, groupId: -1 });
-    expect(await groupEventsOf(serviceWorker)).toEqual([]);
+    // PREMISE: the recorder saw the drop's own move; and no group change came with it.
+    expect(await tabEventsOf(serviceWorker)).toEqual(['moved 1']);
     expect(await placeOf(serviceWorker, w.tabs[2])).toEqual({
       index: 2,
       groupId: w.groupId,
@@ -1422,12 +1533,13 @@ test.describe('a group in Currently open', () => {
     expectSlotFollowsPointer(steps, ['below', 'join', 'above']);
     const above = steps[steps.length - 1];
     expect(above.title.top).toBeGreaterThan(above.rest.top + 8);
-    await watchGroupOf(serviceWorker, w.tabs[4]);
+    await watchTab(serviceWorker, w.tabs[4]);
     await page.mouse.up();
     await expect
       .poll(() => placeOf(serviceWorker, w.tabs[4]))
       .toEqual({ index: 2, groupId: -1 });
-    expect(await groupEventsOf(serviceWorker)).toEqual([]);
+    // PREMISE: the recorder saw the drop's own move; and no group change came with it.
+    expect(await tabEventsOf(serviceWorker)).toEqual(['moved 2']);
     expect(await placeOf(serviceWorker, w.tabs[2])).toEqual({
       index: 3,
       groupId: w.groupId,
