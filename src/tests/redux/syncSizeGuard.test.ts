@@ -33,12 +33,12 @@ import {
 } from '../../redux/slices/settingsDataStateSlice';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { bytesToMB, SYNC_SIZE_REFUSAL } from '../../utils/functions/local';
-import { syncBytes } from '../../utils/functions/cloudDocument';
-import { incompressible } from '../fixtures/incompressible';
 import {
-  FIRESTORE_MAX_DOCUMENT_BYTES,
-  estimateFirestoreBytes,
-} from '../../utils/functions/local';
+  encodeCloudDocument,
+  syncBytes,
+} from '../../utils/functions/cloudDocument';
+import { incompressible } from '../fixtures/incompressible';
+import { FIRESTORE_MAX_DOCUMENT_BYTES } from '../../utils/functions/local';
 
 // KAN-6. Titles gzip cannot shrink, so the document is over the limit even compressed.
 function oversizedContainer() {
@@ -180,7 +180,7 @@ describe('the sync write refuses a document Firestore would reject', () => {
 // `g-0-0-a` understates the real per-tab cost (the encoded JSON key/value
 // pair costs 19 + len(id) bytes), so this pads any short id out to 36
 // characters. It does not need to be a real uuid -- only the right length,
-// since estimateFirestoreBytes only counts encoded bytes.
+// since the size check only counts encoded bytes.
 function id36(prefix: string): string {
   return prefix.padEnd(36, '0').slice(0, 36);
 }
@@ -232,9 +232,10 @@ function sizedContainer(grouped: boolean) {
   return buildContainer(sessions);
 }
 
-it('tab group metadata does not materially change the size estimate', () => {
-  const withoutGroups = estimateFirestoreBytes(sizedContainer(false));
-  const withGroups = estimateFirestoreBytes(sizedContainer(true));
+it('tab group metadata does not materially change the written size', async () => {
+  const withoutGroups = (await encodeCloudDocument(sizedContainer(false)))
+    .bytes;
+  const withGroups = (await encodeCloudDocument(sizedContainer(true))).bytes;
 
   // Measured with production-length (36-char) uuids, on a container where
   // EVERY tab is grouped -- the realistic ceiling for this feature, not a

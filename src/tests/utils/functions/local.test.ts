@@ -27,12 +27,12 @@ import {
   stripEmbeddedFavicons,
   resolveFaviconUrl,
   FIRESTORE_MAX_DOCUMENT_BYTES,
-  estimateFirestoreBytes,
   readImportedContainer,
   bytesToMB,
 } from '../../../utils/functions/local';
 import { TabMasterContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 import {
+  encodeCloudDocument,
   refuseOversizeImport,
   syncBytes,
 } from '../../../utils/functions/cloudDocument';
@@ -1385,7 +1385,8 @@ describe('placeholderTarget', () => {
 // was persisted to localStorage, the toast said "Restored tabs successfully!",
 // and the write then failed -- leaving isDirty set against a document that can
 // never be written, so every later change failed to sync too.
-describe('estimateFirestoreBytes', () => {
+// KAN-6. Measured by the encoder now: the bytes of what sync writes.
+describe('the cloud document size', () => {
   const buildContainer = (
     tabsPerWindow: number,
     favicon: string,
@@ -1426,14 +1427,14 @@ describe('estimateFirestoreBytes', () => {
   // The whole reason the estimate is not just JSON.stringify(data).length:
   // saveToFirestore strips embedded favicons before writing, so those bytes
   // never reach the document and must not count against the limit.
-  test('should measure the container as saveToFirestore would write it', () => {
+  test('should measure the container as saveToFirestore would write it', async () => {
     const heavyFavicon = 'data:image/png;base64,' + 'A'.repeat(12000);
     const withFavicons = buildContainer(120, heavyFavicon);
 
     expect(JSON.stringify(withFavicons).length).toBeGreaterThan(
       FIRESTORE_MAX_DOCUMENT_BYTES
     );
-    expect(estimateFirestoreBytes(withFavicons)).toBeLessThan(
+    expect((await encodeCloudDocument(withFavicons)).bytes).toBeLessThan(
       FIRESTORE_MAX_DOCUMENT_BYTES
     );
   });
@@ -1441,10 +1442,10 @@ describe('estimateFirestoreBytes', () => {
   // Titles are user data and routinely non-ASCII. String.length counts UTF-16
   // code units, so it under-reports the bytes Firestore actually stores and
   // would let a document through that the write then rejects.
-  test('should count UTF-8 bytes rather than characters', () => {
+  test('should count UTF-8 bytes rather than characters', async () => {
     const container = buildContainer(10, '', () => '日本語のタイトル');
 
-    expect(estimateFirestoreBytes(container)).toBeGreaterThan(
+    expect((await encodeCloudDocument(container)).bytes).toBeGreaterThan(
       JSON.stringify(container).length
     );
   });

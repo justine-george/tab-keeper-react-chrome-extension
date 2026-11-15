@@ -672,25 +672,6 @@ export function stripEmbeddedFavicons(
   };
 }
 
-// How big this container would be as a Firestore document, in bytes.
-//
-// Measured AFTER stripEmbeddedFavicons because that is exactly what
-// saveToFirestore writes: an embedded favicon is 5-20KB on disk and 0 bytes in
-// the document, so measuring the raw container would refuse backups that
-// actually fit. TextEncoder, not String.length, because length counts UTF-16
-// code units -- a title in a non-Latin script is one character and three bytes,
-// and under-reporting is the failure that lets a doomed write through.
-//
-// This is an estimate, not Firestore's own accounting, which also charges for
-// field names and a per-document overhead. JSON's structural bytes (quotes,
-// colons, braces) stand in for that roughly, and the gap is nowhere near the
-// margin that matters here -- the case this exists to catch is a multi-megabyte
-// file, not one a kilobyte over.
-export function estimateFirestoreBytes(data: TabMasterContainer): number {
-  return new TextEncoder().encode(JSON.stringify(stripEmbeddedFavicons(data)))
-    .byteLength;
-}
-
 // Chrome keeps a favicon cache for pages the user has visited, reachable through
 // the `favicon` permission. Deriving the icon from the page URL costs no storage,
 // so a tab whose embedded favicon was dropped by stripEmbeddedFavicons still

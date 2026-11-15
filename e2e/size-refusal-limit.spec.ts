@@ -8,9 +8,10 @@ import {
 import { FULL_VIEW_PATH } from './fixtures/onboarding';
 import {
   bytesToMB,
-  estimateFirestoreBytes,
   FIRESTORE_MAX_DOCUMENT_BYTES,
 } from '../src/utils/functions/local';
+import { syncBytes } from '../src/utils/functions/cloudDocument';
+import { incompressible } from '../src/tests/fixtures/incompressible';
 
 // KAN-634. The refusal toast said "1.1 MB of a 1.0 MB limit" while the Sync
 // Status bar under it said "of the 1 MB sync limit". The import refusal is the
@@ -18,7 +19,7 @@ import {
 // the same limit. Sync off, so the bar shows past the limit (KAN-633) and no
 // cloud write is attempted. In the full view: the popup hands its file step there (KAN-579).
 
-// One session whose single tab's address carries `pad` extra characters.
+// One session whose single tab's address carries `pad` extra characters gzip cannot shrink (KAN-6).
 function padded(pad: number) {
   const base = buildSession({ tabGroupId: 'big' });
   const tab = base.windows[0].tabs[0];
@@ -28,7 +29,7 @@ function padded(pad: number) {
       windows: [
         {
           ...base.windows[0],
-          tabs: [{ ...tab, url: `${tab.url}${'a'.repeat(pad)}` }],
+          tabs: [{ ...tab, url: `${tab.url}${incompressible(pad)}` }],
         },
       ],
     },
@@ -39,9 +40,9 @@ test('the import refusal names the limit as the bar beside it does', async ({
   context,
   extensionId,
 }) => {
-  const tooLarge = padded(1_150_000);
-  const used = estimateFirestoreBytes(tooLarge);
-  // The premise: over the limit, so both the bar and the guard refuse it.
+  const tooLarge = padded(1_600_000);
+  const used = await syncBytes(tooLarge);
+  // The premise: over the limit compressed, so both the bar and the guard refuse it.
   expect(used).toBeGreaterThan(FIRESTORE_MAX_DOCUMENT_BYTES);
 
   await seedSessions(context, tooLarge);
