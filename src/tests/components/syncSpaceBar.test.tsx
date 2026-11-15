@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { act, screen } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -23,10 +23,10 @@ import {
   replaceState,
   saveToTabContainerInternal,
 } from '../../redux/slices/tabContainerDataStateSlice';
-import {
-  estimateFirestoreBytes,
-  FIRESTORE_MAX_DOCUMENT_BYTES,
-} from '../../utils/functions/local';
+import { FIRESTORE_MAX_DOCUMENT_BYTES } from '../../utils/functions/local';
+import { syncBytes } from '../../utils/functions/cloudDocument';
+import type { TabMasterContainer } from '../../redux/slices/tabContainerDataStateSlice';
+import { incompressible } from '../fixtures/incompressible';
 import { formatSyncUsed } from '../../utils/functions/syncSpace';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import {
@@ -38,36 +38,47 @@ import { rgb } from '../setup/hexColor';
 
 // KAN-596. How much of the 1 MB the sync may write, under Sync Status.
 
-// One session whose single tab's address pads the container to about `bytes`.
-const containerOf = (bytes: number) => {
+// KAN-6. The bar reads the compressed size, so pad with text gzip cannot shrink.
+const withUrlPad = (pad: string): TabMasterContainer => {
   const base = buildSession({ tabGroupId: 'big' });
   const tab = base.windows[0].tabs[0];
-  const pad = Math.max(
-    0,
-    bytes - estimateFirestoreBytes(buildContainer([base]))
-  );
   return buildContainer([
     {
       ...base,
       windows: [
         {
           ...base.windows[0],
-          tabs: [{ ...tab, url: `${tab.url}${'a'.repeat(pad)}` }],
+          tabs: [{ ...tab, url: `${tab.url}${pad}` }],
         },
       ],
     },
   ]);
 };
 
-const renderSync = (bytes?: number, theme = LIGHT_THEME) =>
-  renderWithProviders(
+// One session whose compressed document is about `bytes` (two passes, within a few hundred bytes).
+const containerOf = async (bytes: number): Promise<TabMasterContainer> => {
+  const base = await syncBytes(withUrlPad(''));
+  let length = Math.max(0, Math.round((bytes - base) / 0.75));
+  const first = await syncBytes(withUrlPad(incompressible(length)));
+  length = Math.max(0, Math.round(length + (bytes - first) / 0.75));
+  return withUrlPad(incompressible(length));
+};
+
+// Long enough for any measure in these tests to land (gzip of ~1 MB is a few ms).
+const measured = () =>
+  act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  });
+
+const renderSync = async (bytes?: number, theme = LIGHT_THEME) => {
+  const container = bytes === undefined ? undefined : await containerOf(bytes);
+  const view = await renderWithProviders(
     <ThemeColorsOverride.Provider value={theme}>
       <SettingsDetailsContainer />
     </ThemeColorsOverride.Provider>,
     {
       seedStore: (store) => {
-        if (bytes !== undefined)
-          store.dispatch(replaceState(containerOf(bytes)));
+        if (container !== undefined) store.dispatch(replaceState(container));
         store.dispatch(selectCategory(SettingsCategory.SYNC));
         store.dispatch(setSignedIn());
         store.dispatch(setCloudConfigured(true));
@@ -75,6 +86,9 @@ const renderSync = (bytes?: number, theme = LIGHT_THEME) =>
       },
     }
   );
+  await measured();
+  return view;
+};
 
 // KAN-625. Named for what it measures: the sessions here against the sync limit, not cloud storage.
 const meter = () => screen.queryByRole('meter', { name: 'Sync limit used' });
@@ -83,18 +97,17 @@ const fillColor = () => getComputedStyle(fill() as HTMLElement).backgroundColor;
 const line = () => screen.getByTestId('sync-space').textContent;
 
 describe('the sync space bar (KAN-596)', () => {
-  test('reads exactly what the sync measures before it writes, and follows the sessions', async () => {
+  test('reads the compressed size, and follows the sessions', async () => {
     const { store } = await renderSync();
-    const used = () =>
-      estimateFirestoreBytes(store.getState().tabContainerDataState);
+    const used = () => syncBytes(store.getState().tabContainerDataState);
     expect(line()).toBe(
-      `Your sessions use ${formatSyncUsed(used(), 'en')} of the 1 MB sync limit.`
+      `Your sessions use ${formatSyncUsed(await used(), 'en')} of the 1 MB sync limit.`
     );
     expect(meter()?.getAttribute('aria-valuenow')).toBe(
-      String(Math.round((used() / FIRESTORE_MAX_DOCUMENT_BYTES) * 100))
+      String(Math.round(((await used()) / FIRESTORE_MAX_DOCUMENT_BYTES) * 100))
     );
 
-    const before = used();
+    const before = await used();
     act(() => {
       store.dispatch(
         saveToTabContainerInternal(
@@ -105,9 +118,47 @@ describe('the sync space bar (KAN-596)', () => {
         )
       );
     });
-    expect(used()).toBeGreaterThan(before);
+    const after = await used();
+    expect(after).toBeGreaterThan(before);
+    await waitFor(() =>
+      expect(line()).toBe(
+        `Your sessions use ${formatSyncUsed(after, 'en')} of the 1 MB sync limit.`
+      )
+    );
+  });
+
+  // KAN-6. Over 80% as plain JSON, a fraction of it compressed: not red.
+  test('a big plain account that compresses well reads its compressed size', async () => {
+    const big = withUrlPad(
+      'a'.repeat(Math.ceil(FIRESTORE_MAX_DOCUMENT_BYTES * 0.85))
+    );
+    const view = await renderSync();
+    act(() => {
+      view.store.dispatch(replaceState(big));
+    });
+    await measured();
+    expect(screen.getByTestId('sync-space').dataset.level).toBe('ok');
     expect(line()).toBe(
-      `Your sessions use ${formatSyncUsed(used(), 'en')} of the 1 MB sync limit.`
+      `Your sessions use ${formatSyncUsed(await syncBytes(big), 'en')} of the 1 MB sync limit.`
+    );
+  });
+
+  // KAN-6. A slow measure of an older container must not land over a newer one.
+  test('a stale measure never shows', async () => {
+    const view = await renderSync();
+    const slow = await containerOf(FIRESTORE_MAX_DOCUMENT_BYTES * 2);
+    const small = buildContainer([buildSession({ tabGroupId: 'small' })]);
+    // Two renders, so the slow measure is already running when the small one starts.
+    act(() => {
+      view.store.dispatch(replaceState(slow));
+    });
+    act(() => {
+      view.store.dispatch(replaceState(small));
+    });
+    await measured();
+    expect(screen.getByTestId('sync-space').dataset.level).toBe('ok');
+    expect(line()).toBe(
+      `Your sessions use ${formatSyncUsed(await syncBytes(small), 'en')} of the 1 MB sync limit.`
     );
   });
 
@@ -153,7 +204,7 @@ describe('the sync space bar (KAN-596)', () => {
   // KAN-625. 1 kB is 0.1% of 1 MB: rounded to whole percent it drew nothing while the line said 1 kB.
   test('a small use fills its exact share, never less than a 3px sliver', async () => {
     const { store } = await renderSync(1024);
-    const used = estimateFirestoreBytes(store.getState().tabContainerDataState);
+    const used = await syncBytes(store.getState().tabContainerDataState);
     expect(used / FIRESTORE_MAX_DOCUMENT_BYTES).toBeLessThan(0.005);
     expect(fill()?.style.width).toBe(
       `${(used / FIRESTORE_MAX_DOCUMENT_BYTES) * 100}%`
@@ -166,9 +217,10 @@ describe('the sync space bar (KAN-596)', () => {
     act(() => {
       store.dispatch(replaceState(buildContainer([])));
     });
+    await measured();
     // PREMISE: an empty list still writes its frame, so the bytes are not 0.
     expect(
-      estimateFirestoreBytes(store.getState().tabContainerDataState)
+      await syncBytes(store.getState().tabContainerDataState)
     ).toBeGreaterThan(0);
     expect(line()).toBe('Your sessions use 0 kB of the 1 MB sync limit.');
     expect(fill()?.style.minWidth).toBe('');
@@ -209,16 +261,20 @@ describe('the sync space bar (KAN-596)', () => {
 // KAN-633. With sync off the bar stayed hidden at any size, so 1.2 MB of sessions learned it
 // could not sync only after the yes. From 80% it now shows there too; below, the off pane is unchanged.
 describe('the sync space bar with sync off (KAN-633)', () => {
-  const renderOff = (bytes: number) =>
-    renderWithProviders(<SettingsDetailsContainer />, {
+  const renderOff = async (bytes: number) => {
+    const container = await containerOf(bytes);
+    const view = await renderWithProviders(<SettingsDetailsContainer />, {
       seedStore: (store) => {
-        store.dispatch(replaceState(containerOf(bytes)));
+        store.dispatch(replaceState(container));
         store.dispatch(selectCategory(SettingsCategory.SYNC));
         store.dispatch(setSignedIn());
         store.dispatch(setCloudConfigured(true));
         store.dispatch(declineCloudConsent());
       },
     });
+    await measured();
+    return view;
+  };
   const state = () =>
     screen.getByTestId('sync-status').getAttribute('data-sync-state');
 
@@ -252,19 +308,21 @@ describe('the sync space bar with sync off (KAN-633)', () => {
       Math.floor(FIRESTORE_MAX_DOCUMENT_BYTES * 0.75)
     );
     expect(meter()).toBeNull();
+    const near = await containerOf(
+      Math.ceil(FIRESTORE_MAX_DOCUMENT_BYTES * 0.9)
+    );
+    const half = await containerOf(
+      Math.floor(FIRESTORE_MAX_DOCUMENT_BYTES * 0.5)
+    );
     act(() => {
-      store.dispatch(
-        replaceState(containerOf(Math.ceil(FIRESTORE_MAX_DOCUMENT_BYTES * 0.9)))
-      );
+      store.dispatch(replaceState(near));
     });
+    await measured();
     expect(screen.getByTestId('sync-space').dataset.level).toBe('near');
     act(() => {
-      store.dispatch(
-        replaceState(
-          containerOf(Math.floor(FIRESTORE_MAX_DOCUMENT_BYTES * 0.5))
-        )
-      );
+      store.dispatch(replaceState(half));
     });
+    await measured();
     expect(meter()).toBeNull();
   });
 

@@ -164,7 +164,8 @@ describe('after Delete cloud data, Sync Status (KAN-573, KAN-632)', () => {
       // PREMISE: the time and the bar show before the delete (manual shows them; on needs a cloud this build lacks).
       if (!isAutoSync) {
         expect(card.querySelector('[data-sync-synced]')).not.toBeNull();
-        expect(screen.getByTestId('sync-space')).toBeInTheDocument();
+        // KAN-6. The bar measures asynchronously.
+        expect(await screen.findByTestId('sync-space')).toBeInTheDocument();
       }
 
       await user.click(

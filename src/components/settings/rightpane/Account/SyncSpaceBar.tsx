@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { css } from '@emotion/react';
 import { useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
@@ -7,10 +7,9 @@ import { useFontFamily } from '../../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../../hooks/useThemeColors';
 import { RootState } from '../../../../redux/store';
 import { DURATION, RADIUS, TYPE } from '../../../../styles/scale';
-import {
-  estimateFirestoreBytes,
-  FIRESTORE_MAX_DOCUMENT_BYTES,
-} from '../../../../utils/functions/local';
+import { FIRESTORE_MAX_DOCUMENT_BYTES } from '../../../../utils/functions/local';
+import { syncBytes } from '../../../../utils/functions/cloudDocument';
+import type { TabMasterContainer } from '../../../../redux/slices/tabContainerDataStateSlice';
 import {
   formatSyncLimit,
   formatSyncUsed,
@@ -29,10 +28,28 @@ const LINE_KEY = {
 // Under 1 kB the line rounds to 0 and the bar shows nothing; from there a sliver at least.
 const SLIVER = '3px';
 
+// KAN-6. The compressed size, measured off the main path; null until the first measure lands.
+function useSyncBytes(container: TabMasterContainer): number | null {
+  const [bytes, setBytes] = useState<number | null>(null);
+  useEffect(() => {
+    let current = true;
+    void syncBytes(container).then(
+      (measured) => {
+        // A measure of a container that has since changed never shows.
+        if (current) setBytes(measured);
+      },
+      (error: unknown) => console.warn('Could not measure sync size:', error)
+    );
+    return () => {
+      current = false;
+    };
+  }, [container]);
+  return bytes;
+}
+
 /**
- * KAN-596. How much of the 1 MB the sync may write. It measures with
- * estimateFirestoreBytes, the same function saveToFirestoreIfDirty refuses
- * with, so the bar and the refusal cannot disagree.
+ * KAN-596. How much of the 1 MB the sync may write. KAN-6: the compressed size,
+ * which reads full exactly when saveToFirestoreIfDirty refuses.
  */
 const SyncSpaceBar: React.FC<{ hideWhenOk?: boolean }> = ({
   hideWhenOk = false,
@@ -41,7 +58,8 @@ const SyncSpaceBar: React.FC<{ hideWhenOk?: boolean }> = ({
   const FONT_FAMILY = useFontFamily();
   const { t, i18n } = useTranslation();
   const container = useSelector((s: RootState) => s.tabContainerDataState);
-  const bytes = useMemo(() => estimateFirestoreBytes(container), [container]);
+  const bytes = useSyncBytes(container);
+  if (bytes === null) return null;
 
   const level = syncSpaceLevel(bytes);
   if (hideWhenOk && level === 'ok') return null;
