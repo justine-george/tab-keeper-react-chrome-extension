@@ -89,7 +89,13 @@ import {
 } from './unfold';
 import { CORNER_SHAPE, DURATION, RADIUS } from '../../../../styles/scale';
 import { settleSlides } from './settleSlides';
-import { landingTops, slideLanding, type LandingTops } from './landingSlides';
+import {
+  followIntoView,
+  landingTops,
+  slideLanding,
+  type LandingTops,
+} from './landingSlides';
+import { CARD_OFFSET_Y } from '../../cardPlace';
 import {
   beginDragHold,
   endDragHold,
@@ -256,8 +262,10 @@ const endFold = (s: Settle) => {
 // The preview a committed drop holds: every row where the drop puts it, the
 // held one where it was let go. Not at its slot: a source window's room closes
 // when the move is drawn, which can put the row's place above the slot.
-const settled = (shown: DragState): DragState => ({
+// KAN-822. `toCard`: how far the held row moves to stand where its card was drawn, the card the user let go.
+const settled = (shown: DragState, toCard: number): DragState => ({
   ...shown,
+  offset: shown.offset + toCard,
   heldShownAsCard: false,
   sourceRoomDelta: null,
   landingSlotShown: false,
@@ -2481,6 +2489,18 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
             (l.shown.landingDelta !== 0 || l.joinsFoldedBand) &&
             !(later && foldedBack)
           ) {
+            // KAN-822. The card is what the user let go: the held row takes its top, so the glide starts there.
+            const heldTop = rows.current
+              .get(l.rowId)
+              ?.getBoundingClientRect().top;
+            const toCard =
+              l.card !== null && l.cardShown && heldTop !== undefined
+                ? l.lastY + CARD_OFFSET_Y - heldTop
+                : 0;
+            const tops = landingTops(
+              containerRef.current,
+              rows.current.get(l.rowId)
+            );
             const s: Settle = {
               rowIds,
               rows: new Map(rows.current),
@@ -2493,10 +2513,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
                 FOLDING_KINDS.has(dragKind) || foldedBack || l.joinsFoldedBand
                   ? null
                   : {
-                      tops: landingTops(
-                        containerRef.current,
-                        rows.current.get(l.rowId)
-                      ),
+                      tops: {
+                        ...tops,
+                        row: tops.row === null ? null : tops.row + toCard,
+                      },
                       rowId: l.rowId,
                     },
             };
@@ -2505,7 +2525,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
               s.keptFold.setAttribute('data-drag-held', '');
             }
             settle.current = s;
-            setDrag(settled(l.shown));
+            setDrag(settled(l.shown, toCard));
             if (later) {
               // Nothing moved, or it never lands: the rows ease back.
               const ease = () => {
@@ -2549,7 +2569,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
                   ? [...rows.current.keys()].find((id) => !rowIdsAtDrop.has(id))
                   : dropped;
               if (landed === undefined) return;
-              rows.current.get(landed)?.scrollIntoView({ block: 'nearest' });
+              const row = rows.current.get(landed);
+              // KAN-822. At its final place, not where its landing glide is drawn now.
+              if (row !== undefined) followIntoView(row);
             });
           }
         } else if (
@@ -2830,7 +2852,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     if (drag !== null || !landed.current) return;
     landed.current = false;
     settleSlides(containerRef.current);
-    // KAN-836. Then the blocks a closed source room moved glide up.
+    // KAN-836, KAN-822. Then the landing glides: the blocks a closed source room moved, and the dropped row from its card.
     const from = landedFrom.current;
     landedFrom.current = null;
     if (from !== null)

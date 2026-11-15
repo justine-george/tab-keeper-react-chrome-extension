@@ -11,8 +11,8 @@ import { EASE } from '../../styles/scale';
 // KAN-836. A drop into a window below its own closes the source's room when
 // the move is drawn, and every block below moves up a row. Window blocks
 // carry no transition (KAN-184), so they glide here instead: from where the
-// drop showed them, and the dropped row with its block from where it was let
-// go. jsdom lays nothing out, so every top below is stubbed.
+// drop showed them. jsdom lays nothing out, so every top below is stubbed.
+// KAN-822. The dropped row glides into its slot from where it was let go, within a window too.
 
 const at = (el: HTMLElement, top: number) => {
   el.getBoundingClientRect = () => new DOMRect(0, top, 200, 32);
@@ -123,7 +123,8 @@ describe('slideLanding', () => {
     );
   });
 
-  it('a row in no window block (a session) glides nothing when no block moved', () => {
+  // KAN-957. Gliding a session row flickered the list 11px for a frame, cause untraced, so it keeps main's snap.
+  it("a session row keeps main's snap (KAN-957)", () => {
     reduceMotion(false);
     const root = document.createElement('div');
     const row = document.createElement('div');
@@ -136,6 +137,18 @@ describe('slideLanding', () => {
     slideLanding(root, before, row);
 
     expect(r).not.toHaveBeenCalled();
+  });
+
+  it('an adopted carry (no row) with no block moved glides nothing', () => {
+    reduceMotion(false);
+    const { root, blocks } = list();
+    blocks.forEach((b, i) => at(b, i * 100));
+    const before = { ...landingTops(root, undefined), row: 110 };
+    const animations = blocks.map(animated);
+
+    slideLanding(root, before, undefined);
+
+    for (const a of animations) expect(a).not.toHaveBeenCalled();
   });
 
   it('a row let go on its slot glides nothing', () => {

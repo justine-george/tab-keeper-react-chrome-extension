@@ -4,8 +4,8 @@ import { DURATION, EASE } from '../../../../styles/scale';
 // room until the move is drawn (KAN-184), then the room closes and every
 // window block below the source moves up a row. Blocks carry no transition (their shift
 // is subtracted as a number while a drag runs), so in the commit that draws
-// the move they glide instead, from where the drop showed them -- and the
-// dropped row with its block, from where it was let go.
+// the move they glide instead, from where the drop showed them.
+// KAN-822. And the dropped row glides into its slot from the card it was let go as, within a window too.
 
 // The id settleSlides finishes, so a drag that starts mid-glide measures the
 // blocks at rest.
@@ -63,7 +63,7 @@ export function slideLanding(
     if (Math.abs(by) >= 1) moved.set(el, by);
   });
   const block = row?.closest(BLOCK) ?? null;
-  // KAN-822. A row in no window block (a session) lands as before: no glide unless blocks moved.
+  // KAN-957. A session row keeps main's snap: gliding one flickered the list 11px for a frame, cause untraced.
   if (moved.size === 0 && block === null) return;
   const blockBy = block === null ? undefined : moved.get(block);
   const rowBy =
@@ -85,4 +85,24 @@ function glide(el: Element, by: number, easing: string): void {
     easing,
     id: LANDING_SLIDE,
   });
+}
+
+// KAN-822. Scrolls `row` into view at its place: its landing glides (and its block's) jump to their end for the read, then resume.
+export function followIntoView(row: HTMLElement): void {
+  const glides: Animation[] = [];
+  for (let el: Element | null = row; el !== null; el = el.parentElement) {
+    if (typeof el.getAnimations !== 'function') continue;
+    glides.push(...el.getAnimations().filter((a) => a.id === LANDING_SLIDE));
+  }
+  const resume = glides.map((a) => {
+    const was = a.currentTime;
+    a.pause();
+    a.currentTime = a.effect?.getComputedTiming().endTime ?? was;
+    return () => {
+      a.currentTime = was;
+      a.play();
+    };
+  });
+  row.scrollIntoView({ block: 'nearest' });
+  resume.forEach((play) => play());
 }

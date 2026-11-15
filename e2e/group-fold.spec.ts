@@ -13,6 +13,7 @@ import { elementLanded } from './fixtures/landed';
 import { pressOpen } from './fixtures/sessionActions';
 import { standIn } from './fixtures/standInPages';
 import { openPage } from './fixtures/onboarding';
+import { DURATION } from '../src/styles/scale';
 
 // KAN-822 on the real artifact: the chevron folds a group to its title row as the stored flag, which reaches Chrome on restore.
 
@@ -920,53 +921,92 @@ function expectStatesInOrder(
   expect(states.filter((z, i) => z !== states[i - 1])).toEqual(order);
 }
 
-// KAN-822 release glide. Records the dropped row's top on every frame for 450ms from now, with the time since.
+// KAN-822 release glide. One frame: ms since recording began, the visible card's top (null once gone), the row's top.
+interface GlideFrame {
+  t: number;
+  card: number | null;
+  row: number | null;
+}
 const recordGlide = (page: Page, selector: string) =>
   page.evaluate((sel) => {
-    const frames: [number, number][] = [];
+    const frames: { t: number; card: number | null; row: number | null }[] = [];
     Reflect.set(window, '__glide', frames);
     const t0 = performance.now();
     const tick = () => {
-      const el = document.querySelector(sel);
-      if (el !== null)
-        frames.push([performance.now() - t0, el.getBoundingClientRect().top]);
-      if (performance.now() - t0 < 450) requestAnimationFrame(tick);
+      const card = document.querySelector(
+        '[data-drag-card], [data-carry-card]'
+      );
+      const row = document.querySelector(sel);
+      frames.push({
+        t: performance.now() - t0,
+        card: card === null ? null : card.getBoundingClientRect().top,
+        row: row === null ? null : row.getBoundingClientRect().top,
+      });
+      if (performance.now() - t0 < 900) requestAnimationFrame(tick);
     };
-    requestAnimationFrame(tick);
+    // The first read now, before the release: the card as the user let it go.
+    tick();
   }, selector);
-const recordedGlide = async (page: Page): Promise<[number, number][]> => {
-  await page.waitForTimeout(500);
+const recordedGlide = async (page: Page): Promise<GlideFrame[]> => {
+  await page.waitForTimeout(950);
   return page.evaluate(() => {
     const frames: unknown = Reflect.get(window, '__glide');
-    return Array.isArray(frames)
-      ? frames.flatMap((f): [number, number][] =>
-          Array.isArray(f) ? [[Number(f[0]), Number(f[1])]] : []
-        )
-      : [];
+    if (!Array.isArray(frames)) return [];
+    return frames.map((f: unknown) => {
+      const at = (key: string) => {
+        const v: unknown =
+          typeof f === 'object' && f !== null ? Reflect.get(f, key) : null;
+        return typeof v === 'number' ? v : null;
+      };
+      return { t: at('t') ?? 0, card: at('card'), row: at('row') };
+    });
   });
 };
 
-// From where it was let go into its slot: no frame takes more than 40% of the way, it arrives by MOVE + 100ms, never past.
-function expectGlidesIntoSlot(
-  frames: readonly [number, number][],
-  slot: number
-) {
-  const where = JSON.stringify(frames.map(([t, y]) => [Math.round(t), y]));
-  const start = frames[0]?.[1] ?? slot;
-  const distance = Math.abs(start - slot);
+// From the card the user let go into its slot: it appears where the card was, moves only toward the slot,
+// never more than 1px past it, and arrives within MOVE + 100ms of setting off.
+function expectGlidesIntoSlot(frames: readonly GlideFrame[], slot: number) {
+  const where = JSON.stringify(
+    frames.map((f) => [
+      Math.round(f.t),
+      f.card === null ? null : Math.round(f.card),
+      f.row,
+    ])
+  );
+  const lastCard = frames.reduce(
+    (last, f, i) => (f.card !== null ? i : last),
+    -1
+  );
+  // PREMISE: the card was up until the release.
+  expect(lastCard, where).toBeGreaterThanOrEqual(0);
+  const cardTop = frames[lastCard]?.card ?? NaN;
+  const rows = frames
+    .slice(lastCard + 1)
+    .flatMap((f) => (f.row === null ? [] : [{ t: f.t, y: f.row }]));
   // PREMISE: let go well off its slot.
-  expect(distance, where).toBeGreaterThan(12);
-  const side = Math.sign(start - slot);
-  frames.forEach(([, y], i) => {
+  expect(Math.abs(cardTop - slot), where).toBeGreaterThan(8);
+  // No snap: the row is first drawn where the card was.
+  expect(
+    Math.abs((rows[0]?.y ?? Infinity) - cardTop),
+    where
+  ).toBeLessThanOrEqual(2);
+  const side = Math.sign(cardTop - slot);
+  rows.forEach(({ y }, i) => {
     expect((y - slot) * side, where).toBeGreaterThanOrEqual(-1);
     if (i > 0)
-      expect(Math.abs(y - frames[i - 1][1]), where).toBeLessThanOrEqual(
-        0.4 * distance
+      expect(Math.abs(y - slot), where).toBeLessThanOrEqual(
+        Math.abs(rows[i - 1].y - slot) + 0.5
       );
   });
-  const arrived = frames.find(([, y]) => Math.abs(y - slot) <= 1);
+  // Sets off when it first leaves the card's place (Open now holds it there until Chrome's read is drawn).
+  const setOff = rows.findIndex(({ y }) => Math.abs(y - (rows[0]?.y ?? y)) > 1);
+  const arrived = rows.find(({ y }) => Math.abs(y - slot) <= 1);
+  expect(setOff, where).toBeGreaterThan(0);
   expect(arrived, where).toBeDefined();
-  expect(arrived?.[0] ?? Infinity, where).toBeLessThanOrEqual(200 + 100);
+  expect(
+    (arrived?.t ?? Infinity) - (rows[setOff - 1]?.t ?? 0),
+    where
+  ).toBeLessThanOrEqual(parseInt(DURATION.MOVE, 10) + 100);
 }
 
 // Holds `held`, moves to `y`, and lets go there once the preview has settled, recording the dropped row.
@@ -1010,7 +1050,7 @@ test.describe('a dropped tab glides into its slot (saved)', () => {
     await page.goto(`chrome-extension://${extensionId}/index.html`);
     await savedRow(page, 'e').waitFor();
     // e up to just past b's middle: it lands before c, the card a row above that slot.
-    const y = (await midOf(savedRow(page, 'b'))) + 2;
+    const y = (await midOf(savedRow(page, 'b'))) + 1;
     const frames = await dropAt(
       page,
       savedRow(page, 'e'),
@@ -1045,6 +1085,114 @@ test.describe('a dropped tab glides into its slot (saved)', () => {
       .toEqual(['b', 'c', 'a', 'd', 'e']);
     await elementLanded(savedRow(page, 'a'), 'ancestors');
     expectGlidesIntoSlot(frames, (await boxOf(savedRow(page, 'a'))).y);
+  });
+});
+
+test.describe('a dropped tab glides into its slot, at the list edge (saved)', () => {
+  test('let go at the bottom edge while the list scrolls, it ends in full view and the list scrolls no further', async ({
+    context,
+    extensionId,
+  }) => {
+    const many = Array.from({ length: 40 }, (_, i) =>
+      tab(`t${String(i).padStart(2, '0')}`)
+    );
+    await seedSessions(context, {
+      ...buildContainer([sessionOfWindows(many)]),
+      selectedTabGroupId: 'S1',
+    });
+    const page = await context.newPage();
+    await page.setViewportSize(POPUP);
+    await page.goto(`chrome-extension://${extensionId}/index.html`);
+    const held = savedRow(page, 't05');
+    await held.waitFor();
+    // The list's scroller, at its top, so the drag's own auto-scroll has room to run down.
+    const scrollerBottom = await page.evaluate(() => {
+      let el =
+        document.querySelector('[data-pane="detail"] [data-drop-window-id]')
+          ?.parentElement ?? null;
+      while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
+        el = el.parentElement;
+      if (el === null) throw new Error('no scroller');
+      el.setAttribute('data-test-scroller', '');
+      return el.getBoundingClientRect().bottom;
+    });
+    await elementLanded(held, 'ancestors');
+    const from = await boxOf(held);
+    const x = from.x + 40;
+    await page.mouse.move(x, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(x, from.y + from.height / 2 + 8, { steps: 2 });
+    await expect(page.locator('[data-drag-held]')).toHaveCount(1);
+    // Deep in the bottom edge zone the list scrolls under the pointer: let go the frame its slot reaches the edge, the card past it.
+    await page.evaluate(
+      ([bottom, px]) => {
+        const scroller = document.querySelector('[data-test-scroller]');
+        const watch = () => {
+          const slot = document.querySelector('[data-drag-landing-slot]');
+          const slotBottom = slot?.getBoundingClientRect().bottom;
+          if (
+            scroller !== null &&
+            slotBottom !== undefined &&
+            slotBottom > bottom - 4 &&
+            scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop >
+              60
+          ) {
+            Reflect.set(window, '__released', {
+              slotBottom,
+              scrollTop: scroller.scrollTop,
+            });
+            window.dispatchEvent(
+              new PointerEvent('pointerup', {
+                clientX: px,
+                clientY: bottom - 2,
+                bubbles: true,
+              })
+            );
+            return;
+          }
+          requestAnimationFrame(watch);
+        };
+        requestAnimationFrame(watch);
+      },
+      [scrollerBottom, x] as const
+    );
+    await page.mouse.move(x, scrollerBottom - 2, { steps: 4 });
+    await expect
+      .poll(() =>
+        page.evaluate(() => Reflect.get(window, '__released') ?? null)
+      )
+      .not.toBeNull();
+    await page.mouse.up();
+    const released = await page.evaluate(() => {
+      const r: unknown = Reflect.get(window, '__released');
+      const at = (key: string) => {
+        const v: unknown =
+          typeof r === 'object' && r !== null ? Reflect.get(r, key) : null;
+        return typeof v === 'number' ? v : NaN;
+      };
+      return { slotBottom: at('slotBottom'), scrollTop: at('scrollTop') };
+    });
+    // PREMISE: its slot was at the edge, in view, so its place needs no scroll.
+    expect(released.slotBottom).toBeLessThanOrEqual(scrollerBottom + 1);
+    await expect(page.locator('[data-drag-held]')).toHaveCount(0);
+    await elementLanded(held, 'ancestors');
+    await page.waitForTimeout(100);
+    const box = await page.evaluate(() => {
+      const r = document
+        .querySelector('[data-test-scroller]')
+        ?.getBoundingClientRect();
+      return r === undefined ? null : { top: r.top, bottom: r.bottom };
+    });
+    const row = await boxOf(held);
+    expect(row.y).toBeGreaterThanOrEqual((box?.top ?? Infinity) - 1);
+    expect(row.y + row.height).toBeLessThanOrEqual(
+      (box?.bottom ?? -Infinity) + 1
+    );
+    // The follow aimed at the row's place, not at the card it glided from: no scroll past it.
+    const scrollTopNow = await page.evaluate(
+      () => document.querySelector('[data-test-scroller]')?.scrollTop ?? NaN
+    );
+    expect(Math.abs(scrollTopNow - released.scrollTop)).toBeLessThanOrEqual(1);
   });
 });
 
@@ -1725,7 +1873,7 @@ test.describe('a group in Currently open', () => {
     await foldedNaraBand(page, w);
     // E up to just past A's middle: it lands before B, the card a row above that slot.
     const sel = `[data-open-window-id="${w.windowId}"] [data-drag-row-id="${w.tabs[4]}"]`;
-    const y = (await midOf(liveRow(page, w, w.tabs[0]))) + 2;
+    const y = (await midOf(liveRow(page, w, w.tabs[0]))) + 1;
     const frames = await dropAt(page, liveRow(page, w, w.tabs[4]), sel, y);
     await expect
       .poll(() => placeOf(serviceWorker, w.tabs[4]))
