@@ -884,13 +884,14 @@ async function openFitWindow(worker: Worker) {
   }, ['Lead', 'One', 'Two', 'Three', 'Four'].map(standIn));
 }
 
-// Where each title row's drawn boxes poke out of the row, in px: the row's direct children (chevron, name, count tag, actions) and the tag itself.
-// The name may clamp (cut-off titles); only drawn geometry counts. .group-actions is drawn at rest (transparent until hover), so its box is measured too.
-const pokeOuts = (rows: Locator) =>
+// Every title row draws exactly these parts, plus the drag grip that hangs outside it on purpose (left: -40px, DragHandle outsideRow).
+const ROW_PARTS = ['actions', 'chevron', 'count tag', 'name'];
+
+// Each row's drawn parts and where they poke out of the row, in px; a part not drawn, or an unknown child, is reported as a problem.
+const boxesOutsideRow = (rows: Locator) =>
   rows.evaluateAll((els) => {
     const TOLERANCE = 0.5;
-    // The drag grip hangs outside the row by design (left: -40px), so it has no label.
-    const label = (c: Element) =>
+    const partOf = (c: Element) =>
       c.matches('.group-actions')
         ? 'actions'
         : c.querySelector('[data-fold-chevron]') !== null
@@ -900,32 +901,30 @@ const pokeOuts = (rows: Locator) =>
             : c.matches('button, input') ||
                 c.querySelector('button, input') !== null
               ? 'name'
-              : null;
-    return els.flatMap((row) => {
+              : 'unknown';
+    return els.map((row) => {
       const box = row.getBoundingClientRect();
       const group =
         row.closest('[data-band-id]')?.getAttribute('aria-label') ?? '?';
+      const parts = Array.from(row.children)
+        .filter((c) => !c.matches('[data-drag-handle]'))
+        .map((el) => ({ part: partOf(el), el }));
       const tag = row.querySelector('[data-row-tag]');
-      const parts = [
-        ...Array.from(row.children).flatMap((c) => {
-          const child = label(c);
-          return child === null ? [] : [{ child, el: c }];
-        }),
-        ...(tag === null ? [] : [{ child: 'count tag (itself)', el: tag }]),
+      const measured = [
+        ...parts,
+        ...(tag === null ? [] : [{ part: 'count tag (itself)', el: tag }]),
       ];
-      return parts.flatMap(({ child, el }) => {
+      const found = parts.map((p) => p.part).sort();
+      const pokes = measured.flatMap(({ part, el }) => {
         const r = el.getBoundingClientRect();
         const left = box.left - r.left;
         const right = r.right - box.right;
         return [
-          ...(left > TOLERANCE
-            ? [{ group, child, side: 'left', px: left }]
-            : []),
-          ...(right > TOLERANCE
-            ? [{ group, child, side: 'right', px: right }]
-            : []),
+          ...(left > TOLERANCE ? [{ part, side: 'left', px: left }] : []),
+          ...(right > TOLERANCE ? [{ part, side: 'right', px: right }] : []),
         ];
       });
+      return { group, found, pokes };
     });
   });
 
@@ -935,6 +934,7 @@ const FITS = [
     language: 'en',
     fontPx: 16,
     path: 'index.html',
+    fullView: false,
     viewport: POPUP,
   },
   {
@@ -942,6 +942,7 @@ const FITS = [
     language: 'de',
     fontPx: 20,
     path: 'index.html',
+    fullView: false,
     viewport: POPUP,
   },
   {
@@ -949,6 +950,7 @@ const FITS = [
     language: 'de',
     fontPx: 20,
     path: VIEW_TAB,
+    fullView: true,
     viewport: TAB_VIEWPORT,
   },
 ];
@@ -967,7 +969,7 @@ test.describe('group title rows with the fold chevron', () => {
       // The full view folds the saved session away unless told not to; both panes are wanted open.
       await seedSettings(context, {
         language: fit.language,
-        ...(fit.path === VIEW_TAB ? { foldSavedSessionInTabView: false } : {}),
+        ...(fit.fullView ? { foldSavedSessionInTabView: false } : {}),
       });
       const win = await openFitWindow(serviceWorker);
       // Not openPage: it waits on the English "Sort sessions" label.
@@ -1003,9 +1005,8 @@ test.describe('group title rows with the fold chevron', () => {
       await expect(
         saved.locator('[data-fold-chevron="expand_less"]')
       ).toHaveCount(2);
-      const hasOpenNow = fit.path === VIEW_TAB;
-      await expect(live).toHaveCount(hasOpenNow ? 2 : 0);
-      if (hasOpenNow) {
+      await expect(live).toHaveCount(fit.fullView ? 2 : 0);
+      if (fit.fullView) {
         await expect(
           live.locator('[data-fold-chevron="expand_more"]')
         ).toHaveCount(1);
@@ -1014,17 +1015,41 @@ test.describe('group title rows with the fold chevron', () => {
         ).toHaveCount(1);
       }
 
-      // PREMISE: each row draws a count tag, so the tag check cannot pass on nothing.
-      await expect(saved.locator('[data-row-tag]')).toHaveCount(
-        FIT_GROUPS.length
+      // Fonts loaded and two frames painted, then two equal measurements.
+      await page.evaluate(() =>
+        document.fonts.ready.then(
+          () =>
+            new Promise((done) =>
+              requestAnimationFrame(() => requestAnimationFrame(done))
+            )
+        )
       );
-      const out = [
-        ...(await pokeOuts(saved)).map((r) => ({ pane: 'saved', ...r })),
-        ...(await pokeOuts(live)).map((r) => ({ pane: 'open now', ...r })),
+      const measure = async () => [
+        ...(await boxesOutsideRow(saved)).map((r) => ({ pane: 'saved', ...r })),
+        ...(await boxesOutsideRow(live)).map((r) => ({
+          pane: 'open now',
+          ...r,
+        })),
       ];
+      const rows = await measure();
+      expect(await measure()).toEqual(rows);
+
+      // PREMISE: every row drew all four parts and nothing else, so no part is skipped unmeasured.
+      expect(rows).toHaveLength(FIT_GROUPS.length + (fit.fullView ? 2 : 0));
+      const wrongParts = rows.filter(
+        (r) => r.found.join() !== ROW_PARTS.join()
+      );
+      expect(
+        wrongParts,
+        `rows whose parts are not ${ROW_PARTS.join(', ')}: ${wrongParts.map((r) => `${r.pane} "${r.group}" has ${r.found.join(', ') || 'nothing'}`).join('; ')}`
+      ).toEqual([]);
+
+      const out = rows.flatMap((r) =>
+        r.pokes.map((q) => ({ pane: r.pane, group: r.group, ...q }))
+      );
       expect(
         out,
-        `outside the row: ${out.map((r) => `${r.pane} "${r.group}" ${r.child} ${r.side} by ${r.px.toFixed(1)}px`).join('; ')}`
+        `outside the row: ${out.map((r) => `${r.pane} "${r.group}" ${r.part} ${r.side} by ${r.px.toFixed(1)}px`).join('; ')}`
       ).toEqual([]);
     });
   }
