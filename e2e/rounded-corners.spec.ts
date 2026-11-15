@@ -519,7 +519,8 @@ test.describe('rows', () => {
         .first();
       await groupRow.hover();
       await expectHighlight(groupRow, 'a hovered group row', true);
-      expect(await textX(groupRow, 'Sights')).toBe(4);
+      // KAN-822. Past the 32px chevron in the icon column.
+      expect(await textX(groupRow, 'Sights')).toBe(36);
     });
   }
 

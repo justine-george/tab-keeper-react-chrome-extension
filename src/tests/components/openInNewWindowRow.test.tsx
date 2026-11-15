@@ -53,8 +53,9 @@ const TABS = [
   t('g1a', { chromeGroupId: 'g1' }),
   t('g1b', { chromeGroupId: 'g1', pinned: true }),
 ];
+// KAN-822. Open: a group saved folded draws no tab rows to press.
 const GROUPS: chromeTabGroupData[] = [
-  { groupId: 'g1', title: 'Work', color: 'blue', collapsed: true },
+  { groupId: 'g1', title: 'Work', color: 'blue' },
 ];
 
 type Store = Awaited<ReturnType<typeof renderWithProviders>>['store'];

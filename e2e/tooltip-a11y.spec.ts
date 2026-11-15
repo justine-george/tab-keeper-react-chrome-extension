@@ -703,6 +703,7 @@ const EXPECTED: Record<string, AxRecord[]> = {
     ['saved group', 'button[menuitemradio] "Purple" #1', 'menuitemradio', 'Purple', ''],
     ['saved group', 'button[menuitemradio] "Cyan" #1', 'menuitemradio', 'Cyan', ''],
     ['saved group', 'button[menuitemradio] "Orange" #1', 'menuitemradio', 'Orange', ''],
+    ['saved group', 'div[button] "Collapse: Temples" #1', 'button', 'Collapse: Temples', ''],
     ['saved group', 'button "Rename group: Temples" #1', 'button', 'Rename group: Temples', ''],
     ['saved group', 'button "Open group: Temples" #1', 'button', 'Open group: Temples', ''],
     ['saved group', 'div[button] "More actions" #4', 'button', 'More actions', ''],

@@ -569,7 +569,7 @@ export async function collapseWindow(
   windowId: string
 ): Promise<void> {
   await page
-    .locator(blockOf(windowId))
+    .locator(titleOf(windowId))
     .getByRole('button', { name: /^Collapse(: |$)/ })
     .click();
   await expect(
