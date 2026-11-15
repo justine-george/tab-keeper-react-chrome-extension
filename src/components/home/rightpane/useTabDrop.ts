@@ -757,8 +757,7 @@ export function useTabDropGeometry(
   };
 }
 
-// KAN-822. A drawn row as a stored index: on a folded band, the group's end (D8); elsewhere past a folded
-// group's members (Review Focus 1), but a join never past its own group's end.
+// KAN-822. A drawn row as a stored index: a folded band's end (D8), past folded members, never past its own group's end.
 function savedIndexOfDrawnRow(
   tabs: readonly tabData[],
   groups: readonly chromeTabGroupData[] | undefined,

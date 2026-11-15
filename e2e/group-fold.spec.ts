@@ -187,6 +187,29 @@ test.describe('a saved group', () => {
     await expect(memberRows(page)).toHaveCount(0);
   });
 
+  // KAN-822 D3. The chevron is a button: Enter folds, Space unfolds, the stored flag following each.
+  test('Enter and Space on the chevron fold and unfold the group', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await context.newPage();
+    await openTrip(page, extensionId);
+    await collapse(page).focus();
+    await expect(collapse(page)).toBeFocused();
+
+    await page.keyboard.press('Enter');
+    await expect(expand(page)).toHaveAttribute('aria-expanded', 'false');
+    await expect(memberRows(page)).toHaveCount(0);
+    await expect.poll(() => savedCollapsed(page)).toBe(true);
+    // PREMISE: focus stays on the chevron, so the next press reaches it.
+    await expect(expand(page)).toBeFocused();
+
+    await page.keyboard.press('Space');
+    await expect(collapse(page)).toHaveAttribute('aria-expanded', 'true');
+    await expect(memberRows(page)).toHaveCount(2);
+    await expect.poll(() => hasCollapsedKey(page)).toBe(false);
+  });
+
   test('the chevron opens nothing', async ({
     context,
     extensionId,
@@ -540,6 +563,33 @@ test.describe('a group in Currently open', () => {
     await expect(liveTitleRow(page, k).locator('input')).toHaveCount(0);
   });
 
+  // KAN-822 D3. From the keyboard too: Enter collapses the Chrome group, Space expands it.
+  test('Enter and Space on the chevron collapse and expand the Chrome group', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+    const k = await openLiveKyoto(page, serviceWorker);
+    await expectLiveOpen(page, k);
+    await liveCollapse(page, k).focus();
+    await expect(liveCollapse(page, k)).toBeFocused();
+
+    await page.keyboard.press('Enter');
+    await expect
+      .poll(() => chromeCollapsed(serviceWorker, k.groupId))
+      .toBe(true);
+    await expectLiveFolded(page, k);
+    // PREMISE: focus stays on the chevron, so the next press reaches it.
+    await expect(liveExpand(page, k)).toBeFocused();
+
+    await page.keyboard.press('Space');
+    await expect
+      .poll(() => chromeCollapsed(serviceWorker, k.groupId))
+      .toBe(false);
+    await expectLiveOpen(page, k);
+  });
+
   test("the chevron sits in the tab rows' icon column", async ({
     context,
     extensionId,
@@ -793,10 +843,25 @@ test.describe('a group in Currently open', () => {
       groupId: -1,
     });
     expect(await chromeCollapsed(serviceWorker, w.shutId)).toBe(true);
-    const seen = await serviceWorker.evaluate(() => {
-      const log: unknown = Reflect.get(globalThis, '__looseSeen');
-      return Array.isArray(log) ? log.map(String) : [];
-    });
+    const seenNow = () =>
+      serviceWorker.evaluate(() => {
+        const log: unknown = Reflect.get(globalThis, '__looseSeen');
+        return Array.isArray(log) ? log.map(String) : [];
+      });
+    // Settled: the same length on two reads 150ms apart, so a late bad move is in the log.
+    let lastLength = -1;
+    await expect
+      .poll(
+        async () => {
+          const length = (await seenNow()).length;
+          const settled = length === lastLength;
+          lastLength = length;
+          return settled;
+        },
+        { intervals: [150] }
+      )
+      .toBe(true);
+    const seen = await seenNow();
     // PREMISE: the recorder saw the join.
     expect(seen).toContain(`group ${w.openId}`);
     // Never ungrouped, never past Osaka's member (index 3); Chrome attaches it at the end (4) on its way in.

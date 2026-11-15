@@ -126,9 +126,7 @@ export function openDragWindows(
   }));
 }
 
-// KAN-822. A drawn row of `window` as the row moveOpenTab counts, a folded group's members included:
-// on a folded band, its end (D8); elsewhere past the members, so a row at its edge lands after it (Review Focus 1),
-// but a join never past its own group's end. Null for a row the window does not draw, the held row lifted out.
+// KAN-822. A drawn row as moveOpenTab's index (held row lifted out): a folded band's end, never past its own group's end; null if not drawn.
 export function liveIndexOfDrawnRow(
   window: DragWindows[number],
   heldId: string,

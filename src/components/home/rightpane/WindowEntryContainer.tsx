@@ -2103,31 +2103,31 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                               border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
                               ${corners(RADIUS.CONTROL)}
                               /* Same four declarations the window title editor
-                             carries. Without height and padding the field
-                             collapsed to the intrinsic height of its text and
-                             sat 2px short of its own row, with the browser's
-                             default 2px padding rather than a chosen one --
-                             which read as a thinner, tighter box than the
-                             editor one level above it. */
-                            display: flex;
+                               carries. Without height and padding the field
+                               collapsed to the intrinsic height of its text and
+                               sat 2px short of its own row, with the browser's
+                               default 2px padding rather than a chosen one --
+                               which read as a thinner, tighter box than the
+                               editor one level above it. */
+                              display: flex;
                               align-items: center;
                               font-family: ${FONT_FAMILY};
                               /* Matches the label this replaces, or the text
-                             visibly jumps size on entering edit mode. */
+                               visibly jumps size on entering edit mode. */
                               /* Matches groupTitleLabel exactly -- the editor
-                               replaces that label in place, so a different size
-                               makes the text jump on entering edit mode. Both
-                               are the documented off-scale exemption; see
-                               scaleConformance.test.ts. */
+                                 replaces that label in place, so a different size
+                                 makes the text jump on entering edit mode. Both
+                                 are the documented off-scale exemption; see
+                                 scaleConformance.test.ts. */
                               font-size: ${GROUP_TITLE_SIZE};
                               padding-left: 8px;
                               /* align-self, NOT height: 100%. The strip is a flex
-                             container with align-items: center and only a
-                             min-height, so it has no definite height for a
-                             percentage to resolve against and the child is not
-                             stretched -- height: 100% computed, rendered
-                             nothing, and left the field 2px short of its row.
-                             Stretching the item is what actually fills it. */
+                               container with align-items: center and only a
+                               min-height, so it has no definite height for a
+                               percentage to resolve against and the child is not
+                               stretched -- height: 100% computed, rendered
+                               nothing, and left the field 2px short of its row.
+                               Stretching the item is what actually fills it. */
                               align-self: stretch;
                               width: 100%;
                               min-width: 0;

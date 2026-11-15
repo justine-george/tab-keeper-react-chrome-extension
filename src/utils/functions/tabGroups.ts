@@ -179,8 +179,7 @@ export function foldedMemberIds(
   );
 }
 
-// KAN-822. One past a group's last member, in `tabs` with the held tabs lifted out: where a join at its end lands.
-// With no member left, where the group's last one stood; with none at all, the list end.
+// KAN-822. Where a join at a group's end lands, held tabs lifted out: past its last member, else where it stood, else the end.
 export function groupEndIndex(
   tabs: readonly GroupableTab[],
   groupId: string,

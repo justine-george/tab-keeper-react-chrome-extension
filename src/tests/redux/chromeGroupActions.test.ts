@@ -439,7 +439,11 @@ describe('folding a Chrome tab group (KAN-822)', () => {
         collapsed,
       })
     );
-  const groupOf = (s: TabMasterContainer) => win(s).chromeTabGroups![0];
+  const groupOf = (s: TabMasterContainer) => {
+    const group = win(s).chromeTabGroups?.[0];
+    if (group === undefined) throw new Error('seed has no group');
+    return group;
+  };
 
   it('fold sets collapsed true', () => {
     expect(groupOf(fold(seed(), true)).collapsed).toBe(true);
@@ -517,6 +521,8 @@ describe('folding and the dirty flag (KAN-822)', () => {
   it('CONTROL: a real fold does bump lastModified', () => {
     const open = seed();
     vi.setSystemTime(2_000_000);
-    expect(modified(fold(open, true))).toBeGreaterThan(modified(open)!);
+    const before = modified(open);
+    if (before === undefined) throw new Error('seed has no lastModified');
+    expect(modified(fold(open, true))).toBeGreaterThan(before);
   });
 });
