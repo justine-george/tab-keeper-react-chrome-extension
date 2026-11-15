@@ -1,4 +1,6 @@
 import { test, expect } from './fixtures/extension';
+// KAN-6. The meter reads the compressed size: pad with text gzip cannot shrink.
+import { incompressible } from '../src/tests/fixtures/incompressible';
 import {
   buildContainer,
   buildSession,
@@ -20,7 +22,7 @@ function padded(pad: number) {
       windows: [
         {
           ...base.windows[0],
-          tabs: [{ ...tab, url: `${tab.url}${'a'.repeat(pad)}` }],
+          tabs: [{ ...tab, url: `${tab.url}${incompressible(pad)}` }],
         },
       ],
     },
@@ -32,7 +34,7 @@ test('in a wide full view the sync sentence stops at the help lines’ reading w
   extensionId,
 }) => {
   // Sync off near the limit: the long sentence and the bar, as in the report.
-  await seedSessions(context, padded(900_000));
+  await seedSessions(context, padded(1_200_000));
   await seedSettings(context, { isAutoSync: false, cloudConsent: 'declined' });
   const page = await context.newPage();
   await page.setViewportSize({ width: 1440, height: 900 });
