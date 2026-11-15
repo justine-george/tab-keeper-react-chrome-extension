@@ -563,7 +563,7 @@ export interface moveToSessionParams {
   // The instant the move is stamped at: the source at `now`, the target at
   // `now + 1`. Minted by the action creator, like the namespace.
   now: number;
-  // KAN-914. Skip duplicate tabs as it was at the drop, so undo, redo and replay leave out the same tabs; absent is off.
+  // KAN-914. Skip duplicates when saving as it was at the drop, so undo, redo and replay leave out the same tabs; absent is off.
   skipDuplicates?: boolean;
 }
 
@@ -1320,7 +1320,7 @@ export const sortWindowGroupsByName = createAsyncThunk<
   }
 );
 
-// KAN-906. Whether Skip duplicate tabs leaves this tab out: the session already has its address.
+// KAN-906. Whether Skip duplicates when saving leaves this tab out: the session already has its address.
 function leavesOutTab(
   state: RootState,
   tabGroupId: string,
@@ -3498,7 +3498,7 @@ export const tabContainerDataStateSlice = createSlice({
       }),
     },
     // KAN-280 Part F (spec O12c). A copy of a live item into a saved session: the move's landing, nothing removed, one ⌘Z.
-    // Declines, stamping nothing, when the target is gone, the kinds clash (Q2 A) or the pick copies nothing. Duplicates land (KAN-608) unless Skip duplicate tabs is on: copyToSession leaves them out of the snapshot.
+    // Declines, stamping nothing, when the target is gone, the kinds clash (Q2 A) or the pick copies nothing. Duplicates land (KAN-608) unless Skip duplicates when saving is on: copyToSession leaves them out of the snapshot.
     copyToSessionInternal: {
       reducer: (state, action: PayloadAction<copyToSessionParams>) => {
         const { copy, snapshot, remintNamespace, now } = action.payload;

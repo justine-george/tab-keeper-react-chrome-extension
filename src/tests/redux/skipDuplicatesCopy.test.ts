@@ -54,7 +54,7 @@ import {
 } from '../fixtures/liveSnapshotFixture';
 import { tFor } from '../setup/localeT';
 
-// KAN-906. A copy from Currently open into a saved session leaves out pages the session has while Skip duplicate tabs is on.
+// KAN-906. A copy from Currently open into a saved session leaves out pages the session has while Skip duplicates when saving is on.
 
 type Store = ReturnType<typeof makeTestStore>['store'];
 
@@ -395,7 +395,7 @@ describe('Off: a copy lands as today, duplicates included (KAN-608)', () => {
   });
 });
 
-describe('a split pair copied with Skip duplicate tabs on (KAN-486)', () => {
+describe('a split pair copied with Skip duplicates when saving on (KAN-486)', () => {
   const PAIR: CarriedPick = {
     kind: 'pair',
     windowId: 'live-w',

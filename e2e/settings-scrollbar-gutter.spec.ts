@@ -106,7 +106,7 @@ test('the details pane keeps its width whether or not it scrolls', async ({
     width: 1280,
     height: 800,
   });
-  // Sessions scrolls at this height since Skip tabs already open (KAN-910).
+  // Sessions scrolls at this height since Skip duplicates when opening (KAN-910).
   await settings(page, 'Quick access');
   const fits = await detail(page);
   // PREMISE: it does not scroll here.

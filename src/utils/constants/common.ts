@@ -106,10 +106,10 @@ export const TOAST_MESSAGES = {
   // saying "saved" would contradict the control the user just pressed.
   ADD_CURR_WINDOW_TO_TABGROUP_SUCCESS: 'Current window added to this session.',
   ADD_CURR_TAB_TO_WINDOW_SUCCESS: 'Current tab added to this window.',
-  // KAN-906. Skip duplicate tabs is on and there is nothing new to add.
+  // KAN-906. Skip duplicates when saving is on and there is nothing new to add.
   ADD_WINDOW_ALL_ALREADY_THERE: 'AddWindowAllAlreadyThere',
   THIS_SESSION_ALREADY_HAS_THIS_TAB: 'ThisSessionAlreadyHasThisTab',
-  // KAN-910. Skip tabs already open is on and a saved drop into an open window leaves pages out.
+  // KAN-910. Skip duplicates when opening is on and a saved drop into an open window leaves pages out.
   DUPLICATE_TABS_LEFT_OUT: 'DuplicateTabsLeftOut',
   THIS_WINDOW_ALREADY_HAS_THIS_TAB: 'This window already has this tab.',
   THIS_WINDOW_ALREADY_HAS_THESE_TABS: 'This window already has these tabs.',
@@ -208,7 +208,7 @@ export const TOAST_MESSAGES = {
   // KAN-280 Part F (D4 A), KAN-608. A tab from Open now copied into {{title}}; a window or group, {{count}} tabs (plural).
   COPIED_TO_SESSION: 'CopiedToSession',
   COPIED_TABS_TO_SESSION: 'CopiedTabsToSession',
-  // KAN-906. Skip duplicate tabs left out every tab of the copy: a tab, or a window's or group's tabs, with {{title}}.
+  // KAN-906. Skip duplicates when saving left out every tab of the copy: a tab, or a window's or group's tabs, with {{title}}.
   SESSION_ALREADY_HAS_THIS_TAB: 'SessionAlreadyHasThisTab',
   SESSION_ALREADY_HAS_THESE_TABS: 'SessionAlreadyHasTheseTabs',
 };

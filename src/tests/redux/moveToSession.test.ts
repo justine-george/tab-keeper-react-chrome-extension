@@ -632,7 +632,7 @@ describe('intoNewWindow', () => {
   });
 });
 
-// KAN-914. With Skip duplicate tabs on, the toasts say how many tabs the target already had.
+// KAN-914. With Skip duplicates when saving on, the toasts say how many tabs the target already had.
 describe('moveToSession: pages the target has, left out', () => {
   // S2 already has t1's page, and t2's.
   const hasT1 = (): tabContainerData => {

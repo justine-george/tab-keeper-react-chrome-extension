@@ -75,7 +75,7 @@ const seed = (on: boolean) => {
   return { handle, store };
 };
 
-describe('focus mode with Skip duplicate tabs (KAN-906)', () => {
+describe('focus mode with Skip duplicates when saving (KAN-906)', () => {
   let handle: ReturnType<typeof setupChromeFake> | undefined;
   beforeEach(() => {
     handle?.restore();

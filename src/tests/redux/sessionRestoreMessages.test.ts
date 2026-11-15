@@ -512,7 +512,7 @@ describe('Open saved windows: This window', () => {
   );
 
   it.each([true, false])(
-    'carries Skip tabs already open (%s) from settings, Open on a window and Open session',
+    'carries Skip duplicates when opening (%s) from settings, Open on a window and Open session',
     async (on) => {
       handle = inWindow7();
       const store = storeWith('this-window');

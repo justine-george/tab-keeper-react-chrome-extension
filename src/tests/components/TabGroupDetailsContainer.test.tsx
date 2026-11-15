@@ -579,7 +579,7 @@ describe('KAN-821 Add current tab opens the window and shows the new tab', () =>
   });
 
   // KAN-906. A tab left out added nothing to show.
-  test('a tab Skip duplicate tabs leaves out leaves the window collapsed', async () => {
+  test('a tab Skip duplicates when saving leaves out leaves the window collapsed', async () => {
     const { store, seen } = await renderWith(
       { url: 'https://kagi.com/', title: 'Kagi Search' },
       { folded: true, skipsDuplicates: true }
@@ -592,7 +592,7 @@ describe('KAN-821 Add current tab opens the window and shows the new tab', () =>
     expect(scrolled).not.toHaveBeenCalled();
   });
 
-  test('CONTROL: with Skip duplicate tabs off, the same tab is added and shown', async () => {
+  test('CONTROL: with Skip duplicates when saving off, the same tab is added and shown', async () => {
     const { store } = await renderWith(
       { url: 'https://kagi.com/', title: 'Kagi Search' },
       { folded: true }

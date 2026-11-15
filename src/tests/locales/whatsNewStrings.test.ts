@@ -62,8 +62,8 @@ describe.each(locales)('%s', (_, dict) => {
 
   test('the skip body names both Skip settings and Settings › Sessions as shown', () => {
     const body = dict.WhatsNewSkipTabsBody;
-    expect(body).toContain(dict['Skip duplicate tabs']);
-    expect(body).toContain(dict['Skip tabs already open']);
+    expect(body).toContain(dict['Skip duplicates when saving']);
+    expect(body).toContain(dict['Skip duplicates when opening']);
     expect(body).toContain(`${dict.Settings} › ${dict.Sessions}`);
   });
 

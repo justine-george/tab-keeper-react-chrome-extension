@@ -663,7 +663,7 @@ const SettingsDetailsContainer: React.FC = () => {
             `}
           >
             <NormalLabel
-              value={t('Skip duplicate tabs')}
+              value={t('Skip duplicates when saving')}
               size={TYPE.BODY}
               color={COLORS.LABEL_L1_COLOR}
             />
@@ -674,7 +674,7 @@ const SettingsDetailsContainer: React.FC = () => {
             `}
           >
             <SlidingPair
-              label={t('Skip duplicate tabs')}
+              label={t('Skip duplicates when saving')}
               options={[
                 { value: 'on', label: t('On') },
                 { value: 'off', label: t('Off') },
@@ -753,7 +753,7 @@ const SettingsDetailsContainer: React.FC = () => {
             `}
           >
             <NormalLabel
-              value={t('Skip tabs already open')}
+              value={t('Skip duplicates when opening')}
               size={TYPE.BODY}
               color={COLORS.LABEL_L1_COLOR}
             />
@@ -764,7 +764,7 @@ const SettingsDetailsContainer: React.FC = () => {
             `}
           >
             <SlidingPair
-              label={t('Skip tabs already open')}
+              label={t('Skip duplicates when opening')}
               options={[
                 { value: 'on', label: t('On') },
                 { value: 'off', label: t('Off') },

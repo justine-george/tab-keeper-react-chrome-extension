@@ -7,7 +7,7 @@ vi.hoisted(() => {
   (g.window as { screen?: unknown }).screen = { height: 1080, width: 1920 };
 });
 
-// KAN-910. Settings › Sessions › Skip tabs already open: on or off, device-local, off by default.
+// KAN-910. Settings › Sessions › Skip duplicates when opening: on or off, device-local, off by default.
 const freshSlice = async () => {
   vi.resetModules();
   return import('../../redux/slices/settingsDataStateSlice');
