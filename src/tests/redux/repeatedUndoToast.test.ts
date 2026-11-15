@@ -106,6 +106,10 @@ describe('repeated undo does not claim changes came from another device (KAN-81)
 
       const before = seen.length;
       await store.dispatch(syncStateWithFirestore() as never);
+      // KAN-6. Let this round's write settle (the size check awaits) before the next round.
+      await vi.waitFor(() =>
+        expect(store.getState().globalState.syncsInFlight).toBe(0)
+      );
       const during = seen.slice(before);
       if (during.includes('global/showToast/pending')) {
         roundsThatToasted.push(`round ${round}`);

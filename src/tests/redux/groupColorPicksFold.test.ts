@@ -137,6 +137,10 @@ describe('group color picks in one open menu', () => {
     pick('green', 1);
     await store.dispatch(syncStateWithFirestore());
     expect(lastSavedColor()).toBe('green');
+    // KAN-6. The write is still settling (the size check awaits); a sync now would only queue.
+    await vi.waitFor(() =>
+      expect(store.getState().globalState.syncsInFlight).toBe(0)
+    );
 
     mocks.loadFromFirestore.mockResolvedValue(lastSaved());
     store.dispatch(undo());
