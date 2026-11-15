@@ -18,6 +18,7 @@ import {
   ungroupChromeTabGroup,
   deleteChromeTabGroupInternal,
   updateChromeTabGroupColor,
+  setChromeTabGroupCollapsed,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { undo } from '../../redux/slices/undoRedoSlice';
 import { setIsNotDirty } from '../../redux/slices/globalStateSlice';
@@ -139,5 +140,15 @@ describe('the Chrome group actions are captured actions', () => {
 
     store.dispatch(undo());
     expect(win(store).chromeTabGroups![0].color).toBe('blue');
+  });
+
+  test('folding is undoable and dirties the container (KAN-822)', () => {
+    const store = seeded();
+    store.dispatch(setChromeTabGroupCollapsed({ ...target, collapsed: true }));
+    expect(win(store).chromeTabGroups![0].collapsed).toBe(true);
+    expect(store.getState().globalState.isDirty).toBe(true);
+
+    store.dispatch(undo());
+    expect('collapsed' in win(store).chromeTabGroups![0]).toBe(false);
   });
 });

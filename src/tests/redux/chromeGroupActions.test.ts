@@ -17,12 +17,14 @@ import reducer, {
   ungroupChromeTabGroup,
   deleteChromeTabGroupInternal,
   updateChromeTabGroupColor,
+  setChromeTabGroupCollapsed,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import type {
   tabContainerData,
   TabMasterContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { partitionTabsIntoRuns } from '../../utils/functions/tabGroups';
+import { isValidTabMasterContainer } from '../../utils/functions/local';
 
 // The three actions that finish the Chrome tab group row, beside the rename
 // added in KAN-107.
@@ -420,5 +422,101 @@ describe('recolouring and the dirty flag', () => {
       })
     );
     expect(sessionModified(after)).toBeGreaterThan(sessionModified(before)!);
+  });
+});
+
+// KAN-822. A saved group's fold is its stored collapsed flag: true, or absent.
+describe('folding a Chrome tab group (KAN-822)', () => {
+  beforeEach(() => localStorage.clear());
+
+  const fold = (state: TabMasterContainer, collapsed: boolean) =>
+    reducer(
+      state,
+      setChromeTabGroupCollapsed({
+        tabGroupId: 'tg',
+        windowId: 'w',
+        groupId: 'grp',
+        collapsed,
+      })
+    );
+  const groupOf = (s: TabMasterContainer) => win(s).chromeTabGroups![0];
+
+  it('fold sets collapsed true', () => {
+    expect(groupOf(fold(seed(), true)).collapsed).toBe(true);
+  });
+
+  it('unfold deletes the field', () => {
+    const after = fold(fold(seed(), true), false);
+    expect('collapsed' in groupOf(after)).toBe(false);
+  });
+
+  // isValidChromeTabGroupData accepts only undefined or true, never false.
+  it('both states pass the sync validator', () => {
+    const folded = fold(seed(), true);
+    expect(isValidTabMasterContainer(folded)).toBe(true);
+    expect(isValidTabMasterContainer(fold(folded, false))).toBe(true);
+  });
+
+  it('adding the current tab keeps the fold', () => {
+    const after = reducer(
+      fold(seed(), true),
+      addCurrTabToChromeGroupInternal({
+        tabGroupId: 'tg',
+        windowId: 'w',
+        groupId: 'grp',
+        tabData: NEW_TAB,
+      })
+    );
+    expect(groupOf(after).collapsed).toBe(true);
+  });
+
+  it('leaves an unknown group alone', () => {
+    const before = seed();
+    const after = reducer(
+      before,
+      setChromeTabGroupCollapsed({
+        tabGroupId: 'tg',
+        windowId: 'w',
+        groupId: 'nope',
+        collapsed: true,
+      })
+    );
+    expect(after).toEqual(before);
+  });
+});
+
+describe('folding and the dirty flag (KAN-822)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000_000);
+  });
+  afterEach(() => vi.useRealTimers());
+
+  const modified = (s: TabMasterContainer) => s.tabGroups[0].lastModified;
+  const fold = (state: TabMasterContainer, collapsed: boolean) =>
+    reducer(
+      state,
+      setChromeTabGroupCollapsed({
+        tabGroupId: 'tg',
+        windowId: 'w',
+        groupId: 'grp',
+        collapsed,
+      })
+    );
+
+  it('a no-op leaves lastModified alone', () => {
+    const open = seed();
+    const folded = fold(open, true);
+    vi.setSystemTime(2_000_000);
+    expect(modified(fold(open, false))).toBe(modified(open));
+    expect(modified(fold(folded, true))).toBe(modified(folded));
+  });
+
+  // THE CONTROL for the assertion above.
+  it('CONTROL: a real fold does bump lastModified', () => {
+    const open = seed();
+    vi.setSystemTime(2_000_000);
+    expect(modified(fold(open, true))).toBeGreaterThan(modified(open)!);
   });
 });

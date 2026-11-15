@@ -48,6 +48,9 @@ export const UNGROUP_CHROME_GROUP_ACTION =
   'tabContainerDataState/ungroupChromeTabGroup';
 export const RECOLOUR_CHROME_GROUP_ACTION =
   'tabContainerDataState/updateChromeTabGroupColor';
+// KAN-822.
+export const FOLD_CHROME_GROUP_ACTION =
+  'tabContainerDataState/setChromeTabGroupCollapsed';
 export const DELETE_CHROME_GROUP_ACTION =
   'tabContainerDataState/deleteChromeTabGroupInternal';
 export const DELETE_TAB_CONTAINER_ACTION =

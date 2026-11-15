@@ -19,6 +19,7 @@ import {
   updateWindowGroupTitle,
   updateChromeTabGroupTitle,
   updateChromeTabGroupColor,
+  setChromeTabGroupCollapsed,
   ungroupChromeTabGroup,
   deleteChromeTabGroupInternal,
   addCurrTabToChromeGroupInternal,
@@ -176,6 +177,18 @@ const CONTENT_EDITS: [string, (s: Store) => void][] = [
           windowId: 'w1',
           groupId: 'grp',
           color: 'purple',
+        })
+      ),
+  ],
+  [
+    'setChromeTabGroupCollapsed',
+    (s) =>
+      s.dispatch(
+        setChromeTabGroupCollapsed({
+          tabGroupId: 'tg',
+          windowId: 'w1',
+          groupId: 'grp',
+          collapsed: true,
         })
       ),
   ],
