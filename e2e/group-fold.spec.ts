@@ -2,7 +2,12 @@ import type { Locator, Page, Worker } from '@playwright/test';
 
 // Saved groups draw as bands only with tabGroups, so every spec here needs the grant.
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
-import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
+import {
+  buildContainer,
+  buildSession,
+  seedSessions,
+  seedSettings,
+} from './fixtures/seed';
 import { POPUP, bandHandle, header, stored } from './fixtures/savedWindows';
 import { elementLanded } from './fixtures/landed';
 import { pressOpen } from './fixtures/sessionActions';
@@ -800,4 +805,187 @@ test.describe('a group in Currently open', () => {
     ]);
     expect(seen).not.toContain('at 3');
   });
+});
+
+// KAN-822 fit. The chevron pushes the name right by its width; no title row may overflow, folded or open.
+const FIT_GROUPS = [
+  {
+    id: 'g1',
+    title: 'Reiseplanung Herbst',
+    color: 'blue',
+    collapsed: false,
+  },
+  {
+    id: 'g2',
+    title: 'Restaurants und Cafés',
+    color: 'orange',
+    collapsed: true,
+  },
+  { id: 'g3', title: 'Tag 1', color: 'purple', collapsed: false },
+];
+const fitTabs = [
+  tab('lead'),
+  tab('a', 'g1'),
+  tab('b', 'g1'),
+  tab('c', 'g2'),
+  tab('d', 'g2'),
+  tab('e', 'g3'),
+];
+const FIT_TRIP = buildSession({
+  tabGroupId: 'S1',
+  title: 'Trip',
+  isSelected: true,
+  windowCount: 1,
+  tabCount: fitTabs.length,
+  windows: [
+    {
+      windowId: 'w1',
+      windowHeight: 1080,
+      windowWidth: 1920,
+      windowOffsetTop: 0,
+      windowOffsetLeft: 0,
+      tabCount: fitTabs.length,
+      title: 'w1',
+      tabs: fitTabs,
+      chromeTabGroups: FIT_GROUPS.map(({ id, title, color, collapsed }) => ({
+        groupId: id,
+        title,
+        color,
+        // An open group stores no flag (KAN-822); a stored false reads as invalid.
+        ...(collapsed ? { collapsed } : {}),
+      })),
+    },
+  ],
+});
+
+// A window with one open and one collapsed live group, long names, so Currently open draws both chevron states.
+async function openFitWindow(worker: Worker) {
+  return worker.evaluate(async (urls) => {
+    const win = await chrome.windows.create({ url: urls, focused: false });
+    const ids = (win?.tabs ?? []).map((t) => t.id ?? -1);
+    const open = await chrome.tabs.group({
+      tabIds: [ids[1], ids[2]],
+      createProperties: { windowId: win?.id },
+    });
+    await chrome.tabGroups.update(open, {
+      title: 'Reiseplanung Herbst',
+      color: 'green',
+    });
+    const shut = await chrome.tabs.group({
+      tabIds: [ids[3], ids[4]],
+      createProperties: { windowId: win?.id },
+    });
+    await chrome.tabGroups.update(shut, {
+      title: 'Restaurants und Cafés',
+      color: 'red',
+      collapsed: true,
+    });
+    return { windowId: win?.id ?? -1, open, shut };
+  }, ['Lead', 'One', 'Two', 'Three', 'Four'].map(standIn));
+}
+
+// How far each title row's content runs past its box, in px, with the group's name.
+const rowOverflows = (rows: Locator) =>
+  rows.evaluateAll((els) =>
+    els.map((el) => ({
+      name: el.closest('[data-band-id]')?.getAttribute('aria-label') ?? '?',
+      over: el.scrollWidth - el.clientWidth,
+    }))
+  );
+
+const FITS = [
+  {
+    name: 'popup 790x550, en',
+    language: 'en',
+    fontPx: 16,
+    path: 'index.html',
+    viewport: POPUP,
+  },
+  {
+    name: 'popup 790x550, de at Large text',
+    language: 'de',
+    fontPx: 20,
+    path: 'index.html',
+    viewport: POPUP,
+  },
+  {
+    name: 'full view 1280x800, de at Large text',
+    language: 'de',
+    fontPx: 20,
+    path: VIEW_TAB,
+    viewport: TAB_VIEWPORT,
+  },
+];
+
+test.describe('group title rows with the fold chevron', () => {
+  for (const fit of FITS) {
+    test(`no group title row overflows: ${fit.name}`, async ({
+      context,
+      extensionId,
+      serviceWorker,
+    }) => {
+      await seedSessions(context, {
+        ...buildContainer([FIT_TRIP]),
+        selectedTabGroupId: 'S1',
+      });
+      // The full view folds the saved session away unless told not to; both panes are wanted open.
+      await seedSettings(context, {
+        language: fit.language,
+        ...(fit.path === VIEW_TAB ? { foldSavedSessionInTabView: false } : {}),
+      });
+      const win = await openFitWindow(serviceWorker);
+      // Not openPage: it waits on the English "Sort sessions" label.
+      const page = await context.newPage();
+      await page.setViewportSize(fit.viewport);
+      await page.goto(`chrome-extension://${extensionId}/${fit.path}`);
+      // CONTROL: the seeded language took, so a German run is not passing in English.
+      await expect
+        .poll(() => page.evaluate(() => document.documentElement.lang))
+        .toBe(fit.language);
+      // Chrome's Large font size sets the root; the app has no setting for it.
+      const cdp = await context.newCDPSession(page);
+      await cdp.send('Page.setFontSizes', {
+        fontSizes: { standard: fit.fontPx, fixed: 13 },
+      });
+      expect(
+        await page.evaluate(
+          () => getComputedStyle(document.documentElement).fontSize
+        )
+      ).toBe(`${fit.fontPx}px`);
+
+      const saved = page.locator(
+        '[data-pane="detail"] [data-group-drag-handle]'
+      );
+      const live = page.locator(
+        `[data-open-window-id="${win.windowId}"] [data-group-drag-handle]`
+      );
+      // PREMISE: every group is drawn, folded and open, in each pane there is. The popup has no Currently open pane.
+      await expect(saved).toHaveCount(FIT_GROUPS.length);
+      await expect(
+        saved.locator('[data-fold-chevron="expand_more"]')
+      ).toHaveCount(1);
+      await expect(
+        saved.locator('[data-fold-chevron="expand_less"]')
+      ).toHaveCount(2);
+      const hasOpenNow = fit.path === VIEW_TAB;
+      await expect(live).toHaveCount(hasOpenNow ? 2 : 0);
+      if (hasOpenNow) {
+        await expect(
+          live.locator('[data-fold-chevron="expand_more"]')
+        ).toHaveCount(1);
+        await expect(
+          live.locator('[data-fold-chevron="expand_less"]')
+        ).toHaveCount(1);
+      }
+
+      const over = [
+        ...(await rowOverflows(saved)).map((r) => ({ pane: 'saved', ...r })),
+        ...(await rowOverflows(live)).map((r) => ({ pane: 'open now', ...r })),
+      ].filter((r) => r.over > 0);
+      expect(
+        over,
+        `rows overflowing, by px: ${over.map((r) => `${r.pane} "${r.name}" +${r.over}`).join('; ')}`
+      ).toEqual([]);
+    });
+  }
 });
