@@ -693,7 +693,36 @@ describe('a folded group', () => {
     expect(await tabNow(16)).toEqual({ windowId: 2, index: 4, groupId: GROUP });
   });
 
-  test('a loose release at its row lands after it, ungrouped (Review Focus 1)', async () => {
+  test('a loose release above its band lands before it, ungrouped', async () => {
+    const { result } = renderDrop(await install(fourWindows()), {
+      foldedGroupIds: folded,
+    });
+    // Into W2 from W1 at row 1, the pointer above the band.
+    await result.current.tabs.onMove(
+      String(LOOSE_A),
+      1,
+      undefined,
+      '2',
+      new Set([String(GROUP)])
+    );
+    expect(moveOpenTab).toHaveBeenCalledWith(
+      expect.objectContaining({ toIndex: 1, toGroupId: undefined }),
+      expect.anything(),
+      true
+    );
+    expect(await tabNow(LOOSE_A)).toEqual({
+      windowId: 2,
+      index: 1,
+      groupId: -1,
+    });
+    expect(await tabNow(GROUPED_1)).toEqual({
+      windowId: 2,
+      index: 2,
+      groupId: GROUP,
+    });
+  });
+
+  test('a loose release below its band lands after it, ungrouped', async () => {
     const { result } = renderDrop(await install(fourWindows()), {
       foldedGroupIds: folded,
     });

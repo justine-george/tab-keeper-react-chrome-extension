@@ -43,12 +43,15 @@ import {
   TAB_GROUP_COLOR_HEX,
   groupEndIndex,
   foldedMemberIds,
+  groupStartIndex,
   sanitizeTabGroupColor,
   partitionTabsIntoItems,
   type chromeTabGroupData,
 } from '../../../utils/functions/tabGroups';
 import {
+  NO_FOLDED_BANDS,
   bandAt,
+  foldedBandsBelow,
   groupEndingAbove,
   type BandGapChange,
   type DragTab,
@@ -219,9 +222,17 @@ export function gapOpenedByLandingIn(
   rowId: string,
   toIndex: number,
   target: string | undefined,
-  removedBandId?: string
+  removedBandId?: string,
+  foldedBandsBelow: ReadonlySet<string> = NO_FOLDED_BANDS
 ): BandGapChange | undefined {
   if (target !== undefined) return undefined;
+  // KAN-822. The folded band this tab lands in front of, if any: the only folded band with a gap above it to open.
+  const foldedBelow = foldedGroupBelowLandingIn(
+    edges,
+    rowId,
+    toIndex,
+    foldedBandsBelow
+  );
   for (const groupId of edges.groupFirstIndex.keys()) {
     const neighbours = edges.bandNeighbours.get(groupId);
     // WHERE THIS DROP PRUNES A BAND, KAN-169 OWNS THE GAP ARITHMETIC. It
@@ -238,8 +249,8 @@ export function gapOpenedByLandingIn(
     const prunedAbove =
       removedBandId !== undefined && neighbours?.aboveBandId === removedBandId;
     if (prunedItself || prunedAbove) continue;
-    // KAN-822. A loose tab at a folded band's row lands below it, never in the gap above.
-    if (edges.foldedGroupIds.has(groupId)) continue;
+    // KAN-822. A loose tab at a folded band's row lands in the gap above it only with the pointer above it.
+    if (edges.foldedGroupIds.has(groupId) && groupId !== foldedBelow) continue;
     const adjacentOnce = neighbours?.above === 'group';
     const separatedOnlyByTheHeldRow =
       edges.bandBelowLooseTabInGap.get(rowId) === groupId;
@@ -275,6 +286,20 @@ function headInLandingSpace(
   return fromIndex !== undefined && fromIndex < first ? first - 1 : first;
 }
 
+// KAN-822. The folded group a loose landing at `toIndex` goes in front of: the first at that row whose band is below the pointer.
+export function foldedGroupBelowLandingIn(
+  edges: WindowGroupEdges,
+  rowId: string,
+  toIndex: number,
+  foldedBandsBelow: ReadonlySet<string>
+): string | undefined {
+  return [...edges.foldedGroupIds].find(
+    (groupId) =>
+      foldedBandsBelow.has(groupId) &&
+      headInLandingSpace(edges, groupId, rowId) === toIndex
+  );
+}
+
 // KAN-822. Whether the held row is drawn above the group, in its own window.
 function isAboveGroup(
   edges: WindowGroupEdges,
@@ -307,7 +332,8 @@ export function landsBesideFixedRowIn(
   edges: WindowGroupEdges,
   rowId: string,
   toIndex: number,
-  target: string | undefined
+  target: string | undefined,
+  foldedBandsBelow: ReadonlySet<string> = NO_FOLDED_BANDS
 ): FixedRowLanding | undefined {
   // Landing inside a band: the tab joins that group, or moves to the head of
   // the one it is already in. Either way it ends up UNDER that title row. At or
@@ -368,6 +394,21 @@ export function landsBesideFixedRowIn(
   // window-local index, so window B's leading group sits at 0 just like window
   // A's first tab -- and asked across windows, a drag to the top of A would
   // answer "before B's title row".
+  // KAN-822 (his rule). The pointer above a folded band at this row: the tab lands before it, as before any title row.
+  const foldedBelow = foldedGroupBelowLandingIn(
+    edges,
+    rowId,
+    toIndex,
+    foldedBandsBelow
+  );
+  if (foldedBelow !== undefined) {
+    return {
+      fixedRowId: foldedBelow,
+      side: 'before',
+      offset: looseBeforeHeadOffset(edges, foldedBelow, rowId),
+    };
+  }
+
   for (const groupId of edges.groupFirstIndex.keys()) {
     if (edges.foldedGroupIds.has(groupId)) continue;
     if (headInLandingSpace(edges, groupId, rowId) === toIndex) {
@@ -379,7 +420,7 @@ export function landsBesideFixedRowIn(
     }
   }
 
-  // KAN-822 (Review Focus 1). At a folded band's row the tab lands AFTER the band, the last one when several fold side by side.
+  // KAN-822. Below every folded band at this row: the tab lands AFTER them, past the last.
   const foldedHere = [...edges.foldedGroupIds]
     .filter((groupId) => headInLandingSpace(edges, groupId, rowId) === toIndex)
     .pop();
@@ -627,9 +668,13 @@ export function useTabDropGeometry(
       x: number,
       y: number,
       closedUp?: ClosedUp
-    ): DropTarget => ({
-      bandId: bandAt(within, x, y, closedUp),
-    }),
+    ): DropTarget => {
+      const bandId = bandAt(within, x, y, closedUp);
+      // KAN-822. Off every band, which folded bands are still below the pointer.
+      return bandId !== undefined
+        ? { bandId }
+        : { bandId, foldedBandsBelow: foldedBandsBelow(within, y, closedUp) };
+    },
     []
   );
 
@@ -663,13 +708,37 @@ export function useTabDropGeometry(
       rowId: string,
       toIndex: number,
       target: string | undefined,
-      windowId: string | undefined
+      windowId: string | undefined,
+      foldedBandsBelow: ReadonlySet<string>
     ) => {
       const edges =
         windowId === undefined ? undefined : edgesByWindow.get(windowId);
       return edges === undefined
         ? undefined
-        : landsBesideFixedRowIn(edges, rowId, toIndex, target);
+        : landsBesideFixedRowIn(
+            edges,
+            rowId,
+            toIndex,
+            target,
+            foldedBandsBelow
+          );
+    },
+    [edgesByWindow]
+  );
+
+  // KAN-822. The folded group a loose landing goes in front of, in the window it lands in: the drop's own index rule.
+  const foldedGroupBelowLanding = useCallback(
+    (
+      rowId: string,
+      toIndex: number,
+      windowId: string | undefined,
+      foldedBandsBelow: ReadonlySet<string>
+    ) => {
+      const edges =
+        windowId === undefined ? undefined : edgesByWindow.get(windowId);
+      return edges === undefined
+        ? undefined
+        : foldedGroupBelowLandingIn(edges, rowId, toIndex, foldedBandsBelow);
     },
     [edgesByWindow]
   );
@@ -707,7 +776,8 @@ export function useTabDropGeometry(
       rowId: string,
       toIndex: number,
       target: string | undefined,
-      windowId: string | undefined
+      windowId: string | undefined,
+      foldedBandsBelow: ReadonlySet<string>
     ) => {
       const ownWindowId = windowOfTab.get(rowId);
       const source =
@@ -738,7 +808,8 @@ export function useTabDropGeometry(
               rowId,
               toIndex,
               target,
-              pruned?.first
+              pruned?.first,
+              foldedBandsBelow
             );
       if (opened !== undefined) changes.push(opened);
       return changes;
@@ -754,18 +825,24 @@ export function useTabDropGeometry(
     fixedRowsRemovedBy,
     gapChangesBy,
     describeTabMove,
+    foldedGroupBelowLanding,
   };
 }
 
-// KAN-822. A drawn row as a stored index: a folded band's end (D8), past folded members, never past its own group's end.
+// KAN-822. A drawn row as a stored index: before a folded group the pointer is above, a folded band's end (D8),
+// past folded members, never past its own group's end.
 function savedIndexOfDrawnRow(
   tabs: readonly tabData[],
   groups: readonly chromeTabGroupData[] | undefined,
   heldIds: ReadonlySet<string>,
   rowIndex: number,
   bandId: string | undefined,
+  beforeFoldedGroupId: string | undefined,
   foldedGroupIds: ReadonlySet<string>
 ): number {
+  if (bandId === undefined && beforeFoldedGroupId !== undefined) {
+    return groupStartIndex(tabs, beforeFoldedGroupId, heldIds);
+  }
   if (bandId === undefined) {
     return tabIndexOfRow(
       tabs,
@@ -820,11 +897,8 @@ export function useTabDrop(
     () => foldedSavedGroupIds(windows, hasTabGroupsPermission),
     [windows, hasTabGroupsPermission]
   );
-  const { describeTabMove, ...geometry } = useTabDropGeometry(
-    rowWindows,
-    hasTabGroupsPermission,
-    foldedGroupIds
-  );
+  const { describeTabMove, foldedGroupBelowLanding, ...geometry } =
+    useTabDropGeometry(rowWindows, hasTabGroupsPermission, foldedGroupIds);
 
   // Two reducers, not one widened one (spec 7): moveTabInternal's no-op guard
   // and its prune ordering both rest on the tab never leaving the array it was
@@ -838,7 +912,8 @@ export function useTabDrop(
       tabId: string,
       toIndex: number,
       toChromeGroupId?: string,
-      toWindowId?: string
+      toWindowId?: string,
+      foldedBandsBelow: ReadonlySet<string> = NO_FOLDED_BANDS
     ) => {
       const described = describeTabMove(
         tabId,
@@ -892,6 +967,12 @@ export function useTabDrop(
               heldIds,
               described.toIndex,
               described.toGroupId,
+              foldedGroupBelowLanding(
+                tabId,
+                described.toIndex,
+                described.toWindowId,
+                foldedBandsBelow
+              ),
               foldedGroupIds
             ),
           };
@@ -952,7 +1033,15 @@ export function useTabDrop(
           : dropSavedPair({ ...drop, partnerTabId: partner.tabId })
       );
     },
-    [dispatch, store, tabGroupId, windows, describeTabMove, foldedGroupIds]
+    [
+      dispatch,
+      store,
+      tabGroupId,
+      windows,
+      describeTabMove,
+      foldedGroupBelowLanding,
+      foldedGroupIds,
+    ]
   );
 
   return { ...geometry, onMove };

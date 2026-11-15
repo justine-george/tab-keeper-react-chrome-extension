@@ -33,7 +33,10 @@ import { openCarriedCopy, type CopyPlace } from '../../../redux/openCopy';
 
 import { showToast } from '../../../redux/slices/globalStateSlice';
 
-import type { DragWindows } from '../rightpane/rowDrag/dropRules';
+import {
+  NO_FOLDED_BANDS,
+  type DragWindows,
+} from '../rightpane/rowDrag/dropRules';
 import { useGroupDropGeometry } from '../rightpane/useGroupDrop';
 import { useTabDropGeometry } from '../rightpane/useTabDrop';
 import type { OpenWindow } from '../../../utils/functions/openNow';
@@ -62,6 +65,7 @@ import {
 } from '../../../utils/functions/splitPartners';
 import {
   groupEndIndex,
+  groupStartIndex,
   foldedMemberIds,
   itemIdOf,
   partitionTabsIntoItems,
@@ -126,12 +130,14 @@ export function openDragWindows(
   }));
 }
 
-// KAN-822. A drawn row as moveOpenTab's index (held row lifted out): a folded band's end, never past its own group's end; null if not drawn.
+// KAN-822. A drawn row as moveOpenTab's index (held row lifted out): before a folded group the pointer is above,
+// a folded band's end, never past its own group's end; null if not drawn.
 export function liveIndexOfDrawnRow(
   window: DragWindows[number],
   heldId: string,
   rowIndex: number,
   bandId: string | undefined,
+  beforeFoldedGroupId: string | undefined,
   foldedGroupIds: ReadonlySet<string>
 ): number | null {
   const rowless = foldedMemberIds(
@@ -144,6 +150,9 @@ export function liveIndexOfDrawnRow(
   const rows = drawsNoRow.filter((noRow) => !noRow).length;
   if (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex > rows) {
     return null;
+  }
+  if (bandId === undefined && beforeFoldedGroupId !== undefined) {
+    return groupStartIndex(window.tabs, beforeFoldedGroupId, new Set([heldId]));
   }
   const row = indexOfDrawnRow(drawsNoRow, rowIndex);
   if (bandId === undefined) return row;
@@ -259,11 +268,8 @@ export function useOpenNowDrop({
     ],
     [windows, hasTabGroups, carriedIn, liveNewWindow]
   );
-  const { describeTabMove, ...tabGeometry } = useTabDropGeometry(
-    dragWindows,
-    hasTabGroups,
-    foldedGroupIds
-  );
+  const { describeTabMove, foldedGroupBelowLanding, ...tabGeometry } =
+    useTabDropGeometry(dragWindows, hasTabGroups, foldedGroupIds);
   const { describeGroupMove, ...itemGeometry } = useGroupDropGeometry(
     dragWindows,
     hasTabGroups
@@ -465,7 +471,8 @@ export function useOpenNowDrop({
       rowId: string,
       toIndex: number,
       dropTargetId?: string,
-      toWindowId?: string
+      toWindowId?: string,
+      foldedBandsBelow: ReadonlySet<string> = NO_FOLDED_BANDS
     ): Promise<MovedTabs | 'copied' | null> => {
       // A folded window shows no slot, so the engine's position 0 chose no
       // pin there: the tab keeps its own, as in a saved session.
@@ -482,6 +489,12 @@ export function useOpenNowDrop({
               rowId,
               toIndex,
               dropTargetId,
+              foldedGroupBelowLanding(
+                rowId,
+                toIndex,
+                toWindowId,
+                foldedBandsBelow
+              ),
               foldedGroupIds
             );
       const carried = carriedFor(rowId);
@@ -546,6 +559,7 @@ export function useOpenNowDrop({
       windows,
       dragWindows,
       foldedGroupIds,
+      foldedGroupBelowLanding,
       collapsedIds,
       tables,
       hasTabGroups,

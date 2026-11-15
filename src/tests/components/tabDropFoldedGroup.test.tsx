@@ -79,10 +79,73 @@ describe('groupEdgesOf with a folded group', () => {
   });
 });
 
+// KAN-822 (his rule, replacing ruling A). A folded group is one row: above its band, before it; on it, join; below, after.
+describe('a folded band takes a drop above it, on it, or below it', () => {
+  const edges = groupEdgesOf(MID, [group('g', true)], FOLDED_G);
+  const ABOVE_G: ReadonlySet<string> = new Set(['g']);
+
+  test('the pointer above the band, from above: the slot opens before its title row', () => {
+    expect(landsBesideFixedRowIn(edges, 'L', 0, undefined, ABOVE_G)).toEqual({
+      fixedRowId: 'g',
+      side: 'before',
+    });
+  });
+
+  test('the pointer above the band, from below: the slot opens before its title row', () => {
+    expect(landsBesideFixedRowIn(edges, 'M', 1, undefined, ABOVE_G)).toEqual({
+      fixedRowId: 'g',
+      side: 'before',
+      offset: -BAND_MARGIN_PX,
+    });
+  });
+
+  test('on the band: no slot under its title row, whichever side', () => {
+    expect(landsBesideFixedRowIn(edges, 'L', 0, 'g', ABOVE_G)).toBeUndefined();
+  });
+
+  test('two folded bands side by side: between them is after the first, before the second', () => {
+    const both = groupEdgesOf(
+      [tab('L'), member('G1'), member('H1', 'h'), tab('M')],
+      [group('g', true), group('h', true)],
+      new Set(['g', 'h'])
+    );
+    // Above both, between them, below both.
+    expect(
+      landsBesideFixedRowIn(both, 'M', 1, undefined, new Set(['g', 'h']))
+    ).toMatchObject({ fixedRowId: 'g', side: 'before' });
+    expect(
+      landsBesideFixedRowIn(both, 'M', 1, undefined, new Set(['h']))
+    ).toMatchObject({ fixedRowId: 'h', side: 'before' });
+    expect(
+      landsBesideFixedRowIn(both, 'M', 1, undefined, new Set())
+    ).toMatchObject({ fixedRowId: 'h', side: 'after' });
+  });
+
+  test('a folded band at another row does not take the landing', () => {
+    // Row 0 with M lifted is above L, not at g's row.
+    expect(
+      landsBesideFixedRowIn(edges, 'M', 0, undefined, ABOVE_G)
+    ).toBeUndefined();
+  });
+
+  test('a loose landing above a folded band that follows another opens the gap above it', () => {
+    // [o: O1] [g folded] N: landing between the two bands.
+    const two = groupEdgesOf(
+      [member('O1', 'o'), member('G1'), tab('N')],
+      [group('o', false), group('g', true)],
+      FOLDED_G
+    );
+    expect(
+      gapOpenedByLandingIn(two, 'N', 1, undefined, undefined, ABOVE_G)
+    ).toEqual({ bandId: 'g', delta: -4 });
+  });
+});
+
 describe('landsBesideFixedRowIn beside a folded band', () => {
   const edges = groupEdgesOf(MID, [group('g', true)], FOLDED_G);
 
-  test('a loose landing above it from above lands after its title row (Review Focus 1)', () => {
+  // No folded band below the pointer: it is below the band, and the tab lands after it.
+  test('a loose landing below it, from above, lands after its title row', () => {
     // L down past nothing: row 0 with L lifted is the band's row.
     expect(landsBesideFixedRowIn(edges, 'L', 0, undefined)).toEqual({
       fixedRowId: 'g',
@@ -91,7 +154,7 @@ describe('landsBesideFixedRowIn beside a folded band', () => {
     });
   });
 
-  test('a loose landing above it from below lands after its title row too', () => {
+  test('a loose landing below it, from below, lands after its title row', () => {
     expect(landsBesideFixedRowIn(edges, 'M', 1, undefined)).toEqual({
       fixedRowId: 'g',
       side: 'after',
@@ -238,7 +301,33 @@ describe('useTabDrop with a folded saved group', () => {
     expect(groupOf('w')?.collapsed).toBe(true);
   });
 
-  test('a loose release at the band lands after the group, ungrouped', () => {
+  test('a loose release above the band lands before the group, ungrouped', () => {
+    const { tabs, order, groupOf } = setup([
+      win('w', [tab('lead'), member('a'), member('b'), tab('m'), tab('n')]),
+    ]);
+    // Rows with n lifted: lead, m. Row 1, the pointer above the band.
+    act(() => tabs.current.onMove('n', 1, undefined, 'w', new Set(['g'])));
+    expect(order('w')).toEqual(['lead', 'n', 'a:g', 'b:g', 'm']);
+    expect(groupOf('w')?.collapsed).toBe(true);
+  });
+
+  test('a loose release above the band, from above it, lands before the group', () => {
+    const { tabs, order } = setup([TRIP()]);
+    // Rows with c lifted: lead. Row 1, the pointer past lead but above the band.
+    act(() => tabs.current.onMove('c', 1, undefined, 'w', new Set(['g'])));
+    expect(order('w')).toEqual(['lead', 'c', 'a:g', 'b:g']);
+  });
+
+  test('from another window, above a folded band: before the group', () => {
+    const { tabs, order } = setup([
+      win('x', [tab('x1'), tab('x2')], []),
+      win('w', [tab('lead'), member('a'), member('b'), tab('m')]),
+    ]);
+    act(() => tabs.current.onMove('x1', 1, undefined, 'w', new Set(['g'])));
+    expect(order('w')).toEqual(['lead', 'x1', 'a:g', 'b:g', 'm']);
+  });
+
+  test('a loose release below the band lands after the group, ungrouped', () => {
     const { tabs, order, groupOf } = setup([TRIP()]);
     act(() => tabs.current.onMove('c', 1, undefined, 'w'));
     expect(order('w')).toEqual(['lead', 'a:g', 'b:g', 'c']);

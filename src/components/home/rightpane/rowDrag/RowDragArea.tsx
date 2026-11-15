@@ -59,9 +59,11 @@ import {
   windowBlockAt,
   windowBlocksIn,
   windowOf,
+  NO_FOLDED_BANDS,
   type ClosedUp,
   type DragKind,
   type DraggableRowProps,
+  type DropTarget,
   type RowDragAreaProps,
 } from './dropRules';
 import {
@@ -129,6 +131,9 @@ import {
   measureNewFirstWindowTarget,
   newWindowPlacement,
 } from '../newWindowTarget';
+
+// KAN-822. What targetOf answers where nothing is asked: no band, no folded band below.
+const NO_TARGET: DropTarget = { bandId: undefined };
 
 // How strongly the landing slot draws when it is clear of the held row.
 //
@@ -1119,20 +1124,21 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // (KAN-361) or in the trailing block (KAN-366 B): a new window holds no
     // band to join, and the band nearest the pointer is in a window the row
     // is not going to -- or, for an adopted group, its own phantom's.
+    // KAN-822. Answers resolveDrop's whole DropTarget: beside the band, the folded bands below the pointer.
     const targetOf = (
       l: NonNullable<typeof live.current>,
       block: HTMLElement | null,
       landing: Landing | undefined,
       closed?: ClosedSpan
-    ): string | undefined =>
-      landing?.clamped === true || makesNewWindow(l, landing?.windowId)
+    ): DropTarget =>
+      (landing?.clamped === true || makesNewWindow(l, landing?.windowId)
         ? undefined
         : resolveDrop?.(
             dropRoot(l, block),
             l.lastX + l.pressOffRowX,
             l.lastY,
             closed && { bandId: closed.bandId, by: closed.by }
-          )?.bandId;
+          )) ?? NO_TARGET;
 
     // The span of fixed rows a release at `landing` removes (KAN-169), as
     // slots, with the room it frees. Undefined where nothing is removed.
@@ -1185,12 +1191,20 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     const decide = (
       l: NonNullable<typeof live.current>,
       block: HTMLElement | null
-    ): { landing: Landing | undefined; target: string | undefined } => {
+    ): {
+      landing: Landing | undefined;
+      target: string | undefined;
+      foldedBandsBelow: ReadonlySet<string>;
+    } => {
       const resting = landingOf(l, block);
       const restingTarget = targetOf(l, block, resting);
-      const span = removedSpanOf(l, resting, restingTarget);
+      const span = removedSpanOf(l, resting, restingTarget.bandId);
       if (span === undefined || span.freed === 0) {
-        return { landing: resting, target: restingTarget };
+        return {
+          landing: resting,
+          target: restingTarget.bandId,
+          foldedBandsBelow: restingTarget.foldedBandsBelow ?? NO_FOLDED_BANDS,
+        };
       }
       const closed: ClosedSpan = {
         bandId: span.bandId,
@@ -1199,7 +1213,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         by: span.freed,
       };
       const landing = landingOf(l, block, closed);
-      return { landing, target: targetOf(l, block, landing, closed) };
+      const target = targetOf(l, block, landing, closed);
+      return {
+        landing,
+        target: target.bandId,
+        foldedBandsBelow: target.foldedBandsBelow ?? NO_FOLDED_BANDS,
+      };
     };
 
     // KAN-379 D3. The collapsed window landed in, with the pointer on its title row.
@@ -1272,7 +1291,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // and the landing placeholder is corrected by whatever it implies.
       // Asked on every move, because a drop can change more than an index --
       // a tab released inside a group's band joins that group.
-      const { landing, target } = decide(l, block);
+      const { landing, target, foldedBandsBelow } = decide(l, block);
 
       // Which window a release here lands in, told to the list on change
       // only (KAN-350: a New window target lights up while it is the
@@ -1307,7 +1326,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
               l.rowId,
               previewed.index,
               target,
-              previewed.windowId
+              previewed.windowId,
+              foldedBandsBelow
             );
       // What the drop REMOVES (KAN-169): a span of fixed rows the list says
       // will not survive this release -- a group's title row and tail marker,
@@ -1347,7 +1367,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
               l.rowId,
               previewed.index,
               target,
-              previewed.windowId
+              previewed.windowId,
+              foldedBandsBelow
             ) ?? []);
       // Each resolved to the band's own title row, which is the first thing
       // the gap above it displaces. A band this list cannot place is dropped
@@ -2301,6 +2322,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           toIndex: number;
           dropTargetId: string | undefined;
           toWindowId: string | undefined;
+          foldedBandsBelow: ReadonlySet<string>;
         }
       | undefined => {
       // Computed HERE, not threaded in from a previous move's update() or
@@ -2310,7 +2332,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // value computed on an earlier move could describe a layout that no
       // longer exists by the time this runs.
       const block = landingBlock(l);
-      const { landing, target } = decide(l, block);
+      const { landing, target, foldedBandsBelow } = decide(l, block);
       if (landing === undefined) return undefined;
       return {
         // Window-local, in the window named beside it -- see Landing.
@@ -2318,6 +2340,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         toWindowId: landing.windowId,
         // The same answer the preview drew and marked -- see decide.
         dropTargetId: target,
+        foldedBandsBelow,
       };
     };
 
@@ -2428,12 +2451,21 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           const moving =
             drop.toWindowId === undefined
               ? onMove(l.rowId, drop.toIndex, drop.dropTargetId)
-              : onMove(
-                  l.rowId,
-                  drop.toIndex,
-                  drop.dropTargetId,
-                  drop.toWindowId
-                );
+              : resolveDrop === undefined
+                ? onMove(
+                    l.rowId,
+                    drop.toIndex,
+                    drop.dropTargetId,
+                    drop.toWindowId
+                  )
+                : // KAN-822. Only a list that answers resolveDrop can have folded bands below the pointer.
+                  onMove(
+                    l.rowId,
+                    drop.toIndex,
+                    drop.dropTargetId,
+                    drop.toWindowId,
+                    drop.foldedBandsBelow
+                  );
 
           // KAN-887. A drop into the room fills it: the new last window
           // takes its place in this commit, so the room kept at the end goes.

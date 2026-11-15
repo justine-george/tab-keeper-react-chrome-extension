@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 
 import {
   groupEndIndex,
+  groupStartIndex,
   partitionTabsIntoRuns,
   partitionTabsIntoItems,
   itemIdOf,
@@ -203,6 +204,35 @@ describe('groupIdOfItemId', () => {
 
   test('neither prefix is not a group', () => {
     expect(groupIdOfItemId('alpha')).toBeUndefined();
+  });
+});
+
+describe('groupStartIndex (KAN-822)', () => {
+  const window4 = [tab('L'), tab('G1', 'g'), tab('G2', 'g'), tab('M')];
+  const none: ReadonlySet<string> = new Set();
+
+  test('the first member', () => {
+    expect(groupStartIndex(window4, 'g', none)).toBe(1);
+  });
+
+  test('a held tab above the group shifts the start up one', () => {
+    expect(groupStartIndex(window4, 'g', new Set(['L']))).toBe(0);
+  });
+
+  test('a held tab below the group leaves the start', () => {
+    expect(groupStartIndex(window4, 'g', new Set(['M']))).toBe(1);
+  });
+
+  test('a held first member: the start is the next member', () => {
+    expect(groupStartIndex(window4, 'g', new Set(['G1']))).toBe(1);
+  });
+
+  test('a group at the window start starts at 0', () => {
+    expect(groupStartIndex(window4.slice(1), 'g', none)).toBe(0);
+  });
+
+  test('a group with no member here: the list end', () => {
+    expect(groupStartIndex(window4, 'other', new Set(['M']))).toBe(3);
   });
 });
 

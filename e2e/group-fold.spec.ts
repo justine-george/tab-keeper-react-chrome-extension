@@ -316,8 +316,14 @@ test.describe('a saved group', () => {
 });
 
 // KAN-822 D8. Dropped on a folded group, a tab joins at its end and the group stays folded.
-// c and lead loose above Research, stored folded: the group is at the window end.
-const dropTabs = [tab('c'), tab('lead'), tab('a', 'g1'), tab('b', 'g1')];
+// c and lead loose above Research, stored folded, and tail below it.
+const dropTabs = [
+  tab('c'),
+  tab('lead'),
+  tab('a', 'g1'),
+  tab('b', 'g1'),
+  tab('tail'),
+];
 const FOLDED_TRIP = buildSession({
   ...TRIP,
   tabCount: dropTabs.length,
@@ -385,14 +391,15 @@ test.describe('a tab dropped on a folded saved group', () => {
 
     await expect
       .poll(() => storedOrder(page))
-      .toEqual(['lead', 'a:g1', 'b:g1', 'c:g1']);
+      .toEqual(['lead', 'a:g1', 'b:g1', 'c:g1', 'tail']);
     expect(await savedCollapsed(page)).toBe(true);
     await expect(bandHandle(page, 'g1').getByText('3 tabs')).toBeVisible();
     await expect(memberRows(page)).toHaveCount(0);
     await expect(band(page)).toHaveAttribute('data-group-folded', '');
   });
 
-  test('a tab dropped just above a folded group lands below it', async ({
+  // KAN-822 (his rule): above the band the tab lands before the group, as above any row.
+  test('a tab dropped just above a folded group lands above it, before the group', async ({
     context,
     extensionId,
   }) => {
@@ -401,25 +408,23 @@ test.describe('a tab dropped on a folded saved group', () => {
     await expect(band(page)).toHaveAttribute('data-group-folded', '');
     // Measured from the window's own row, which a tab drag never moves.
     const windowTop = async () => (await boxOf(header(page, 'w1'))).y;
+    const resting = await boxOf(band(page));
 
     // Past lead's midpoint, above the band: outside every band.
-    await holdOver(page, savedRow(page, 'c'), async () => {
-      return (await boxOf(band(page))).y - 3;
-    });
+    await holdOver(page, savedRow(page, 'c'), async () => resting.y - 3);
     await expect(band(page)).not.toHaveAttribute('data-drop-target');
-    // The slot is below the band's title row as the preview draws it.
+    // The slot is above the band's title row, and the colour strip stays with the title.
     const slot = await boxOf(landingSlot(page));
     const title = await boxOf(bandHandle(page, 'g1'));
-    expect(slot.y).toBeGreaterThanOrEqual(title.y + title.height);
-    // The colour strip, which reads as "inside this group", ends with the title row, not beside the slot.
+    expect(slot.y + slot.height).toBeLessThanOrEqual(title.y + 1);
     const strip = await boxOf(band(page).locator('[data-group-color-strip]'));
-    expect(strip.y + strip.height).toBeLessThanOrEqual(slot.y + 1);
+    expect(strip.y).toBeGreaterThanOrEqual(slot.y + slot.height - 1);
     const promised = slot.y - (await windowTop());
     await page.mouse.up();
 
     await expect
       .poll(() => storedOrder(page))
-      .toEqual(['lead', 'a:g1', 'b:g1', 'c']);
+      .toEqual(['lead', 'c', 'a:g1', 'b:g1', 'tail']);
     expect(await savedCollapsed(page)).toBe(true);
     await expect(memberRows(page)).toHaveCount(0);
     // The preview promised where the row rests.
@@ -427,7 +432,166 @@ test.describe('a tab dropped on a folded saved group', () => {
     const rested = (await boxOf(savedRow(page, 'c'))).y - (await windowTop());
     expect(Math.abs(rested - promised)).toBeLessThanOrEqual(1);
   });
+
+  test('a tab dropped just below a folded group lands below it, after the group', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await context.newPage();
+    await openTrip(page, extensionId);
+    await expect(band(page)).toHaveAttribute('data-group-folded', '');
+    const windowTop = async () => (await boxOf(header(page, 'w1'))).y;
+    const resting = await boxOf(band(page));
+
+    await holdOver(
+      page,
+      savedRow(page, 'c'),
+      async () => resting.y + resting.height + 3
+    );
+    await expect(band(page)).not.toHaveAttribute('data-drop-target');
+    // The slot is below the title row, and the colour strip ends with the title, not beside the slot.
+    const slot = await boxOf(landingSlot(page));
+    const title = await boxOf(bandHandle(page, 'g1'));
+    expect(slot.y).toBeGreaterThanOrEqual(title.y + title.height);
+    const strip = await boxOf(band(page).locator('[data-group-color-strip]'));
+    expect(strip.y + strip.height).toBeLessThanOrEqual(slot.y + 1);
+    const promised = slot.y - (await windowTop());
+    await page.mouse.up();
+
+    await expect
+      .poll(() => storedOrder(page))
+      .toEqual(['lead', 'a:g1', 'b:g1', 'c', 'tail']);
+    expect(await savedCollapsed(page)).toBe(true);
+    await elementLanded(savedRow(page, 'c'), 'ancestors');
+    const rested = (await boxOf(savedRow(page, 'c'))).y - (await windowTop());
+    expect(Math.abs(rested - promised)).toBeLessThanOrEqual(1);
+  });
+
+  test('dragged down through a folded group, the slot is above it, then none, then below it', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await context.newPage();
+    await openTrip(page, extensionId);
+    await expect(band(page)).toHaveAttribute('data-group-folded', '');
+    const steps = await sweepThrough(
+      page,
+      savedRow(page, 'c'),
+      band(page),
+      bandHandle(page, 'g1')
+    );
+    expectSlotFollowsPointer(steps);
+
+    // Back up into the zone above the band, and let go: before the group, ungrouped.
+    await page.mouse.move(steps[0].x, steps[0].bandTop - 3, { steps: 4 });
+    await page.waitForTimeout(250);
+    await expect(landingSlot(page)).toHaveCount(1);
+    await page.mouse.up();
+    await expect
+      .poll(() => storedOrder(page))
+      .toEqual(['lead', 'c', 'a:g1', 'b:g1', 'tail']);
+    expect(await savedCollapsed(page)).toBe(true);
+  });
 });
+
+// KAN-822 (his rule). One step of a slow drag: where the pointer is against the band's resting box, and what the preview draws.
+interface SweepStep {
+  x: number;
+  y: number;
+  bandTop: number;
+  bandBottom: number;
+  joins: boolean;
+  slot: { top: number; bottom: number } | null;
+  title: { top: number; bottom: number };
+}
+
+// Holds `row` and moves down in 4px steps from its middle to 12px past the band, recording each step.
+async function sweepThrough(
+  page: Page,
+  row: Locator,
+  bandEl: Locator,
+  titleEl: Locator
+): Promise<SweepStep[]> {
+  await elementLanded(row, 'ancestors');
+  const resting = await boxOf(bandEl);
+  const from = await boxOf(row);
+  const x = from.x + 40;
+  const y0 = from.y + from.height / 2;
+  await page.mouse.move(x, y0);
+  await page.mouse.down();
+  await page.mouse.move(x, y0 + 8, { steps: 2 });
+  await expect(page.locator('[data-drag-held]')).toHaveCount(1);
+  const steps: SweepStep[] = [];
+  const last = resting.y + resting.height + 12;
+  for (let y = y0 + 8; y <= last; y += 4) {
+    await page.mouse.move(x, y);
+    await page.waitForTimeout(30);
+    const drawn = await titleEl.evaluate((title) => {
+      const box = (el: Element | null) => {
+        if (el === null) return null;
+        const r = el.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom };
+      };
+      // The title row's commanded place: its box less the part of its transform still easing in.
+      const shift = (el: Element) =>
+        el instanceof HTMLElement
+          ? Number(
+              /translateY\((-?[\d.]+)px\)/.exec(el.style.transform)?.[1] ?? 0
+            )
+          : 0;
+      const band = title.closest('[data-band-id]');
+      return {
+        slot: box(document.querySelector('[data-drag-landing-slot]')),
+        joins: band?.hasAttribute('data-drop-target') ?? false,
+        shift: shift(title),
+        height: title.getBoundingClientRect().height,
+      };
+    });
+    const titleTop = resting.y + drawn.shift;
+    steps.push({
+      x,
+      y,
+      bandTop: resting.y,
+      bandBottom: resting.y + resting.height,
+      joins: drawn.joins,
+      slot: drawn.slot,
+      title: { top: titleTop, bottom: titleTop + drawn.height },
+    });
+  }
+  return steps;
+}
+
+// Above the band the slot is above the title row; on it, the join wash and no slot; below it, the slot below. In that order.
+function expectSlotFollowsPointer(steps: readonly SweepStep[]) {
+  const zones: string[] = [];
+  for (const step of steps) {
+    const where = JSON.stringify(step);
+    if (step.y < step.bandTop) {
+      expect(step.joins, where).toBe(false);
+      expect(step.slot, where).not.toBeNull();
+      expect(step.slot?.bottom ?? Infinity, where).toBeLessThanOrEqual(
+        step.title.top + 1
+      );
+      zones.push('above');
+    } else if (step.y <= step.bandBottom) {
+      expect(step.joins, where).toBe(true);
+      expect(step.slot, where).toBeNull();
+      zones.push('join');
+    } else {
+      expect(step.joins, where).toBe(false);
+      expect(step.slot, where).not.toBeNull();
+      expect(step.slot?.top ?? -Infinity, where).toBeGreaterThanOrEqual(
+        step.title.bottom - 1
+      );
+      zones.push('below');
+    }
+  }
+  expect(zones.filter((z, i) => z !== zones[i - 1])).toEqual([
+    'above',
+    'join',
+    'below',
+  ]);
+}
 
 // KAN-822 D2. In Currently open the fold is Chrome's own collapse, both ways.
 const VIEW_TAB = 'index.html?view=tab';
@@ -869,6 +1033,71 @@ test.describe('a group in Currently open', () => {
       `group ${w.openId}`,
     ]);
     expect(seen).not.toContain('at 3');
+  });
+
+  test('dragged down through a collapsed group, the slot is above it, then none, then below it', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+    const w = await serviceWorker.evaluate(async (urls) => {
+      const made = await chrome.windows.create({ url: urls, focused: false });
+      const [held, lead, nara1, nara2, tail] = (made?.tabs ?? []).map(
+        (t) => t.id ?? -1
+      );
+      const groupId = await chrome.tabs.group({
+        tabIds: [nara1, nara2],
+        createProperties: { windowId: made?.id },
+      });
+      await chrome.tabGroups.update(groupId, {
+        title: 'Nara',
+        color: 'green',
+        collapsed: true,
+      });
+      return {
+        windowId: made?.id ?? -1,
+        groupId,
+        held,
+        lead,
+        nara1,
+        nara2,
+        tail,
+      };
+    }, ['Held', 'Lead', 'Deer', 'Park', 'Tail'].map(standIn));
+    const block = page.locator(`[data-open-window-id="${w.windowId}"]`);
+    const naraBand = block.locator(
+      `[data-band-id="${w.groupId}"][role="group"]`
+    );
+    // PREMISE: Nara is drawn folded.
+    await expect(naraBand).toHaveAttribute('data-group-folded', '');
+    const heldRow = block.locator(`[data-drag-row-id="${w.held}"]`);
+    await expect(heldRow).toBeVisible();
+
+    const steps = await sweepThrough(
+      page,
+      heldRow,
+      naraBand,
+      naraBand.locator('[data-group-drag-handle]')
+    );
+    expectSlotFollowsPointer(steps);
+
+    await page.mouse.move(steps[0].x, steps[0].bandTop - 3, { steps: 4 });
+    await page.waitForTimeout(250);
+    await expect(landingSlot(page)).toHaveCount(1);
+    await page.mouse.up();
+    const place = (id: number) =>
+      serviceWorker.evaluate(async (tabId) => {
+        const t = await chrome.tabs.get(tabId);
+        return { index: t.index, groupId: t.groupId };
+      }, id);
+    // Before Nara, ungrouped; Nara whole and still collapsed.
+    await expect.poll(() => place(w.held)).toEqual({ index: 1, groupId: -1 });
+    expect(await place(w.lead)).toEqual({ index: 0, groupId: -1 });
+    expect(await place(w.nara1)).toEqual({ index: 2, groupId: w.groupId });
+    expect(await place(w.nara2)).toEqual({ index: 3, groupId: w.groupId });
+    expect(await place(w.tail)).toEqual({ index: 4, groupId: -1 });
+    expect(await chromeCollapsed(serviceWorker, w.groupId)).toBe(true);
   });
 });
 

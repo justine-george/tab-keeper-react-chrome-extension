@@ -179,6 +179,17 @@ export function foldedMemberIds(
   );
 }
 
+// KAN-822. Where a loose drop in front of a group lands, held tabs lifted out: at its first member, else the end.
+export function groupStartIndex(
+  tabs: readonly GroupableTab[],
+  groupId: string,
+  heldIds: ReadonlySet<string>
+): number {
+  const others = tabs.filter((tab) => !heldIds.has(tab.tabId));
+  const first = others.findIndex((tab) => tab.chromeGroupId === groupId);
+  return first === -1 ? others.length : first;
+}
+
 // KAN-822. Where a join at a group's end lands, held tabs lifted out: past its last member, else where it stood, else the end.
 export function groupEndIndex(
   tabs: readonly GroupableTab[],

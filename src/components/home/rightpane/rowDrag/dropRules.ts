@@ -100,7 +100,12 @@ export interface RemovedFixedRows {
 export interface DropTarget {
   // Which Chrome group band the pointer is over, if any.
   bandId: string | undefined;
+  // KAN-822. The folded bands whose top is below the pointer: a folded group is one row, and its row index alone names both gaps beside it.
+  foldedBandsBelow?: ReadonlySet<string>;
 }
+
+// KAN-822. No folded band below the pointer: what a list with no folded bands, or no resolveDrop, answers.
+export const NO_FOLDED_BANDS: ReadonlySet<string> = new Set();
 
 // The engine cannot answer this itself: for tabs it is which Chrome group the
 // pointer was over, and for windows there is no such question at all. So the
@@ -213,7 +218,9 @@ export interface RowDragAreaProps {
     rowId: string,
     toIndex: number,
     dropTargetId?: string,
-    toWindowId?: string
+    toWindowId?: string,
+    // KAN-822. resolveDrop's folded bands below the pointer, for a list whose rows sit in windows.
+    foldedBandsBelow?: ReadonlySet<string>
   ) => void | Promise<unknown>;
   // A CSS selector for the part of a row that starts a drag. Omitted, the whole
   // row does.
@@ -395,7 +402,9 @@ export interface RowDragAreaProps {
     rowId: string,
     toIndex: number,
     target: string | undefined,
-    windowId: string | undefined
+    windowId: string | undefined,
+    // KAN-822. resolveDrop's folded bands below the pointer.
+    foldedBandsBelow: ReadonlySet<string>
   ) => FixedRowLanding | undefined;
   /**
    * Which fixed rows the drop REMOVES, when it removes any (KAN-169).
@@ -447,7 +456,9 @@ export interface RowDragAreaProps {
     rowId: string,
     toIndex: number,
     target: string | undefined,
-    windowId: string | undefined
+    windowId: string | undefined,
+    // KAN-822. resolveDrop's folded bands below the pointer.
+    foldedBandsBelow: ReadonlySet<string>
   ) => BandGapChange[];
   /**
    * Hand a drag that reaches a carry receiver -- the session list -- to the
@@ -626,7 +637,55 @@ export function bandAt(
   y: number,
   closedUp?: ClosedUp
 ): string | undefined {
-  if (!container) return undefined;
+  for (const box of bandHitBoxes(container, closedUp)) {
+    if (
+      x >= box.left &&
+      x <= box.right &&
+      y + box.lift >= box.top &&
+      y + box.lift <= box.bottom
+    ) {
+      return box.band.dataset.bandId;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * KAN-822. The folded bands whose hit box starts below `y`, tested exactly as
+ * bandAt tests its own, so the gap above a folded band ends where its band
+ * begins: above it a loose drop lands before the group, below it after.
+ */
+export function foldedBandsBelow(
+  container: HTMLElement | null,
+  y: number,
+  closedUp?: ClosedUp
+): ReadonlySet<string> {
+  const below = new Set<string>();
+  for (const box of bandHitBoxes(container, closedUp)) {
+    const bandId = box.band.dataset.bandId;
+    if (
+      bandId !== undefined &&
+      isBandFolded(box.band) &&
+      y + box.lift < box.top
+    )
+      below.add(bandId);
+  }
+  return below;
+}
+
+// Each band's hit box, in document order: what bandAt and foldedBandsBelow test the pointer against.
+function* bandHitBoxes(
+  container: HTMLElement | null,
+  closedUp: ClosedUp | undefined
+): Generator<{
+  band: HTMLElement;
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+  lift: number;
+}> {
+  if (!container) return;
   let closedWindow: HTMLElement | null | undefined;
   for (const band of container.querySelectorAll<HTMLElement>(
     '[data-band-id]'
@@ -657,16 +716,15 @@ export function bandAt(
     // was enough to latch: the pointer marked the band, the band grew, the
     // boundary moved past the pointer, and it unmarked again on the next move.
     const grewBy = parseFloat(band.dataset.bandGrewBy ?? '') || 0;
-    if (
-      x >= r.left &&
-      x <= r.right &&
-      y + lift >= r.top + grewBy &&
-      y + lift <= r.bottom - padBottom
-    ) {
-      return band.dataset.bandId;
-    }
+    yield {
+      band,
+      left: r.left,
+      right: r.right,
+      top: r.top + grewBy,
+      bottom: r.bottom - padBottom,
+      lift,
+    };
   }
-  return undefined;
 }
 
 /**
