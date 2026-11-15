@@ -35,6 +35,28 @@ export type EncodedCloudDocument =
 const utf8Bytes = (value: unknown): number =>
   new TextEncoder().encode(JSON.stringify(value)).byteLength;
 
+// Firestore's own storage-size rules: string UTF-8 + 1, bytes as is, number 8, null 1, maps by key + value.
+function firestoreValueBytes(value: unknown): number {
+  if (value === null) return 1;
+  if (typeof value === 'number' || typeof value === 'boolean') return 8;
+  if (typeof value === 'string') return utf8Bytes(value) - 1; // JSON's two quotes, less Firestore's 1
+  if (value instanceof Uint8Array) return value.byteLength;
+  if (Array.isArray(value))
+    return value.reduce(
+      (sum: number, item) => sum + firestoreValueBytes(item),
+      0
+    );
+  return Object.entries(value as Record<string, unknown>).reduce(
+    (sum, [key, item]) =>
+      sum + firestoreValueBytes(key) + firestoreValueBytes(item),
+    0
+  );
+}
+
+// The rest of what Firestore counts against 1 MiB: the name tabGroupData/<36-char device uuid> (13 + 37 + 16),
+// the writerVersion field external.ts adds (14 + 8), and 32 per document.
+const DOCUMENT_OVERHEAD_BYTES = 13 + 37 + 16 + 14 + 8 + 32;
+
 // What every write sends: the run's example and embedded favicons stay on this device (KAN-600, KAN-594).
 const prepare = (container: TabMasterContainer): TabMasterContainer =>
   stripEmbeddedFavicons(withoutSamples(container));
@@ -53,7 +75,9 @@ async function compress(
   const tabGroupsZ = await compressToBytes(JSON.stringify(tabGroups));
   return {
     fields: { ...plain, tabGroupsZ },
-    bytes: tabGroupsZ.byteLength + utf8Bytes(plain),
+    // Counted Firestore's way: close to the limit, a JSON estimate runs ~100 bytes short.
+    bytes:
+      firestoreValueBytes({ ...plain, tabGroupsZ }) + DOCUMENT_OVERHEAD_BYTES,
   };
 }
 

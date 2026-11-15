@@ -248,6 +248,8 @@ describe('the sync space bar (KAN-596)', () => {
     act(() => {
       store.dispatch(declineCloudConsent());
     });
+    // KAN-6. The bar remounts and measures again; check once that has landed.
+    await measured();
     expect(meter()).toBeNull();
     act(() => {
       store.dispatch(grantCloudConsent());

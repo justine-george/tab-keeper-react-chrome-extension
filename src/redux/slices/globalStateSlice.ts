@@ -408,7 +408,7 @@ export const saveToFirestoreIfDirty = createAsyncThunk(
       if (state.globalState.isDirty) {
         // Firestore rejects an over-limit document, and the rejection leaves
         // isDirty set, so every later change retries the same doomed write and
-        // sync wedges with nothing on screen to explain it. readImportedContainer
+        // sync wedges with nothing on screen to explain it. refuseOversizeImport
         // already refuses this on the import path; this is the same refusal on
         // the sync path, phrased the same way.
         // KAN-6. The size of what is written: plain, or gzipped past 80%.

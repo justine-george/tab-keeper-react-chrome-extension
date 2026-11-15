@@ -82,7 +82,7 @@ describe('the cloud document sync writes (KAN-6)', () => {
       selectedTabGroupId: 'big',
       deletedTabGroups: [{ tabGroupId: 'gone', deletedAt: 900 }],
     });
-    expect(encoded.bytes).toBe(tabGroupsZ.length + utf8(JSON.stringify(rest)));
+    expect(encoded.bytes).toBeGreaterThan(tabGroupsZ.length);
   });
 
   // Firestore rejects a field set to undefined.
@@ -119,6 +119,47 @@ describe('the cloud document sync writes (KAN-6)', () => {
     expect('tabGroupsZ' in encoded.fields).toBe(false);
     expect('tabGroups' in encoded.fields).toBe(true);
   });
+});
+
+// Firestore's own count (firebase.google.com/docs/firestore/storage-size): the document name,
+// each field name (UTF-8 + 1), each value (string UTF-8 + 1, bytes as is, number 8, null 1), plus 32.
+function firestoreSize(fields: Record<string, unknown>): number {
+  const str = (s: string) => utf8(s) + 1;
+  const value = (v: unknown): number => {
+    if (v === null) return 1;
+    if (typeof v === 'number' || typeof v === 'boolean') return 8;
+    if (typeof v === 'string') return str(v);
+    if (v instanceof Uint8Array) return v.byteLength;
+    if (Array.isArray(v))
+      return v.reduce((sum: number, x) => sum + value(x), 0);
+    return Object.entries(v as Record<string, unknown>).reduce(
+      (sum, [k, x]) => sum + str(k) + value(x),
+      0
+    );
+  };
+  // tabGroupData/<36-char device uuid>, the longest id this extension mints.
+  const name = str('tabGroupData') + str('x'.repeat(36)) + 16;
+  return name + value(fields) + 32;
+}
+
+describe('the compressed size covers what Firestore counts (KAN-6)', () => {
+  it.each([0, 1, 5])(
+    "equals Firestore's own count, with %i tombstones",
+    async (graves) => {
+      const c = {
+        ...plainOf(COMPRESS_FROM_BYTES + 1000),
+        selectedTabGroupId: 'big',
+        deletedTabGroups: Array.from({ length: graves }, (_, i) => ({
+          tabGroupId: `gone-${i}`,
+          deletedAt: 900,
+        })),
+      };
+      const encoded = await encodeCloudDocument(c);
+      if (!encoded.compressed) throw new Error('premise: compressed');
+      const written = { ...encoded.fields, writerVersion: 2 };
+      expect(encoded.bytes).toBe(firestoreSize(written));
+    }
+  );
 });
 
 describe('syncBytes measures the compressed document at any size (KAN-6)', () => {
