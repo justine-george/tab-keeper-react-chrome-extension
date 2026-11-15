@@ -61,7 +61,7 @@ import {
   withoutSplitFollowers,
 } from '../../../utils/functions/splitPartners';
 import {
-  foldedGroupEndIndex,
+  groupEndIndex,
   foldedMemberIds,
   itemIdOf,
   partitionTabsIntoItems,
@@ -127,9 +127,9 @@ export function openDragWindows(
 }
 
 // KAN-822. A drawn row of `window` as the row moveOpenTab counts, a folded group's members included:
-// on a folded band, its end (D8); elsewhere past the members, so a row at its edge lands after it (Review Focus 1).
-// Null for a row the window does not draw, counted with the held row lifted out.
-export function liveTabRowOf(
+// on a folded band, its end (D8); elsewhere past the members, so a row at its edge lands after it (Review Focus 1),
+// but a join never past its own group's end. Null for a row the window does not draw, the held row lifted out.
+export function liveIndexOfDrawnRow(
   window: DragWindows[number],
   heldId: string,
   rowIndex: number,
@@ -147,9 +147,10 @@ export function liveTabRowOf(
   if (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex > rows) {
     return null;
   }
-  return bandId !== undefined && foldedGroupIds.has(bandId)
-    ? foldedGroupEndIndex(window.tabs, bandId, new Set([heldId]))
-    : indexOfDrawnRow(drawsNoRow, rowIndex);
+  const row = indexOfDrawnRow(drawsNoRow, rowIndex);
+  if (bandId === undefined) return row;
+  const end = groupEndIndex(window.tabs, bandId, new Set([heldId]));
+  return foldedGroupIds.has(bandId) ? end : Math.min(row, end);
 }
 
 // What a window shows, for landingRange: the engine counts only the rows a
@@ -478,7 +479,13 @@ export function useOpenNowDrop({
       const row =
         landing === undefined
           ? toIndex
-          : liveTabRowOf(landing, rowId, toIndex, dropTargetId, foldedGroupIds);
+          : liveIndexOfDrawnRow(
+              landing,
+              rowId,
+              toIndex,
+              dropTargetId,
+              foldedGroupIds
+            );
       const carried = carriedFor(rowId);
       if (carried !== undefined) {
         const savedPinned = carriedIn?.pinned === true;

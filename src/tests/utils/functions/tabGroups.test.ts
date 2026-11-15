@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import {
-  foldedGroupEndIndex,
+  groupEndIndex,
   partitionTabsIntoRuns,
   partitionTabsIntoItems,
   itemIdOf,
@@ -206,39 +206,39 @@ describe('groupIdOfItemId', () => {
   });
 });
 
-describe('foldedGroupEndIndex (KAN-822)', () => {
+describe('groupEndIndex (KAN-822)', () => {
   const window4 = [tab('L'), tab('G1', 'g'), tab('G2', 'g'), tab('M')];
   const none: ReadonlySet<string> = new Set();
 
   test('one past the last member', () => {
-    expect(foldedGroupEndIndex(window4, 'g', none)).toBe(3);
+    expect(groupEndIndex(window4, 'g', none)).toBe(3);
   });
 
   test('a held member is lifted out first', () => {
-    expect(foldedGroupEndIndex(window4, 'g', new Set(['G1']))).toBe(2);
+    expect(groupEndIndex(window4, 'g', new Set(['G1']))).toBe(2);
   });
 
   test('the held last member: the end is after the one left', () => {
-    expect(foldedGroupEndIndex(window4, 'g', new Set(['G2']))).toBe(2);
+    expect(groupEndIndex(window4, 'g', new Set(['G2']))).toBe(2);
   });
 
   test('a held tab above the group shifts the end up one', () => {
-    expect(foldedGroupEndIndex(window4, 'g', new Set(['L']))).toBe(2);
+    expect(groupEndIndex(window4, 'g', new Set(['L']))).toBe(2);
   });
 
   test('a held tab below the group leaves the end', () => {
-    expect(foldedGroupEndIndex(window4, 'g', new Set(['M']))).toBe(3);
+    expect(groupEndIndex(window4, 'g', new Set(['M']))).toBe(3);
   });
 
   test('a group at the window end ends at the list end', () => {
-    expect(foldedGroupEndIndex(window4.slice(0, 3), 'g', none)).toBe(3);
+    expect(groupEndIndex(window4.slice(0, 3), 'g', none)).toBe(3);
   });
 
   test('every member held: where the group stood', () => {
-    expect(foldedGroupEndIndex(window4, 'g', new Set(['G1', 'G2']))).toBe(1);
+    expect(groupEndIndex(window4, 'g', new Set(['G1', 'G2']))).toBe(1);
   });
 
   test('a group with no member here: the list end', () => {
-    expect(foldedGroupEndIndex(window4, 'other', new Set(['M']))).toBe(3);
+    expect(groupEndIndex(window4, 'other', new Set(['M']))).toBe(3);
   });
 });

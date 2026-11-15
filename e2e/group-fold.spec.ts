@@ -344,25 +344,15 @@ test.describe('a tab dropped on a folded saved group', () => {
     // PREMISE: stored folded, drawn as its title row alone.
     await expect(band(page)).toHaveAttribute('data-group-folded', '');
     await expect(memberRows(page)).toHaveCount(0);
-    const resting = await boxOf(band(page));
 
     await holdOver(page, savedRow(page, 'c'), async () => {
       const row = await boxOf(bandHandle(page, 'g1'));
       return row.y + row.height / 2;
     });
-    // The join wash, and no room inside the band: its box and the slot keep apart.
+    // Ruling C: the join wash alone, no slot anywhere, and the group stays folded.
     await expect(band(page)).toHaveAttribute('data-drop-target', '');
+    await expect(landingSlot(page)).toHaveCount(0);
     await expect(memberRows(page)).toHaveCount(0);
-    const during = await boxOf(band(page));
-    expect(Math.abs(during.height - resting.height)).toBeLessThanOrEqual(1);
-    const slot = await boxOf(landingSlot(page));
-    const outside =
-      slot.y + slot.height <= during.y + 1 ||
-      slot.y >= during.y + during.height - 1;
-    expect(
-      outside,
-      `slot ${JSON.stringify(slot)} band ${JSON.stringify(during)}`
-    ).toBe(true);
     await page.mouse.up();
 
     await expect
@@ -674,6 +664,7 @@ test.describe('a group in Currently open', () => {
       return row.y + row.height / 2;
     });
     await expect(liveBand(page, k)).toHaveAttribute('data-drop-target', '');
+    await expect(landingSlot(page)).toHaveCount(0);
     await expect(liveMembers(page, k)).toHaveCount(0);
     await page.mouse.up();
 
@@ -692,5 +683,121 @@ test.describe('a group in Currently open', () => {
     expect(gardens).toBe(1);
     expect(await chromeCollapsed(serviceWorker, k.groupId)).toBe(true);
     await expectLiveFolded(page, k, 3);
+  });
+  // Review critical 1: a join at an open group's tail stays in that group, though a collapsed one follows it.
+  test("a tab joining an open group's tail above a collapsed group stays in the open group", async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+    const w = await serviceWorker.evaluate(async (urls) => {
+      const made = await chrome.windows.create({ url: urls, focused: false });
+      const [open1, open2, shut1, tail] = (made?.tabs ?? []).map(
+        (t) => t.id ?? -1
+      );
+      const openId = await chrome.tabs.group({
+        tabIds: [open1, open2],
+        createProperties: { windowId: made?.id },
+      });
+      await chrome.tabGroups.update(openId, { title: 'Nara', color: 'green' });
+      const shutId = await chrome.tabs.group({
+        tabIds: [shut1],
+        createProperties: { windowId: made?.id },
+      });
+      await chrome.tabGroups.update(shutId, {
+        title: 'Osaka',
+        color: 'red',
+        collapsed: true,
+      });
+      return {
+        windowId: made?.id ?? -1,
+        openId,
+        shutId,
+        open1,
+        open2,
+        shut1,
+        tail,
+      };
+    }, ['Deer', 'Park', 'Castle', 'Tail'].map(standIn));
+    const k = await openKyoto(serviceWorker);
+    const block = page.locator(`[data-open-window-id="${w.windowId}"]`);
+    const open2Row = block.locator(`[data-drag-row-id="${w.open2}"]`);
+    // PREMISE: Osaka is drawn folded, Nara open with both members.
+    await expect(
+      block.locator(`[data-band-id="${w.shutId}"][role="group"]`)
+    ).toHaveAttribute('data-group-folded', '');
+    await expect(open2Row).toBeVisible();
+    const looseRow = liveBlock(page, k).locator(
+      `[data-drag-row-id="${k.loose}"]`
+    );
+    await expect(looseRow).toBeVisible();
+    await elementLanded(looseRow, 'ancestors');
+
+    // From Kyoto's window into Nara, past its last member's midpoint: the tail.
+    await holdOver(page, looseRow, async () => {
+      const row = await boxOf(open2Row);
+      return row.y + row.height - 6;
+    });
+    await expect(
+      block.locator(`[data-band-id="${w.openId}"][role="group"]`)
+    ).toHaveAttribute('data-drop-target', '');
+    // Every place Chrome reports for the tab: asked past Osaka, it was carried out of Nara and back.
+    await serviceWorker.evaluate((id) => {
+      const seen: string[] = [];
+      Reflect.set(globalThis, '__looseSeen', seen);
+      chrome.tabs.onAttached.addListener((tabId, info) => {
+        if (tabId === id) seen.push(`at ${info.newPosition}`);
+      });
+      chrome.tabs.onMoved.addListener((tabId, info) => {
+        if (tabId === id) seen.push(`at ${info.toIndex}`);
+      });
+      chrome.tabs.onUpdated.addListener((tabId, change) => {
+        if (tabId === id && change.groupId !== undefined)
+          seen.push(`group ${change.groupId}`);
+      });
+    }, k.loose);
+    await page.mouse.up();
+
+    const place = (id: number) =>
+      serviceWorker.evaluate(async (tabId) => {
+        const t = await chrome.tabs.get(tabId);
+        return { windowId: t.windowId, index: t.index, groupId: t.groupId };
+      }, id);
+    await expect
+      .poll(() => place(k.loose))
+      .toEqual({ windowId: w.windowId, index: 2, groupId: w.openId });
+    expect(await place(w.open1)).toEqual({
+      windowId: w.windowId,
+      index: 0,
+      groupId: w.openId,
+    });
+    expect(await place(w.open2)).toEqual({
+      windowId: w.windowId,
+      index: 1,
+      groupId: w.openId,
+    });
+    expect(await place(w.shut1)).toEqual({
+      windowId: w.windowId,
+      index: 3,
+      groupId: w.shutId,
+    });
+    expect(await place(w.tail)).toEqual({
+      windowId: w.windowId,
+      index: 4,
+      groupId: -1,
+    });
+    expect(await chromeCollapsed(serviceWorker, w.shutId)).toBe(true);
+    const seen = await serviceWorker.evaluate(() => {
+      const log: unknown = Reflect.get(globalThis, '__looseSeen');
+      return Array.isArray(log) ? log.map(String) : [];
+    });
+    // PREMISE: the recorder saw the join.
+    expect(seen).toContain(`group ${w.openId}`);
+    // Never ungrouped, never past Osaka's member (index 3); Chrome attaches it at the end (4) on its way in.
+    expect(seen.filter((e) => e.startsWith('group '))).toEqual([
+      `group ${w.openId}`,
+    ]);
+    expect(seen).not.toContain('at 3');
   });
 });

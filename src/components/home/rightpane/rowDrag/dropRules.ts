@@ -840,6 +840,11 @@ export function isWindowCollapsed(block: HTMLElement): boolean {
   return block.hasAttribute('data-window-collapsed');
 }
 
+// KAN-822. A group band drawn folded to its title row, as both panes mark it.
+export function isBandFolded(band: HTMLElement): boolean {
+  return band.hasAttribute('data-group-folded');
+}
+
 // Every saved-window block below `container`, in document order.
 export function windowBlocksIn(container: HTMLElement | null): HTMLElement[] {
   return container

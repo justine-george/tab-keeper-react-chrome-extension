@@ -47,6 +47,7 @@ import {
   isOnBlock,
   isRowContainer,
   isTrailingBlock,
+  isBandFolded,
   isWindowCollapsed,
   markRowContainer,
   newWindowFree,
@@ -64,6 +65,7 @@ import {
   type RowDragAreaProps,
 } from './dropRules';
 import {
+  closingShifts,
   freedByRemoving,
   gapChangeShifts,
   landingDeltaAcross,
@@ -1402,7 +1404,20 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // Where the outline over the room the row leaves is drawn (KAN-354 C3
       // A) -- see DragState.sourceRoomDelta. Null unless set below.
       let sourceRoomDelta: number | null = null;
-      if (
+      // KAN-822 (ruling C). A join onto a folded band has no slot to show: the band's wash says where, as a New window target's light does.
+      const joinsFoldedBand =
+        previewed !== undefined &&
+        target !== undefined &&
+        [
+          ...(containerRef.current?.querySelectorAll<HTMLElement>(
+            '[data-band-id]'
+          ) ?? []),
+        ].some((band) => band.dataset.bandId === target && isBandFolded(band));
+      if (joinsFoldedBand) {
+        // The source closes up behind the row and nothing opens.
+        shifts = summed(closingShifts(l.slots, from, l.footprint), besides);
+        landingDelta = 0;
+      } else if (
         previewed !== undefined &&
         previewed.windowId !== undefined &&
         previewed.windowId !== l.heldWindow?.dataset.dropWindowId
@@ -1563,7 +1578,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // in the trailing block -- where it is not going.
         landingSlotShown:
           !makesNewWindow(l, previewed?.windowId) &&
-          !(l.adopted && previewed === undefined),
+          !(l.adopted && previewed === undefined) &&
+          !joinsFoldedBand,
         newlyMeasured: l.newlyMeasured,
         settling: false,
       };

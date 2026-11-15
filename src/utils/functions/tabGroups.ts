@@ -179,9 +179,9 @@ export function foldedMemberIds(
   );
 }
 
-// KAN-822. Where a drop on a folded group's band lands: one past its last member, in `tabs` with the held tabs lifted out.
+// KAN-822. One past a group's last member, in `tabs` with the held tabs lifted out: where a join at its end lands.
 // With no member left, where the group's last one stood; with none at all, the list end.
-export function foldedGroupEndIndex(
+export function groupEndIndex(
   tabs: readonly GroupableTab[],
   groupId: string,
   heldIds: ReadonlySet<string>

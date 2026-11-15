@@ -625,6 +625,74 @@ describe('a folded group', () => {
     expect(moveOpenTab).not.toHaveBeenCalled();
   });
 
+  // Review critical 1: [h: 61 62][g folded: 63] 64 in window 6.
+  const besideFolded = (): ChromeSeed => ({
+    windows: [
+      {
+        id: 6,
+        tabs: [
+          { id: 61, url: url('h1'), groupId: 60, active: true },
+          { id: 62, url: url('h2'), groupId: 60 },
+          { id: 63, url: url('g1'), groupId: 66 },
+          { id: 64, url: url('m') },
+        ],
+      },
+      { id: 7, tabs: [{ id: 71, url: url('x'), active: true }] },
+    ],
+    tabGroups: [
+      { id: 60, title: 'Open', color: 'blue', windowId: 6 },
+      { id: 66, title: 'Folded', color: 'red', windowId: 6, collapsed: true },
+    ],
+  });
+
+  test('a tail join of an open group just above a folded one stays in the open group', async () => {
+    const { result } = renderDrop(await install(besideFolded()), {
+      foldedGroupIds: new Set(['66']),
+    });
+    // Window 6 with 64 lifted draws 61, 62: row 2 is the open group's tail.
+    await result.current.tabs.onMove('64', 2, '60', '6');
+    // Asked of Chrome as the open group's end, not past the folded one.
+    expect(moveOpenTab).toHaveBeenCalledWith(
+      expect.objectContaining({ toIndex: 2, toGroupId: '60' }),
+      expect.anything(),
+      true
+    );
+    expect(await tabNow(64)).toEqual({ windowId: 6, index: 2, groupId: 60 });
+    expect(await tabNow(63)).toEqual({ windowId: 6, index: 3, groupId: 66 });
+  });
+
+  test('a tail join from another window, above a folded group, stays in the open group', async () => {
+    const { result } = renderDrop(await install(besideFolded()), {
+      foldedGroupIds: new Set(['66']),
+    });
+    await result.current.tabs.onMove('71', 2, '60', '6');
+    // Asked of Chrome as the open group's end, not past the folded one.
+    expect(moveOpenTab).toHaveBeenCalledWith(
+      expect.objectContaining({ toIndex: 2, toGroupId: '60' }),
+      expect.anything(),
+      true
+    );
+    expect(await tabNow(71)).toEqual({ windowId: 6, index: 2, groupId: 60 });
+    expect(await tabNow(63)).toEqual({ windowId: 6, index: 3, groupId: 66 });
+  });
+
+  test('a held split pair dropped on a folded band joins at its end, both halves', async () => {
+    const seed = fourWindows();
+    seed.windows?.[0]?.tabs?.push(
+      { id: 15, url: url('s1'), splitViewId: 90 },
+      { id: 16, url: url('s2'), splitViewId: 90 }
+    );
+    const { result } = renderDrop(await install(seed), {
+      foldedGroupIds: folded,
+    });
+    // Into W2 from W1: [LC] and the band, which is row 1.
+    expect(
+      await result.current.tabs.onMove('15', 1, String(GROUP), '2')
+    ).not.toBe(null);
+    expect(await tabNow(15)).toEqual({ windowId: 2, index: 3, groupId: GROUP });
+    expect(await tabNow(16)).toEqual({ windowId: 2, index: 4, groupId: GROUP });
+  });
+
   test('a loose release at its row lands after it, ungrouped (Review Focus 1)', async () => {
     const { result } = renderDrop(await install(fourWindows()), {
       foldedGroupIds: folded,

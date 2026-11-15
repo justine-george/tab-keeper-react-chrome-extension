@@ -16,6 +16,7 @@ import { useCallback, useMemo } from 'react';
 import { useDispatch, useStore } from 'react-redux';
 
 import type { AppDispatch, RootState } from '../../../redux/store';
+import type { tabData } from '../../../redux/slices/tabContainerDataStateSlice';
 import { collapsedWindowIdsOf } from '../../../redux/slices/globalStateSlice';
 import { isDrawnFolded } from '../../../redux/springOpenWindows';
 import {
@@ -40,7 +41,7 @@ import {
 import { savedSplitPartners } from '../../../utils/functions/splitPartners';
 import {
   TAB_GROUP_COLOR_HEX,
-  foldedGroupEndIndex,
+  groupEndIndex,
   foldedMemberIds,
   sanitizeTabGroupColor,
   partitionTabsIntoItems,
@@ -756,6 +757,37 @@ export function useTabDropGeometry(
   };
 }
 
+// KAN-822. A drawn row as a stored index: on a folded band, the group's end (D8); elsewhere past a folded
+// group's members (Review Focus 1), but a join never past its own group's end.
+function savedIndexOfDrawnRow(
+  tabs: readonly tabData[],
+  groups: readonly chromeTabGroupData[] | undefined,
+  heldIds: ReadonlySet<string>,
+  rowIndex: number,
+  bandId: string | undefined,
+  foldedGroupIds: ReadonlySet<string>
+): number {
+  if (bandId === undefined) {
+    return tabIndexOfRow(
+      tabs,
+      heldIds,
+      rowIndex,
+      foldedMemberIds(tabs, groups, foldedGroupIds)
+    );
+  }
+  const end = groupEndIndex(tabs, bandId, heldIds);
+  if (foldedGroupIds.has(bandId)) return end;
+  return Math.min(
+    tabIndexOfRow(
+      tabs,
+      heldIds,
+      rowIndex,
+      foldedMemberIds(tabs, groups, foldedGroupIds)
+    ),
+    end
+  );
+}
+
 // KAN-822. Every saved group stored collapsed; none without the grant, where no band is drawn.
 function foldedSavedGroupIds(
   windows: PaneWindows['windows'],
@@ -855,21 +887,14 @@ export function useTabDrop(
           }
         : {
             ...described,
-            // KAN-822. On a folded band: its end (D8). Elsewhere a folded group's members are no rows.
-            toIndex:
-              described.toGroupId !== undefined &&
-              foldedGroupIds.has(described.toGroupId)
-                ? foldedGroupEndIndex(landingTabs, described.toGroupId, heldIds)
-                : tabIndexOfRow(
-                    landingTabs,
-                    heldIds,
-                    described.toIndex,
-                    foldedMemberIds(
-                      landingTabs,
-                      landing?.chromeTabGroups,
-                      foldedGroupIds
-                    )
-                  ),
+            toIndex: savedIndexOfDrawnRow(
+              landingTabs,
+              landing?.chromeTabGroups,
+              heldIds,
+              described.toIndex,
+              described.toGroupId,
+              foldedGroupIds
+            ),
           };
       if (carriedTab !== undefined) {
         const moved = dispatch(

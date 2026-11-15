@@ -15,6 +15,7 @@ import {
   type windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import type { chromeTabGroupData } from '../../utils/functions/tabGroups';
+import { BAND_MARGIN_PX } from '../../components/home/rightpane/bandSpacing';
 import { makeTestStore } from '../setup/makeStore';
 
 // KAN-822. A folded group draws only its title row, so the drag counts no
@@ -86,7 +87,7 @@ describe('landsBesideFixedRowIn beside a folded band', () => {
     expect(landsBesideFixedRowIn(edges, 'L', 0, undefined)).toEqual({
       fixedRowId: 'g',
       side: 'after',
-      offset: 2,
+      offset: BAND_MARGIN_PX,
     });
   });
 
@@ -107,7 +108,7 @@ describe('landsBesideFixedRowIn beside a folded band', () => {
     expect(landsBesideFixedRowIn(end, 'L', 0, undefined)).toEqual({
       fixedRowId: 'g',
       side: 'after',
-      offset: 2,
+      offset: BAND_MARGIN_PX,
     });
   });
 
@@ -260,6 +261,56 @@ describe('useTabDrop with a folded saved group', () => {
     ]);
     act(() => tabs.current.onMove('x1', 1, 'g', 'w'));
     expect(order('w')).toEqual(['lead', 'a:g', 'b:g', 'x1:g', 'm']);
+  });
+
+  // Review critical 1. The edge rule is for loose drops: a join stays inside its own group.
+  test('a tail join of an open group just above a folded one stays in the open group', () => {
+    const { tabs, order } = setup([
+      win(
+        'w',
+        [member('H1', 'h'), member('H2', 'h'), member('G1'), tab('M')],
+        [group('h', false), group('g', true)]
+      ),
+    ]);
+    // Rows with M lifted: H1, H2. Row 2 is h's tail.
+    act(() => tabs.current.onMove('M', 2, 'h', 'w'));
+    expect(order('w')).toEqual(['H1:h', 'H2:h', 'M:h', 'G1:g']);
+  });
+
+  test('a tail join from another window, above a folded group, stays in the open group', () => {
+    const { tabs, order } = setup([
+      win('x', [tab('X')], []),
+      win(
+        'w',
+        [member('H1', 'h'), member('G1'), tab('M')],
+        [group('h', false), group('g', true)]
+      ),
+    ]);
+    act(() => tabs.current.onMove('X', 1, 'h', 'w'));
+    expect(order('w')).toEqual(['H1:h', 'X:h', 'G1:g', 'M']);
+  });
+
+  test('a head join of an open group just below a folded one lands at its head', () => {
+    const { tabs, order } = setup([
+      win(
+        'w',
+        [tab('L'), member('G1'), member('H1', 'h'), member('H2', 'h')],
+        [group('g', true), group('h', false)]
+      ),
+    ]);
+    // Rows with L lifted: H1, H2. Row 0 is h's head.
+    act(() => tabs.current.onMove('L', 0, 'h', 'w'));
+    expect(order('w')).toEqual(['G1:g', 'L:h', 'H1:h', 'H2:h']);
+  });
+
+  test('a held split pair dropped on a folded band joins at its end, both halves', () => {
+    const half = (tabId: string) => tab(tabId, { splitId: 'p' });
+    const { tabs, order } = setup([
+      win('w', [half('p1'), half('p2'), tab('lead'), member('a'), member('b')]),
+    ]);
+    // Rows with the pair lifted: lead. The band's row is 1.
+    act(() => tabs.current.onMove('p1', 1, 'g', 'w'));
+    expect(order('w')).toEqual(['lead', 'a:g', 'b:g', 'p1:g', 'p2:g']);
   });
 
   test('a folded split pair counts as the tabs it holds', () => {
