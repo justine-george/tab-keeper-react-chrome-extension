@@ -233,8 +233,7 @@ const titlesIn = async (worker: Worker, windowId: number): Promise<string[]> =>
 //
 // Garden's activation is the LAST arranging event, and the one change the
 // pane renders (aria-current), so a pane showing Garden in front has read the
-// window after every arranging event. Collapsing Later last instead left the
-// final event invisible to the pane (it does not render collapse).
+// window after every arranging event. KAN-822: the pane now shows Later's collapse too, as a fold.
 async function openKyotoWindow(worker: Worker): Promise<MadeWindow> {
   const made = await openWindow(
     worker,

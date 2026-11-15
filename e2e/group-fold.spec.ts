@@ -504,19 +504,25 @@ test.describe('a group in Currently open', () => {
     await liveCollapse(page, k).click();
     await expect(liveExpand(page, k)).toHaveAttribute('aria-expanded', 'false');
     await expect(liveMembers(page, k)).toHaveCount(0);
+    // Ends on Expand: one that reached Chrome would leave the group open there.
     await liveExpand(page, k).click();
     await expectLiveOpen(page, k, 1);
-    await liveCollapse(page, k).click();
-    await expect(liveMembers(page, k)).toHaveCount(0);
-    // An Expand that reached Chrome would have opened the group there.
     await page.waitForTimeout(500);
     expect(await chromeCollapsed(serviceWorker, k.groupId)).toBe(true);
 
-    // Cleared, the band follows Chrome again.
+    // Cleared, the band follows Chrome again: folded, which the search's own set (empty) does not say.
     await searchField(page).fill('');
     await expect(liveBlock(page, k).getByText('Loose')).toBeVisible();
     await expectLiveFolded(page, k);
-    // The next search starts from no folds of its own, so it draws the match open again.
+
+    // A search's own fold is dropped with it: the next search draws the match open again.
+    await searchField(page).fill('Temples');
+    await expect(liveBlock(page, k).getByText('Loose')).toHaveCount(0);
+    await expectLiveOpen(page, k, 1);
+    await liveCollapse(page, k).click();
+    await expect(liveMembers(page, k)).toHaveCount(0);
+    await searchField(page).fill('');
+    await expect(liveBlock(page, k).getByText('Loose')).toBeVisible();
     await searchField(page).fill('Temples');
     await expect(liveBlock(page, k).getByText('Loose')).toHaveCount(0);
     await expectLiveOpen(page, k, 1);

@@ -33,7 +33,7 @@ const LONG_WINDOW = 'ThreadssdfThreadssdfThreadssdfThreadssdfThreadssdf';
 const MID_WINDOW = 'Reading for the weekend trip to Bergen';
 const SHORT_WINDOW = 'Work';
 const LONG_GROUP = 'Papers Threadssdf on local-first sync and conflict rules';
-const MID_GROUP = 'Trail maps and hut bookings for Bergen';
+const MID_GROUP = 'Trail maps and hut bookings, Oslo';
 const LONG_TAB =
   'Local-first software: you own your data, in spite of the cloud — Ink & Switch research essay';
 const LONG_RENAME =

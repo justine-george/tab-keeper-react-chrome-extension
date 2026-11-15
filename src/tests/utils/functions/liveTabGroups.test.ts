@@ -119,15 +119,6 @@ describe('updateLiveGroup', () => {
     });
   });
 
-  test('updateLiveGroup returns false when the group has closed', async () => {
-    handle = setupChromeFake(seed);
-    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    vi.spyOn(chrome.tabGroups, 'update').mockRejectedValue(
-      new Error('No group with id: 50.')
-    );
-    expect(await updateLiveGroup(50, { collapsed: false })).toBe(false);
-  });
-
   // Worst paths: the group closed since the pane read it, or the grant was revoked mid-edit.
   test('resolves false, never throws, for a group that is gone', async () => {
     handle = setupChromeFake(seed);
