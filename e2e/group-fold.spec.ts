@@ -811,13 +811,13 @@ test.describe('a group in Currently open', () => {
 const FIT_GROUPS = [
   {
     id: 'g1',
-    title: 'Reiseplanung Herbst',
+    title: 'Reiseplanung Herbst: Sehenswürdigkeiten',
     color: 'blue',
     collapsed: false,
   },
   {
     id: 'g2',
-    title: 'Restaurants und Cafés',
+    title: 'Restaurants und Cafés in der Altstadt',
     color: 'orange',
     collapsed: true,
   },
@@ -868,7 +868,7 @@ async function openFitWindow(worker: Worker) {
       createProperties: { windowId: win?.id },
     });
     await chrome.tabGroups.update(open, {
-      title: 'Reiseplanung Herbst',
+      title: 'Reiseplanung Herbst: Sehenswürdigkeiten',
       color: 'green',
     });
     const shut = await chrome.tabs.group({
@@ -876,7 +876,7 @@ async function openFitWindow(worker: Worker) {
       createProperties: { windowId: win?.id },
     });
     await chrome.tabGroups.update(shut, {
-      title: 'Restaurants und Cafés',
+      title: 'Restaurants und Cafés in der Altstadt',
       color: 'red',
       collapsed: true,
     });
@@ -884,14 +884,50 @@ async function openFitWindow(worker: Worker) {
   }, ['Lead', 'One', 'Two', 'Three', 'Four'].map(standIn));
 }
 
-// How far each title row's content runs past its box, in px, with the group's name.
-const rowOverflows = (rows: Locator) =>
-  rows.evaluateAll((els) =>
-    els.map((el) => ({
-      name: el.closest('[data-band-id]')?.getAttribute('aria-label') ?? '?',
-      over: el.scrollWidth - el.clientWidth,
-    }))
-  );
+// Where each title row's drawn boxes poke out of the row, in px: the row's direct children (chevron, name, count tag, actions) and the tag itself.
+// The name may clamp (cut-off titles); only drawn geometry counts. .group-actions is drawn at rest (transparent until hover), so its box is measured too.
+const pokeOuts = (rows: Locator) =>
+  rows.evaluateAll((els) => {
+    const TOLERANCE = 0.5;
+    // The drag grip hangs outside the row by design (left: -40px), so it has no label.
+    const label = (c: Element) =>
+      c.matches('.group-actions')
+        ? 'actions'
+        : c.querySelector('[data-fold-chevron]') !== null
+          ? 'chevron'
+          : c.querySelector('[data-row-tag]') !== null
+            ? 'count tag'
+            : c.matches('button, input') ||
+                c.querySelector('button, input') !== null
+              ? 'name'
+              : null;
+    return els.flatMap((row) => {
+      const box = row.getBoundingClientRect();
+      const group =
+        row.closest('[data-band-id]')?.getAttribute('aria-label') ?? '?';
+      const tag = row.querySelector('[data-row-tag]');
+      const parts = [
+        ...Array.from(row.children).flatMap((c) => {
+          const child = label(c);
+          return child === null ? [] : [{ child, el: c }];
+        }),
+        ...(tag === null ? [] : [{ child: 'count tag (itself)', el: tag }]),
+      ];
+      return parts.flatMap(({ child, el }) => {
+        const r = el.getBoundingClientRect();
+        const left = box.left - r.left;
+        const right = r.right - box.right;
+        return [
+          ...(left > TOLERANCE
+            ? [{ group, child, side: 'left', px: left }]
+            : []),
+          ...(right > TOLERANCE
+            ? [{ group, child, side: 'right', px: right }]
+            : []),
+        ];
+      });
+    });
+  });
 
 const FITS = [
   {
@@ -978,13 +1014,17 @@ test.describe('group title rows with the fold chevron', () => {
         ).toHaveCount(1);
       }
 
-      const over = [
-        ...(await rowOverflows(saved)).map((r) => ({ pane: 'saved', ...r })),
-        ...(await rowOverflows(live)).map((r) => ({ pane: 'open now', ...r })),
-      ].filter((r) => r.over > 0);
+      // PREMISE: each row draws a count tag, so the tag check cannot pass on nothing.
+      await expect(saved.locator('[data-row-tag]')).toHaveCount(
+        FIT_GROUPS.length
+      );
+      const out = [
+        ...(await pokeOuts(saved)).map((r) => ({ pane: 'saved', ...r })),
+        ...(await pokeOuts(live)).map((r) => ({ pane: 'open now', ...r })),
+      ];
       expect(
-        over,
-        `rows overflowing, by px: ${over.map((r) => `${r.pane} "${r.name}" +${r.over}`).join('; ')}`
+        out,
+        `outside the row: ${out.map((r) => `${r.pane} "${r.group}" ${r.child} ${r.side} by ${r.px.toFixed(1)}px`).join('; ')}`
       ).toEqual([]);
     });
   }
