@@ -159,8 +159,7 @@ describe('a collapsed group across two devices (KAN-460)', () => {
 
   it('a backup file keeps the field', () => {
     const loaded = readImportedContainer(
-      JSON.stringify(deviceWith(savedOnA())),
-      'en'
+      JSON.stringify(deviceWith(savedOnA()))
     );
 
     expect(collapsedOf(loaded)).toEqual([true, undefined]);

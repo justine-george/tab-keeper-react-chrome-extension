@@ -138,8 +138,7 @@ describe('pinned tabs and the active tab across two devices (KAN-458)', () => {
 
   it('a backup file keeps both fields', () => {
     const loaded = readImportedContainer(
-      JSON.stringify(deviceWith(savedOnA())),
-      'en'
+      JSON.stringify(deviceWith(savedOnA()))
     );
 
     expect(windowIn(loaded, 'S', 'w').tabs[0].pinned).toBe(true);

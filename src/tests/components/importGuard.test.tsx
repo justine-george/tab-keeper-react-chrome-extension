@@ -10,6 +10,7 @@ import {
   selectCategory,
 } from '../../redux/slices/settingsCategoryStateSlice';
 import { TabMasterContainer } from '../../redux/slices/tabContainerDataStateSlice';
+import { incompressible } from '../fixtures/incompressible';
 import { saveToFirestore } from '../../utils/functions/external';
 import {
   declineCloudConsent,
@@ -70,7 +71,10 @@ const renderSyncAndBackup = () =>
     },
   });
 
-const buildOversizedBackup = (): string => {
+// KAN-6. `title` decides how it compresses: incompressible stays over the limit gzipped.
+const buildOversizedBackup = (
+  title: string = incompressible(1_600_000)
+): string => {
   const container: TabMasterContainer = {
     lastModified: 1,
     selectedTabGroupId: null,
@@ -79,7 +83,7 @@ const buildOversizedBackup = (): string => {
         tabGroupId: 'group-0',
         // A title, not a favicon: favicons are stripped before measuring, so
         // padding one would prove nothing about the guard.
-        title: 'x'.repeat(1_200_000),
+        title,
         createdTime: '2026-09-01 12:00:00',
         windowCount: 0,
         tabCount: 0,
@@ -159,6 +163,22 @@ describe('import size guard (KAN-27)', () => {
     // be persisted and would then wedge sync permanently.
     expect(store.getState().tabContainerDataState.tabGroups).toHaveLength(0);
     expect(store.getState().globalState.isDirty).toBe(false);
+  });
+
+  // KAN-6. Sync writes it gzipped, so a backup over 1 MB plain that compresses loads.
+  test('loads a backup over 1 MB plain that fits compressed', async () => {
+    const inputs = captureFileInput();
+    const { store } = await renderSyncAndBackup();
+
+    await userEvent.click(
+      await screen.findByText('Load sessions from a backup')
+    );
+    dropFile(inputs[0], buildOversizedBackup('x'.repeat(1_200_000)));
+
+    await waitFor(() => {
+      expect(store.getState().tabContainerDataState.tabGroups).toHaveLength(1);
+    });
+    expect(newestToast(store.getState())?.text).not.toBe(IMPORT_ERROR_FRAME);
   });
 
   // KAN-495. The handler's catch turns the refusal into the toast, not a crash.

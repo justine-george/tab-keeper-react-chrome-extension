@@ -811,23 +811,14 @@ export class TranslatableError extends Error {
   }
 }
 
-// Parse, validate and size-check the contents of an imported backup file.
+// Parse and validate the contents of an imported backup file. KAN-6: the size check is refuseOversizeImport.
 //
 // Every rejection throws, because the import handler already turns a throw
 // into a toast -- a caller that returned a result object would need new UI for
 // a path that already has one. Every rejection is a TranslatableError:
 // JSON.parse's own SyntaxError is English with no full stop, so it goes to the
 // console and the user reads IMPORT_NOT_JSON (KAN-618).
-//
-// The size check is the KAN-27 guard, and it refuses rather than importing and
-// warning. An oversized container is persisted to localStorage by
-// restoreContainer and leaves isDirty set against a document Firestore will
-// never accept, so importing anyway does not just fail once -- it wedges sync
-// for every subsequent change until the user deletes sessions by hand.
-export function readImportedContainer(
-  content: string,
-  locale: string
-): TabMasterContainer {
+export function readImportedContainer(content: string): TabMasterContainer {
   let parsed: unknown;
   try {
     parsed = JSON.parse(content);
@@ -838,14 +829,6 @@ export function readImportedContainer(
 
   if (!isValidTabMasterContainer(parsed)) {
     throw new TranslatableError(IMPORT_INVALID_STRUCTURE);
-  }
-
-  const bytes = estimateFirestoreBytes(parsed);
-  if (bytes > FIRESTORE_MAX_DOCUMENT_BYTES) {
-    throw new TranslatableError(IMPORT_SIZE_REFUSAL, {
-      used: bytesToMB(bytes, locale),
-      limit: syncLimitInMB(locale),
-    });
   }
 
   // KAN-91. Older versions refuse a session without it, and an import syncs.

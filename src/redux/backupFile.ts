@@ -8,6 +8,7 @@ import {
   readImportedContainer,
   TranslatableError,
 } from '../utils/functions/local';
+import { refuseOversizeImport } from '../utils/functions/cloudDocument';
 
 // The part of the i18n instance reading a backup needs, so the caller hands in its own.
 interface Translator {
@@ -46,13 +47,13 @@ export const loadBackupFile =
       if (file === undefined) return;
       const reader = new FileReader();
 
-      reader.onload = () => {
+      reader.onload = async () => {
         try {
           const content = String(reader.result);
-          // Parses, validates the structure, and refuses anything that would
-          // not fit in a Firestore document (KAN-27). Throws on every one of
-          // those, which the catch below turns into the error toast.
-          const container = readImportedContainer(content, i18n.language);
+          // Parses, validates, then refuses what sync could never write (KAN-27,
+          // compressed since KAN-6). Each throws into the error toast below.
+          const container = readImportedContainer(content);
+          await refuseOversizeImport(container, i18n.language);
 
           // KAN-252/261. The file is read first, then the user is asked --
           // Merge or Replace -- unless nothing is saved here. KAN-265: that is

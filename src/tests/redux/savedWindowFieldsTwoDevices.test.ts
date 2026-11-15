@@ -170,8 +170,7 @@ describe('saved window state, incognito and split ids across two devices (KAN-46
 
   it('a backup file keeps the fields', () => {
     const loaded = readImportedContainer(
-      JSON.stringify(deviceWith(savedOnA())),
-      'en'
+      JSON.stringify(deviceWith(savedOnA()))
     );
 
     expect(fieldsOf(loaded)).toEqual(SAVED);

@@ -3,7 +3,14 @@ import type {
   TabMasterContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { compressToBytes } from './compression';
-import { FIRESTORE_MAX_DOCUMENT_BYTES, stripEmbeddedFavicons } from './local';
+import {
+  bytesToMB,
+  FIRESTORE_MAX_DOCUMENT_BYTES,
+  IMPORT_SIZE_REFUSAL,
+  stripEmbeddedFavicons,
+  syncLimitInMB,
+  TranslatableError,
+} from './local';
 import { withoutSamples } from './sampleSession';
 
 // KAN-6 phase 2. The fields sync writes, decided per write from its size alone.
@@ -66,4 +73,19 @@ export async function syncBytes(
   container: TabMasterContainer
 ): Promise<number> {
   return (await compress(prepare(container))).bytes;
+}
+
+// KAN-27. Refused, not imported with a warning: restoreContainer persists it and isDirty would
+// stay set against a document Firestore never accepts, wedging every later sync. KAN-6: compressed size.
+export async function refuseOversizeImport(
+  container: TabMasterContainer,
+  locale: string
+): Promise<void> {
+  const bytes = await syncBytes(container);
+  if (bytes > FIRESTORE_MAX_DOCUMENT_BYTES) {
+    throw new TranslatableError(IMPORT_SIZE_REFUSAL, {
+      used: bytesToMB(bytes, locale),
+      limit: syncLimitInMB(locale),
+    });
+  }
 }
