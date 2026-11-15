@@ -27,6 +27,7 @@ import { FIRESTORE_MAX_DOCUMENT_BYTES } from '../../utils/functions/local';
 import { syncBytes } from '../../utils/functions/cloudDocument';
 import type { TabMasterContainer } from '../../redux/slices/tabContainerDataStateSlice';
 import { incompressible } from '../fixtures/incompressible';
+import { SAMPLE_ID_PREFIX } from '../../utils/functions/sampleSession';
 import { formatSyncUsed } from '../../utils/functions/syncSpace';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import {
@@ -147,7 +148,10 @@ describe('the sync space bar (KAN-596)', () => {
   test('a stale measure never shows', async () => {
     const view = await renderSync();
     const slow = await containerOf(FIRESTORE_MAX_DOCUMENT_BYTES * 2);
-    const small = buildContainer([buildSession({ tabGroupId: 'small' })]);
+    // A few kB, so the line shows its own number rather than "under 1 kB".
+    const small = buildContainer([
+      buildSession({ tabGroupId: 'small', title: incompressible(2000) }),
+    ]);
     // Two renders, so the slow measure is already running when the small one starts.
     act(() => {
       view.store.dispatch(replaceState(slow));
@@ -222,6 +226,43 @@ describe('the sync space bar (KAN-596)', () => {
     expect(
       await syncBytes(store.getState().tabContainerDataState)
     ).toBeGreaterThan(0);
+    expect(line()).toBe('Your sessions use 0 kB of the 1 MB sync limit.');
+    expect(fill()?.style.minWidth).toBe('');
+  });
+
+  // KAN-6. Compressed, a couple of short sessions come to under 1 kB: never "0 kB" while sessions are saved.
+  test('saved sessions under 1 kB read "under 1 kB" and draw the sliver', async () => {
+    const { store } = await renderSync();
+    act(() => {
+      store.dispatch(
+        replaceState(
+          buildContainer([
+            buildSession({ tabGroupId: 'a', title: 'Reading list' }),
+            buildSession({ tabGroupId: 'b', title: 'Trip planning' }),
+          ])
+        )
+      );
+    });
+    await measured();
+    // PREMISE: rounds to 0 kB, the case the line used to show as "0 kB".
+    expect(
+      await syncBytes(store.getState().tabContainerDataState)
+    ).toBeLessThan(512);
+    expect(line()).toBe('Your sessions use under 1 kB of the 1 MB sync limit.');
+    expect(fill()?.style.minWidth).toBe('3px');
+  });
+
+  // The example session never syncs (KAN-600), so it alone is no sessions.
+  test('only the example session reads 0 kB, no sliver', async () => {
+    const { store } = await renderSync();
+    act(() => {
+      store.dispatch(
+        replaceState(
+          buildContainer([buildSession({ tabGroupId: `${SAMPLE_ID_PREFIX}x` })])
+        )
+      );
+    });
+    await measured();
     expect(line()).toBe('Your sessions use 0 kB of the 1 MB sync limit.');
     expect(fill()?.style.minWidth).toBe('');
   });

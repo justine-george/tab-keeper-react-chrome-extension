@@ -449,6 +449,7 @@
   "SyncLimitUsed": "Tus sesiones usan {{used}} del límite de sincronización de {{limit}}.",
   "SyncLimitUsedNear": "Tus sesiones usan {{used}} del límite de sincronización de {{limit}}. La sincronización se detiene en {{limit}}: elimina las sesiones que ya no necesites.",
   "SyncLimitUsedFull": "Tus sesiones usan {{used}} del límite de sincronización de {{limit}}. Demasiado grande para sincronizar: elimina las sesiones que ya no necesites.",
+  "SyncLimitUsedUnder": "Tus sesiones usan menos de {{size}} del límite de sincronización de {{limit}}.",
   "Recently deleted": "Eliminados",
   "Kept for 30 days, then permanently deleted.": "Las sesiones eliminadas en este dispositivo se guardan 30 días y después se eliminan definitivamente.",
   "RestoreDeletedSession": "Restaurar",

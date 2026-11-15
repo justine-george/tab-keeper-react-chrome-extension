@@ -437,6 +437,7 @@
   "SyncLimitUsed": "Dina sessioner använder {{used}} av synkgränsen på {{limit}}.",
   "SyncLimitUsedNear": "Dina sessioner använder {{used}} av synkgränsen på {{limit}}. Synken stannar vid {{limit}}: ta bort sessioner du inte längre behöver.",
   "SyncLimitUsedFull": "Dina sessioner använder {{used}} av synkgränsen på {{limit}}. För stort för att synkas: ta bort sessioner du inte längre behöver.",
+  "SyncLimitUsedUnder": "Dina sessioner använder mindre än {{size}} av synkgränsen på {{limit}}.",
   "Recently deleted": "Nyligen raderade",
   "Kept for 30 days, then permanently deleted.": "Sessioner som raderats på den här enheten sparas i 30 dagar och raderas sedan permanent.",
   "RestoreDeletedSession": "Återställ",

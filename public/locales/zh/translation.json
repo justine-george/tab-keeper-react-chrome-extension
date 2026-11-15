@@ -425,6 +425,7 @@
   "SyncLimitUsed": "您的会话占用 {{used}}（同步上限 {{limit}}）。",
   "SyncLimitUsedNear": "您的会话占用 {{used}}（同步上限 {{limit}}）。达到 {{limit}} 时同步将停止：请删除不再需要的会话。",
   "SyncLimitUsedFull": "您的会话占用 {{used}}（同步上限 {{limit}}）。过大，无法同步：请删除不再需要的会话。",
+  "SyncLimitUsedUnder": "您的会话占用不到 {{size}}（同步上限 {{limit}}）。",
   "Recently deleted": "最近删除",
   "Kept for 30 days, then permanently deleted.": "在此设备上删除的会话会保留 30 天，之后永久删除。",
   "RestoreDeletedSession": "恢复",

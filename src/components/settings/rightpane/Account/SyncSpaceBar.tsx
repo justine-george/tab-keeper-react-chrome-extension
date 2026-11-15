@@ -9,6 +9,7 @@ import { RootState } from '../../../../redux/store';
 import { DURATION, RADIUS, TYPE } from '../../../../styles/scale';
 import { FIRESTORE_MAX_DOCUMENT_BYTES } from '../../../../utils/functions/local';
 import { syncBytes } from '../../../../utils/functions/cloudDocument';
+import { withoutSamples } from '../../../../utils/functions/sampleSession';
 import type { TabMasterContainer } from '../../../../redux/slices/tabContainerDataStateSlice';
 import {
   formatSyncLimit,
@@ -65,10 +66,18 @@ const SyncSpaceBar: React.FC<{ hideWhenOk?: boolean }> = ({
   if (hideWhenOk && level === 'ok') return null;
   const share = Math.min(1, bytes / FIRESTORE_MAX_DOCUMENT_BYTES);
   const percent = Math.round(share * 100);
-  const text = t(LINE_KEY[level], {
-    used: formatSyncUsed(bytes, i18n.language),
-    limit: formatSyncLimit(i18n.language),
-  });
+  // KAN-6. Saved sessions that round to 0 kB compressed read "under 1 kB", with the sliver.
+  const isUnderOneKb =
+    !isSyncUseShown(bytes) && withoutSamples(container).tabGroups.length > 0;
+  const text = isUnderOneKb
+    ? t('SyncLimitUsedUnder', {
+        size: formatSyncUsed(1024, i18n.language),
+        limit: formatSyncLimit(i18n.language),
+      })
+    : t(LINE_KEY[level], {
+        used: formatSyncUsed(bytes, i18n.language),
+        limit: formatSyncLimit(i18n.language),
+      });
 
   return (
     <div
@@ -99,7 +108,8 @@ const SyncSpaceBar: React.FC<{ hideWhenOk?: boolean }> = ({
           // KAN-625. The exact share: whole percent drew nothing under 0.5%.
           style={{
             width: `${share * 100}%`,
-            minWidth: isSyncUseShown(bytes) ? SLIVER : undefined,
+            minWidth:
+              isSyncUseShown(bytes) || isUnderOneKb ? SLIVER : undefined,
           }}
           css={css`
             height: 100%;
