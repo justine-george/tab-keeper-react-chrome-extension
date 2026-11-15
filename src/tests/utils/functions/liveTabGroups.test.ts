@@ -107,6 +107,27 @@ describe('updateLiveGroup', () => {
     });
   });
 
+  // KAN-822. Currently open's chevron folds Chrome's own group.
+  test('updateLiveGroup passes collapsed to Chrome', async () => {
+    handle = setupChromeFake(seed);
+    const update = vi.spyOn(chrome.tabGroups, 'update');
+    expect(await updateLiveGroup(50, { collapsed: true })).toBe(true);
+    expect(update).toHaveBeenCalledWith(50, { collapsed: true });
+    expect(await chrome.tabGroups.get(50)).toMatchObject({
+      collapsed: true,
+      title: 'Research',
+    });
+  });
+
+  test('updateLiveGroup returns false when the group has closed', async () => {
+    handle = setupChromeFake(seed);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.spyOn(chrome.tabGroups, 'update').mockRejectedValue(
+      new Error('No group with id: 50.')
+    );
+    expect(await updateLiveGroup(50, { collapsed: false })).toBe(false);
+  });
+
   // Worst paths: the group closed since the pane read it, or the grant was revoked mid-edit.
   test('resolves false, never throws, for a group that is gone', async () => {
     handle = setupChromeFake(seed);

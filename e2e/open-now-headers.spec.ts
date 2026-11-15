@@ -631,10 +631,11 @@ test('(h) the group strip shows for keyboard focus on its Save, and not for a mo
   await page.mouse.move(2, 2);
   await expect.poll(() => opacityOf(foodSave)).toBe('0');
 
-  // The keyboard: from the colour control, Tab to the name, Tab to Save.
+  // The keyboard: from the colour control, Tab to the chevron (KAN-822), the name, then Save.
   await kyoto
     .getByRole('button', { name: 'Change group color: Kyoto', exact: true })
     .focus();
+  await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
   await expect(kyotoSave).toBeFocused();
@@ -777,11 +778,11 @@ test('(j) Close group by keyboard leaves focus on the window chevron', async ({
   const kyoto = band(block, 'Kyoto');
   await expect(kyoto).toBeVisible();
 
-  // Colour control, Tab to the name, Save, then the ⋮.
+  // Colour control, Tab to the chevron (KAN-822), the name, Save, then the ⋮.
   await kyoto
     .getByRole('button', { name: 'Change group color: Kyoto', exact: true })
     .focus();
-  for (let i = 0; i < 3; i++) await page.keyboard.press('Tab');
+  for (let i = 0; i < 4; i++) await page.keyboard.press('Tab');
   await expect(groupMenu(kyoto, 'Kyoto')).toBeFocused();
   await page.keyboard.press('Enter');
   const closeGroup = page.getByRole('menuitem', {
@@ -803,8 +804,10 @@ test('(j) Close group by keyboard leaves focus on the window chevron', async ({
   await expect
     .poll(async () => names(await tabsOf(serviceWorker, made.windowId)))
     .toEqual(['Loose-j']);
-  // The window survives, and its chevron has the focus.
-  const chevron = block.getByRole('button', { name: /^Collapse: / });
+  // The window survives, and its chevron has the focus. Its row's, not a group's (KAN-822).
+  const chevron = block
+    .locator('[data-window-row]')
+    .getByRole('button', { name: /^Collapse: / });
   await expect(chevron).toBeFocused();
   expect(await chevron.evaluate((el) => el === document.activeElement)).toBe(
     true

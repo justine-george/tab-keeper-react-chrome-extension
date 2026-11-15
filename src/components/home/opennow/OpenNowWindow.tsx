@@ -84,6 +84,7 @@ import {
   partitionTabsIntoItems,
   sanitizeTabGroupColor,
 } from '../../../utils/functions/tabGroups';
+import type { chromeTabGroupData } from '../../../utils/functions/tabGroups';
 import {
   ADJACENT_GROUP_GAP_PX,
   BAND_MARGIN_PX,
@@ -252,6 +253,31 @@ export default function OpenNowWindow({
   const cancelGroupRename = () => {
     groupRenameCancelled.current = true;
     setEditingGroupId(null);
+  };
+
+  // KAN-822 D6. Groups folded during a search, drawing only; each search starts with none, and null while no search is held.
+  const [searchFoldedGroupIds, setSearchFoldedGroupIds] =
+    useState<ReadonlySet<string> | null>(() =>
+      matchedTabIds === null ? null : new Set()
+    );
+  if ((matchedTabIds === null) !== (searchFoldedGroupIds === null)) {
+    setSearchFoldedGroupIds(matchedTabIds === null ? null : new Set());
+  }
+  // KAN-822 D2. Outside a search the fold is Chrome's collapse, drawn from the next read.
+  const isGroupFolded = (group: chromeTabGroupData) =>
+    searchFoldedGroupIds === null
+      ? group.collapsed === true
+      : searchFoldedGroupIds.has(group.groupId);
+  const toggleGroupFold = (group: chromeTabGroupData) => {
+    const folded = isGroupFolded(group);
+    if (searchFoldedGroupIds === null) {
+      void updateLiveGroup(Number(group.groupId), { collapsed: !folded });
+      return;
+    }
+    const next = new Set(searchFoldedGroupIds);
+    if (folded) next.delete(group.groupId);
+    else next.add(group.groupId);
+    setSearchFoldedGroupIds(next);
   };
 
   // How far this window's block moves to make room for a row landing in
@@ -702,6 +728,8 @@ export default function OpenNowWindow({
       groupId: String(group.id),
       title: group.title,
       color: group.color,
+      // KAN-822. The saved shape: present only when Chrome reports it collapsed.
+      ...(group.collapsed ? { collapsed: true as const } : {}),
     }))
   );
 
@@ -1152,6 +1180,7 @@ export default function OpenNowWindow({
                 offersWindowActions && editingGroupId !== item.group.groupId;
               const groupEngaged =
                 openMenuGroupId === item.group.groupId || groupHeld;
+              const groupFolded = isGroupFolded(item.group);
               return (
                 // The saved band, at rest (KAN-280: a live grouped tab sits
                 // exactly where a saved one does). Copied, not shared, for the
@@ -1187,6 +1216,8 @@ export default function OpenNowWindow({
                     data-before-group={
                       items[itemIndex + 1]?.kind === 'group' ? '' : undefined
                     }
+                    // KAN-822. Folded as drawn: Chrome's collapse, or the search's own (D6).
+                    data-group-folded={groupFolded ? '' : undefined}
                     css={css`
                       display: flex;
                       align-items: stretch;
@@ -1280,10 +1311,6 @@ export default function OpenNowWindow({
                             ${ROW_PULL_END}
                           }
                           transition: transform ${DURATION.MOVE} ease;
-                          ${focusRingOverTickCss(
-                            COLORS,
-                            '&:has(> input:focus-visible)'
-                          )}
                           /* Keyboard focus only (KAN-636), in its own rule beside :hover (KAN-94). */
                           /* KAN-815. Not under a carry: the landing slot says where it goes. */
                           html:not([data-carrying]) &:hover {
@@ -1311,6 +1338,29 @@ export default function OpenNowWindow({
                         onPointerEnter={measureTagsUnder('.group-actions')}
                         onFocus={measureTagsUnder('.group-actions')}
                       >
+                        {/* KAN-822. The window row's chevron, in the tab rows' icon column; stopped so it never goes to the group (KAN-797). */}
+                        <Icon
+                          tooltipText={
+                            groupFolded ? t('Expand') : t('Collapse')
+                          }
+                          ariaLabel={formatActionOnItem(
+                            groupFolded ? t('Expand') : t('Collapse'),
+                            groupName,
+                            t
+                          )}
+                          ariaExpanded={!groupFolded}
+                          type={groupFolded ? 'expand_more' : 'expand_less'}
+                          renderGlyph={(glyphCss) => (
+                            <ChevronGlyph
+                              open={!groupFolded}
+                              glyphCss={glyphCss}
+                            />
+                          )}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleGroupFold(item.group);
+                          }}
+                        />
                         <DragHandle
                           scope={OPEN_ITEMS_SCOPE}
                           rowId={itemIdOf(item)}
@@ -1319,46 +1369,61 @@ export default function OpenNowWindow({
                         />
                         {editingGroupId === item.group.groupId ? (
                           <>
-                            <input
-                              value={groupDraft}
-                              aria-label={formatActionOnItem(
-                                t('Rename group'),
-                                groupName,
-                                t
-                              )}
-                              onBlur={() => commitGroupRename(item.group)}
-                              onChange={(e) => setGroupDraft(e.target.value)}
-                              placeholder={t('Name this group')}
-                              onKeyDown={(e) =>
-                                renameKeyDown(
-                                  e,
-                                  () => commitGroupRenameToTitle(item.group),
-                                  () => {
-                                    titleFocus.ask(item.group.groupId);
-                                    cancelGroupRename();
-                                  }
-                                )
-                              }
-                              autoFocus
+                            {/* KAN-822. The ring hugs the field, leaving the chevron outside it, as the saved band's does. */}
+                            <div
                               css={css`
-                                color: ${COLORS.TEXT_COLOR};
-                                background-color: ${COLORS.PRIMARY_COLOR};
-                                border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
-                                ${corners(RADIUS.CONTROL)}
                                 display: flex;
-                                align-items: center;
-                                font-family: ${FONT_FAMILY};
-                                font-size: ${GROUP_TITLE_SIZE};
-                                padding-left: 8px;
                                 align-self: stretch;
-                                width: 100%;
+                                flex: 1;
                                 min-width: 0;
-                                &:focus {
-                                  outline: none;
-                                }
-                                ${placeholderStyle(COLORS.PLACEHOLDER_COLOR)}
+                                ${focusRingOverTickCss(
+                                  COLORS,
+                                  '&:has(> input:focus-visible)'
+                                )}
                               `}
-                            />
+                            >
+                              <input
+                                value={groupDraft}
+                                aria-label={formatActionOnItem(
+                                  t('Rename group'),
+                                  groupName,
+                                  t
+                                )}
+                                onBlur={() => commitGroupRename(item.group)}
+                                onChange={(e) => setGroupDraft(e.target.value)}
+                                placeholder={t('Name this group')}
+                                onKeyDown={(e) =>
+                                  renameKeyDown(
+                                    e,
+                                    () => commitGroupRenameToTitle(item.group),
+                                    () => {
+                                      titleFocus.ask(item.group.groupId);
+                                      cancelGroupRename();
+                                    }
+                                  )
+                                }
+                                autoFocus
+                                css={css`
+                                  color: ${COLORS.TEXT_COLOR};
+                                  background-color: ${COLORS.PRIMARY_COLOR};
+                                  border: 1px solid
+                                    ${COLORS.CONTROL_BORDER_COLOR};
+                                  ${corners(RADIUS.CONTROL)}
+                                  display: flex;
+                                  align-items: center;
+                                  font-family: ${FONT_FAMILY};
+                                  font-size: ${GROUP_TITLE_SIZE};
+                                  padding-left: 8px;
+                                  align-self: stretch;
+                                  width: 100%;
+                                  min-width: 0;
+                                  &:focus {
+                                    outline: none;
+                                  }
+                                  ${placeholderStyle(COLORS.PLACEHOLDER_COLOR)}
+                                `}
+                              />
+                            </div>
                             {/* preventDefault keeps focus in the input, so onClick is the one commit path. */}
                             <span
                               css={css`
@@ -1507,16 +1572,21 @@ export default function OpenNowWindow({
                       {/* data-group-tabs: the held group folds to its title
                       row (App.css, KAN-160). The zero-height marker is the
                       group's tail in the drawn list (KAN-175). */}
-                      <div data-group-tabs>
-                        {item.tabs.map((tab) => renderTabRow(tab.tabId, true))}
-                        <div
-                          aria-hidden="true"
-                          data-fixed-row-id={`${item.group.groupId}:tail`}
-                          css={css`
-                            height: 0;
-                          `}
-                        />
-                      </div>
+                      {/* KAN-822. Folded: no member rows and no tail, not hidden ones (zero rects break the drag index). */}
+                      {!groupFolded && (
+                        <div data-group-tabs>
+                          {item.tabs.map((tab) =>
+                            renderTabRow(tab.tabId, true)
+                          )}
+                          <div
+                            aria-hidden="true"
+                            data-fixed-row-id={`${item.group.groupId}:tail`}
+                            css={css`
+                              height: 0;
+                            `}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </DraggableRow>
