@@ -33,10 +33,7 @@ import { openCarriedCopy, type CopyPlace } from '../../../redux/openCopy';
 
 import { showToast } from '../../../redux/slices/globalStateSlice';
 
-import {
-  NO_FOLDED_BANDS,
-  type DragWindows,
-} from '../rightpane/rowDrag/dropRules';
+import type { DragWindows } from '../rightpane/rowDrag/dropRules';
 import { useGroupDropGeometry } from '../rightpane/useGroupDrop';
 import { useTabDropGeometry } from '../rightpane/useTabDrop';
 import type { OpenWindow } from '../../../utils/functions/openNow';
@@ -130,8 +127,7 @@ export function openDragWindows(
   }));
 }
 
-// KAN-822. A drawn row as moveOpenTab's index (held row lifted out): before a folded group the pointer is above,
-// a folded band's end, never past its own group's end; null if not drawn.
+// KAN-822. A drawn row as moveOpenTab's index, held row out: as savedIndexOfDrawnRow, and null for a row not drawn.
 export function liveIndexOfDrawnRow(
   window: DragWindows[number],
   heldId: string,
@@ -472,7 +468,7 @@ export function useOpenNowDrop({
       toIndex: number,
       dropTargetId?: string,
       toWindowId?: string,
-      foldedBandsBelow: ReadonlySet<string> = NO_FOLDED_BANDS
+      foldedBandBelowId?: string
     ): Promise<MovedTabs | 'copied' | null> => {
       // A folded window shows no slot, so the engine's position 0 chose no
       // pin there: the tab keeps its own, as in a saved session.
@@ -493,7 +489,7 @@ export function useOpenNowDrop({
                 rowId,
                 toIndex,
                 toWindowId,
-                foldedBandsBelow
+                foldedBandBelowId
               ),
               foldedGroupIds
             );

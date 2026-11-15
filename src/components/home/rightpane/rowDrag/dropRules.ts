@@ -100,12 +100,9 @@ export interface RemovedFixedRows {
 export interface DropTarget {
   // Which Chrome group band the pointer is over, if any.
   bandId: string | undefined;
-  // KAN-822. The folded bands whose top is below the pointer: a folded group is one row, and its row index alone names both gaps beside it.
-  foldedBandsBelow?: ReadonlySet<string>;
+  // KAN-822. Off every band, the nearest folded band below the pointer: a folded group's row index names both gaps beside it.
+  foldedBandBelowId?: string;
 }
-
-// KAN-822. No folded band below the pointer: what a list with no folded bands, or no resolveDrop, answers.
-export const NO_FOLDED_BANDS: ReadonlySet<string> = new Set();
 
 // The engine cannot answer this itself: for tabs it is which Chrome group the
 // pointer was over, and for windows there is no such question at all. So the
@@ -219,8 +216,8 @@ export interface RowDragAreaProps {
     toIndex: number,
     dropTargetId?: string,
     toWindowId?: string,
-    // KAN-822. resolveDrop's folded bands below the pointer, for a list whose rows sit in windows.
-    foldedBandsBelow?: ReadonlySet<string>
+    // KAN-822. resolveDrop's nearest folded band below the pointer, for a list whose rows sit in windows.
+    foldedBandBelowId?: string
   ) => void | Promise<unknown>;
   // A CSS selector for the part of a row that starts a drag. Omitted, the whole
   // row does.
@@ -403,8 +400,8 @@ export interface RowDragAreaProps {
     toIndex: number,
     target: string | undefined,
     windowId: string | undefined,
-    // KAN-822. resolveDrop's folded bands below the pointer.
-    foldedBandsBelow: ReadonlySet<string>
+    // KAN-822. resolveDrop's nearest folded band below the pointer.
+    foldedBandBelowId: string | undefined
   ) => FixedRowLanding | undefined;
   /**
    * Which fixed rows the drop REMOVES, when it removes any (KAN-169).
@@ -457,8 +454,8 @@ export interface RowDragAreaProps {
     toIndex: number,
     target: string | undefined,
     windowId: string | undefined,
-    // KAN-822. resolveDrop's folded bands below the pointer.
-    foldedBandsBelow: ReadonlySet<string>
+    // KAN-822. resolveDrop's nearest folded band below the pointer.
+    foldedBandBelowId: string | undefined
   ) => BandGapChange[];
   /**
    * Hand a drag that reaches a carry receiver -- the session list -- to the
@@ -650,30 +647,20 @@ export function bandAt(
   return undefined;
 }
 
-/**
- * KAN-822. The folded bands whose hit box starts below `y`, tested exactly as
- * bandAt tests its own, so the gap above a folded band ends where its band
- * begins: above it a loose drop lands before the group, below it after.
- */
-export function foldedBandsBelow(
+// KAN-822. The first folded band whose middle is below `y`, on bandAt's boxes: off every band, above its middle is before it, like a row.
+export function nearestFoldedBandBelow(
   container: HTMLElement | null,
   y: number,
   closedUp?: ClosedUp
-): ReadonlySet<string> {
-  const below = new Set<string>();
+): string | undefined {
   for (const box of bandHitBoxes(container, closedUp)) {
-    const bandId = box.band.dataset.bandId;
-    if (
-      bandId !== undefined &&
-      isBandFolded(box.band) &&
-      y + box.lift < box.top
-    )
-      below.add(bandId);
+    if (isBandFolded(box.band) && y + box.lift < (box.top + box.bottom) / 2)
+      return box.band.dataset.bandId;
   }
-  return below;
+  return undefined;
 }
 
-// Each band's hit box, in document order: what bandAt and foldedBandsBelow test the pointer against.
+// Each band's hit box, in document order: what bandAt and nearestFoldedBandBelow test the pointer against.
 function* bandHitBoxes(
   container: HTMLElement | null,
   closedUp: ClosedUp | undefined

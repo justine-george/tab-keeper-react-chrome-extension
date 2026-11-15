@@ -559,8 +559,7 @@ describe('a drop becomes Chrome calls, or none', () => {
 
 // KAN-814. The slot decides the pin (moveOpenTab); the hook says so with
 // KAN-811's toast, whose Undo is the drop's own step (KAN-744 R16).
-// KAN-822. A folded live group draws only its title row: its members are no
-// rows, and a release on its band joins it at its end (D8).
+// KAN-822. A folded live group's members are no rows, and a release on its band joins it at its end (D8).
 describe('a folded group', () => {
   const folded: ReadonlySet<string> = new Set([String(GROUP)]);
   const tabNow = async (id: number) => {
@@ -703,7 +702,7 @@ describe('a folded group', () => {
       1,
       undefined,
       '2',
-      new Set([String(GROUP)])
+      String(GROUP)
     );
     expect(moveOpenTab).toHaveBeenCalledWith(
       expect.objectContaining({ toIndex: 1, toGroupId: undefined }),

@@ -229,8 +229,7 @@ describe('the arrival fill', () => {
   }
 });
 
-// KAN-822. A folded group draws only its title row: its new tabs count as
-// listed, and its band joins a run only when all its tabs are new.
+// KAN-822. A folded group draws its title row only: its new tabs count as listed, its band joins a run only when all are new.
 describe('the arrival fill with a folded group', () => {
   const tab = (
     id: number,
@@ -262,8 +261,7 @@ describe('the arrival fill with a folded group', () => {
     incognito: false,
   });
 
-  // Drawn as Open now draws it: loose rows, and each group's band in the
-  // place of its first tab; a folded band holds its title row only.
+  // Drawn as Open now draws it: loose rows, each band at its first tab, a folded band its title row only.
   function GroupedList({ openWindow }: { openWindow: OpenWindow }) {
     const paneRef = useRef<HTMLDivElement>(null);
     const scrollerRef = useRef<HTMLDivElement>(null);
@@ -302,8 +300,7 @@ describe('the arrival fill with a folded group', () => {
     );
   }
 
-  // Each drawn line (a tab row or a title row) 32px tall from y 0, in order;
-  // a band spans its own lines.
+  // Each drawn line (tab row or title row) 32px tall from y 0, in order; a band spans its own lines.
   function layOut(container: HTMLElement) {
     const lines = [
       ...container.querySelectorAll(

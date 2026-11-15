@@ -6,7 +6,10 @@ import {
   RowDragArea,
   DraggableRow,
 } from '../../components/home/rightpane/rowDrag/RowDragArea';
-import { bandAt } from '../../components/home/rightpane/rowDrag/dropRules';
+import {
+  bandAt,
+  nearestFoldedBandBelow,
+} from '../../components/home/rightpane/rowDrag/dropRules';
 import {
   endDragHold,
   isDragHeld,
@@ -540,6 +543,70 @@ describe('a drag its list ends while held ends as Esc ends it (KAN-335, KAN-393)
     expect(document.documentElement.hasAttribute('data-dragging')).toBe(true);
     release(85);
     expect(onMove).toHaveBeenCalledTimes(1);
+  });
+});
+
+// KAN-822. Off every band, which side of a folded band the pointer is on: before it while above its middle.
+describe('nearestFoldedBandBelow', () => {
+  const band = (id: string, top: number, folded: boolean) => {
+    const el = document.createElement('div');
+    el.dataset.bandId = id;
+    if (folded) el.setAttribute('data-group-folded', '');
+    el.getBoundingClientRect = () => box(top, 40, 100, 100);
+    return el;
+  };
+  const container = (...bands: HTMLElement[]) => {
+    const root = document.createElement('div');
+    root.dataset.dropWindowId = 'w1';
+    for (const b of bands) root.appendChild(b);
+    return root;
+  };
+
+  test('above a folded band: that band', () => {
+    expect(nearestFoldedBandBelow(container(band('g', 50, true)), 45)).toBe(
+      'g'
+    );
+  });
+
+  test('below it: none', () => {
+    expect(
+      nearestFoldedBandBelow(container(band('g', 50, true)), 95)
+    ).toBeUndefined();
+  });
+
+  test('an open band below is not folded: none', () => {
+    expect(
+      nearestFoldedBandBelow(container(band('o', 50, false)), 45)
+    ).toBeUndefined();
+  });
+
+  test('two folded below: the nearer one', () => {
+    expect(
+      nearestFoldedBandBelow(
+        container(band('g', 50, true), band('h', 100, true)),
+        45
+      )
+    ).toBe('g');
+    expect(
+      nearestFoldedBandBelow(
+        container(band('g', 50, true), band('h', 100, true)),
+        95
+      )
+    ).toBe('h');
+  });
+
+  test('level with the band (beside it, so off every band): split at its middle, like a row', () => {
+    const root = container(band('g', 50, true));
+    expect(nearestFoldedBandBelow(root, 60)).toBe('g');
+    expect(nearestFoldedBandBelow(root, 80)).toBeUndefined();
+  });
+
+  test('a folded band after a closed-up one is tested where it is drawn', () => {
+    // KAN-916: `gone` at 10..50 is removed; folded `g` rests at 60..100, drawn at 20..60.
+    const root = container(band('gone', 10, false), band('g', 60, true));
+    const closedUp = { bandId: 'gone', by: 40 };
+    expect(nearestFoldedBandBelow(root, 15, closedUp)).toBe('g');
+    expect(nearestFoldedBandBelow(root, 65, closedUp)).toBeUndefined();
   });
 });
 
