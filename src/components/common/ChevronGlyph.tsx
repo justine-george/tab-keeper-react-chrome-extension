@@ -4,8 +4,9 @@ import { css, type SerializedStyles } from '@emotion/react';
 
 import { DURATION, EASE } from '../../styles/scale';
 
-// KAN-757. A window row's chevron: `expand_less` is `expand_more` turned over,
-// so a fold change turns the one glyph half a turn instead of swapping glyphs.
+// KAN-757. A window row's chevron, and a group's (KAN-822): `expand_less` is
+// `expand_more` turned over, so a fold change turns the one glyph half a turn
+// instead of swapping glyphs.
 // A transition, so a second press mid-turn turns it back; none on the first
 // draw, and none under reduced motion.
 
@@ -23,7 +24,7 @@ const glyphTurnCss = css`
 `;
 
 interface ChevronGlyphProps {
-  // Whether the window is unfolded (expand_less) or folded (expand_more).
+  // Whether the window or group is unfolded (expand_less) or folded (expand_more).
   open: boolean;
   // The size and colour a ligature would get (Icon's renderGlyph hands them over).
   glyphCss: SerializedStyles;
@@ -33,7 +34,7 @@ const ChevronGlyph: React.FC<ChevronGlyphProps> = ({ open, glyphCss }) => (
   <span
     css={[glyphCss, glyphTurnCss]}
     className="material-symbols-outlined"
-    data-window-chevron={open ? 'expand_less' : 'expand_more'}
+    data-fold-chevron={open ? 'expand_less' : 'expand_more'}
     style={{ transform: `rotate(${open ? -180 : 0}deg)` }}
   >
     expand_more

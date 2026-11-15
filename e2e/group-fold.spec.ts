@@ -85,9 +85,13 @@ const groupsNow = (worker: Worker) =>
     )
   );
 
-const centerX = async (loc: Locator) => {
+const boxOf = async (loc: Locator) => {
   const b = await loc.boundingBox();
   if (b === null) throw new Error(`no box for ${loc.toString()}`);
+  return b;
+};
+const centerX = async (loc: Locator) => {
+  const b = await boxOf(loc);
   return b.x + b.width / 2;
 };
 
@@ -128,9 +132,14 @@ test.describe('a saved group', () => {
     // PREMISE: the members are drawn while open.
     await expect(memberRows(page)).toHaveCount(2);
 
+    // PREMISE: an open band carries no fold mark.
+    await expect(band(page)).not.toHaveAttribute('data-group-folded');
+
     await collapse(page).click();
 
     await expect(expand(page)).toHaveAttribute('aria-expanded', 'false');
+    // The band's mark, which Task 4's drop rules read.
+    await expect(band(page)).toHaveAttribute('data-group-folded', '');
     await expect(memberRows(page)).toHaveCount(0);
     await expect(band(page).getByText('Tab a')).toHaveCount(0);
     await expect(band(page).getByText('Tab b')).toHaveCount(0);
@@ -161,6 +170,7 @@ test.describe('a saved group', () => {
 
     await expand(page).click();
     await expect(collapse(page)).toBeVisible();
+    await expect(band(page)).not.toHaveAttribute('data-group-folded');
     await expect(memberRows(page)).toHaveCount(2);
     await expect.poll(() => hasCollapsedKey(page)).toBe(false);
 
@@ -204,13 +214,33 @@ test.describe('a saved group', () => {
     const icon = await centerX(favicon);
     expect(Math.abs(chevron - icon)).toBeLessThanOrEqual(1);
     // The name starts after the chevron, not under it.
-    const chevronBox = await collapse(page).boundingBox();
-    const nameBox = await bandHandle(page, 'g1')
-      .getByText('Research')
-      .boundingBox();
-    expect(nameBox!.x).toBeGreaterThanOrEqual(
-      chevronBox!.x + chevronBox!.width
-    );
+    const chevronBox = await boxOf(collapse(page));
+    const nameBox = await boxOf(bandHandle(page, 'g1').getByText('Research'));
+    expect(nameBox.x).toBeGreaterThanOrEqual(chevronBox.x + chevronBox.width);
+  });
+
+  test('a saved search matching a folded member leaves the group folded (D6)', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await context.newPage();
+    await openTrip(page, extensionId);
+    await foldResearch(page);
+
+    await page.locator('[data-saved-search] input').fill('Tab a');
+    // PREMISE: the search is applied: the tab outside the match is filtered out.
+    await expect(page.getByText('Tab lead')).toHaveCount(0);
+
+    await expect(expand(page)).toHaveAttribute('aria-expanded', 'false');
+    await expect(band(page)).toHaveAttribute('data-group-folded', '');
+    await expect(memberRows(page)).toHaveCount(0);
+    expect(await savedCollapsed(page)).toBe(true);
+
+    // Cleared, it is still the stored fold.
+    await page.locator('[data-saved-search] input').fill('');
+    await expect(page.getByText('Tab lead')).toBeVisible();
+    await expect(expand(page)).toBeVisible();
+    expect(await savedCollapsed(page)).toBe(true);
   });
 
   test("Collapse all windows leaves the group's fold", async ({
