@@ -120,6 +120,8 @@ function renderDrop(
   options: {
     hasTabGroups?: boolean;
     collapsedIds?: ReadonlySet<number>;
+    // KAN-822. The groups the pane draws folded, by string id.
+    foldedGroupIds?: ReadonlySet<string>;
     // KAN-815. Built from the store the hook renders in, once it is seeded.
     carriedIn?: (
       tabGroups: readonly tabContainerData[]
@@ -139,6 +141,7 @@ function renderDrop(
         liveNewWindow: false,
         hasTabGroups: options.hasTabGroups ?? true,
         collapsedIds: options.collapsedIds ?? new Set(),
+        foldedGroupIds: options.foldedGroupIds ?? new Set(),
         carriedIn,
       }),
     { wrapper }
@@ -407,6 +410,7 @@ describe('acceptsWindow: which windows take a held row at all', () => {
           liveNewWindow: false,
           hasTabGroups: true,
           collapsedIds: new Set(),
+          foldedGroupIds: new Set(),
           carriedIn: null,
         }),
       { initialProps: { windows: first }, wrapper }
@@ -555,6 +559,85 @@ describe('a drop becomes Chrome calls, or none', () => {
 
 // KAN-814. The slot decides the pin (moveOpenTab); the hook says so with
 // KAN-811's toast, whose Undo is the drop's own step (KAN-744 R16).
+// KAN-822. A folded live group draws only its title row: its members are no
+// rows, and a release on its band joins it at its end (D8).
+describe('a folded group', () => {
+  const folded: ReadonlySet<string> = new Set([String(GROUP)]);
+  const tabNow = async (id: number) => {
+    const tab = await chrome.tabs.get(id);
+    return { windowId: tab.windowId, index: tab.index, groupId: tab.groupId };
+  };
+
+  test('its members are no rows a tab can land on', async () => {
+    const { result } = renderDrop(await install(fourWindows()), {
+      foldedGroupIds: folded,
+    });
+    // Into W2 from W1: [LC] and the band.
+    expect(result.current.tabs.landingRange(String(LOOSE_A), '2')).toEqual({
+      min: 0,
+      max: 1,
+    });
+    expect(result.current.tabs.rowIds).not.toContain(String(GROUPED_1));
+    expect(result.current.tabs.rowIds).not.toContain(String(GROUPED_2));
+  });
+
+  test('a release on its band calls moveOpenTab with the group and the end-of-group row', async () => {
+    const { result } = renderDrop(await install(fourWindows()), {
+      foldedGroupIds: folded,
+    });
+    // W2 with LC lifted out: no rows, so the band's row is 0.
+    expect(
+      await result.current.tabs.onMove(String(LOOSE_C), 0, String(GROUP), '2')
+    ).not.toBe(null);
+    expect(moveOpenTab).toHaveBeenCalledWith(
+      expect.objectContaining({ toIndex: 2, toGroupId: String(GROUP) }),
+      expect.anything(),
+      true
+    );
+    expect(await tabNow(LOOSE_C)).toEqual({
+      windowId: 2,
+      index: 2,
+      groupId: GROUP,
+    });
+  });
+
+  test('from another window, onto its band: after the last member', async () => {
+    const { result } = renderDrop(await install(fourWindows()), {
+      foldedGroupIds: folded,
+    });
+    // Into W2 from W1: [LC] and the band, which is row 1.
+    await result.current.tabs.onMove(String(LOOSE_A), 1, String(GROUP), '2');
+    expect(await tabNow(LOOSE_A)).toEqual({
+      windowId: 2,
+      index: 3,
+      groupId: GROUP,
+    });
+  });
+
+  test('a row past the drawn rows names none, and nothing is asked of Chrome', async () => {
+    const { result } = renderDrop(await install(fourWindows()), {
+      foldedGroupIds: folded,
+    });
+    // W2 draws [LC] and the band: row 2 would be a member's.
+    expect(
+      await result.current.tabs.onMove(String(LOOSE_A), 2, undefined, '2')
+    ).toBe(null);
+    expect(moveOpenTab).not.toHaveBeenCalled();
+  });
+
+  test('a loose release at its row lands after it, ungrouped (Review Focus 1)', async () => {
+    const { result } = renderDrop(await install(fourWindows()), {
+      foldedGroupIds: folded,
+    });
+    await result.current.tabs.onMove(String(LOOSE_A), 1, undefined, '2');
+    expect(await tabNow(LOOSE_A)).toEqual({
+      windowId: 2,
+      index: 3,
+      groupId: -1,
+    });
+  });
+});
+
 describe('a drop that pins or unpins a tab says so', () => {
   const tabNow = async (id: number) => {
     const tab = await chrome.tabs.get(id);
@@ -737,12 +820,17 @@ describe('a saved item carried in', () => {
   // The carry is on, as the hand-off leaves it, while the lists adopt it.
   async function carrying(
     item: CarriedItem,
-    options: { collapsedIds?: ReadonlySet<number>; incognito?: boolean } = {}
+    options: {
+      collapsedIds?: ReadonlySet<number>;
+      foldedGroupIds?: ReadonlySet<string>;
+      incognito?: boolean;
+    } = {}
   ) {
     const windows = await install(fourWindows());
     startCarry(item, { kind: 'tab', title: 'One', faviconUrl: '' }, 0, 0);
     const rendered = renderDrop(windows, {
       collapsedIds: options.collapsedIds,
+      foldedGroupIds: options.foldedGroupIds,
       seed: (store) => {
         store.dispatch(saveToTabContainerInternal(saved(options.incognito)));
       },
@@ -802,6 +890,26 @@ describe('a saved item carried in', () => {
     expect(moveOpenTab).not.toHaveBeenCalled();
     // KAN-893. Not a move: its undo step closes the copy.
     expect(selectLiveStepOnTop(store.getState())?.drop.kind).toBe('opened');
+  });
+
+  // KAN-822. A folded live group draws its title row alone: the copy opens at its end.
+  test("onto a folded group's band, the copy opens after its last member", async () => {
+    const item = tabItem();
+    const { result, carriedIn, windows } = await carrying(item, {
+      foldedGroupIds: new Set([String(GROUP)]),
+    });
+
+    // W2 draws [LC] and the band, which is row 1.
+    void result.current.tabs.onMove(carriedIn.rowId, 1, String(GROUP), '2');
+
+    expect(openCarriedCopy).toHaveBeenCalledWith(
+      item,
+      {
+        kind: 'tab',
+        slot: tabCopySlot(windows, '2', 3, true, String(GROUP), true),
+      },
+      expect.any(String)
+    );
   });
 
   // KAN-850. Nothing will be drawn at the slot: the rows ease back.

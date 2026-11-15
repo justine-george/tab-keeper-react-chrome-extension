@@ -158,6 +158,10 @@ interface OpenNowWindowProps {
   // whole: a tab's click and close still act on the real tab. The window's own
   // Save and Close are not offered while a search is held (O14e).
   matchedTabIds: ReadonlySet<number> | null;
+  // KAN-822 D6. The groups a search folds, drawing only, by string id; null while no search is held.
+  searchFoldedGroupIds: ReadonlySet<string> | null;
+  // KAN-822 D6. Folds or unfolds a group in the search's own set.
+  onSearchGroupFoldToggle: (groupId: string) => void;
   // KAN-739. The pane moves focus if this rename takes the group out of the search.
   onGroupRenameCommitted: (groupId: number) => void;
   isOpen: boolean;
@@ -182,6 +186,8 @@ export default function OpenNowWindow({
   number,
   lastUsedTabId,
   matchedTabIds,
+  searchFoldedGroupIds,
+  onSearchGroupFoldToggle,
   onGroupRenameCommitted,
   isOpen,
   onToggle,
@@ -255,14 +261,6 @@ export default function OpenNowWindow({
     setEditingGroupId(null);
   };
 
-  // KAN-822 D6. Groups folded during a search, drawing only; each search starts with none, and null while no search is held.
-  const [searchFoldedGroupIds, setSearchFoldedGroupIds] =
-    useState<ReadonlySet<string> | null>(() =>
-      matchedTabIds === null ? null : new Set()
-    );
-  if ((matchedTabIds === null) !== (searchFoldedGroupIds === null)) {
-    setSearchFoldedGroupIds(matchedTabIds === null ? null : new Set());
-  }
   // KAN-822 D2. Outside a search the fold is Chrome's collapse, drawn from the next read.
   const isGroupFolded = (group: chromeTabGroupData) =>
     searchFoldedGroupIds === null
@@ -274,10 +272,7 @@ export default function OpenNowWindow({
       void updateLiveGroup(Number(group.groupId), { collapsed: !folded });
       return;
     }
-    const next = new Set(searchFoldedGroupIds);
-    if (folded) next.delete(group.groupId);
-    else next.add(group.groupId);
-    setSearchFoldedGroupIds(next);
+    onSearchGroupFoldToggle(group.groupId);
   };
 
   // How far this window's block moves to make room for a row landing in

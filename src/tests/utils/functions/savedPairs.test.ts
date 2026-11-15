@@ -118,6 +118,48 @@ describe('tabIndexOfRow (KAN-942)', () => {
   });
 });
 
+describe('tabIndexOfRow past a folded group (KAN-822)', () => {
+  // L [G: G1 G2] M, the group folded: L and M are rows 0 and 1.
+  const foldedMid = [
+    tab('L'),
+    tab('G1', { chromeGroupId: 'g' }),
+    tab('G2', { chromeGroupId: 'g' }),
+    tab('M'),
+  ];
+  const rowless: ReadonlySet<string> = new Set(['G1', 'G2']);
+
+  test('the row at the folded edge lands after the group (Review Focus 1)', () => {
+    expect(tabIndexOfRow(foldedMid, none, 1, rowless)).toBe(3);
+  });
+
+  test('row 0 is still the first tab', () => {
+    expect(tabIndexOfRow(foldedMid, none, 0, rowless)).toBe(0);
+  });
+
+  test('a folded group at the window end: past the last row is the list end', () => {
+    const foldedEnd = foldedMid.slice(0, 3);
+    expect(tabIndexOfRow(foldedEnd, none, 1, rowless)).toBe(3);
+  });
+
+  test('a folded group at the window start: row 0 lands after it', () => {
+    expect(tabIndexOfRow(foldedMid.slice(1), none, 0, rowless)).toBe(2);
+  });
+
+  test('counted with the held tab out: L held, row 0 lands after the group', () => {
+    expect(tabIndexOfRow(foldedMid, new Set(['L']), 0, rowless)).toBe(2);
+  });
+
+  test('a folded pair is no row either', () => {
+    const pairInGroup = [
+      tab('L'),
+      half('h1', 's', { chromeGroupId: 'g' }),
+      half('h2', 's', { chromeGroupId: 'g' }),
+      tab('M'),
+    ];
+    expect(tabIndexOfRow(pairInGroup, none, 1, new Set(['h1', 'h2']))).toBe(3);
+  });
+});
+
 describe('slotOutsidePairs (KAN-942)', () => {
   test('a slot inside a pair steps past it', () => {
     expect(slotOutsidePairs(window4, none, 2)).toBe(3);

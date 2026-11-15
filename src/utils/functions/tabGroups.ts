@@ -164,6 +164,38 @@ export function partitionTabsIntoItems<T extends GroupableTab>(
   );
 }
 
+// KAN-822. The tabs a folded group holds, as the partition places them: they draw no row.
+export function foldedMemberIds(
+  tabs: readonly GroupableTab[],
+  groups: readonly chromeTabGroupData[] | undefined,
+  foldedGroupIds: ReadonlySet<string>
+): Set<string> {
+  return new Set(
+    partitionTabsIntoRuns(tabs, groups).flatMap((run) =>
+      run.kind === 'group' && foldedGroupIds.has(run.group.groupId)
+        ? run.tabs.map((tab) => tab.tabId)
+        : []
+    )
+  );
+}
+
+// KAN-822. Where a drop on a folded group's band lands: one past its last member, in `tabs` with the held tabs lifted out.
+// With no member left, where the group's last one stood; with none at all, the list end.
+export function foldedGroupEndIndex(
+  tabs: readonly GroupableTab[],
+  groupId: string,
+  heldIds: ReadonlySet<string>
+): number {
+  const others = tabs.filter((tab) => !heldIds.has(tab.tabId));
+  let end = others.length;
+  let passed = 0;
+  for (const tab of tabs) {
+    if (!heldIds.has(tab.tabId)) passed += 1;
+    if (tab.chromeGroupId === groupId) end = passed;
+  }
+  return end;
+}
+
 const TAB_ITEM = 'tab:';
 const GROUP_ITEM = 'group:';
 

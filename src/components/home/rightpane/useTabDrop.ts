@@ -40,6 +40,8 @@ import {
 import { savedSplitPartners } from '../../../utils/functions/splitPartners';
 import {
   TAB_GROUP_COLOR_HEX,
+  foldedGroupEndIndex,
+  foldedMemberIds,
   sanitizeTabGroupColor,
   partitionTabsIntoItems,
   type chromeTabGroupData,
@@ -76,6 +78,8 @@ interface WindowGroupEdges {
   // KAN-187. For a LOOSE tab that is the only thing between two bands, the
   // band BELOW it -- the one whose top gap widens when that tab leaves.
   bandBelowLooseTabInGap: Map<string, string>;
+  // KAN-822. This window's folded groups: drawn as a title row alone, first at the row after them, last one before.
+  foldedGroupIds: ReadonlySet<string>;
 }
 
 type ItemKind = 'tab' | 'group';
@@ -87,28 +91,53 @@ interface BandNeighbours {
   aboveBandId: string | undefined;
 }
 
+// Row indices count DRAWN rows: a folded group's members draw none (KAN-822).
 export function groupEdgesOf(
   tabs: readonly DragTab[],
-  groups: readonly chromeTabGroupData[] | undefined
+  groups: readonly chromeTabGroupData[] | undefined,
+  foldedGroupIds: ReadonlySet<string> = new Set()
 ): WindowGroupEdges {
-  const indexOfTab = new Map(tabs.map((tab, i) => [tab.tabId, i]));
+  const rowless = foldedMemberIds(tabs, groups, foldedGroupIds);
+  const indexOfTab = new Map(
+    tabs
+      .filter((tab) => !rowless.has(tab.tabId))
+      .map((tab, i) => [tab.tabId, i])
+  );
+  // KAN-822. The rows drawn before each tab, so a folded group can name the row after it.
+  const rowsBefore = new Map<string, number>();
+  let drawn = 0;
+  for (const tab of tabs) {
+    rowsBefore.set(tab.tabId, drawn);
+    if (!rowless.has(tab.tabId)) drawn += 1;
+  }
   const groupFirstIndex = new Map<string, number>();
   const groupLastIndex = new Map<string, number>();
   const groupOfTab = new Map<string, string>();
   const groupSize = new Map<string, number>();
   const bandNeighbours = new Map<string, BandNeighbours>();
   const bandBelowLooseTabInGap = new Map<string, string>();
+  const folded = new Set<string>();
   const items = partitionTabsIntoItems(tabs, groups);
   items.forEach((item, i) => {
     if (item.kind !== 'group') return;
     const first = item.tabs[0];
     const last = item.tabs[item.tabs.length - 1];
-    const firstIndex = first ? indexOfTab.get(first.tabId) : undefined;
-    const lastIndex = last ? indexOfTab.get(last.tabId) : undefined;
-    if (firstIndex !== undefined)
-      groupFirstIndex.set(item.group.groupId, firstIndex);
-    if (lastIndex !== undefined)
-      groupLastIndex.set(item.group.groupId, lastIndex);
+    if (foldedGroupIds.has(item.group.groupId)) {
+      // KAN-822. No rows: first is the row after the band, last the row before it.
+      const row = first ? rowsBefore.get(first.tabId) : undefined;
+      if (row !== undefined) {
+        folded.add(item.group.groupId);
+        groupFirstIndex.set(item.group.groupId, row);
+        groupLastIndex.set(item.group.groupId, row - 1);
+      }
+    } else {
+      const firstIndex = first ? indexOfTab.get(first.tabId) : undefined;
+      const lastIndex = last ? indexOfTab.get(last.tabId) : undefined;
+      if (firstIndex !== undefined)
+        groupFirstIndex.set(item.group.groupId, firstIndex);
+      if (lastIndex !== undefined)
+        groupLastIndex.set(item.group.groupId, lastIndex);
+    }
     for (const tab of item.tabs) {
       groupOfTab.set(tab.tabId, item.group.groupId);
       groupSize.set(
@@ -139,8 +168,12 @@ export function groupEdgesOf(
     groupSize,
     bandNeighbours,
     bandBelowLooseTabInGap,
+    foldedGroupIds: folded,
   };
 }
+
+// KAN-822. The default for a pane that folds no group.
+const NOTHING_FOLDED: ReadonlySet<string> = new Set();
 
 // KAN-187. How much LESS room a loose row needs between two bands than its own
 // footprint: the pair stops sharing KAN-179's wide gap and each keeps its own
@@ -204,6 +237,8 @@ export function gapOpenedByLandingIn(
     const prunedAbove =
       removedBandId !== undefined && neighbours?.aboveBandId === removedBandId;
     if (prunedItself || prunedAbove) continue;
+    // KAN-822. A loose tab at a folded band's row lands below it, never in the gap above.
+    if (edges.foldedGroupIds.has(groupId)) continue;
     const adjacentOnce = neighbours?.above === 'group';
     const separatedOnlyByTheHeldRow =
       edges.bandBelowLooseTabInGap.get(rowId) === groupId;
@@ -239,6 +274,17 @@ function headInLandingSpace(
   return fromIndex !== undefined && fromIndex < first ? first - 1 : first;
 }
 
+// KAN-822. Whether the held row is drawn above the group, in its own window.
+function isAboveGroup(
+  edges: WindowGroupEdges,
+  groupId: string,
+  rowId: string
+): boolean {
+  const first = edges.groupFirstIndex.get(groupId);
+  const fromIndex = edges.indexOfTab.get(rowId);
+  return first !== undefined && fromIndex !== undefined && fromIndex < first;
+}
+
 // KAN-166. Which title row the dragged tab will land immediately beside, within
 // one window.
 //
@@ -268,6 +314,8 @@ export function landsBesideFixedRowIn(
   // the tab is landing BETWEEN members, where its row index already says
   // everything.
   if (target !== undefined) {
+    // KAN-822. A folded band has no slots: no room opens under its title row (D8).
+    if (edges.foldedGroupIds.has(target)) return undefined;
     const head = headInLandingSpace(edges, target, rowId);
     if (head !== undefined && toIndex <= head) {
       return { fixedRowId: target, side: 'after' };
@@ -320,6 +368,7 @@ export function landsBesideFixedRowIn(
   // A's first tab -- and asked across windows, a drag to the top of A would
   // answer "before B's title row".
   for (const groupId of edges.groupFirstIndex.keys()) {
+    if (edges.foldedGroupIds.has(groupId)) continue;
     if (headInLandingSpace(edges, groupId, rowId) === toIndex) {
       return {
         fixedRowId: groupId,
@@ -327,6 +376,20 @@ export function landsBesideFixedRowIn(
         offset: looseBeforeHeadOffset(edges, groupId, rowId),
       };
     }
+  }
+
+  // KAN-822 (Review Focus 1). At a folded band's row the tab lands AFTER the band, the last one when several fold side by side.
+  const foldedHere = [...edges.foldedGroupIds]
+    .filter((groupId) => headInLandingSpace(edges, groupId, rowId) === toIndex)
+    .pop();
+  if (foldedHere !== undefined) {
+    return {
+      fixedRowId: foldedHere,
+      side: 'after',
+      ...(isAboveGroup(edges, foldedHere, rowId)
+        ? { offset: BAND_MARGIN_PX }
+        : {}),
+    };
   }
 
   // KAN-181. The same question at the other end: an ungrouped landing
@@ -449,13 +512,22 @@ export function fixedRowsRemovedByIn(
  */
 export function useTabDropGeometry(
   windows: DragWindows,
-  hasTabGroupsPermission: boolean
+  hasTabGroupsPermission: boolean,
+  // KAN-822. The groups the pane draws folded, by group id.
+  foldedGroupIds: ReadonlySet<string> = NOTHING_FOLDED
 ) {
+  // KAN-822. Folding needs bands: without the grant no group is drawn at all.
+  const drawnFolded = hasTabGroupsPermission ? foldedGroupIds : NOTHING_FOLDED;
   // Every tab in every window listed, in render order. A tab drag must be able
-  // to name a row in ANOTHER window, which a per-window area cannot do.
+  // to name a row in ANOTHER window, which a per-window area cannot do. A
+  // folded group's members draw no row (KAN-822).
   const rowIds = useMemo(
-    () => windows.flatMap((w) => w.tabs.map((t) => t.tabId)),
-    [windows]
+    () =>
+      windows.flatMap((w) => {
+        const rowless = foldedMemberIds(w.tabs, w.chromeTabGroups, drawnFolded);
+        return w.tabs.filter((t) => !rowless.has(t.tabId)).map((t) => t.tabId);
+      }),
+    [windows, drawnFolded]
   );
 
   // Which window each tab belongs to. The pane-wide area knows only row ids,
@@ -478,11 +550,12 @@ export function useTabDropGeometry(
           w.windowId,
           groupEdgesOf(
             w.tabs,
-            hasTabGroupsPermission ? w.chromeTabGroups : undefined
+            hasTabGroupsPermission ? w.chromeTabGroups : undefined,
+            drawnFolded
           ),
         ])
       ),
-    [windows, hasTabGroupsPermission]
+    [windows, hasTabGroupsPermission, drawnFolded]
   );
 
   // KAN-164. Which group a tab release would put it in, answered in that
@@ -683,6 +756,21 @@ export function useTabDropGeometry(
   };
 }
 
+// KAN-822. Every saved group stored collapsed; none without the grant, where no band is drawn.
+function foldedSavedGroupIds(
+  windows: PaneWindows['windows'],
+  hasTabGroupsPermission: boolean
+): ReadonlySet<string> {
+  if (!hasTabGroupsPermission) return NOTHING_FOLDED;
+  return new Set(
+    windows.flatMap((w) =>
+      (w.chromeTabGroups ?? [])
+        .filter((group) => group.collapsed === true)
+        .map((group) => group.groupId)
+    )
+  );
+}
+
 /**
  * Everything a `tabs` drag area needs from a saved session's windows. Read by
  * TabDragArea, the one place a saved tab list is wired up.
@@ -696,9 +784,15 @@ export function useTabDrop(
   const { windows, tabGroupId } = tabList;
   // KAN-942. The geometry sees rows, a pair once: onMove turns its index back into tabs.
   const rowWindows = useMemo(() => savedRowWindows(windows), [windows]);
+  // KAN-822. A saved group is folded by its stored flag, during a search too (D6).
+  const foldedGroupIds = useMemo(
+    () => foldedSavedGroupIds(windows, hasTabGroupsPermission),
+    [windows, hasTabGroupsPermission]
+  );
   const { describeTabMove, ...geometry } = useTabDropGeometry(
     rowWindows,
-    hasTabGroupsPermission
+    hasTabGroupsPermission,
+    foldedGroupIds
   );
 
   // Two reducers, not one widened one (spec 7): moveTabInternal's no-op guard
@@ -734,8 +828,9 @@ export function useTabDrop(
         source === undefined
           ? undefined
           : savedSplitPartners(source.tabs).get(tabId);
-      const landingTabs =
-        windows.find((w) => w.windowId === described.toWindowId)?.tabs ?? [];
+      const landing = windows.find((w) => w.windowId === described.toWindowId);
+      const landingTabs = landing?.tabs ?? [];
+      const heldIds = new Set([tabId, ...(partner ? [partner.tabId] : [])]);
       // KAN-458. A window drawn with no rows gives position no meaning: the tab keeps its pin, at the start of its own run.
       const move = isDrawnFolded(
         collapsedWindowIdsOf(globalState.collapsedWindows, tabGroupId),
@@ -760,11 +855,21 @@ export function useTabDrop(
           }
         : {
             ...described,
-            toIndex: tabIndexOfRow(
-              landingTabs,
-              new Set([tabId, ...(partner ? [partner.tabId] : [])]),
-              described.toIndex
-            ),
+            // KAN-822. On a folded band: its end (D8). Elsewhere a folded group's members are no rows.
+            toIndex:
+              described.toGroupId !== undefined &&
+              foldedGroupIds.has(described.toGroupId)
+                ? foldedGroupEndIndex(landingTabs, described.toGroupId, heldIds)
+                : tabIndexOfRow(
+                    landingTabs,
+                    heldIds,
+                    described.toIndex,
+                    foldedMemberIds(
+                      landingTabs,
+                      landing?.chromeTabGroups,
+                      foldedGroupIds
+                    )
+                  ),
           };
       if (carriedTab !== undefined) {
         const moved = dispatch(
@@ -823,7 +928,7 @@ export function useTabDrop(
           : dropSavedPair({ ...drop, partnerTabId: partner.tabId })
       );
     },
-    [dispatch, store, tabGroupId, windows, describeTabMove]
+    [dispatch, store, tabGroupId, windows, describeTabMove, foldedGroupIds]
   );
 
   return { ...geometry, onMove };

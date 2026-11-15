@@ -332,6 +332,30 @@ export default function OpenNowPane({
   const setFoldedIds =
     searchTerm === null ? setCollapsedIds : setSearchCollapsedIds;
 
+  // KAN-822 D6. Groups folded during a search, drawing only, beside the windows' set: each search starts with none.
+  const [searchFoldedGroupIds, setSearchFoldedGroupIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
+  const toggleSearchGroupFold = useCallback((groupId: string) => {
+    setSearchFoldedGroupIds((before) => {
+      const next = new Set(before);
+      if (!next.delete(groupId)) next.add(groupId);
+      return next;
+    });
+  }, []);
+  // KAN-822. The groups drawn folded, for the windows' bands and the drop geometry alike: Chrome's collapse outside a search.
+  const chromeFoldedGroupIds = useMemo(
+    () =>
+      new Set(
+        listed.flatMap((w) =>
+          w.groups.filter((g) => g.collapsed).map((g) => String(g.id))
+        )
+      ),
+    [listed]
+  );
+  const foldedGroupIds =
+    searchTerm === null ? chromeFoldedGroupIds : searchFoldedGroupIds;
+
   // A search starting (no term -> a term) starts its own folds afresh. Every
   // way the text changes -- typing, the clear ×, Esc -- comes through here.
   const scrollBeforeSearch = useRef<number | null>(null);
@@ -339,6 +363,7 @@ export default function OpenNowPane({
   const handleSearchTextChange = (text: string) => {
     if (searchTerm === null && searchTermOf(text) !== null) {
       setSearchCollapsedIds(new Set());
+      setSearchFoldedGroupIds(new Set());
     }
     const scroll = searchScrollAfter(
       searchTerm,
@@ -478,6 +503,7 @@ export default function OpenNowPane({
     windows: listed,
     hasTabGroups: hasTabGroupsPermission,
     collapsedIds: foldedIds,
+    foldedGroupIds,
     carriedIn,
     liveNewWindow: carriedIn === null && heldOffersNewWindow,
   });
@@ -1360,6 +1386,10 @@ export default function OpenNowPane({
                           openWindow.isThisWindow ? thisWindowLastUsed : null
                         }
                         matchedTabIds={matchedTabIds}
+                        searchFoldedGroupIds={
+                          searchTerm === null ? null : searchFoldedGroupIds
+                        }
+                        onSearchGroupFoldToggle={toggleSearchGroupFold}
                         onGroupRenameCommitted={(groupId) => {
                           renamedInSearch.current =
                             matches === null ? null : groupId;

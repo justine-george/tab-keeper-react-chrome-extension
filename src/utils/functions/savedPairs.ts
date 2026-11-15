@@ -57,31 +57,36 @@ export function isSavedPair(
   );
 }
 
-// Where row `rowIndex` starts in a list whose followers draw no row of their own.
-function indexOfRow(isFollower: readonly boolean[], rowIndex: number): number {
+// Where row `rowIndex` starts in a list where some entries draw no row of their own: past every such entry before it.
+export function indexOfDrawnRow(
+  drawsNoRow: readonly boolean[],
+  rowIndex: number
+): number {
   let row = 0;
-  for (const [i, follows] of isFollower.entries()) {
-    if (follows) continue;
+  for (const [i, rowless] of drawsNoRow.entries()) {
+    if (rowless) continue;
     if (row === rowIndex) return i;
     row += 1;
   }
-  return isFollower.length;
+  return drawsNoRow.length;
 }
 
 const isFollowerItem = (item: TabItem, followers: ReadonlySet<string>) =>
   item.kind === 'tab' && followers.has(item.tab.tabId);
 
 // `tabs` as drawn, the held row still in them: pairs are read BEFORE the held ids come out, as a tab lifted from between two halves makes no pair.
+// KAN-822. `rowless`: a folded group's members, so a row at its edge lands after it (Review Focus 1).
 export function tabIndexOfRow(
   tabs: readonly tabData[],
   heldIds: ReadonlySet<string>,
-  rowIndex: number
+  rowIndex: number,
+  rowless: ReadonlySet<string> = new Set()
 ): number {
   const followers = savedFollowerIds(tabs);
-  return indexOfRow(
+  return indexOfDrawnRow(
     tabs
       .filter((tab) => !heldIds.has(tab.tabId))
-      .map((tab) => followers.has(tab.tabId)),
+      .map((tab) => followers.has(tab.tabId) || rowless.has(tab.tabId)),
     rowIndex
   );
 }
@@ -92,7 +97,7 @@ export function itemIndexOfRow(
   followers: ReadonlySet<string>,
   rowIndex: number
 ): number {
-  return indexOfRow(
+  return indexOfDrawnRow(
     items.map((item) => isFollowerItem(item, followers)),
     rowIndex
   );

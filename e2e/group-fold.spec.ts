@@ -3,7 +3,8 @@ import type { Locator, Page, Worker } from '@playwright/test';
 // Saved groups draw as bands only with tabGroups, so every spec here needs the grant.
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
-import { POPUP, bandHandle, stored } from './fixtures/savedWindows';
+import { POPUP, bandHandle, header, stored } from './fixtures/savedWindows';
+import { elementLanded } from './fixtures/landed';
 import { pressOpen } from './fixtures/sessionActions';
 import { standIn } from './fixtures/standInPages';
 import { openPage } from './fixtures/onboarding';
@@ -286,6 +287,130 @@ test.describe('a saved group', () => {
   });
 });
 
+// KAN-822 D8. Dropped on a folded group, a tab joins at its end and the group stays folded.
+// c and lead loose above Research, stored folded: the group is at the window end.
+const dropTabs = [tab('c'), tab('lead'), tab('a', 'g1'), tab('b', 'g1')];
+const FOLDED_TRIP = buildSession({
+  ...TRIP,
+  tabCount: dropTabs.length,
+  windows: [
+    {
+      ...TRIP.windows[0],
+      tabCount: dropTabs.length,
+      tabs: dropTabs,
+      chromeTabGroups: [
+        { groupId: 'g1', title: 'Research', color: 'blue', collapsed: true },
+      ],
+    },
+  ],
+});
+
+// The stored window, each tab as id or id:group.
+const storedOrder = async (page: Page) =>
+  (await stored(page)).tabGroups[0].windows[0].tabs.map((t) =>
+    t.chromeGroupId === undefined ? t.tabId : `${t.tabId}:${t.chromeGroupId}`
+  );
+const savedRow = (page: Page, id: string): Locator =>
+  page.locator(`[data-pane="detail"] [data-drag-row-id="${id}"]`);
+const landingSlot = (page: Page): Locator =>
+  page.locator('[data-drag-landing-slot]');
+
+// Presses on `row`, clears the activation distance, and rests at `y` past the rows' 0.18s ease.
+async function holdOver(page: Page, row: Locator, y: () => Promise<number>) {
+  const from = await boxOf(row);
+  const x = from.x + 40;
+  await page.mouse.move(x, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(x, from.y + from.height / 2 + 8, { steps: 2 });
+  await expect(page.locator('[data-drag-held]')).toHaveCount(1);
+  await page.mouse.move(x, await y(), { steps: 8 });
+  await page.waitForTimeout(400);
+}
+
+test.describe('a tab dropped on a folded saved group', () => {
+  test.beforeEach(async ({ context }) => {
+    await seedSessions(context, {
+      ...buildContainer([FOLDED_TRIP]),
+      selectedTabGroupId: 'S1',
+    });
+  });
+
+  test('a tab dropped on a folded group joins at its end and the group stays folded', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await context.newPage();
+    await openTrip(page, extensionId);
+    // PREMISE: stored folded, drawn as its title row alone.
+    await expect(band(page)).toHaveAttribute('data-group-folded', '');
+    await expect(memberRows(page)).toHaveCount(0);
+    const resting = await boxOf(band(page));
+
+    await holdOver(page, savedRow(page, 'c'), async () => {
+      const row = await boxOf(bandHandle(page, 'g1'));
+      return row.y + row.height / 2;
+    });
+    // The join wash, and no room inside the band: its box and the slot keep apart.
+    await expect(band(page)).toHaveAttribute('data-drop-target', '');
+    await expect(memberRows(page)).toHaveCount(0);
+    const during = await boxOf(band(page));
+    expect(Math.abs(during.height - resting.height)).toBeLessThanOrEqual(1);
+    const slot = await boxOf(landingSlot(page));
+    const outside =
+      slot.y + slot.height <= during.y + 1 ||
+      slot.y >= during.y + during.height - 1;
+    expect(
+      outside,
+      `slot ${JSON.stringify(slot)} band ${JSON.stringify(during)}`
+    ).toBe(true);
+    await page.mouse.up();
+
+    await expect
+      .poll(() => storedOrder(page))
+      .toEqual(['lead', 'a:g1', 'b:g1', 'c:g1']);
+    expect(await savedCollapsed(page)).toBe(true);
+    await expect(bandHandle(page, 'g1').getByText('3 tabs')).toBeVisible();
+    await expect(memberRows(page)).toHaveCount(0);
+    await expect(band(page)).toHaveAttribute('data-group-folded', '');
+  });
+
+  test('a tab dropped just above a folded group lands below it', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await context.newPage();
+    await openTrip(page, extensionId);
+    await expect(band(page)).toHaveAttribute('data-group-folded', '');
+    // Measured from the window's own row, which a tab drag never moves.
+    const windowTop = async () => (await boxOf(header(page, 'w1'))).y;
+
+    // Past lead's midpoint, above the band: outside every band.
+    await holdOver(page, savedRow(page, 'c'), async () => {
+      return (await boxOf(band(page))).y - 3;
+    });
+    await expect(band(page)).not.toHaveAttribute('data-drop-target');
+    // The slot is below the band's title row as the preview draws it.
+    const slot = await boxOf(landingSlot(page));
+    const title = await boxOf(bandHandle(page, 'g1'));
+    expect(slot.y).toBeGreaterThanOrEqual(title.y + title.height);
+    // The colour strip, which reads as "inside this group", ends with the title row, not beside the slot.
+    const strip = await boxOf(band(page).locator('[data-group-color-strip]'));
+    expect(strip.y + strip.height).toBeLessThanOrEqual(slot.y + 1);
+    const promised = slot.y - (await windowTop());
+    await page.mouse.up();
+
+    await expect
+      .poll(() => storedOrder(page))
+      .toEqual(['lead', 'a:g1', 'b:g1', 'c']);
+    expect(await savedCollapsed(page)).toBe(true);
+    await expect(memberRows(page)).toHaveCount(0);
+    // The preview promised where the row rests.
+    await elementLanded(savedRow(page, 'c'), 'ancestors');
+    const rested = (await boxOf(savedRow(page, 'c'))).y - (await windowTop());
+    expect(Math.abs(rested - promised)).toBeLessThanOrEqual(1);
+  });
+});
+
 // KAN-822 D2. In Currently open the fold is Chrome's own collapse, both ways.
 const VIEW_TAB = 'index.html?view=tab';
 const TAB_VIEWPORT = { width: 1280, height: 800 };
@@ -368,7 +493,7 @@ async function openLiveKyoto(page: Page, worker: Worker): Promise<Kyoto> {
   return k;
 }
 
-const expectLiveFolded = async (page: Page, k: Kyoto) => {
+const expectLiveFolded = async (page: Page, k: Kyoto, count = 2) => {
   await expect(liveExpand(page, k)).toHaveAttribute('aria-expanded', 'false');
   await expect(liveBand(page, k)).toHaveAttribute('data-group-folded', '');
   await expect(liveMembers(page, k)).toHaveCount(0);
@@ -376,7 +501,7 @@ const expectLiveFolded = async (page: Page, k: Kyoto) => {
   await expect(
     liveBand(page, k).locator(`[data-fixed-row-id="${k.groupId}:tail"]`)
   ).toHaveCount(0);
-  await expect(liveTitleRow(page, k).getByText('2 tabs')).toBeVisible();
+  await expect(liveTitleRow(page, k).getByText(`${count} tabs`)).toBeVisible();
 };
 const expectLiveOpen = async (page: Page, k: Kyoto, members = 2) => {
   await expect(liveCollapse(page, k)).toHaveAttribute('aria-expanded', 'true');
@@ -526,5 +651,46 @@ test.describe('a group in Currently open', () => {
     await searchField(page).fill('Temples');
     await expect(liveBlock(page, k).getByText('Loose')).toHaveCount(0);
     await expectLiveOpen(page, k, 1);
+  });
+
+  test('a tab dropped on a folded Chrome group joins at its end', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+    const k = await openLiveKyoto(page, serviceWorker);
+    // Loose stays inactive, so Chrome has no reason to expand the group it joins.
+    await activate(serviceWorker, k.temples);
+    await setChromeCollapsed(serviceWorker, k.groupId, true);
+    await expectLiveFolded(page, k);
+    const looseRow = liveBlock(page, k).locator(
+      `[data-drag-row-id="${k.loose}"]`
+    );
+    await elementLanded(looseRow, 'ancestors');
+
+    await holdOver(page, looseRow, async () => {
+      const row = await boxOf(liveTitleRow(page, k));
+      return row.y + row.height / 2;
+    });
+    await expect(liveBand(page, k)).toHaveAttribute('data-drop-target', '');
+    await expect(liveMembers(page, k)).toHaveCount(0);
+    await page.mouse.up();
+
+    await expect
+      .poll(() =>
+        serviceWorker.evaluate(async (id) => {
+          const t = await chrome.tabs.get(id);
+          return { groupId: t.groupId, index: t.index };
+        }, k.loose)
+      )
+      .toEqual({ groupId: k.groupId, index: 2 });
+    const gardens = await serviceWorker.evaluate(
+      async (id) => (await chrome.tabs.get(id)).index,
+      k.gardens
+    );
+    expect(gardens).toBe(1);
+    expect(await chromeCollapsed(serviceWorker, k.groupId)).toBe(true);
+    await expectLiveFolded(page, k, 3);
   });
 });
