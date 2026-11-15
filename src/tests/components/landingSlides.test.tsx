@@ -6,6 +6,7 @@ import {
   slideLanding,
 } from '../../components/home/rightpane/rowDrag/landingSlides';
 import { settleSlides } from '../../components/home/rightpane/rowDrag/settleSlides';
+import { EASE } from '../../styles/scale';
 
 // KAN-836. A drop into a window below its own closes the source's room when
 // the move is drawn, and every block below moves up a row. Window blocks
@@ -95,20 +96,54 @@ describe('slideLanding', () => {
 
     slideLanding(root, before, row);
 
-    // 120 -> 98 is 22; w2 carries 32 of it, so the row goes -10 on its own.
+    // 120 -> 98 is 22; w2 carries 32 of it, so the row goes -10 on its own, eased as its block is so the two add up.
     expect(r).toHaveBeenCalledWith(
       [{ transform: 'translateY(-10px)' }, { transform: 'none' }],
       { duration: 200, easing: 'ease', id: LANDING_SLIDE }
     );
   });
 
-  it('CONTROL: no block moved (a drop within a window): nothing glides, not even the dropped row', () => {
+  // KAN-822. A drop within a window: no block moved, but the dropped row still glides from where it was let go.
+  it('no block moved (a drop within a window): the blocks stay, the dropped row glides into its slot', () => {
     reduceMotion(false);
     const { root, blocks, row } = list();
     blocks.forEach((b, i) => at(b, i * 100));
     at(row, 110);
     const before = landingTops(root, row);
     at(row, 104);
+    const blockGlides = blocks.map(animated);
+    const r = animated(row);
+
+    slideLanding(root, before, row);
+
+    for (const a of blockGlides) expect(a).not.toHaveBeenCalled();
+    expect(r).toHaveBeenCalledWith(
+      [{ transform: 'translateY(6px)' }, { transform: 'none' }],
+      { duration: 200, easing: EASE.OUT, id: LANDING_SLIDE }
+    );
+  });
+
+  it('a row in no window block (a session) glides nothing when no block moved', () => {
+    reduceMotion(false);
+    const root = document.createElement('div');
+    const row = document.createElement('div');
+    root.append(row);
+    at(row, 110);
+    const before = landingTops(root, row);
+    at(row, 80);
+    const r = animated(row);
+
+    slideLanding(root, before, row);
+
+    expect(r).not.toHaveBeenCalled();
+  });
+
+  it('a row let go on its slot glides nothing', () => {
+    reduceMotion(false);
+    const { root, blocks, row } = list();
+    blocks.forEach((b, i) => at(b, i * 100));
+    at(row, 110);
+    const before = landingTops(root, row);
     const animations = [...blocks, row].map(animated);
 
     slideLanding(root, before, row);

@@ -1,4 +1,4 @@
-import { DURATION } from '../../../../styles/scale';
+import { DURATION, EASE } from '../../../../styles/scale';
 
 // KAN-836. A drop into another window: the source window keeps the row's
 // room until the move is drawn (KAN-184), then the room closes and every
@@ -12,6 +12,8 @@ import { DURATION } from '../../../../styles/scale';
 export const LANDING_SLIDE = 'landing-slide';
 
 const BLOCK = '[data-drop-window-id]';
+// KAN-836. How a window block glides when a closed source room moves it.
+const BLOCK_EASING = 'ease';
 
 // Where the drop showed things: each window block's top by its window id, and
 // the dropped row's. Measured from the list's own top, so a scroll while the
@@ -37,9 +39,8 @@ export function landingTops(
   return { blocks, row: row === undefined ? null : topIn(root, row) };
 }
 
-// In the commit that drew the move, before it paints. Nothing glides when no
-// block moved: a drop within a window lands with no motion (KAN-835). Nor
-// with Reduce motion on.
+// In the commit that drew the move, before it paints. With Reduce motion on, nothing glides.
+// KAN-822. A dropped row in a window glides from where it was let go, within its window too; the rows that made room stay put (KAN-835).
 export function slideLanding(
   root: Element | null,
   before: LandingTops,
@@ -61,26 +62,27 @@ export function slideLanding(
     above = by;
     if (Math.abs(by) >= 1) moved.set(el, by);
   });
-  if (moved.size === 0) return;
-  let rowBy = 0;
-  if (row !== undefined && before.row !== null) {
-    const block = row.closest(BLOCK);
-    rowBy =
-      before.row -
-      topIn(root, row) -
-      (block === null ? 0 : (moved.get(block) ?? 0));
-  }
-  moved.forEach((by, el) => glide(el, by));
-  if (row !== undefined && Math.abs(rowBy) >= 1) glide(row, rowBy);
+  const block = row?.closest(BLOCK) ?? null;
+  // KAN-822. A row in no window block (a session) lands as before: no glide unless blocks moved.
+  if (moved.size === 0 && block === null) return;
+  const blockBy = block === null ? undefined : moved.get(block);
+  const rowBy =
+    row === undefined || before.row === null
+      ? 0
+      : before.row - topIn(root, row) - (blockBy ?? 0);
+  moved.forEach((by, el) => glide(el, by, BLOCK_EASING));
+  // KAN-822. Ease-out to settle into its slot; in a gliding block, the block's easing, so the two add up without a wobble.
+  if (row !== undefined && Math.abs(rowBy) >= 1)
+    glide(row, rowBy, blockBy === undefined ? EASE.OUT : BLOCK_EASING);
 }
 
 // From `by` px off its place to its place, as rows step aside. jsdom has no
 // Web Animations: there the move is drawn at once.
-function glide(el: Element, by: number): void {
+function glide(el: Element, by: number, easing: string): void {
   if (typeof el.animate !== 'function') return;
   el.animate([{ transform: `translateY(${by}px)` }, { transform: 'none' }], {
     duration: parseInt(DURATION.MOVE, 10),
-    easing: 'ease',
+    easing,
     id: LANDING_SLIDE,
   });
 }

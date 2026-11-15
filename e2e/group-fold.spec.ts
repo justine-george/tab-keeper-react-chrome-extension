@@ -920,6 +920,134 @@ function expectStatesInOrder(
   expect(states.filter((z, i) => z !== states[i - 1])).toEqual(order);
 }
 
+// KAN-822 release glide. Records the dropped row's top on every frame for 450ms from now, with the time since.
+const recordGlide = (page: Page, selector: string) =>
+  page.evaluate((sel) => {
+    const frames: [number, number][] = [];
+    Reflect.set(window, '__glide', frames);
+    const t0 = performance.now();
+    const tick = () => {
+      const el = document.querySelector(sel);
+      if (el !== null)
+        frames.push([performance.now() - t0, el.getBoundingClientRect().top]);
+      if (performance.now() - t0 < 450) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, selector);
+const recordedGlide = async (page: Page): Promise<[number, number][]> => {
+  await page.waitForTimeout(500);
+  return page.evaluate(() => {
+    const frames: unknown = Reflect.get(window, '__glide');
+    return Array.isArray(frames)
+      ? frames.flatMap((f): [number, number][] =>
+          Array.isArray(f) ? [[Number(f[0]), Number(f[1])]] : []
+        )
+      : [];
+  });
+};
+
+// From where it was let go into its slot: no frame takes more than 40% of the way, it arrives by MOVE + 100ms, never past.
+function expectGlidesIntoSlot(
+  frames: readonly [number, number][],
+  slot: number
+) {
+  const where = JSON.stringify(frames.map(([t, y]) => [Math.round(t), y]));
+  const start = frames[0]?.[1] ?? slot;
+  const distance = Math.abs(start - slot);
+  // PREMISE: let go well off its slot.
+  expect(distance, where).toBeGreaterThan(12);
+  const side = Math.sign(start - slot);
+  frames.forEach(([, y], i) => {
+    expect((y - slot) * side, where).toBeGreaterThanOrEqual(-1);
+    if (i > 0)
+      expect(Math.abs(y - frames[i - 1][1]), where).toBeLessThanOrEqual(
+        0.4 * distance
+      );
+  });
+  const arrived = frames.find(([, y]) => Math.abs(y - slot) <= 1);
+  expect(arrived, where).toBeDefined();
+  expect(arrived?.[0] ?? Infinity, where).toBeLessThanOrEqual(200 + 100);
+}
+
+// Holds `held`, moves to `y`, and lets go there once the preview has settled, recording the dropped row.
+async function dropAt(page: Page, held: Locator, selector: string, y: number) {
+  await elementLanded(held, 'ancestors');
+  const from = await boxOf(held);
+  const x = from.x + 40;
+  await page.mouse.move(x, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(x, from.y + from.height / 2 + (y > from.y ? 8 : -8), {
+    steps: 2,
+  });
+  await expect(page.locator('[data-drag-held]')).toHaveCount(1);
+  await page.mouse.move(x, y, { steps: 10 });
+  await page.waitForTimeout(400);
+  await recordGlide(page, selector);
+  await page.mouse.up();
+  return recordedGlide(page);
+}
+
+const plainTabs = ['a', 'b', 'c', 'd', 'e'].map((id) => tab(id));
+const midOf = async (loc: Locator) => {
+  const b = await boxOf(loc);
+  return b.y + b.height / 2;
+};
+
+test.describe('a dropped tab glides into its slot (saved)', () => {
+  test.beforeEach(async ({ context }) => {
+    await seedSessions(context, {
+      ...buildContainer([sessionOfWindows(plainTabs)]),
+      selectedTabGroupId: 'S1',
+    });
+  });
+
+  test('let go a row above its slot, it glides down into it', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await context.newPage();
+    await page.setViewportSize(POPUP);
+    await page.goto(`chrome-extension://${extensionId}/index.html`);
+    await savedRow(page, 'e').waitFor();
+    // e up to just past b's middle: it lands before c, the card a row above that slot.
+    const y = (await midOf(savedRow(page, 'b'))) + 2;
+    const frames = await dropAt(
+      page,
+      savedRow(page, 'e'),
+      '[data-pane="detail"] [data-drag-row-id="e"]',
+      y
+    );
+    await expect
+      .poll(() => windowOrder(page, 'w1'))
+      .toEqual(['a', 'b', 'e', 'c', 'd']);
+    await elementLanded(savedRow(page, 'e'), 'ancestors');
+    expectGlidesIntoSlot(frames, (await boxOf(savedRow(page, 'e'))).y);
+  });
+
+  test('let go a row below its slot, it glides up into it', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await context.newPage();
+    await page.setViewportSize(POPUP);
+    await page.goto(`chrome-extension://${extensionId}/index.html`);
+    await savedRow(page, 'a').waitFor();
+    // a down to just short of d's middle: it lands after c, the card a row below that slot.
+    const y = (await midOf(savedRow(page, 'd'))) - 2;
+    const frames = await dropAt(
+      page,
+      savedRow(page, 'a'),
+      '[data-pane="detail"] [data-drag-row-id="a"]',
+      y
+    );
+    await expect
+      .poll(() => windowOrder(page, 'w1'))
+      .toEqual(['b', 'c', 'a', 'd', 'e']);
+    await elementLanded(savedRow(page, 'a'), 'ancestors');
+    expectGlidesIntoSlot(frames, (await boxOf(savedRow(page, 'a'))).y);
+  });
+});
+
 // KAN-822 D2. In Currently open the fold is Chrome's own collapse, both ways.
 const VIEW_TAB = 'index.html?view=tab';
 const TAB_VIEWPORT = { width: 1280, height: 800 };
@@ -1585,6 +1713,44 @@ test.describe('a group in Currently open', () => {
       index: 1,
       groupId: w.groupId,
     });
+  });
+
+  test('a live tab let go above its slot glides down into it once Chrome draws it', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+    const w = await openNara(serviceWorker, ['A', 'B', 'C', 'D', 'E', 'F']);
+    await foldedNaraBand(page, w);
+    // E up to just past A's middle: it lands before B, the card a row above that slot.
+    const sel = `[data-open-window-id="${w.windowId}"] [data-drag-row-id="${w.tabs[4]}"]`;
+    const y = (await midOf(liveRow(page, w, w.tabs[0]))) + 2;
+    const frames = await dropAt(page, liveRow(page, w, w.tabs[4]), sel, y);
+    await expect
+      .poll(() => placeOf(serviceWorker, w.tabs[4]))
+      .toEqual({ index: 1, groupId: -1 });
+    await elementLanded(liveRow(page, w, w.tabs[4]), 'ancestors');
+    expectGlidesIntoSlot(frames, (await boxOf(liveRow(page, w, w.tabs[4]))).y);
+  });
+
+  test('a live tab let go below its slot glides up into it once Chrome draws it', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+    const w = await openNara(serviceWorker, ['A', 'B', 'C', 'D', 'E', 'F']);
+    await foldedNaraBand(page, w);
+    // A down to just short of F's middle, past the folded Nara: it lands after E, the card a row below that slot.
+    const sel = `[data-open-window-id="${w.windowId}"] [data-drag-row-id="${w.tabs[0]}"]`;
+    const y = (await midOf(liveRow(page, w, w.tabs[5]))) - 2;
+    const frames = await dropAt(page, liveRow(page, w, w.tabs[0]), sel, y);
+    await expect
+      .poll(() => placeOf(serviceWorker, w.tabs[0]))
+      .toEqual({ index: 4, groupId: -1 });
+    await elementLanded(liveRow(page, w, w.tabs[0]), 'ancestors');
+    expectGlidesIntoSlot(frames, (await boxOf(liveRow(page, w, w.tabs[0]))).y);
   });
 });
 
