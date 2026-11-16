@@ -241,6 +241,17 @@ export function closingShifts(
   return shifts;
 }
 
+// KAN-822 (pick 2B). closingShifts undone: the held row's room stays open, so with previewShifts the rows it passed hold still.
+export function reopeningShifts(
+  slots: readonly WindowedSlot[],
+  from: number,
+  footprint: number
+): Record<string, number> {
+  const shifts = closingShifts(slots, from, footprint);
+  for (const key of Object.keys(shifts)) shifts[key] = footprint;
+  return shifts;
+}
+
 /**
  * How far the held row's own slot travels when it lands in another window
  * (KAN-132), in that window's own frame -- see previewShiftsAcross.

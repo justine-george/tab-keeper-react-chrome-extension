@@ -41,6 +41,7 @@ import {
 } from './dragContext';
 import {
   ACTIVATION_DISTANCE_PX,
+  bottomOfBandEndingBlock,
   hasNewWindowRoom,
   isInEditableField,
   isInsideList,
@@ -56,6 +57,7 @@ import {
   setDragNewSession,
   setDragNewWindow,
   releaseKeptRoom,
+  spanOfBands,
   windowBlockAt,
   windowBlocksIn,
   windowOf,
@@ -63,6 +65,7 @@ import {
   type DragKind,
   type DraggableRowProps,
   type DropTarget,
+  type FixedRowLanding,
   type RowDragAreaProps,
 } from './dropRules';
 import {
@@ -74,6 +77,7 @@ import {
   previewShifts,
   previewShiftsAcross,
   removalShifts,
+  reopeningShifts,
   slotLandingBeside,
   windowShiftsAcross,
   type LandingSide,
@@ -413,6 +417,12 @@ function summed(
 interface ClosedSpan extends ClosedUp {
   windowId: string | undefined;
   lastSlot: number;
+}
+
+// KAN-822 (pick 2B). A lone tab's emptied band, its room held open, and the band right below it.
+interface HeldOpenRoom {
+  bandId: string;
+  belowBandId: string;
 }
 
 // Everything a live drag needs. One record per drag, made at the press or at
@@ -845,7 +855,29 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       if (block === null || !isTrailingBlock(block)) return block;
       const paneBottom = paneOf(l.heldEl)?.getBoundingClientRect().bottom;
       if (paneBottom === undefined || l.lastY > paneBottom) return null;
-      return overshootsLastWindow(l) ? null : block;
+      if (overshootsLastWindow(l)) return null;
+      return lastWindowAfterItsGroup(l) ?? block;
+    };
+
+    // KAN-822 (pick 1B). For a tab, the last window, where the pointer is within half a row below the group that ends it.
+    const lastWindowAfterItsGroup = (
+      l: NonNullable<typeof live.current>
+    ): HTMLElement | null => {
+      if (dragKind !== 'tab') return null;
+      const lastId = l.windowOrder[l.windowOrder.length - 1];
+      const last = windowBlocksIn(containerRef.current).find(
+        (b) => b.dataset.dropWindowId === lastId
+      );
+      if (last === undefined || refuses(l, lastId)) return null;
+      const scrollTop = l.scroller?.scrollTop ?? 0;
+      const rowsBottom = rowsIn(l, lastId).reduce(
+        (bottom, r) => Math.max(bottom, r.mid + r.height / 2 - scrollTop),
+        -Infinity
+      );
+      const groupBottom = bottomOfBandEndingBlock(last, rowsBottom);
+      return groupBottom !== undefined && l.lastY <= groupBottom + l.height / 2
+        ? last
+        : null;
     };
 
     // Is the held row's own window the last one -- the one the trailing
@@ -1205,15 +1237,23 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       landing: Landing | undefined;
       target: string | undefined;
       foldedBandBelowId: string | undefined;
+      roomHeldOpen: HeldOpenRoom | undefined;
     } => {
       const resting = landingOf(l, block);
       const restingTarget = targetOf(l, block, resting);
       const span = removedSpanOf(l, resting, restingTarget.bandId);
-      if (span === undefined || span.freed === 0) {
+      const roomHeldOpen =
+        span === undefined ? undefined : heldOpenRoomOf(l, span);
+      if (
+        span === undefined ||
+        span.freed === 0 ||
+        roomHeldOpen !== undefined
+      ) {
         return {
           landing: resting,
           target: restingTarget.bandId,
           foldedBandBelowId: restingTarget.foldedBandBelowId,
+          roomHeldOpen,
         };
       }
       const closed: ClosedSpan = {
@@ -1228,7 +1268,31 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         landing,
         target: target.bandId,
         foldedBandBelowId: target.foldedBandBelowId,
+        roomHeldOpen: undefined,
       };
+    };
+
+    // KAN-822 (pick 2B). A lone tab's emptied band keeps its room from its own top until the pointer passes the band right below it.
+    const heldOpenRoomOf = (
+      l: NonNullable<typeof live.current>,
+      span: { bandId: string; last: number }
+    ): HeldOpenRoom | undefined => {
+      const windowId = l.slots[span.last]?.windowId;
+      const below = l.slots[span.last + 1];
+      if (
+        below === undefined ||
+        below.windowId !== windowId ||
+        !l.slotOfFixed.has(below.key)
+      )
+        return undefined;
+      const both = spanOfBands(
+        l.heldWindow ?? containerRef.current,
+        span.bandId,
+        below.key
+      );
+      return both !== undefined && l.lastY >= both.top && l.lastY <= both.bottom
+        ? { bandId: span.bandId, belowBandId: below.key }
+        : undefined;
     };
 
     // KAN-379 D3. The collapsed window landed in, with the pointer on its title row.
@@ -1301,7 +1365,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // and the landing placeholder is corrected by whatever it implies.
       // Asked on every move, because a drop can change more than an index --
       // a tab released inside a group's band joins that group.
-      const { landing, target, foldedBandBelowId } = decide(l, block);
+      const { landing, target, foldedBandBelowId, roomHeldOpen } = decide(
+        l,
+        block
+      );
 
       // Which window a release here lands in, told to the list on change
       // only (KAN-350: a New window target lights up while it is the
@@ -1329,7 +1396,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // indices, so there is no second derivation to disagree with the first --
       // which is exactly how the slot came to be drawn on an occupied row.
       const from = l.slotOfRow[l.fromIndex] ?? l.fromIndex;
-      const beside =
+      const listed =
         previewed === undefined
           ? undefined
           : landsBesideFixedRow?.(
@@ -1339,6 +1406,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
               previewed.windowId,
               foldedBandBelowId
             );
+      // KAN-822 (pick 2B). Loose in a room held open, the row is in front of the band below, not its own band's head (still drawn).
+      const beside: FixedRowLanding | undefined =
+        roomHeldOpen !== undefined && listed?.fixedRowId === roomHeldOpen.bandId
+          ? { fixedRowId: roomHeldOpen.belowBandId, side: 'before' }
+          : listed;
       // What the drop REMOVES (KAN-169): a span of fixed rows the list says
       // will not survive this release -- a group's title row and tail marker,
       // while its only member is held outside it. Nothing the shifts below can
@@ -1350,7 +1422,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       //
       // Asked only where a release lands: a refused one changes nothing, and
       // must not preview a group vanishing (the KAN-172 lesson, again).
-      const removedSpan = removedSpanOf(l, previewed, target);
+      // KAN-822 (pick 2B). A room held open draws its band still there.
+      const removedSpan =
+        roomHeldOpen !== undefined
+          ? undefined
+          : removedSpanOf(l, previewed, target);
       const span =
         removedSpan === undefined
           ? undefined
@@ -1446,8 +1522,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         ].some((band) => band.dataset.bandId === target && isBandFolded(band));
       l.joinsFoldedBand = joinsFoldedBand;
       if (joinsFoldedBand) {
-        // The source closes up behind the row and nothing opens.
-        shifts = summed(closingShifts(l.slots, from, l.footprint), besides);
+        // The source closes up behind the row and nothing opens; a room held open (pick 2B) does not close.
+        shifts =
+          roomHeldOpen !== undefined
+            ? besides
+            : summed(closingShifts(l.slots, from, l.footprint), besides);
         landingDelta = 0;
       } else if (
         previewed !== undefined &&
@@ -1538,8 +1617,16 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           fixedSlot === undefined || beside === undefined
             ? slotOfLanding(l, previewed, from)
             : slotLandingBeside(from, fixedSlot, beside.side);
-        shifts = summed(previewShifts(l.slots, from, to, l.footprint), besides);
-        landingDelta = landingDeltaOf(l.slots, from, to);
+        const travel = landingDeltaOf(l.slots, from, to);
+        // KAN-822 (pick 2B). Past its own room, a room held open stays: what it passed holds still, and room opens at the landing.
+        const reopens = roomHeldOpen !== undefined && travel > 0;
+        shifts = summed(
+          previewShifts(l.slots, from, to, l.footprint),
+          reopens
+            ? summed(reopeningShifts(l.slots, from, l.footprint), besides)
+            : besides
+        );
+        landingDelta = travel + (reopens ? l.footprint : 0);
         // The slot is a measured edge of the drawn list, and where that edge
         // is a band's it includes spacing a loose row will not pay (KAN-167).
         // How much is the list's to say -- see FixedRowLanding.offset. Only

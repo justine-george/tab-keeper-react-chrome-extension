@@ -498,23 +498,30 @@ test.describe('the preview predicts the drop', () => {
     expect(removed.solo).toEqual({ header: 0, strip: 0 });
   });
 
-  test('joining the group below: that group comes up by the band it replaces', async ({
+  // KAN-822 (pick 2B). Solo keeps its room until the pointer is past Beta, so Beta holds still and its head opens for s0.
+  test('joining the group below at its head: that group holds still, and room opens under its title', async ({
     context,
     extensionId,
   }) => {
     const page = await open(context, extensionId, GROUP_BELOW);
+    const head = await page
+      .locator('[data-band-id="beta"] [data-group-drag-handle]')
+      .boundingBox();
+    if (head === null) throw new Error('no Beta title row');
     const { tops: p, removed } = await previewOfDragging(
       page,
       's0',
-      await drawnRowY(page, 'b0', 0.25, 40)
+      head.y + head.height / 2
     );
 
-    expect(p['head:beta']).toBe(GROUP_BELOW_TRUTH.joined['head:beta']);
-    expect(p.s0).toBe(GROUP_BELOW_TRUTH.joined.s0);
-    expect(p.b0).toBe(GROUP_BELOW_TRUTH.joined.b0);
-    expect(p.b1).toBe(GROUP_BELOW_TRUTH.joined.b1);
-    expect(p.a3).toBe(GROUP_BELOW_TRUTH.joined.a3);
-    expect(Object.keys(removed)).toEqual(['solo']);
+    const before = GROUP_BELOW_TRUTH.before;
+    expect(p['head:solo']).toBe(before['head:solo']);
+    expect(p['head:beta']).toBe(before['head:beta']);
+    expect(p.s0).toBe(before.b0);
+    expect(p.b0).toBe(before.b0 + 32);
+    expect(p.b1).toBe(before.b1 + 32);
+    expect(p.a3).toBe(before.a3 + 32);
+    expect(Object.keys(removed)).toEqual([]);
   });
 
   test('leading the window: the rows below close up to the list’s top', async ({

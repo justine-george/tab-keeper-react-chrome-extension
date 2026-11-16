@@ -102,10 +102,10 @@ const centerX = async (loc: Locator) => {
   return b.x + b.width / 2;
 };
 
-async function openTrip(page: Page, extensionId: string) {
+async function openTrip(page: Page, extensionId: string, bandId = 'g1') {
   await page.setViewportSize(POPUP);
   await page.goto(`chrome-extension://${extensionId}/index.html`);
-  await bandHandle(page, 'g1').waitFor();
+  await bandHandle(page, bandId).waitFor();
 }
 
 async function foldResearch(page: Page) {
@@ -576,7 +576,7 @@ test.describe('a tab dropped on a folded saved group', () => {
   });
 });
 
-// KAN-822. Saved sessions of several windows, each a list of tabs; g1 is stored folded, o open.
+// KAN-822. Saved sessions of several windows, each a list of tabs; g1 is stored folded, o and p open.
 const sessionOfWindows = (...windows: ReturnType<typeof tab>[][]) =>
   buildSession({
     ...TRIP,
@@ -602,6 +602,9 @@ const sessionOfWindows = (...windows: ReturnType<typeof tab>[][]) =>
         ...(tabs.some((t) => t.chromeGroupId === 'o')
           ? [{ groupId: 'o', title: 'Open', color: 'red' }]
           : []),
+        ...(tabs.some((t) => t.chromeGroupId === 'p')
+          ? [{ groupId: 'p', title: 'Plans', color: 'green' }]
+          : []),
       ],
     })),
   });
@@ -613,7 +616,8 @@ const windowOrder = async (page: Page, windowId: string) =>
     );
 
 test.describe('a folded saved group among other windows and groups', () => {
-  test('the only member of an open group just above a folded one, dragged down through it, keeps the order', async ({
+  // KAN-822 (pick 2B). Its emptied group keeps its room until the pointer passes Research, so Research holds still and can be joined.
+  test('the only member of an open group, dragged down onto the folded group right below: that group holds still, and it joins', async ({
     context,
     extensionId,
   }) => {
@@ -636,15 +640,63 @@ test.describe('a folded saved group among other windows and groups', () => {
       page,
       savedRow(page, 'o1'),
       band(page),
-      // Into Research's resting box, where it is drawn a row higher once o empties: below it, above tail.
-      (rest) => rest.top + 2
+      (rest) => rest.bottom + 12
     );
-    // Its lifted title sits inside o's resting box, which puts o1 back (KAN-916): no join here, as no reversal.
-    expectStatesInOrder(steps, ['above', 'below']);
+    expectHoldsStillThenJoins(steps);
+    await page.mouse.move(steps[0].x, steps[0].rest.top + 16, { steps: 4 });
+    await settledPreview(band(page));
+    await expect(band(page)).toHaveAttribute('data-drop-target', '');
     await page.mouse.up();
     await expect
       .poll(() => windowOrder(page, 'w1'))
-      .toEqual(['c', 'a:g1', 'b:g1', 'o1', 'tail']);
+      .toEqual(['c', 'a:g1', 'b:g1', 'o1:g1', 'tail']);
+    expect(await savedCollapsed(page)).toBe(true);
+    await expect(memberRows(page)).toHaveCount(0);
+  });
+
+  test('the only member of an open group, dragged down onto the open group right below: that group holds still, and it joins at its head', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSessions(context, {
+      ...buildContainer([
+        sessionOfWindows([
+          tab('c'),
+          tab('o1', 'o'),
+          tab('p1', 'p'),
+          tab('p2', 'p'),
+          tab('tail'),
+        ]),
+      ]),
+      selectedTabGroupId: 'S1',
+    });
+    const page = await context.newPage();
+    await openTrip(page, extensionId, 'p');
+    const plans = page.locator(
+      '[data-pane="detail"] [data-band-id="p"][role="group"]'
+    );
+    await expect(plans).not.toHaveAttribute('data-group-folded');
+    const steps = await sweepThrough(
+      page,
+      savedRow(page, 'o1'),
+      plans,
+      (rest) => rest.bottom + 12
+    );
+    expectHoldsStillThenJoins(steps);
+    // Back onto its title row: the room opens under the title, above p1.
+    await page.mouse.move(steps[0].x, steps[0].rest.top + 16, { steps: 4 });
+    const onTitle = await settledPreview(plans);
+    expect(onTitle.joins).toBe(true);
+    expect(Math.abs(onTitle.title.top - steps[0].rest.top)).toBeLessThanOrEqual(
+      1
+    );
+    expect(onTitle.slot?.top ?? -Infinity).toBeGreaterThanOrEqual(
+      onTitle.title.bottom - 1
+    );
+    await page.mouse.up();
+    await expect
+      .poll(() => windowOrder(page, 'w1'))
+      .toEqual(['c', 'o1:p', 'p1:p', 'p2:p', 'tail']);
   });
 
   test('a folded group that ends its window takes a loose drop below it, in the gap before the next window', async ({
@@ -780,6 +832,67 @@ test.describe('a folded saved group among other windows and groups', () => {
   });
 });
 
+// KAN-822 (pick 1B). A group that ends the last window has half a row below it that lands after it; New window starts past that.
+test.describe('below a group that ends the last saved window', () => {
+  test('a tab of that window, below its folded group: half a row lands after it, then New window', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSessions(context, {
+      ...buildContainer([
+        sessionOfWindows([
+          tab('c'),
+          tab('lead'),
+          tab('a', 'g1'),
+          tab('b', 'g1'),
+        ]),
+      ]),
+      selectedTabGroupId: 'S1',
+    });
+    const page = await context.newPage();
+    await openTrip(page, extensionId);
+    await expect(band(page)).toHaveAttribute('data-group-folded', '');
+    const after = await expectRoomBelow(page, savedRow(page, 'c'), band(page));
+    await page.mouse.move(after.x, after.y, { steps: 2 });
+    await expectSlotBelow(band(page));
+    await page.mouse.up();
+    await expect
+      .poll(() => windowOrder(page, 'w1'))
+      .toEqual(['lead', 'a:g1', 'b:g1', 'c']);
+    expect((await stored(page)).tabGroups[0].windows).toHaveLength(1);
+    expect(await savedCollapsed(page)).toBe(true);
+  });
+
+  test('a tab of another window, below the open group that ends the last window: half a row lands after it, then New window', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSessions(context, {
+      ...buildContainer([
+        sessionOfWindows(
+          [tab('x'), tab('y')],
+          [tab('lead'), tab('o1', 'o'), tab('o2', 'o')]
+        ),
+      ]),
+      selectedTabGroupId: 'S1',
+    });
+    const page = await context.newPage();
+    await openTrip(page, extensionId, 'o');
+    const open = page.locator(
+      '[data-pane="detail"] [data-band-id="o"][role="group"]'
+    );
+    const after = await expectRoomBelow(page, savedRow(page, 'x'), open);
+    await page.mouse.move(after.x, after.y, { steps: 2 });
+    await expectSlotBelow(open);
+    await page.mouse.up();
+    await expect
+      .poll(() => windowOrder(page, 'w2'))
+      .toEqual(['lead', 'o1:o', 'o2:o', 'x']);
+    expect(await windowOrder(page, 'w1')).toEqual(['y']);
+    expect((await stored(page)).tabGroups[0].windows).toHaveLength(2);
+  });
+});
+
 // KAN-822 (his rule). One step of a slow drag: the pointer, the band's resting box, and the settled preview.
 interface Box {
   top: number;
@@ -892,35 +1005,6 @@ function expectSlotFollowsPointer(
   expect(zones.filter((z, i) => z !== zones[i - 1])).toEqual(order);
 }
 
-// Each step's state, read off the preview alone, for a drag whose bands close up (KAN-916): the title is hit where drawn.
-function expectStatesInOrder(
-  steps: readonly SweepStep[],
-  order: readonly Zone[]
-) {
-  const states: Zone[] = [];
-  for (const step of steps) {
-    const where = JSON.stringify(step);
-    const state: Zone =
-      step.slot === null
-        ? 'join'
-        : step.slot.bottom <= step.title.top + 1
-          ? 'above'
-          : 'below';
-    if (state === 'join') expect(step.joins, where).toBe(true);
-    if (state === 'below')
-      expect(step.slot?.top ?? -Infinity, where).toBeGreaterThanOrEqual(
-        step.title.bottom - 1
-      );
-    // Never on the far side of the drawn title from the pointer.
-    if (state === 'above')
-      expect(step.y, where).toBeLessThan(step.title.bottom);
-    if (state === 'below')
-      expect(step.y, where).toBeGreaterThan(step.title.top);
-    states.push(state);
-  }
-  expect(states.filter((z, i) => z !== states[i - 1])).toEqual(order);
-}
-
 // KAN-822 release glide. One frame: ms since recording began, the visible card's top (null once gone), the row's top.
 interface GlideFrame {
   t: number;
@@ -1025,6 +1109,102 @@ async function dropAt(page: Page, held: Locator, selector: string, y: number) {
   await recordGlide(page, selector);
   await page.mouse.up();
   return recordedGlide(page);
+}
+
+// KAN-822 edge picks. What a release would do at each pointer y, read 1px at a time: join the band, land beside it, or a new window.
+type EdgeState = 'join' | 'slot' | 'new window' | 'none';
+async function walkBelow(
+  page: Page,
+  held: Locator,
+  bandEl: Locator,
+  from: number,
+  to: number
+): Promise<{ x: number; states: { y: number; state: EdgeState }[] }> {
+  await elementLanded(held, 'ancestors');
+  const start = await boxOf(held);
+  const x = start.x + 40;
+  await page.mouse.move(x, start.y + start.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(x, start.y + start.height / 2 + 8, { steps: 2 });
+  await expect(page.locator('[data-drag-held]')).toHaveCount(1);
+  await page.mouse.move(x, from, { steps: 10 });
+  const states: { y: number; state: EdgeState }[] = [];
+  for (let y = from; y <= to; y += 1) {
+    await page.mouse.move(x, y);
+    const state = await bandEl.evaluate(
+      (band) =>
+        new Promise<EdgeState>((resolve) =>
+          requestAnimationFrame(() =>
+            resolve(
+              document.querySelector(
+                '[data-new-window-target="last"][data-landing], [data-new-window-target="open-now-last"][data-landing]'
+              ) !== null
+                ? 'new window'
+                : band.hasAttribute('data-drop-target')
+                  ? 'join'
+                  : document.querySelector('[data-drag-landing-slot]') !== null
+                    ? 'slot'
+                    : 'none'
+            )
+          )
+        )
+    );
+    states.push({ y, state });
+  }
+  return { x, states };
+}
+
+// From inside the band down past it: join, then at least half a row of landing beside it, then New window. Returns a point in that half row.
+async function expectRoomBelow(page: Page, held: Locator, bandEl: Locator) {
+  const half = (await boxOf(held)).height / 2;
+  const rest = await boxOf(bandEl);
+  const bottom = rest.y + rest.height;
+  const { x, states } = await walkBelow(
+    page,
+    held,
+    bandEl,
+    Math.round(bottom - 4),
+    Math.round(bottom + half + 8)
+  );
+  const where = JSON.stringify(states.map((s) => `${s.y}:${s.state}`));
+  expect(
+    states.map((s) => s.state).filter((z, i, all) => z !== all[i - 1]),
+    where
+  ).toEqual(['join', 'slot', 'new window']);
+  const room = states.filter((s) => s.state === 'slot');
+  expect(room.length, where).toBeGreaterThanOrEqual(Math.floor(half) - 1);
+  return { x, y: room[Math.floor(room.length / 2)].y };
+}
+
+// The slot drawn below the band, its colour strip ending above it, and no join.
+async function expectSlotBelow(bandEl: Locator) {
+  const drawn = await settledPreview(bandEl);
+  expect(drawn.joins).toBe(false);
+  expect(drawn.slot).not.toBeNull();
+  expect(drawn.strip.bottom).toBeLessThanOrEqual(
+    (drawn.slot?.top ?? -Infinity) + 1
+  );
+}
+
+// KAN-822 (pick 2B). Down from a lone tab's group: the band below stays put until the pointer is past it, takes the join on its rows, then moves up.
+function expectHoldsStillThenJoins(steps: readonly SweepStep[]) {
+  let joined = 0;
+  for (const step of steps) {
+    const where = JSON.stringify(step);
+    if (step.y <= step.rest.bottom)
+      expect(
+        Math.abs(step.title.top - step.rest.top),
+        where
+      ).toBeLessThanOrEqual(1);
+    if (step.y >= step.rest.top && step.y <= step.rest.bottom) {
+      expect(step.joins, where).toBe(true);
+      joined += 1;
+    }
+    // Past it, the emptied group closes up as KAN-916 draws it: the band is drawn higher.
+    if (step.y > step.rest.bottom)
+      expect(step.title.top, where).toBeLessThan(step.rest.top - 8);
+  }
+  expect(joined).toBeGreaterThan(0);
 }
 
 const plainTabs = ['a', 'b', 'c', 'd', 'e'].map((id) => tab(id));
@@ -1323,6 +1503,31 @@ async function foldedNaraBand(page: Page, w: Nara): Promise<Locator> {
   // PREMISE: Nara is drawn folded.
   await expect(naraBand).toHaveAttribute('data-group-folded', '');
   return naraBand;
+}
+// KAN-822 (pick 2B). Lead, Tea alone in open Solo, Deer and Park in Nara (collapsed or not), Tail.
+async function openSoloAbove(worker: Worker, collapsed: boolean) {
+  return worker.evaluate(
+    async ({ urls, collapsed }) => {
+      const made = await chrome.windows.create({ url: urls, focused: false });
+      const tabs = (made?.tabs ?? []).map((t) => t.id ?? -1);
+      const solo = await chrome.tabs.group({
+        tabIds: [tabs[1]],
+        createProperties: { windowId: made?.id },
+      });
+      await chrome.tabGroups.update(solo, { title: 'Solo', color: 'cyan' });
+      const groupId = await chrome.tabs.group({
+        tabIds: [tabs[2], tabs[3]],
+        createProperties: { windowId: made?.id },
+      });
+      await chrome.tabGroups.update(groupId, {
+        title: 'Nara',
+        color: 'green',
+        collapsed,
+      });
+      return { windowId: made?.id ?? -1, groupId, tabs };
+    },
+    { urls: ['Lead', 'Tea', 'Deer', 'Park', 'Tail'].map(standIn), collapsed }
+  );
 }
 const placeOf = (worker: Worker, id: number) =>
   worker.evaluate(async (tabId) => {
@@ -1899,6 +2104,149 @@ test.describe('a group in Currently open', () => {
       .toEqual({ index: 4, groupId: -1 });
     await elementLanded(liveRow(page, w, w.tabs[0]), 'ancestors');
     expectGlidesIntoSlot(frames, (await boxOf(liveRow(page, w, w.tabs[0]))).y);
+  });
+
+  // KAN-822 (pick 1B). The last window ends in collapsed Nara: half a row under it lands after it, then New window.
+  test('a tab below the collapsed group that ends the last window: half a row lands after it, then New window', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+    const w = await openNara(serviceWorker, ['Held', 'Lead', 'Deer', 'Park']);
+    const naraBand = await foldedNaraBand(page, w);
+    // PREMISE: Nara's window is the last one drawn.
+    await expect(
+      page.locator('[data-pane="open-now"] [data-open-window-id]').last()
+    ).toHaveAttribute('data-open-window-id', String(w.windowId));
+    const after = await expectRoomBelow(
+      page,
+      liveRow(page, w, w.tabs[0]),
+      naraBand
+    );
+    await page.mouse.move(after.x, after.y, { steps: 2 });
+    await expectSlotBelow(naraBand);
+    await page.mouse.up();
+    await expect
+      .poll(() => placeOf(serviceWorker, w.tabs[0]))
+      .toEqual({ index: 3, groupId: -1 });
+    expect(await placeOf(serviceWorker, w.tabs[2])).toEqual({
+      index: 1,
+      groupId: w.groupId,
+    });
+    expect(await chromeCollapsed(serviceWorker, w.groupId)).toBe(true);
+  });
+
+  test('a tab of another window below the open group that ends the last window: half a row lands after it, then New window', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+    const from = await serviceWorker.evaluate(async (urls) => {
+      const made = await chrome.windows.create({ url: urls, focused: false });
+      return {
+        windowId: made?.id ?? -1,
+        tabs: (made?.tabs ?? []).map((t) => t.id ?? -1),
+      };
+    }, ['X', 'Y'].map(standIn));
+    const k = await openLiveKyoto(page, serviceWorker);
+    // Loose leads Kyoto's window here, so the group ends it.
+    await serviceWorker.evaluate(async (id) => {
+      await chrome.tabs.move(id, { index: 0 });
+    }, k.loose);
+    const xRow = page.locator(
+      `[data-open-window-id="${from.windowId}"] [data-drag-row-id="${from.tabs[0]}"]`
+    );
+    await expect(liveMembers(page, k)).toHaveCount(2);
+    await expect(
+      liveBlock(page, k).locator(`[data-drag-row-id="${k.loose}"]`)
+    ).toBeVisible();
+    // PREMISE: Kyoto's window is the last one drawn, and its group is drawn last in it.
+    await expect(
+      page.locator('[data-pane="open-now"] [data-open-window-id]').last()
+    ).toHaveAttribute('data-open-window-id', String(k.windowId));
+    await expect
+      .poll(async () => {
+        const loose = await boxOf(
+          liveBlock(page, k).locator(`[data-drag-row-id="${k.loose}"]`)
+        );
+        return loose.y < (await boxOf(liveBand(page, k))).y;
+      })
+      .toBe(true);
+    const after = await expectRoomBelow(page, xRow, liveBand(page, k));
+    await page.mouse.move(after.x, after.y, { steps: 2 });
+    await expectSlotBelow(liveBand(page, k));
+    await page.mouse.up();
+    await expect
+      .poll(() =>
+        serviceWorker.evaluate(async (id) => {
+          const t = await chrome.tabs.get(id);
+          return { windowId: t.windowId, index: t.index, groupId: t.groupId };
+        }, from.tabs[0])
+      )
+      .toEqual({ windowId: k.windowId, index: 3, groupId: -1 });
+  });
+
+  // KAN-822 (pick 2B). Tea alone in Solo, Nara right below it: Nara holds still until passed, and Tea joins it.
+  test('the only tab of a group, dragged down onto the collapsed group right below: that group holds still, and it joins', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+    const w = await openSoloAbove(serviceWorker, true);
+    const naraBand = await foldedNaraBand(page, w);
+    const steps = await sweepThrough(
+      page,
+      liveRow(page, w, w.tabs[1]),
+      naraBand,
+      (rest) => rest.bottom + 12
+    );
+    expectHoldsStillThenJoins(steps);
+    await page.mouse.move(steps[0].x, steps[0].rest.top + 16, { steps: 4 });
+    await settledPreview(naraBand);
+    await expect(naraBand).toHaveAttribute('data-drop-target', '');
+    await page.mouse.up();
+    await expect
+      .poll(() => placeOf(serviceWorker, w.tabs[1]))
+      .toEqual({ index: 3, groupId: w.groupId });
+    expect(await chromeCollapsed(serviceWorker, w.groupId)).toBe(true);
+  });
+
+  test('the only tab of a group, dragged down onto the open group right below: that group holds still, and it joins at its head', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+    const w = await openSoloAbove(serviceWorker, false);
+    const naraBand = page.locator(
+      `[data-open-window-id="${w.windowId}"] [data-band-id="${w.groupId}"][role="group"]`
+    );
+    await expect(naraBand).not.toHaveAttribute('data-group-folded');
+    await expect(naraBand.locator('[data-open-tab-id]')).toHaveCount(2);
+    const steps = await sweepThrough(
+      page,
+      liveRow(page, w, w.tabs[1]),
+      naraBand,
+      (rest) => rest.bottom + 12
+    );
+    expectHoldsStillThenJoins(steps);
+    await page.mouse.move(steps[0].x, steps[0].rest.top + 16, { steps: 4 });
+    const onTitle = await settledPreview(naraBand);
+    expect(onTitle.joins).toBe(true);
+    expect(Math.abs(onTitle.title.top - steps[0].rest.top)).toBeLessThanOrEqual(
+      1
+    );
+    await page.mouse.up();
+    await expect
+      .poll(() => placeOf(serviceWorker, w.tabs[1]))
+      .toEqual({ index: 1, groupId: w.groupId });
+    expect(await placeOf(serviceWorker, w.tabs[2])).toEqual({
+      index: 2,
+      groupId: w.groupId,
+    });
   });
 });
 

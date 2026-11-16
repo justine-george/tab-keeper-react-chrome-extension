@@ -8,7 +8,9 @@ import {
 } from '../../components/home/rightpane/rowDrag/RowDragArea';
 import {
   bandAt,
+  bottomOfBandEndingBlock,
   nearestFoldedBandBelow,
+  spanOfBands,
 } from '../../components/home/rightpane/rowDrag/dropRules';
 import {
   endDragHold,
@@ -607,6 +609,62 @@ describe('nearestFoldedBandBelow', () => {
     const closedUp = { bandId: 'gone', by: 40 };
     expect(nearestFoldedBandBelow(root, 15, closedUp)).toBe('g');
     expect(nearestFoldedBandBelow(root, 65, closedUp)).toBeUndefined();
+  });
+});
+
+// KAN-822 edge picks: the band boxes 1B and 2B read, on bandAt's resting boxes.
+describe('the bands a window ends with, and two bands together', () => {
+  const block = (...bands: [string, number, number][]) => {
+    const root = document.createElement('div');
+    root.dataset.dropWindowId = 'w1';
+    for (const [id, top, height] of bands) {
+      const el = document.createElement('div');
+      el.dataset.bandId = id;
+      el.getBoundingClientRect = () => box(top, height, 0, 100);
+      root.appendChild(el);
+    }
+    return root;
+  };
+
+  test('the last band ends the block when no row ends below it', () => {
+    expect(
+      bottomOfBandEndingBlock(block(['g', 10, 40], ['h', 60, 30]), 50)
+    ).toBe(90);
+  });
+
+  test('a row ending below the last band: none', () => {
+    expect(bottomOfBandEndingBlock(block(['g', 10, 40]), 82)).toBeUndefined();
+  });
+
+  test('a row ending level with the band (an open band’s last member): that band', () => {
+    expect(bottomOfBandEndingBlock(block(['g', 10, 40]), 50)).toBe(50);
+  });
+
+  test('no band at all: none', () => {
+    expect(bottomOfBandEndingBlock(block(), -Infinity)).toBeUndefined();
+  });
+
+  test('the grown padding of a marked band is not its box', () => {
+    const root = block(['g', 10, 40]);
+    const el = root.querySelector<HTMLElement>('[data-band-id="g"]');
+    if (el === null) throw new Error('no band');
+    el.style.paddingBottom = '30px';
+    el.getBoundingClientRect = () => box(10, 70, 0, 100);
+    expect(bottomOfBandEndingBlock(root, -Infinity)).toBe(50);
+  });
+
+  test('two bands: from the upper one’s top to the lower one’s bottom', () => {
+    expect(spanOfBands(block(['g', 10, 40], ['h', 60, 30]), 'g', 'h')).toEqual({
+      top: 10,
+      bottom: 90,
+    });
+  });
+
+  test('the lower band above the upper one, or either missing: none', () => {
+    const root = block(['g', 10, 40], ['h', 60, 30]);
+    expect(spanOfBands(root, 'h', 'g')).toBeUndefined();
+    expect(spanOfBands(root, 'g', 'x')).toBeUndefined();
+    expect(spanOfBands(root, 'x', 'h')).toBeUndefined();
   });
 });
 

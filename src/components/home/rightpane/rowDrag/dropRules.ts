@@ -660,6 +660,32 @@ export function nearestFoldedBandBelow(
   return undefined;
 }
 
+// KAN-822 (pick 1B). The resting bottom of the band `block` ends with, on bandAt's boxes: undefined where a row ends below it.
+export function bottomOfBandEndingBlock(
+  block: HTMLElement,
+  rowsBottom: number
+): number | undefined {
+  let bottom: number | undefined;
+  for (const box of bandHitBoxes(block, undefined))
+    bottom = Math.max(bottom ?? box.bottom, box.bottom);
+  return bottom !== undefined && bottom + 1 >= rowsBottom ? bottom : undefined;
+}
+
+// KAN-822 (pick 2B). From band `upperId`'s top to band `lowerId`'s bottom, on bandAt's resting boxes; undefined unless both are drawn.
+export function spanOfBands(
+  container: HTMLElement | null,
+  upperId: string,
+  lowerId: string
+): { top: number; bottom: number } | undefined {
+  let top: number | undefined;
+  for (const box of bandHitBoxes(container, undefined)) {
+    if (box.band.dataset.bandId === upperId) top = box.top;
+    if (box.band.dataset.bandId === lowerId && top !== undefined)
+      return { top, bottom: box.bottom };
+  }
+  return undefined;
+}
+
 // Each band's hit box, in document order: what bandAt and nearestFoldedBandBelow test the pointer against.
 function* bandHitBoxes(
   container: HTMLElement | null,

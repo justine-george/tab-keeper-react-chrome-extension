@@ -89,6 +89,8 @@ const CASES = [
     aim: 'im',
     lastTab: 'jw',
     below: titleRow('sound'),
+    // KAN-822 (pick 2B). Ratings is right below Watchlist, which keeps its room over it.
+    heldOpen: true,
   },
   {
     name: 'over Snacks, the loose Extensions below it is not tinted',
@@ -96,6 +98,7 @@ const CASES = [
     aim: 'pc',
     lastTab: 'pc',
     below: '[data-drag-row-id="ex"]',
+    heldOpen: false,
   },
 ];
 
@@ -150,7 +153,8 @@ for (const only of [true, false]) {
           await settled(page);
           // KAN-916: with Watchlist gone, the rows below it are drawn 40px
           // higher and hit there, so the aim follows them.
-          const closedBy = only ? 40 : 0;
+          const gone = only && !c.heldOpen;
+          const closedBy = gone ? 40 : 0;
           const aim = await drawn(page, `[data-drag-row-id="${c.aim}"]`);
           await page.mouse.move(x, aim.top + 4 - closedBy, { steps: 8 });
           await settled(page);
@@ -175,7 +179,7 @@ for (const only of [true, false]) {
           if (only)
             await expect(
               page.locator('[data-band-id="watch"][data-drag-removed]')
-            ).toBeAttached();
+            ).toHaveCount(gone ? 1 : 0);
 
           const band = await drawn(page, `[data-band-id="${c.target}"]`);
           const px = band.right - 12;
