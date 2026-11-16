@@ -532,5 +532,7 @@
   "Pick folders. Each becomes a saved session.": "Välj mappar. Varje mapp blir en sparad session.",
   "ImportedInSetup_one": "{{count}} session importerad. Tryck för att importera fler.",
   "ImportedInSetup_other": "{{count}} sessioner importerade. Tryck för att importera fler.",
-  "You can import any time from Settings › Sync & backup.": "Du kan importera när som helst från Inställningar › Synk & säkerhetskopia."
+  "You can import any time from Settings › Sync & backup.": "Du kan importera när som helst från Inställningar › Synk & säkerhetskopia.",
+  "Becomes a window": "Blir ett fönster",
+  "Goes into the window above": "Hamnar i fönstret ovanför"
 }

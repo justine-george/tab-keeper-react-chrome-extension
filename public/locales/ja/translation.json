@@ -511,5 +511,7 @@
   "Chrome bookmarks": "Chrome のブックマーク",
   "Pick folders. Each becomes a saved session.": "フォルダを選んでください。各フォルダが保存済みセッションになります。",
   "ImportedInSetup_other": "{{count}} 件のセッションをインポートしました。押すとさらにインポートできます。",
-  "You can import any time from Settings › Sync & backup.": "設定 › 同期とバックアップ からいつでもインポートできます。"
+  "You can import any time from Settings › Sync & backup.": "設定 › 同期とバックアップ からいつでもインポートできます。",
+  "Becomes a window": "ウィンドウになります",
+  "Goes into the window above": "上のウィンドウに入ります"
 }

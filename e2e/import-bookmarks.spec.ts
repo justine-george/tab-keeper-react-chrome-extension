@@ -10,8 +10,8 @@ import { seedSettings } from './fixtures/seed';
 // checked by hand, not here.
 test.use({ grantBookmarks: true });
 
-// Two top folders with distinctive names; each has its own link, subfolders that become windows, and one deeper
-// folder that folds into its parent window. A third folder is never ticked.
+// Two folders with distinctive names; each has its own link, subfolders that become windows, and one deeper
+// folder that folds into its parent window. A third folder is never ticked. Two loose links sit in the bar itself.
 async function seedBookmarks(worker: Worker): Promise<void> {
   await worker.evaluate(async () => {
     const make = (parentId: string, title: string, url?: string) =>
@@ -27,6 +27,7 @@ async function seedBookmarks(worker: Worker): Promise<void> {
     // Bookmarks outlive a test's profile when one worker runs several, so start from an empty bar.
     for (const old of bar.children ?? [])
       await chrome.bookmarks.removeTree(old.id);
+    await make(bar.id, 'bar-loose-1', 'https://example.com/bar-loose-1');
     const alpha = await fold(bar.id, 'Alpha trip', ['alpha-own']);
     await fold(alpha.id, 'Alpha flights', ['flight-1', 'flight-2']);
     const hotels = await fold(alpha.id, 'Alpha hotels', ['hotel-1']);
@@ -34,8 +35,16 @@ async function seedBookmarks(worker: Worker): Promise<void> {
     const beta = await fold(bar.id, 'Beta research', ['beta-own']);
     await fold(beta.id, 'Beta papers', ['paper-1']);
     await fold(bar.id, 'Gamma untouched', ['gamma-1']);
+    await make(bar.id, 'bar-loose-2', 'https://example.com/bar-loose-2');
   });
 }
+
+// Chrome names the bar in the browser's language.
+const barTitle = (worker: Worker): Promise<string> =>
+  worker.evaluate(
+    async () =>
+      (await chrome.bookmarks.getTree())[0]?.children?.[0]?.title ?? ''
+  );
 
 interface StoredSession {
   title: string;
@@ -102,6 +111,47 @@ test.describe('Import from bookmarks in Settings (KAN-862)', () => {
     expect((await storedSessions(page)).map((s) => s.title)).not.toContain(
       'Gamma untouched'
     );
+  });
+
+  // KAN-862 (11-16). A top folder is no one session: its loose links are one, and each folder in it is another.
+  test('full view: tick the bookmarks bar, Import, and its loose links and each folder in it are saved as sessions', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const bar = await barTitle(serviceWorker);
+    expect(bar).not.toBe('');
+    const page = await openFullView(context, extensionId);
+    await onSyncAndBackup(page);
+    await page.getByRole('button', { name: 'Import from bookmarks' }).click();
+
+    const dialog = dialogOn(page);
+    await dialog.getByRole('checkbox', { name: bar, exact: true }).check();
+    for (const name of ['Alpha trip', 'Beta research', 'Gamma untouched'])
+      await expect(dialog.getByRole('checkbox', { name })).toBeChecked();
+    await dialog.getByRole('button', { name: 'Import 4 sessions' }).click();
+    await expect(dialog).toBeHidden();
+
+    await expect
+      .poll(async () => (await storedSessions(page)).map((s) => s.title))
+      .toEqual([bar, 'Alpha trip', 'Beta research', 'Gamma untouched']);
+    expect(
+      (await storedSessions(page)).map((s) =>
+        s.windows.map((w) => [w.title, w.tabCount])
+      )
+    ).toEqual([
+      [[bar, 2]],
+      [
+        ['Alpha trip', 1],
+        ['Alpha flights', 2],
+        ['Alpha hotels', 2],
+      ],
+      [
+        ['Beta research', 1],
+        ['Beta papers', 1],
+      ],
+      [['Gamma untouched', 1]],
+    ]);
   });
 
   test('full view: Cancel closes the dialog and saves nothing', async ({

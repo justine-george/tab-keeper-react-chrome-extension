@@ -511,5 +511,7 @@
   "Chrome bookmarks": "Chrome 북마크",
   "Pick folders. Each becomes a saved session.": "폴더를 선택하세요. 폴더마다 저장된 세션이 됩니다.",
   "ImportedInSetup_other": "세션 {{count}}개를 가져왔습니다. 더 가져오려면 누르세요.",
-  "You can import any time from Settings › Sync & backup.": "설정 › 동기화 및 백업에서 언제든지 가져올 수 있습니다."
+  "You can import any time from Settings › Sync & backup.": "설정 › 동기화 및 백업에서 언제든지 가져올 수 있습니다.",
+  "Becomes a window": "창이 됩니다",
+  "Goes into the window above": "위 창에 들어갑니다"
 }

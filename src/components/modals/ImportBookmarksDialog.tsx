@@ -37,6 +37,7 @@ import {
   TOAST_MESSAGES,
 } from '../../utils/constants/common';
 import { RADIUS, TYPE } from '../../styles/scale';
+import { visuallyHiddenStyle } from '../../styles/visuallyHidden';
 import { corners, trackClearOfCorners } from '../../styles/corners';
 import Icon from '../common/Icon';
 import ChevronGlyph from '../common/ChevronGlyph';
@@ -83,10 +84,13 @@ function forEachFolder(
   }
 }
 
+// KAN-862 (11-16). The tickbox slot: a tickbox, or under a ticked user folder what the folder becomes; 'nothing' is an empty one there.
+type RowSlot = TickState | 'becomesWindow' | 'joinsWindowAbove' | 'nothing';
+
 interface ShownRow {
   folder: BookmarkFolder;
   depth: number;
-  tick: TickState;
+  slot: RowSlot;
   isOpen: boolean;
 }
 
@@ -97,31 +101,61 @@ function shownRows(
   ticked: ReadonlySet<string>
 ): ShownRow[] {
   const rows: ShownRow[] = [];
+  // Where `list` sits: not under a ticked folder, directly in one, or deeper.
   const walk = (
     list: readonly BookmarkFolder[],
     depth: number,
-    underTick: boolean
+    covered: 'no' | 'directly' | 'deeper'
   ) => {
     for (const folder of list) {
       const isOn = ticked.has(folder.id);
       const isOpen = unfolded.has(folder.id);
-      rows.push({
-        folder,
-        depth,
-        tick: underTick ? 'included' : isOn ? 'on' : 'off',
-        isOpen,
-      });
-      if (isOpen) walk(folder.children, depth + 1, underTick || isOn);
+      const slot: RowSlot =
+        covered === 'no'
+          ? isOn
+            ? 'on'
+            : 'off'
+          : folder.count === 0
+            ? 'nothing'
+            : covered === 'directly'
+              ? 'becomesWindow'
+              : 'joinsWindowAbove';
+      rows.push({ folder, depth, slot, isOpen });
+      // A ticked top folder (depth 0) covers nothing: its folders tick on their own.
+      const next =
+        covered !== 'no' ? 'deeper' : isOn && depth > 0 ? 'directly' : 'no';
+      if (isOpen) walk(folder.children, depth + 1, next);
     }
   };
-  walk(folders, 0, false);
+  walk(folders, 0, 'no');
   return rows;
+}
+
+// KAN-862 (11-16). Ticking a folder takes back the ticks inside it, which it covers. A top folder also ticks each non-empty folder directly in it, and unticking it clears those.
+function toggledTicks(
+  prev: ReadonlySet<string>,
+  id: string,
+  folder: BookmarkFolder | undefined,
+  isTop: boolean
+): ReadonlySet<string> {
+  const next = new Set(prev);
+  const direct = isTop ? (folder?.children ?? []) : [];
+  if (next.has(id)) {
+    next.delete(id);
+    for (const child of direct) next.delete(child.id);
+    return next;
+  }
+  if (folder !== undefined)
+    forEachFolder(folder.children, (inside) => next.delete(inside.id));
+  next.add(id);
+  for (const child of direct) if (child.count > 0) next.add(child.id);
+  return next;
 }
 
 interface FolderRowProps {
   folder: BookmarkFolder;
   depth: number;
-  tick: TickState;
+  slot: RowSlot;
   isOpen: boolean;
   untitled: string;
   onTick: (id: string) => void;
@@ -132,7 +166,7 @@ interface FolderRowProps {
 const FolderRow = React.memo(function FolderRow({
   folder,
   depth,
-  tick,
+  slot,
   isOpen,
   untitled,
   onTick,
@@ -143,7 +177,8 @@ const FolderRow = React.memo(function FolderRow({
   const name = folder.title || untitled;
   const isEmpty = folder.count === 0;
   const hasChildren = folder.children.length > 0;
-  const isLocked = isEmpty || tick === 'included';
+  const hasTickbox = slot === 'on' || slot === 'off';
+  const isLocked = isEmpty || !hasTickbox;
   const foldAction = isOpen ? t('Collapse') : t('Expand');
 
   const rowCss = css`
@@ -153,7 +188,7 @@ const FolderRow = React.memo(function FolderRow({
     min-height: 38px;
     padding: 0 8px 0 ${4 + depth * 28}px;
     ${corners(RADIUS.CONTROL)}
-    background-color: ${tick === 'on' ? COLORS.SELECTION_COLOR : 'transparent'};
+    background-color: ${slot === 'on' ? COLORS.SELECTION_COLOR : 'transparent'};
   `;
   const pickCss = css`
     flex: 1;
@@ -172,6 +207,16 @@ const FolderRow = React.memo(function FolderRow({
   const nameCss = css`
     color: ${isEmpty ? COLORS.LABEL_L2_COLOR : COLORS.TEXT_COLOR};
     overflow-wrap: anywhere;
+  `;
+  // The tickbox's 18px, so marked rows line up with ticked ones.
+  const markSlotCss = css`
+    position: relative;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
   `;
   const noteCss = css`
     font-size: ${TYPE.SECONDARY};
@@ -208,12 +253,31 @@ const FolderRow = React.memo(function FolderRow({
         // Holds the chevron's place, so every row's tickbox lines up.
         <Icon type="expand_more" style="visibility: hidden;" />
       )}
-      <Tickbox
-        state={tick}
-        disabled={isEmpty}
-        label={name}
-        onToggle={() => onTick(folder.id)}
-      />
+      {hasTickbox ? (
+        <Tickbox
+          state={slot}
+          disabled={isEmpty}
+          label={name}
+          onToggle={() => onTick(folder.id)}
+        />
+      ) : (
+        <span css={markSlotCss}>
+          {slot === 'becomesWindow' && (
+            <Icon
+              type="web_asset"
+              size="18px"
+              style={`${NON_INTERACTIVE_ICON_STYLE} padding: 0;`}
+            />
+          )}
+          {slot !== 'nothing' && (
+            <span css={visuallyHiddenStyle}>
+              {slot === 'becomesWindow'
+                ? t('Becomes a window')
+                : t('Goes into the window above')}
+            </span>
+          )}
+        </span>
+      )}
       {/* A click past the box ticks too, as on a <label>; the keyboard has the box. */}
       <span
         css={pickCss}
@@ -343,22 +407,17 @@ export const ImportBookmarksDialog: React.FC = () => {
     [folders, unfolded, ticked]
   );
 
-  // A ticked folder covers its subfolders, so their own ticks go.
   const toggleTick = useCallback(
     (id: string) =>
-      setTicked((prev) => {
-        const next = new Set(prev);
-        if (next.has(id)) {
-          next.delete(id);
-          return next;
-        }
-        const folder = foldersById.get(id);
-        if (folder !== undefined)
-          forEachFolder(folder.children, (inside) => next.delete(inside.id));
-        next.add(id);
-        return next;
-      }),
-    [foldersById]
+      setTicked((prev) =>
+        toggledTicks(
+          prev,
+          id,
+          foldersById.get(id),
+          folders.some((top) => top.id === id)
+        )
+      ),
+    [foldersById, folders]
   );
   const setFold = useCallback(
     (id: string, open: boolean) =>
@@ -614,7 +673,7 @@ export const ImportBookmarksDialog: React.FC = () => {
               key={row.folder.id}
               folder={row.folder}
               depth={row.depth}
-              tick={row.tick}
+              slot={row.slot}
               isOpen={row.isOpen}
               untitled={untitled}
               onTick={toggleTick}

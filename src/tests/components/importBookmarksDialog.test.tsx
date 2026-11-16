@@ -61,6 +61,7 @@ const library = (
             ...links('a', 4),
             folder('fridges', 'Fridges', links('f', 2)),
           ]),
+          folder('scraps', 'Scraps', []),
         ]),
         folder('recipes', 'Recipes', [
           ...links('r', 15),
@@ -114,6 +115,15 @@ const unfold = (name: string) =>
   fireEvent.click(screen.getByRole('button', { name: `Expand: ${name}` }));
 const tick = (name: string) => fireEvent.click(box(name));
 const preview = () => screen.getByRole('region', { name: 'Preview' });
+const row = (id: string): HTMLElement => {
+  const found = dialog().querySelector(`[data-folder-row="${id}"]`);
+  if (!(found instanceof HTMLElement)) throw new Error(`no row ${id}`);
+  return found;
+};
+const previewTitles = () =>
+  [...preview().querySelectorAll('[data-preview-session] > :first-child')].map(
+    (el) => el.textContent
+  );
 const sessionTitles = (state: RootState) =>
   state.tabContainerDataState.tabGroups.map((g) => g.title);
 
@@ -220,18 +230,12 @@ describe('the import dialog: layout', () => {
 });
 
 describe('the import dialog: ticking', () => {
-  test('a ticked folder covers its subfolders and previews its session', async () => {
+  test('a ticked folder previews its session', async () => {
     await openDialog();
     await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
-    unfold('Kitchen remodel');
-    unfold('Appliances');
 
     tick('Kitchen remodel');
 
-    for (const name of ['Tiles', 'Appliances', 'Fridges']) {
-      expect(box(name)).toHaveAttribute('aria-checked', 'true');
-      expect(box(name)).toHaveAttribute('aria-disabled', 'true');
-    }
     const shown = within(preview());
     expect(
       shown.getByText('Kitchen remodel', {
@@ -252,6 +256,103 @@ describe('the import dialog: ticking', () => {
     ]);
     expect(importButton()).toHaveTextContent('Import 1 session');
     expect(importButton()).not.toHaveAttribute('aria-disabled');
+  });
+
+  // KAN-862 (11-16). Under a ticked folder the tree shows what each folder becomes, not a tick.
+  test('under a ticked folder: a window mark on each subfolder, nothing deeper or empty, and no checkboxes', async () => {
+    await openDialog();
+    await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
+    unfold('Kitchen remodel');
+    unfold('Appliances');
+
+    tick('Kitchen remodel');
+
+    for (const id of ['tiles', 'appl', 'fridges', 'scraps'])
+      expect(within(row(id)).queryByRole('checkbox')).toBeNull();
+    for (const id of ['tiles', 'appl']) {
+      expect(row(id)).toHaveTextContent('Becomes a window');
+      expect(row(id)).toHaveTextContent('web_asset');
+    }
+    expect(row('fridges')).toHaveTextContent('Goes into the window above');
+    expect(row('fridges')).not.toHaveTextContent('web_asset');
+    expect(row('scraps')).not.toHaveTextContent(
+      /Becomes a window|Goes into the window above|web_asset/
+    );
+  });
+
+  test('a top folder ticks each non-empty folder directly in it, and adds its loose links as a session', async () => {
+    await openDialog();
+    await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
+
+    tick('Bookmarks Bar');
+
+    for (const name of ['Bookmarks Bar', 'Kitchen remodel', 'Recipes', 'Work'])
+      expect(box(name)).toHaveAttribute('aria-checked', 'true');
+    expect(box('Old stuff')).toHaveAttribute('aria-checked', 'false');
+    expect(previewTitles()).toEqual([
+      'Bookmarks Bar',
+      'Kitchen remodel',
+      'Recipes',
+      'Work',
+    ]);
+    expect(importButton()).toHaveTextContent('Import 4 sessions');
+  });
+
+  test('a folder ticked by its top folder unticks on its own; the top folder stays ticked', async () => {
+    await openDialog();
+    await screen.findByRole('checkbox', { name: 'Work' });
+    tick('Bookmarks Bar');
+
+    tick('Work');
+
+    expect(box('Work')).toHaveAttribute('aria-checked', 'false');
+    expect(box('Bookmarks Bar')).toHaveAttribute('aria-checked', 'true');
+    expect(importButton()).toHaveTextContent('Import 3 sessions');
+  });
+
+  test('unticking a top folder clears the folders directly in it; a tick deeper down stays', async () => {
+    await openDialog();
+    await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
+    tick('Bookmarks Bar');
+    tick('Kitchen remodel');
+    unfold('Kitchen remodel');
+    tick('Tiles');
+
+    tick('Bookmarks Bar');
+
+    for (const name of ['Bookmarks Bar', 'Kitchen remodel', 'Recipes', 'Work'])
+      expect(box(name)).toHaveAttribute('aria-checked', 'false');
+    expect(box('Tiles')).toHaveAttribute('aria-checked', 'true');
+    expect(previewTitles()).toEqual(['Tiles']);
+  });
+
+  test('ticking a top folder takes back ticks inside its folders, which then show marks', async () => {
+    await openDialog();
+    await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
+    unfold('Kitchen remodel');
+    tick('Tiles');
+
+    tick('Bookmarks Bar');
+
+    expect(within(row('tiles')).queryByRole('checkbox')).toBeNull();
+    expect(row('tiles')).toHaveTextContent('Becomes a window');
+    expect(previewTitles()).toEqual([
+      'Bookmarks Bar',
+      'Kitchen remodel',
+      'Recipes',
+      'Work',
+    ]);
+  });
+
+  test('a top folder with no loose links adds no session of its own', async () => {
+    await openDialog();
+    await screen.findByRole('checkbox', { name: 'Other Bookmarks' });
+
+    tick('Other Bookmarks');
+
+    expect(box('Other Bookmarks')).toHaveAttribute('aria-checked', 'true');
+    expect(previewTitles()).toEqual(['Reading list']);
+    expect(importButton()).toHaveTextContent('Import 1 session');
   });
 
   test('an empty folder inside a ticked one reads unchecked, as it draws', async () => {
@@ -301,13 +402,21 @@ describe('the import dialog: ticking', () => {
     expect(box('Work')).toHaveAttribute('aria-checked', 'false');
   });
 
-  test('a click on the name of a covered or an empty folder changes nothing', async () => {
+  test('a click on a marked row, its mark, or an empty folder changes nothing', async () => {
     await openDialog();
     await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
     unfold('Kitchen remodel');
+    unfold('Appliances');
     tick('Kitchen remodel');
-    fireEvent.click(nameOf('Tiles'));
-    expect(box('Tiles')).toHaveAttribute('aria-checked', 'true');
+    const marked = [
+      within(row('tiles')).getByText('Tiles'),
+      within(row('tiles')).getByText('Becomes a window'),
+      within(row('fridges')).getByText('Fridges'),
+      within(row('fridges')).getByText('Goes into the window above'),
+    ];
+    for (const target of marked) fireEvent.click(target);
+    expect(within(row('tiles')).queryByRole('checkbox')).toBeNull();
+    expect(row('tiles')).toHaveTextContent('Becomes a window');
     expect(box('Kitchen remodel')).toHaveAttribute('aria-checked', 'true');
     fireEvent.click(nameOf('Old stuff'));
     expect(box('Old stuff')).toHaveAttribute('aria-checked', 'false');
@@ -320,7 +429,7 @@ describe('the import dialog: ticking', () => {
     tick('Kitchen remodel');
     expect(box('Kitchen remodel')).toHaveAttribute('aria-checked', 'true');
     unfold('Kitchen remodel');
-    expect(box('Tiles')).toBeInTheDocument();
+    expect(row('tiles')).toHaveTextContent('Becomes a window');
     expect(box('Kitchen remodel')).toHaveAttribute('aria-checked', 'true');
   });
 

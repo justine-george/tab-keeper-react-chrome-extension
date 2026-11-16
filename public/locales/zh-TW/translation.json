@@ -511,5 +511,7 @@
   "Chrome bookmarks": "Chrome 書籤",
   "Pick folders. Each becomes a saved session.": "選擇資料夾。每個資料夾會成為一個已儲存的工作階段。",
   "ImportedInSetup_other": "已匯入 {{count}} 個工作階段。按下即可匯入更多。",
-  "You can import any time from Settings › Sync & backup.": "你隨時可以在「設定 › 同步與備份」中匯入。"
+  "You can import any time from Settings › Sync & backup.": "你隨時可以在「設定 › 同步與備份」中匯入。",
+  "Becomes a window": "成為一個視窗",
+  "Goes into the window above": "併入上方的視窗"
 }

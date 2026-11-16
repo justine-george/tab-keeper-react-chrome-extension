@@ -553,5 +553,7 @@
   "ImportedInSetup_one": "{{count}} sessão importada. Pressione para importar mais.",
   "ImportedInSetup_many": "{{count}} sessões importadas. Pressione para importar mais.",
   "ImportedInSetup_other": "{{count}} sessões importadas. Pressione para importar mais.",
-  "You can import any time from Settings › Sync & backup.": "Você pode importar a qualquer momento em Configurações › Sync & backup."
+  "You can import any time from Settings › Sync & backup.": "Você pode importar a qualquer momento em Configurações › Sync & backup.",
+  "Becomes a window": "Vira uma janela",
+  "Goes into the window above": "Vai para a janela acima"
 }

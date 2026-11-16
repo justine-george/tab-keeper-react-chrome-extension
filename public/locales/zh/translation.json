@@ -511,5 +511,7 @@
   "Chrome bookmarks": "Chrome 书签",
   "Pick folders. Each becomes a saved session.": "选择文件夹。每个文件夹会成为一个已保存的会话。",
   "ImportedInSetup_other": "已导入 {{count}} 个会话。按下可导入更多。",
-  "You can import any time from Settings › Sync & backup.": "您随时可以在 设置 › 同步与备份 中导入。"
+  "You can import any time from Settings › Sync & backup.": "您随时可以在 设置 › 同步与备份 中导入。",
+  "Becomes a window": "成为一个窗口",
+  "Goes into the window above": "并入上方的窗口"
 }
