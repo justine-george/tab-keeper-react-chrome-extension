@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
 
 import ChevronGlyph from '../../common/ChevronGlyph';
+import { GROUP_CHEVRON_BOX_STYLE } from '../../common/groupChevronBox';
 import ClickableRow from '../../common/ClickableRow';
 import {
   focusRingOutsideCss,
@@ -1344,6 +1345,7 @@ export default function OpenNowWindow({
                             t
                           )}
                           ariaExpanded={!groupFolded}
+                          style={GROUP_CHEVRON_BOX_STYLE}
                           type={groupFolded ? 'expand_more' : 'expand_less'}
                           renderGlyph={(glyphCss) => (
                             <ChevronGlyph

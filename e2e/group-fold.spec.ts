@@ -102,6 +102,28 @@ const centerX = async (loc: Locator) => {
   return b.x + b.width / 2;
 };
 
+// KAN-360's premise: at a 20px root a tab row grows to 38 while a group's title row holds 32.
+async function expectTitleRowFitsAtLargeFont(
+  page: Page,
+  titleRow: Locator,
+  chevron: Locator
+) {
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = '20px';
+  });
+  // PREMISE: the chevron's own box grew past the row (30px glyph + padding).
+  await expect
+    .poll(async () => (await boxOf(chevron)).height)
+    .toBeGreaterThan(32);
+  const row = await boxOf(titleRow);
+  const box = await boxOf(chevron);
+  expect(row.height).toBeLessThanOrEqual(32.5);
+  // Centred, so it overflows the row evenly, as the action strip does.
+  expect(
+    Math.abs(box.y + box.height / 2 - (row.y + row.height / 2))
+  ).toBeLessThanOrEqual(1);
+}
+
 async function openTrip(page: Page, extensionId: string, bandId = 'g1') {
   await page.setViewportSize(POPUP);
   await page.goto(`chrome-extension://${extensionId}/index.html`);
@@ -247,6 +269,20 @@ test.describe('a saved group', () => {
     const chevronBox = await boxOf(collapse(page));
     const nameBox = await boxOf(bandHandle(page, 'g1').getByText('Research'));
     expect(nameBox.x).toBeGreaterThanOrEqual(chevronBox.x + chevronBox.width);
+  });
+
+  // At Chrome's Large font (a 20px root) a tab row is 38px but the title row stays 32 (KAN-360); the chevron must not grow it.
+  test('at a 20px root the chevron leaves the title row 32px, centred in it', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await context.newPage();
+    await openTrip(page, extensionId);
+    await expectTitleRowFitsAtLargeFont(
+      page,
+      page.locator('[data-fixed-row-id="g1"]'),
+      collapse(page)
+    );
   });
 
   test('a saved search matching a folded member leaves the group folded (D6)', async ({
@@ -1967,6 +2003,20 @@ test.describe('a group in Currently open', () => {
     const chevronBox = await boxOf(liveCollapse(page, k));
     const nameBox = await boxOf(liveTitleRow(page, k).getByText('Kyoto'));
     expect(nameBox.x).toBeGreaterThanOrEqual(chevronBox.x + chevronBox.width);
+  });
+
+  test('at a 20px root the chevron leaves the title row 32px, centred in it', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+    const k = await openLiveKyoto(page, serviceWorker);
+    await expectTitleRowFitsAtLargeFont(
+      page,
+      liveTitleRow(page, k),
+      liveCollapse(page, k)
+    );
   });
 
   test('a collapse made in Chrome shows folded', async ({

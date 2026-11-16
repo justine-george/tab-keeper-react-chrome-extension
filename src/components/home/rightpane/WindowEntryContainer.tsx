@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import ChevronGlyph from '../../common/ChevronGlyph';
+import { GROUP_CHEVRON_BOX_STYLE } from '../../common/groupChevronBox';
 import ClickableRow from '../../common/ClickableRow';
 import {
   focusRingOutsideCss,
@@ -2036,6 +2037,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                           t
                         )}
                         ariaExpanded={!item.group.collapsed}
+                        style={GROUP_CHEVRON_BOX_STYLE}
                         type={
                           item.group.collapsed ? 'expand_more' : 'expand_less'
                         }
