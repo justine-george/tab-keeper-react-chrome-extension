@@ -1015,8 +1015,13 @@ export const saveToTabContainer = createAsyncThunk(
   'global/saveToTabContainer',
   async (params: saveToTabContainerParams, thunkAPI) => {
     const before = thunkAPI.getState() as RootState;
-    const existing = before.tabContainerDataState.tabGroups;
-    const hadSaved = before.settingsDataState.hasHadSavedSession;
+    // KAN-862 R14. An import is no save: its sessions are left out of every first and substantial check.
+    const imported = before.settingsDataState.importedSessionIds;
+    const existing = before.tabContainerDataState.tabGroups.filter(
+      (g) => !imported.includes(g.tabGroupId)
+    );
+    const { hasHadSavedSession, hasHadOnlyImportedSessions } =
+      before.settingsDataState;
 
     // KAN-906. A new session keeps one copy of each address.
     const { container, leftOut } = selectSkipsDuplicateTabs(before)
@@ -1048,8 +1053,10 @@ export const saveToTabContainer = createAsyncThunk(
       thunkAPI.dispatch(noteReviewMoment({ kind: 'bigSave' }));
     }
 
-    // KAN-875. The pop is for the save itself: hasHadSavedSession also turns true when synced sessions land.
-    if (!isSample && isFirst && !hadSaved) {
+    // KAN-875. The pop is for the save itself: synced sessions held end it as a save does, imports alone don't (R14).
+    const hadSessionNotImported =
+      hasHadSavedSession && !hasHadOnlyImportedSessions;
+    if (!isSample && isFirst && !hadSessionNotImported) {
       thunkAPI.dispatch(noteFirstSave());
     }
     // KAN-388. The header mark's shutter, for every session the user saves.

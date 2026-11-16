@@ -6,11 +6,13 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { installFakeLocks, type FakeLocks } from '../setup/fakeLocks';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
+import type { RootState } from '../../redux/store';
 import { setSearchInputText } from '../../redux/slices/globalStateSlice';
 import { startRun } from '../../redux/firstRun';
 import { newRun } from '../../utils/functions/firstRun';
 import { markHadSavedSession } from '../../redux/slices/settingsDataStateSlice';
 import { SAMPLE_ID_PREFIX } from '../../utils/functions/sampleSession';
+import { importBookmarkSessions } from '../../redux/bookmarkImport';
 
 // KAN-828. The mint ring on the save button shows exactly while the saved list's empty line does.
 
@@ -192,5 +194,42 @@ describe('the save invite ring corners', () => {
     const ring = invite();
     if (ring === null) throw new Error('no ring');
     expect(getComputedStyle(ring).borderRadius).toBe('11px 0px 0px 11px');
+  });
+});
+
+// KAN-862 R14. An import marks the list as held but leaves the first-save pop to come; a session no import made,
+// saved or synced, ends that.
+describe('the list after an import', () => {
+  const onlyImports = (store: { getState: () => RootState }) =>
+    store.getState().settingsDataState.hasHadOnlyImportedSessions;
+
+  test('imported sessions alone keep the pop to come', async () => {
+    const { store } = await renderWithProviders(<UserInputContainer />, {
+      seedStore: (s) => {
+        s.dispatch(importBookmarkSessions([buildSession({ tabGroupId: 'i' })]));
+      },
+    });
+    expect(store.getState().settingsDataState.hasHadSavedSession).toBe(true);
+    expect(onlyImports(store)).toBe(true);
+  });
+
+  test('a session no import made, landing beside them, ends it', async () => {
+    const imported = buildSession({ tabGroupId: 'i' });
+    const { store } = await renderWithProviders(<UserInputContainer />, {
+      seedStore: (s) => {
+        s.dispatch(importBookmarkSessions([imported]));
+      },
+    });
+    act(() => {
+      store.dispatch(
+        replaceState(
+          buildContainer([buildSession({ tabGroupId: 'synced' }), imported])
+        )
+      );
+    });
+    expect(onlyImports(store)).toBe(false);
+    expect(
+      JSON.parse(localStorage.getItem('settingsData') ?? '{}')
+    ).toMatchObject({ hasHadOnlyImportedSessions: false });
   });
 });

@@ -21,6 +21,7 @@ import {
   markClosesThisTabCardAnswered,
   markEndingSeen,
   markHadSavedSession,
+  markHadImportedSession,
   noteImportedSessions,
   markPressedSaveAsPdf,
   SAVE_PDF_POINTER_PRESSES,
@@ -60,6 +61,7 @@ const GARBAGE = {
   isWhatsNew2Seen: 'yes',
   isClosesThisTabCardAnswered: 'true',
   hasHadSavedSession: 1,
+  hasHadOnlyImportedSessions: 'true',
   saveAsPdfPresses: 'yes',
   isPopupEndingSeen: 'true',
   isFullViewEndingSeen: 1,
@@ -87,6 +89,7 @@ const ALL_SET = {
   isWhatsNew2Seen: true,
   isClosesThisTabCardAnswered: true,
   hasHadSavedSession: true,
+  hasHadOnlyImportedSessions: true,
   saveAsPdfPresses: 2,
   isPopupEndingSeen: true,
   isFullViewEndingSeen: true,
@@ -235,7 +238,12 @@ describe('the onboarding reducers persist what they set', () => {
     [
       'markHadSavedSession',
       markHadSavedSession(),
-      { hasHadSavedSession: true },
+      { hasHadSavedSession: true, hasHadOnlyImportedSessions: false },
+    ],
+    [
+      'markHadImportedSession',
+      markHadImportedSession(),
+      { hasHadSavedSession: true, hasHadOnlyImportedSessions: true },
     ],
     ['markPressedSaveAsPdf', markPressedSaveAsPdf(), { saveAsPdfPresses: 1 }],
     [
@@ -275,12 +283,28 @@ describe('the onboarding reducers persist what they set', () => {
     ).toEqual(['a', 'b', 'c']);
   });
 
+  // KAN-862 R14. Only imports: the first-save pop is still to come. Any other session held ends that.
+  it.each([
+    [[markHadImportedSession(), markHadSavedSession()], false],
+    [[markHadSavedSession(), markHadImportedSession()], false],
+    [[markHadImportedSession(), markHadImportedSession()], true],
+  ])('%j leaves hasHadOnlyImportedSessions %p', (actions, onlyImports) => {
+    const state = reduce(actions);
+    expect(state.hasHadSavedSession).toBe(true);
+    expect(state.hasHadOnlyImportedSessions).toBe(onlyImports);
+    expect(saved()).toMatchObject({
+      hasHadOnlyImportedSessions: onlyImports,
+    });
+  });
+
   // Every full-view open dispatches it; a write each time would fire a
   // storage event in every other open page for nothing.
   it.each([
     ['markFullViewOpened', markFullViewOpened()],
     ['markFullViewCalloutSeen', markFullViewCalloutSeen()],
     ['markClosesThisTabCardAnswered', markClosesThisTabCardAnswered()],
+    ['markHadSavedSession', markHadSavedSession()],
+    ['markHadImportedSession', markHadImportedSession()],
     ['markEndingSeen popup', markEndingSeen('popup')],
     ['markEndingSeen full', markEndingSeen('full')],
   ] as const)('%s writes only the first time', (_name, action) => {

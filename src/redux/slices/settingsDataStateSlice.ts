@@ -203,6 +203,8 @@ export interface SettingsData {
   isClosesThisTabCardAnswered: boolean;
   // KAN-828. This device's saved list has held a session of the user's: the save invite is done here.
   hasHadSavedSession: boolean;
+  // KAN-862. hasHadSavedSession is true, and only imports made it so: the first-save pop is still to come.
+  hasHadOnlyImportedSessions: boolean;
   // KAN-826, KAN-911. Save as PDF… presses on this device, counted up to
   // SAVE_PDF_POINTER_PRESSES: the export page's pointer shows until then.
   saveAsPdfPresses: number;
@@ -240,6 +242,7 @@ export type OnboardingSettings = Pick<
   | 'isWhatsNew2Seen'
   | 'isClosesThisTabCardAnswered'
   | 'hasHadSavedSession'
+  | 'hasHadOnlyImportedSessions'
   | 'saveAsPdfPresses'
   | 'isPopupEndingSeen'
   | 'isFullViewEndingSeen'
@@ -256,6 +259,7 @@ export const ONBOARDING_DEFAULTS: OnboardingSettings = {
   isWhatsNew2Seen: false,
   isClosesThisTabCardAnswered: false,
   hasHadSavedSession: false,
+  hasHadOnlyImportedSessions: false,
   saveAsPdfPresses: 0,
   isPopupEndingSeen: false,
   isFullViewEndingSeen: false,
@@ -318,6 +322,7 @@ export function guardOnboarding(
     isWhatsNew2Seen: read('isWhatsNew2Seen', asFlag),
     isClosesThisTabCardAnswered: read('isClosesThisTabCardAnswered', asFlag),
     hasHadSavedSession: read('hasHadSavedSession', asFlag),
+    hasHadOnlyImportedSessions: read('hasHadOnlyImportedSessions', asFlag),
     // KAN-911. A device that pressed before the count kept only a flag: one press.
     saveAsPdfPresses:
       isStoredObject &&
@@ -799,10 +804,19 @@ export const settingsDataStateSlice = createSlice({
       saveLocalSettings(state);
     },
 
-    // Dispatched while the list holds a session of the user's; only the first writes.
+    // Dispatched while the list holds a session of the user's that no import made; only the first writes.
     markHadSavedSession: (state) => {
+      if (state.hasHadSavedSession && !state.hasHadOnlyImportedSessions) return;
+      state.hasHadSavedSession = true;
+      state.hasHadOnlyImportedSessions = false;
+      saveLocalSettings(state);
+    },
+
+    // KAN-862. An import fills the list too, but leaves the first-save pop for the user's own save (R14).
+    markHadImportedSession: (state) => {
       if (state.hasHadSavedSession) return;
       state.hasHadSavedSession = true;
+      state.hasHadOnlyImportedSessions = true;
       saveLocalSettings(state);
     },
 
@@ -962,6 +976,7 @@ export const {
   markEndingSeen,
   markClosesThisTabCardAnswered,
   markHadSavedSession,
+  markHadImportedSession,
   noteImportedSessions,
   markPressedSaveAsPdf,
   setDefaultView,

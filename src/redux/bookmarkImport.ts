@@ -4,7 +4,7 @@ import type { RootState } from './store';
 import { showToast } from './slices/globalStateSlice';
 import {
   cloudSyncAllowed,
-  markHadSavedSession,
+  markHadImportedSession,
   noteImportedSessions,
 } from './slices/settingsDataStateSlice';
 import {
@@ -28,7 +28,7 @@ export const importBookmarkSessions =
   (dispatch) => {
     if (sessions.length === 0) return;
     dispatch(saveImportedSessionsInternal(sessions));
-    dispatch(markHadSavedSession());
+    dispatch(markHadImportedSession());
     dispatch(noteImportedSessions(sessions.map((s) => s.tabGroupId)));
     void dispatch(
       showToast({

@@ -19,6 +19,7 @@ import {
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { SAMPLE_ID_PREFIX } from '../../utils/functions/sampleSession';
 import { markHadSavedSession } from '../../redux/slices/settingsDataStateSlice';
+import { importBookmarkSessions } from '../../redux/bookmarkImport';
 
 // KAN-875. The first session the user saves on this device pops floppy disks; this is the count the pop reads.
 
@@ -125,5 +126,45 @@ describe('the first save on this device', () => {
     seed(store, 'a');
     await save(store, 'b');
     expect(pops(store)).toBe(0);
+  });
+});
+
+// KAN-862 R14. An import is no save: the user's own first save after one still pops.
+describe('the first save after an import', () => {
+  const importOf = (store: Store, ...ids: string[]) =>
+    store.dispatch(importBookmarkSessions(ids.map((id) => session(id, 2))));
+
+  test('an import, then the first own save, counts once', async () => {
+    const { store } = makeTestStore();
+    importOf(store, 'i1', 'i2');
+    expect(pops(store)).toBe(0);
+    await save(store, 'a');
+    expect(pops(store)).toBe(1);
+    await save(store, 'b');
+    expect(pops(store)).toBe(1);
+  });
+
+  test('CONTROL: synced sessions held before the import still keep the pop away', async () => {
+    const { store } = makeTestStore();
+    store.dispatch(markHadSavedSession());
+    importOf(store, 'i1');
+    await save(store, 'a');
+    expect(pops(store)).toBe(0);
+  });
+
+  test('synced sessions held after the import keep the pop away too', async () => {
+    const { store } = makeTestStore();
+    importOf(store, 'i1');
+    store.dispatch(markHadSavedSession());
+    await save(store, 'a');
+    expect(pops(store)).toBe(0);
+  });
+
+  test('save, then import, then save: not a first', async () => {
+    const { store } = makeTestStore();
+    await save(store, 'a');
+    importOf(store, 'i1');
+    await save(store, 'b');
+    expect(pops(store)).toBe(1);
   });
 });
