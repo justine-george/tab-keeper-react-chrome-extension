@@ -1494,8 +1494,8 @@ export const deleteChromeTabGroup = createAsyncThunk<
 // its own; keeping selection out of `touch` only ever confined that to legacy
 // data rather than preventing it.
 //
-// `at` is for the one reducer that stamps two sessions in a set order
-// (moveToSessionInternal); every other caller stamps now.
+// `at` is for the reducers that stamp sessions in a set order
+// (moveToSessionInternal, saveImportedSessionsInternal); every other caller stamps now.
 function touch(group: tabContainerData, at: number = Date.now()): void {
   group.lastModified = at;
 }
@@ -1510,7 +1510,8 @@ function touch(group: tabContainerData, at: number = Date.now()): void {
 //   this        adding or removing a window, a tab or a Chrome group; renaming
 //               the session, a window or a group; recolouring or ungrouping;
 //               and dragging tabs within a window or windows within a session
-//   plain touch moveSessionInternal, sortSessionsInternal, clearSessionOrder
+//   plain touch moveSessionInternal, sortSessionsInternal, clearSessionOrder,
+//               and an import's new sessions (KAN-862: created, not edited)
 //
 // Dragging a tab or a window rearranges what the session HOLDS, so it counts.
 // Dragging the session rearranges the LIST, so it does not -- and it must not,
