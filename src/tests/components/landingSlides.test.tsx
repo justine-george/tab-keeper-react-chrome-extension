@@ -139,18 +139,6 @@ describe('slideLanding', () => {
     expect(r).not.toHaveBeenCalled();
   });
 
-  it('an adopted carry (no row) with no block moved glides nothing', () => {
-    reduceMotion(false);
-    const { root, blocks } = list();
-    blocks.forEach((b, i) => at(b, i * 100));
-    const before = { ...landingTops(root, undefined), row: 110 };
-    const animations = blocks.map(animated);
-
-    slideLanding(root, before, undefined);
-
-    for (const a of animations) expect(a).not.toHaveBeenCalled();
-  });
-
   it('a row let go on its slot glides nothing', () => {
     reduceMotion(false);
     const { root, blocks, row } = list();
@@ -253,6 +241,118 @@ describe('slideLanding', () => {
         expect.anything()
       );
     }
+  });
+});
+
+// KAN-822 (KAN-959). Emptied gs at 68, folded gf 140, a1 176, w2 drawn a row low at 252: pruning gs eases them all up 72.
+describe('slideLanding when the drop closes a room held open (KAN-959)', () => {
+  const heldRoomList = () => {
+    const root = document.createElement('div');
+    const w1 = block(root, 'w1');
+    const w2 = block(root, 'w2');
+    const band = (id: string) => {
+      const el = document.createElement('div');
+      el.setAttribute('data-band-id', id);
+      w1.append(el);
+      return el;
+    };
+    const rowIn = (parent: HTMLElement) => {
+      const el = document.createElement('div');
+      parent.append(el);
+      return el;
+    };
+    const gs = band('gs');
+    const gf = band('gf');
+    const f0 = rowIn(gf);
+    const a1 = rowIn(w1);
+    const s0 = rowIn(gs);
+    return { root, w1, w2, gs, gf, f0, a1, s0 };
+  };
+  const glidesBy = (by: number) => [
+    [{ transform: `translateY(${by}px)` }, { transform: 'none' }],
+    { duration: 200, easing: EASE.OUT, id: LANDING_SLIDE },
+  ];
+
+  it('glides the bands and rows of its window, and the blocks below, up from where they were drawn, easing out', () => {
+    reduceMotion(false);
+    const { root, w1, w2, gs, gf, a1, s0 } = heldRoomList();
+    at(w1, 0);
+    at(w2, 252);
+    at(gs, 68);
+    at(gf, 140);
+    at(a1, 176);
+    at(s0, 190);
+    const rows = new Map([
+      ['a1', a1],
+      ['s0', s0],
+    ]);
+    const before = landingTops(root, s0, { windowId: 'w1', rows });
+    // Pruned: gs is gone, s0 is loose after a1.
+    gs.remove();
+    at(w2, 180);
+    at(gf, 68);
+    at(a1, 104);
+    at(s0, 136);
+    const [b1, b2, g, a, s] = [w1, w2, gf, a1, s0].map(animated);
+
+    slideLanding(root, before, s0, rows);
+
+    expect(b1).not.toHaveBeenCalled();
+    expect(b2).toHaveBeenCalledWith(...glidesBy(72));
+    expect(g).toHaveBeenCalledWith(...glidesBy(72));
+    expect(a).toHaveBeenCalledWith(...glidesBy(72));
+    expect(s).toHaveBeenCalledWith(...glidesBy(54));
+  });
+
+  it('a member of a gliding band, the dropped row too, glides only by what its band does not carry', () => {
+    reduceMotion(false);
+    const { root, w1, w2, gs, gf, f0, s0 } = heldRoomList();
+    at(w1, 0);
+    at(w2, 316);
+    at(gs, 68);
+    at(gf, 140);
+    at(f0, 204);
+    at(s0, 190);
+    const rows = new Map([
+      ['f0', f0],
+      ['s0', s0],
+    ]);
+    const before = landingTops(root, s0, { windowId: 'w1', rows });
+    // s0 joined gf at its head: gf 68, s0 100, f0 132.
+    gs.remove();
+    gf.prepend(s0);
+    at(w2, 244);
+    at(gf, 68);
+    at(s0, 100);
+    at(f0, 132);
+    const [g, f, s] = [gf, f0, s0].map(animated);
+
+    slideLanding(root, before, s0, rows);
+
+    expect(g).toHaveBeenCalledWith(...glidesBy(72));
+    expect(f).not.toHaveBeenCalled();
+    expect(s).toHaveBeenCalledWith(...glidesBy(18));
+  });
+
+  it('with no room held open, the rows of the window stay put (KAN-835)', () => {
+    reduceMotion(false);
+    const { root, w1, w2, gf, a1, s0 } = heldRoomList();
+    at(w1, 0);
+    at(w2, 220);
+    at(gf, 140);
+    at(a1, 176);
+    at(s0, 190);
+    const before = landingTops(root, s0);
+    at(gf, 100);
+    at(a1, 136);
+    at(s0, 170);
+    const [g, a] = [gf, a1].map(animated);
+    animated(s0);
+
+    slideLanding(root, before, s0, new Map([['a1', a1]]));
+
+    expect(g).not.toHaveBeenCalled();
+    expect(a).not.toHaveBeenCalled();
   });
 });
 

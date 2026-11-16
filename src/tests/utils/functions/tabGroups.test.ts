@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import {
+  foldedMemberIds,
   groupEndIndex,
   groupStartIndex,
   partitionTabsIntoRuns,
@@ -204,6 +205,46 @@ describe('groupIdOfItemId', () => {
 
   test('neither prefix is not a group', () => {
     expect(groupIdOfItemId('alpha')).toBeUndefined();
+  });
+});
+
+// KAN-822 (Minor 4). Every row count in both panes starts here: a folded group's members draw no row.
+describe('foldedMemberIds (KAN-822)', () => {
+  const groups = [group('g'), group('h')];
+  test.each([
+    [
+      'nothing folded',
+      [tab('a'), tab('x', 'g'), tab('b')],
+      new Set<string>(),
+      [],
+    ],
+    [
+      'a folded group: its members',
+      [tab('a'), tab('x', 'g'), tab('y', 'g'), tab('b')],
+      new Set(['g']),
+      ['x', 'y'],
+    ],
+    [
+      'only the folded one of two',
+      [tab('x', 'g'), tab('z', 'h')],
+      new Set(['h']),
+      ['z'],
+    ],
+    // Coalesced as the partition draws it: a member split off its run is still in its band.
+    [
+      'a group split into two runs: both runs',
+      [tab('x', 'g'), tab('a'), tab('y', 'g')],
+      new Set(['g']),
+      ['x', 'y'],
+    ],
+    [
+      'a claimed group that is not stored: a loose tab',
+      [tab('x', 'gone')],
+      new Set(['gone']),
+      [],
+    ],
+  ])('%s', (_what, tabs, folded, members) => {
+    expect([...foldedMemberIds(tabs, groups, folded)].sort()).toEqual(members);
   });
 });
 

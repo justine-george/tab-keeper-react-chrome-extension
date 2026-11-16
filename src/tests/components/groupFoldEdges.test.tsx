@@ -18,6 +18,8 @@ import type { tabContainerData } from '../../redux/slices/tabContainerDataStateS
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { standInSessionList } from '../setup/standInSessionList';
 import { T0, group, session, tab, win } from '../fixtures/sessionMoveFixture';
+import { LANDING_SLIDE } from '../../components/home/rightpane/rowDrag/landingSlides';
+import { EASE } from '../../styles/scale';
 
 // KAN-822 edge picks, on the saved tab list with real boxes (jsdom has none; each is given one below).
 // 1B: the first half row below a group that ends the last window lands after it; New window starts below that.
@@ -519,6 +521,154 @@ describe("a lone tab's emptied group holds its room while the drop stays in its 
       ['a0', 'f0:gf', 'f1:gf', 'a1'],
       ['z0', 's0'],
     ]);
+  });
+
+  // Important 1. w1's rows end at 208, w2 220..284 (z0 252..284), the trailing block at 292.
+  const BELOW: Table = {
+    ...FOLDED,
+    'win:w2': [220, 64],
+    'row:z0': [252, ROW],
+    [`win:${NEW_LAST_WINDOW}`]: [292, 0],
+  };
+  const block = (id: string) => find(`[data-drop-window-id="${id}"]`);
+  const drawnTop = (el: HTMLElement) => el.getBoundingClientRect().top;
+  const drawnBottom = (id: string, layout: Table) => {
+    const [top, height] = layout[`row:${id}`] ?? [NaN, 0];
+    return top + height + translateOf(row(id));
+  };
+
+  test('the room held open moves every block below its window down a row, so its rows stay above the next window', async () => {
+    const { windows } = await renderSession(
+      lone(true, [win('w2', [tab('z0')])]),
+      BELOW
+    );
+    pickUp('s0');
+    moveTo(180);
+    expect(translateOf(row('a1'))).toBe(ROW);
+    expect(block('w2').dataset.windowShift).toBe(String(ROW));
+    expect(block(NEW_LAST_WINDOW).dataset.windowShift).toBe(String(ROW));
+    // The source block itself stays put.
+    expect(block('w1').dataset.windowShift).toBeUndefined();
+    expect(drawnBottom('a1', BELOW)).toBeLessThanOrEqual(drawnTop(block('w2')));
+    release(180);
+    expect(windows()).toEqual([['a0', 'f0:gf', 'f1:gf', 's0', 'a1'], ['z0']]);
+  });
+
+  // Drawn, w1's rows reach 240 and w2 starts at 252: a point over a1's drawn row is w1's, as drawn.
+  test('pointing where its window is drawn a row taller: still that window, last', async () => {
+    const { windows } = await renderSession(
+      lone(true, [win('w2', [tab('z0')])]),
+      BELOW
+    );
+    pickUp('s0');
+    moveTo(232);
+    expect(block('w2').dataset.windowShift).toBe(String(ROW));
+    expect(translateOf(titleOf('gf'))).toBe(0);
+    release(232);
+    expect(windows()).toEqual([['a0', 'f0:gf', 'f1:gf', 'a1', 's0'], ['z0']]);
+  });
+
+  // Pointing at w2 where it is drawn, moved down: w2's, so the room closes and the blocks go back.
+  test('pointing at the next window where it is drawn: that window, and the room closes', async () => {
+    const { windows } = await renderSession(
+      lone(true, [win('w2', [tab('z0')])]),
+      BELOW
+    );
+    pickUp('s0');
+    moveTo(232);
+    moveTo(276);
+    expect(block('w2').dataset.windowShift).toBeUndefined();
+    expect(translateOf(titleOf('gf'))).toBeLessThan(0);
+    release(276);
+    expect(windows()).toEqual([
+      ['a0', 'f0:gf', 'f1:gf', 'a1'],
+      ['z0', 's0'],
+    ]);
+  });
+
+  // The 2B head-join of an open group below grows the window too: w2 moves with it.
+  test('joining the open group below at its head moves the next window down a row too', async () => {
+    await renderSession(lone(false, [win('w2', [tab('z0')])]), {
+      ...OPEN,
+      'win:w2': [284, 64],
+      'row:z0': [316, ROW],
+      [`win:${NEW_LAST_WINDOW}`]: [356, 0],
+    });
+    pickUp('s0');
+    moveTo(150);
+    expect(band('gf').hasAttribute('data-drop-target')).toBe(true);
+    expect(translateOf(row('a1'))).toBe(ROW);
+    expect(block('w2').dataset.windowShift).toBe(String(ROW));
+  });
+
+  // KAN-822 (KAN-959). The drop prunes gs (68..100 and its margin): gf, a1 and w2 come up 36, s0 is loose after gf.
+  const PRUNED: Table = {
+    'win:w1': [0, 176],
+    'row:a0': [32, ROW],
+    'band:gf': [68, ROW],
+    'fixed:gf': [68, ROW],
+    'row:s0': [104, ROW],
+    'row:a1': [140, ROW],
+    'win:w2': [184, 64],
+    'row:z0': [216, ROW],
+    [`win:${NEW_LAST_WINDOW}`]: [256, 0],
+  };
+
+  test('let go past the folded group: the band, the rows and the window below glide up from where they were drawn, easing out (KAN-959)', async () => {
+    const { windows } = await renderSession(
+      lone(true, [win('w2', [tab('z0')])]),
+      BELOW
+    );
+    // Once the list draws the move, gs gone, the boxes are the pruned list's.
+    table = new Proxy(BELOW, {
+      get: (rest, key) =>
+        (document.querySelector('[data-band-id="gs"]') === null
+          ? PRUNED
+          : rest)[String(key)],
+    });
+    const animate = vi.fn();
+    Object.defineProperty(Element.prototype, 'animate', {
+      value: animate,
+      configurable: true,
+    });
+    try {
+      pickUp('s0');
+      moveTo(180);
+      release(180);
+      expect(windows()).toEqual([['a0', 'f0:gf', 'f1:gf', 's0', 'a1'], ['z0']]);
+      const glideOf = (el: Element) =>
+        animate.mock.calls[animate.mock.contexts.indexOf(el)];
+      const easesUp = (by: number) => [
+        [{ transform: `translateY(${by}px)` }, { transform: 'none' }],
+        expect.objectContaining({ easing: EASE.OUT, id: LANDING_SLIDE }),
+      ];
+      // Drawn a row low while the room was held: 252 -> 184.
+      expect(glideOf(block('w2'))).toEqual(easesUp(68));
+      expect(glideOf(band('gf'))).toEqual(easesUp(72));
+      expect(glideOf(row('a1'))).toEqual(easesUp(36));
+    } finally {
+      Reflect.deleteProperty(Element.prototype, 'animate');
+    }
+  });
+
+  // KAN-944. 40px free under the last window: a held room moves New window down a row, leaving 8, so room is given.
+  test.each([
+    ['its lone tab, whose room can be held: room', 's0', 'room'],
+    ['a loose tab, which holds no room: none', 'a0', ''],
+  ])('a list that fits, 40px free, picking up %s', async (_who, id, marker) => {
+    paneInner = 220 + 40;
+    await renderSession(lone(true), FOLDED);
+    pickUp(id);
+    expect(newWindowRoom()).toBe(marker);
+  });
+
+  // CONTROL: on the folded group's title row nothing opens, so nothing below moves.
+  test('joining the folded group below grows nothing: the next window stays', async () => {
+    await renderSession(lone(true, [win('w2', [tab('z0')])]), BELOW);
+    pickUp('s0');
+    moveTo(150);
+    expect(band('gf').hasAttribute('data-drop-target')).toBe(true);
+    expect(block('w2').dataset.windowShift).toBeUndefined();
   });
 
   // CONTROL: over its own group the tab goes back.

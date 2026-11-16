@@ -12,6 +12,7 @@ import { DURATION, EASE } from '../../../../styles/scale';
 export const LANDING_SLIDE = 'landing-slide';
 
 const BLOCK = '[data-drop-window-id]';
+const BAND = '[data-band-id]';
 // KAN-836. How a window block glides when a closed source room moves it.
 const BLOCK_EASING = 'ease';
 
@@ -21,30 +22,75 @@ const BLOCK_EASING = 'ease';
 export interface LandingTops {
   blocks: ReadonlyMap<string, number>;
   row: number | null;
+  // KAN-822 (KAN-959). A room held open the drop closes: its window, and the tops there of each band and row by id.
+  heldRoom: HeldRoomTops | null;
 }
+
+interface HeldRoomTops {
+  windowId: string;
+  bands: ReadonlyMap<string, number>;
+  rows: ReadonlyMap<string, number>;
+}
+
+const blockOf = (root: Element, windowId: string): Element | undefined =>
+  [...root.querySelectorAll<HTMLElement>(BLOCK)].find(
+    (el) => el.dataset.dropWindowId === windowId
+  );
+
+const bandsIn = (block: Element | undefined) =>
+  new Map(
+    [...(block?.querySelectorAll<HTMLElement>(BAND) ?? [])].flatMap((el) =>
+      el.dataset.bandId === undefined ? [] : [[el.dataset.bandId, el] as const]
+    )
+  );
 
 const topIn = (root: Element, el: Element) =>
   el.getBoundingClientRect().top - root.getBoundingClientRect().top;
 
+// KAN-822 (KAN-959). `heldRoom`: the window whose room held open the drop closes, and this list's rows.
 export function landingTops(
   root: Element | null,
-  row: Element | undefined
+  row: Element | undefined,
+  heldRoom?: { windowId: string; rows: ReadonlyMap<string, Element> }
 ): LandingTops {
   const blocks = new Map<string, number>();
-  if (root === null) return { blocks, row: null };
+  if (root === null) return { blocks, row: null, heldRoom: null };
   root.querySelectorAll<HTMLElement>(BLOCK).forEach((el) => {
     const id = el.dataset.dropWindowId;
     if (id !== undefined) blocks.set(id, topIn(root, el));
   });
-  return { blocks, row: row === undefined ? null : topIn(root, row) };
+  const block =
+    heldRoom === undefined ? undefined : blockOf(root, heldRoom.windowId);
+  return {
+    blocks,
+    row: row === undefined ? null : topIn(root, row),
+    heldRoom:
+      heldRoom === undefined || block === undefined
+        ? null
+        : {
+            windowId: heldRoom.windowId,
+            bands: new Map(
+              [...bandsIn(block)].map(([id, el]) => [id, topIn(root, el)])
+            ),
+            rows: new Map(
+              [...heldRoom.rows].flatMap(([id, el]) =>
+                el !== row && block.contains(el)
+                  ? [[id, topIn(root, el)] as const]
+                  : []
+              )
+            ),
+          },
+  };
 }
 
 // In the commit that drew the move, before it paints. With Reduce motion on, nothing glides.
 // KAN-822. A dropped row in a window glides from where it was let go, within its window too; the rows that made room stay put (KAN-835).
+// KAN-822 (KAN-959). A room held open closing: its window's bands and rows (`rows`, this list's) glide up too, and everything eases out.
 export function slideLanding(
   root: Element | null,
   before: LandingTops,
-  row: HTMLElement | undefined
+  row: HTMLElement | undefined,
+  rows: ReadonlyMap<string, Element> = new Map()
 ): void {
   if (
     root === null ||
@@ -62,18 +108,53 @@ export function slideLanding(
     above = by;
     if (Math.abs(by) >= 1) moved.set(el, by);
   });
+  const closing = heldRoomGlides(root, before.heldRoom, row, rows);
   const block = row?.closest(BLOCK) ?? null;
   // KAN-957. A session row keeps main's snap: gliding one flickered the list 11px for a frame, cause untraced.
   if (moved.size === 0 && block === null) return;
   const blockBy = block === null ? undefined : moved.get(block);
+  const band = row?.closest(BAND) ?? null;
+  const bandBy = band === null ? 0 : (closing.get(band) ?? 0);
   const rowBy =
     row === undefined || before.row === null
       ? 0
-      : before.row - topIn(root, row) - (blockBy ?? 0);
-  moved.forEach((by, el) => glide(el, by, BLOCK_EASING));
+      : before.row - topIn(root, row) - (blockBy ?? 0) - bandBy;
+  const blockEasing = before.heldRoom === null ? BLOCK_EASING : EASE.OUT;
+  moved.forEach((by, el) => glide(el, by, blockEasing));
+  closing.forEach((by, el) => glide(el, by, EASE.OUT));
   // KAN-822. Ease-out to settle into its slot; in a gliding block, the block's easing, so the two add up without a wobble.
   if (row !== undefined && Math.abs(rowBy) >= 1)
-    glide(row, rowBy, blockBy === undefined ? EASE.OUT : BLOCK_EASING);
+    glide(row, rowBy, blockBy === undefined ? EASE.OUT : blockEasing);
+}
+
+// KAN-822 (KAN-959). Each band's and row's glide in a held room's window, all read first: a row by what its band does not carry.
+function heldRoomGlides(
+  root: Element,
+  before: HeldRoomTops | null,
+  row: HTMLElement | undefined,
+  rows: ReadonlyMap<string, Element>
+): Map<Element, number> {
+  const glides = new Map<Element, number>();
+  if (before === null) return glides;
+  const bands = new Map<Element, number>();
+  bandsIn(blockOf(root, before.windowId)).forEach((el, id) => {
+    const was = before.bands.get(id);
+    if (was !== undefined) bands.set(el, was - topIn(root, el));
+  });
+  const rowsBy = new Map<Element, number>();
+  before.rows.forEach((was, id) => {
+    const el = rows.get(id);
+    if (el === undefined || el === row || !root.contains(el)) return;
+    const band = el.closest(BAND);
+    rowsBy.set(
+      el,
+      was - topIn(root, el) - ((band === null ? 0 : bands.get(band)) ?? 0)
+    );
+  });
+  [...bands, ...rowsBy].forEach(([el, by]) => {
+    if (Math.abs(by) >= 1) glides.set(el, by);
+  });
+  return glides;
 }
 
 // From `by` px off its place to its place, as rows step aside. jsdom has no

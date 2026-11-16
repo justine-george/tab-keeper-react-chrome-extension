@@ -241,7 +241,7 @@ export function closingShifts(
   return shifts;
 }
 
-// KAN-822 (pick 2B). closingShifts undone: the held row's room stays open, so with previewShifts the rows it passed hold still.
+// KAN-822 (pick 2B). closingShifts reversed: the held row's room opens again, so with previewShifts the rows it passed hold still.
 export function reopeningShifts(
   slots: readonly WindowedSlot[],
   from: number,

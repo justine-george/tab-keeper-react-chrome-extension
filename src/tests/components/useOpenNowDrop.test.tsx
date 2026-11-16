@@ -23,6 +23,7 @@ vi.mock('../../redux/openCopy', async (importOriginal) => {
 });
 
 import {
+  liveIndexOfDrawnRow,
   openDragWindows,
   useOpenNowDrop,
 } from '../../components/home/opennow/useOpenNowDrop';
@@ -1194,5 +1195,65 @@ describe('a saved item carried in', () => {
 
     expect(moveOpenTab).toHaveBeenCalledTimes(1);
     expect(openCarriedCopy).not.toHaveBeenCalled();
+  });
+});
+
+// KAN-822 (Minor 3). A drawn row as moveOpenTab's index, the held tab out: L0, held H, folded F (f1, f2), L3.
+describe('liveIndexOfDrawnRow (KAN-822)', () => {
+  const live = {
+    windowId: '1',
+    tabs: [
+      { tabId: 'l0', pinned: false },
+      { tabId: 'h', pinned: false },
+      { tabId: 'f1', pinned: false, chromeGroupId: 'F' },
+      { tabId: 'f2', pinned: false, chromeGroupId: 'F' },
+      { tabId: 'l3', pinned: false },
+    ],
+    chromeTabGroups: [{ groupId: 'F', title: 'F', color: 'blue' }],
+  };
+  const FOLDED = new Set(['F']);
+  test.each([
+    // Drawn rows, held out: l0, l3 (F's members draw none).
+    ['row 0: before l0', 0, undefined, undefined, FOLDED, 0],
+    [
+      'row 1, loose: after l0, past the folded members',
+      1,
+      undefined,
+      undefined,
+      FOLDED,
+      3,
+    ],
+    ['row 2: the end', 2, undefined, undefined, FOLDED, 4],
+    [
+      'in front of the folded group: at its first member',
+      1,
+      undefined,
+      'F',
+      FOLDED,
+      1,
+    ],
+    [
+      'joining the folded group: after its last member',
+      1,
+      'F',
+      undefined,
+      FOLDED,
+      3,
+    ],
+    [
+      'F open, row 2 is f2: before it',
+      2,
+      undefined,
+      undefined,
+      new Set<string>(),
+      2,
+    ],
+    ['past the drawn rows: refused', 3, undefined, undefined, FOLDED, null],
+    ['below row 0: refused', -1, undefined, undefined, FOLDED, null],
+    ['not a whole row: refused', 0.5, undefined, undefined, FOLDED, null],
+  ] as const)('%s', (_what, rowIndex, bandId, beforeFolded, folded, index) => {
+    expect(
+      liveIndexOfDrawnRow(live, 'h', rowIndex, bandId, beforeFolded, folded)
+    ).toBe(index);
   });
 });

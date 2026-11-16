@@ -761,6 +761,75 @@ test.describe('a folded saved group among other windows and groups', () => {
     expect(Math.abs(rested - promised)).toBeLessThanOrEqual(1);
   });
 
+  // KAN-822 (Important 1, KAN-959). The room held open makes w1 a row taller: w2 moves down with it, and glides home.
+  test('the only member of an open group held past the folded group below: the next window moves down a row, and everything glides up at the drop', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSessions(context, {
+      ...buildContainer([
+        sessionOfWindows(
+          [
+            tab('c'),
+            tab('o1', 'o'),
+            tab('a', 'g1'),
+            tab('b', 'g1'),
+            tab('tail'),
+          ],
+          [tab('z')]
+        ),
+      ]),
+      selectedTabGroupId: 'S1',
+    });
+    const page = await context.newPage();
+    await openTrip(page, extensionId);
+    const w2 = page.locator('[data-pane="detail"] [data-drop-window-id="w2"]');
+    const restW2 = (await boxOf(w2)).y;
+    const restTail = await boxOf(savedRow(page, 'tail'));
+    const research = await boxOf(bandHandle(page, 'g1'));
+    const drawnInW1 = [savedRow(page, 'tail'), landingSlot(page)];
+    // Just under Research, still in w1: the room it left stays open, so tail is drawn a row lower.
+    await holdOver(
+      page,
+      savedRow(page, 'o1'),
+      async () => research.y + research.height + restTail.height / 2
+    );
+    await expect(landingSlot(page)).toHaveCount(1);
+    const held = await nextBlockBelow(drawnInW1, w2);
+    expect(held.shift).toBeGreaterThan(0);
+    expect(held.blockTop - restW2).toBeCloseTo(held.shift, 0);
+    expect(held.rowBottom).toBeGreaterThan(restW2);
+    expect(held.rowBottom).toBeLessThanOrEqual(held.blockTop);
+    // Hit as drawn: past w2's resting top, where w1 is now drawn, is still w1's: o1 lands last, the room still open.
+    const below = Math.round(restW2 + 4);
+    await page.mouse.move(restTail.x + 40, below, { steps: 2 });
+    await page.waitForTimeout(250);
+    const atEnd = await nextBlockBelow(drawnInW1, w2);
+    expect(atEnd.shift).toBe(held.shift);
+    expect(atEnd.rowBottom).toBeGreaterThan(below);
+    expect(atEnd.rowBottom).toBeLessThanOrEqual(atEnd.blockTop);
+    await recordFrames(page, {
+      research:
+        '[data-pane="detail"] [data-band-id="g1"] [data-group-drag-handle]',
+      tail: '[data-pane="detail"] [data-drag-row-id="tail"]',
+      w2: '[data-pane="detail"] [data-drop-window-id="w2"]',
+    });
+    await page.mouse.up();
+    const frames = await recordedFrames(page);
+    await expect
+      .poll(() => windowOrder(page, 'w1'))
+      .toEqual(['c', 'a:g1', 'b:g1', 'tail', 'o1']);
+    expect(await windowOrder(page, 'w2')).toEqual(['z']);
+    await elementLanded(w2, 'subtree');
+    expectGlidesHome(
+      frames,
+      'research',
+      (await boxOf(bandHandle(page, 'g1'))).y
+    );
+    expectGlidesHome(frames, 'tail', (await boxOf(savedRow(page, 'tail'))).y);
+    expectGlidesHome(frames, 'w2', (await boxOf(w2)).y);
+  });
+
   test('a folded group that ends its window takes a loose drop below it, in the gap before the next window', async ({
     context,
     extensionId,
@@ -1149,6 +1218,12 @@ function expectGlidesIntoSlot(frames: readonly GlideFrame[], slot: number) {
   const arrived = rows.find(({ y }) => Math.abs(y - slot) <= 1);
   expect(setOff, where).toBeGreaterThan(0);
   expect(arrived, where).toBeDefined();
+  // N1. Glided, not held and then jumped: drawn on at least two frames strictly between the card and the slot.
+  expect(
+    rows.filter(({ y }) => Math.abs(y - cardTop) > 1 && Math.abs(y - slot) > 1)
+      .length,
+    where
+  ).toBeGreaterThanOrEqual(2);
   expect(
     (arrived?.t ?? Infinity) - (rows[setOff - 1]?.t ?? 0),
     where
@@ -1179,6 +1254,8 @@ interface EdgeStep {
   y: number;
   state: EdgeState;
   slotTop: number | null;
+  // Minor 4. The band's bottom as drawn in the same frame: its title row and member rows (not the held one), transforms included.
+  bandBottom: number;
 }
 async function walkBelow(
   page: Page,
@@ -1200,10 +1277,21 @@ async function walkBelow(
     await page.mouse.move(x, y);
     const read = await bandEl.evaluate(
       (band) =>
-        new Promise<{ state: EdgeState; slotTop: number | null }>((resolve) =>
+        new Promise<{
+          state: EdgeState;
+          slotTop: number | null;
+          bandBottom: number;
+        }>((resolve) =>
           requestAnimationFrame(() => {
             const slot = document.querySelector('[data-drag-landing-slot]');
             resolve({
+              bandBottom: Math.max(
+                ...[
+                  ...band.querySelectorAll(
+                    '[data-group-drag-handle], [data-drag-row-id]:not([data-drag-held])'
+                  ),
+                ].map((el) => el.getBoundingClientRect().bottom)
+              ),
               state:
                 document.querySelector(
                   '[data-new-window-target="last"][data-landing], [data-new-window-target="open-now-last"][data-landing]'
@@ -1237,7 +1325,7 @@ async function expectRoomBelow(page: Page, held: Locator, bandEl: Locator) {
     Math.round(bottom + 2 * half + 4)
   );
   const where = JSON.stringify(
-    states.map((s) => `${s.y}:${s.state}:${s.slotTop ?? '-'}`)
+    states.map((s) => `${s.y}:${s.state}:${s.slotTop ?? '-'}:${s.bandBottom}`)
   );
   expect(
     states.map((s) => s.state).filter((z, i, all) => z !== all[i - 1]),
@@ -1245,9 +1333,11 @@ async function expectRoomBelow(page: Page, held: Locator, bandEl: Locator) {
   ).toEqual(['join', 'slot', 'new window']);
   const room = states.filter((s) => s.state === 'slot');
   expect(room.length, where).toBeGreaterThanOrEqual(Math.floor(half) - 1);
-  // Minor 4. At every px of it the slot is drawn under the band's top, not anywhere else.
+  // Minor 4. At every px of it the slot is drawn at or under the band's bottom as drawn then (KAN-916 can draw it higher).
   for (const s of room) {
-    expect(s.slotTop ?? -Infinity, where).toBeGreaterThanOrEqual(rest.y - 1);
+    expect(s.slotTop ?? -Infinity, where).toBeGreaterThanOrEqual(
+      s.bandBottom - 1
+    );
     expect(s.slotTop ?? Infinity, where).toBeLessThanOrEqual(bottom + 2);
   }
   expect(
@@ -1345,6 +1435,94 @@ function expectNothingJumps(
         Math.abs(top - (sweep.rest[key] ?? NaN)),
         `${key} at y ${step.y}: ${JSON.stringify(step.tops)} rest ${JSON.stringify(sweep.rest)}`
       ).toBeLessThanOrEqual(footprint + 1);
+}
+
+// KAN-822 (Important 1). The lowest drawn bottom of `drawn` (rows, the slot), and the next block's drawn top and shift.
+async function nextBlockBelow(drawn: readonly Locator[], next: Locator) {
+  let bottom = -Infinity;
+  for (const loc of drawn)
+    if ((await loc.count()) > 0) {
+      const box = await boxOf(loc);
+      bottom = Math.max(bottom, box.y + box.height);
+    }
+  const shift = await next.evaluate(
+    (el) => parseFloat(el.getAttribute('data-window-shift') ?? '') || 0
+  );
+  return { rowBottom: bottom, blockTop: (await boxOf(next)).y, shift };
+}
+
+// KAN-822 (KAN-959). Records each selector's top on every frame for 900ms; the first read now, as drawn at the release.
+interface TopsFrame {
+  t: number;
+  tops: Record<string, number | null>;
+}
+const recordFrames = (page: Page, selectors: Record<string, string>) =>
+  page.evaluate((sels) => {
+    const frames: TopsFrame[] = [];
+    Reflect.set(window, '__frames', frames);
+    const t0 = performance.now();
+    const tick = () => {
+      const tops: Record<string, number | null> = {};
+      for (const [key, sel] of Object.entries(sels)) {
+        const el = document.querySelector(sel);
+        tops[key] = el === null ? null : el.getBoundingClientRect().top;
+      }
+      frames.push({ t: performance.now() - t0, tops });
+      if (performance.now() - t0 < 900) requestAnimationFrame(tick);
+    };
+    tick();
+  }, selectors);
+const recordedFrames = async (page: Page): Promise<TopsFrame[]> => {
+  await page.waitForTimeout(950);
+  return page.evaluate(() => {
+    const frames: unknown = Reflect.get(window, '__frames');
+    if (!Array.isArray(frames)) return [];
+    return frames.map((f: unknown): TopsFrame => {
+      const t: unknown =
+        typeof f === 'object' && f !== null ? Reflect.get(f, 't') : 0;
+      const raw: unknown =
+        typeof f === 'object' && f !== null ? Reflect.get(f, 'tops') : {};
+      const tops: Record<string, number | null> = {};
+      if (typeof raw === 'object' && raw !== null)
+        for (const [key, v] of Object.entries(raw))
+          tops[key] = typeof v === 'number' ? v : null;
+      return { t: typeof t === 'number' ? t : 0, tops };
+    });
+  });
+};
+
+// KAN-822 (KAN-959). From its top at the release to `rest`: only toward rest, never past either end, two frames strictly between.
+function expectGlidesHome(
+  frames: readonly TopsFrame[],
+  key: string,
+  rest: number
+) {
+  const tops = frames.flatMap((f) => {
+    const top = f.tops[key];
+    return top === null || top === undefined ? [] : [top];
+  });
+  const where = `${key} resting at ${rest}: ${JSON.stringify(tops.map(Math.round))}`;
+  const start = tops[0] ?? NaN;
+  // PREMISE: drawn well off where it rests when let go.
+  expect(Math.abs(start - rest), where).toBeGreaterThan(8);
+  const side = Math.sign(start - rest);
+  tops.forEach((top, i) => {
+    expect((top - rest) * side, where).toBeGreaterThanOrEqual(-1);
+    expect((start - top) * side, where).toBeGreaterThanOrEqual(-1);
+    if (i > 0)
+      expect(Math.abs(top - rest), where).toBeLessThanOrEqual(
+        Math.abs(tops[i - 1] - rest) + 0.5
+      );
+  });
+  expect(
+    tops.filter((top) => Math.abs(top - start) > 1 && Math.abs(top - rest) > 1)
+      .length,
+    where
+  ).toBeGreaterThanOrEqual(2);
+  expect(
+    Math.abs((tops[tops.length - 1] ?? NaN) - rest),
+    where
+  ).toBeLessThanOrEqual(1);
 }
 
 const plainTabs = ['a', 'b', 'c', 'd', 'e'].map((id) => tab(id));
@@ -2392,6 +2570,113 @@ test.describe('a group in Currently open', () => {
     const title = await boxOf(naraTitle);
     const rested = (await boxOf(tea)).y - (title.y + title.height);
     expect(Math.abs(rested - promised)).toBeLessThanOrEqual(1);
+  });
+
+  // KAN-822 (Important 1, item 7). Tea's room held open moves the window below down a row; out of its window it closes.
+  test('the only tab of a group held at its window end: the window below moves down with it; dragged into that window, the room closes', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+    const w = await openSoloAbove(serviceWorker, true);
+    const next = await openNara(serviceWorker, ['P', 'Q', 'R', 'S']);
+    await foldedNaraBand(page, w);
+    const blocks = page.locator('[data-pane="open-now"] [data-open-window-id]');
+    // PREMISE: the second window is drawn right after Tea's.
+    await expect
+      .poll(() =>
+        blocks.evaluateAll((els) =>
+          els.map((el) => el.getAttribute('data-open-window-id'))
+        )
+      )
+      .toEqual(
+        expect.arrayContaining([String(w.windowId), String(next.windowId)])
+      );
+    const order = await blocks.evaluateAll((els) =>
+      els.map((el) => el.getAttribute('data-open-window-id'))
+    );
+    expect(order.indexOf(String(next.windowId))).toBe(
+      order.indexOf(String(w.windowId)) + 1
+    );
+    const below = page.locator(`[data-open-window-id="${next.windowId}"]`);
+    const naraTitle = page.locator(
+      `[data-open-window-id="${w.windowId}"] [data-band-id="${w.groupId}"] [data-group-drag-handle]`
+    );
+    const tail = liveRow(page, w, w.tabs[4]);
+    const restBelow = (await boxOf(below)).y;
+    const restNara = (await boxOf(naraTitle)).y;
+    const tailBox = await boxOf(tail);
+    const q = await boxOf(liveRow(page, next, next.tabs[1]));
+    await holdOver(
+      page,
+      liveRow(page, w, w.tabs[1]),
+      async () => tailBox.y + tailBox.height - 4
+    );
+    const held = await nextBlockBelow([tail, landingSlot(page)], below);
+    expect(held.shift).toBeGreaterThan(0);
+    expect(held.blockTop - restBelow).toBeCloseTo(held.shift, 0);
+    expect(held.rowBottom).toBeLessThanOrEqual(held.blockTop);
+    expect(Math.abs((await boxOf(naraTitle)).y - restNara)).toBeLessThanOrEqual(
+      1
+    );
+    // Into the next window's rows: the room closes, its window comes back up, and Nara eases up into the room.
+    await recordFrames(page, {
+      nara: `[data-open-window-id="${w.windowId}"] [data-band-id="${w.groupId}"] [data-group-drag-handle]`,
+    });
+    // Q's middle as it rests: it lands before Q.
+    await page.mouse.move(tailBox.x + 40, q.y + q.height / 2 - 2, { steps: 2 });
+    const frames = await recordedFrames(page);
+    const out = await nextBlockBelow([tail], below);
+    expect(out.shift).toBe(0);
+    expect(Math.abs(out.blockTop - restBelow)).toBeLessThanOrEqual(1);
+    expect(out.rowBottom).toBeLessThanOrEqual(out.blockTop);
+    expectGlidesHome(frames, 'nara', (await boxOf(naraTitle)).y);
+    await page.mouse.up();
+    await expect
+      .poll(() =>
+        serviceWorker.evaluate(async (id) => {
+          const t = await chrome.tabs.get(id);
+          return { windowId: t.windowId, groupId: t.groupId };
+        }, w.tabs[1])
+      )
+      .toEqual({ windowId: next.windowId, groupId: -1 });
+    expect((await placeOf(serviceWorker, w.tabs[1])).index).toBe(1);
+  });
+
+  // KAN-822 (KAN-959). Let go after Tail: Solo is pruned once Chrome draws it, and Nara, Tail and the window below glide up.
+  test('the only tab of a group let go at its window end: what was below its room glides up once Chrome draws it', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+    const w = await openSoloAbove(serviceWorker, true);
+    const next = await openNara(serviceWorker, ['P', 'Q', 'R', 'S']);
+    await foldedNaraBand(page, w);
+    const tail = liveRow(page, w, w.tabs[4]);
+    const tailBox = await boxOf(tail);
+    const sel = {
+      nara: `[data-open-window-id="${w.windowId}"] [data-band-id="${w.groupId}"] [data-group-drag-handle]`,
+      tail: `[data-open-window-id="${w.windowId}"] [data-drag-row-id="${w.tabs[4]}"]`,
+      below: `[data-open-window-id="${next.windowId}"]`,
+    };
+    await holdOver(
+      page,
+      liveRow(page, w, w.tabs[1]),
+      async () => tailBox.y + tailBox.height - 4
+    );
+    await expect(landingSlot(page)).toHaveCount(1);
+    await recordFrames(page, sel);
+    await page.mouse.up();
+    const frames = await recordedFrames(page);
+    await expect
+      .poll(() => placeOf(serviceWorker, w.tabs[1]))
+      .toEqual({ index: 4, groupId: -1 });
+    await elementLanded(page.locator(sel.below), 'subtree');
+    expectGlidesHome(frames, 'nara', (await boxOf(page.locator(sel.nara))).y);
+    expectGlidesHome(frames, 'tail', (await boxOf(page.locator(sel.tail))).y);
+    expectGlidesHome(frames, 'below', (await boxOf(page.locator(sel.below))).y);
   });
 
   test('the only tab of a group, dragged down onto the open group right below: that group holds still, and it joins at its head', async ({

@@ -795,6 +795,33 @@ function restingBox(el: HTMLElement) {
   };
 }
 
+// KAN-822 (pick 2B). A window drawn `by` px taller than it rests, every block after it `by` px lower.
+export interface GrownWindow {
+  windowId: string;
+  by: number;
+}
+
+// KAN-822. The boxes as drawn with `grown`; as they rest without it.
+function asGrown(
+  boxes: ReturnType<typeof restingBox>[],
+  grown: GrownWindow | undefined
+): ReturnType<typeof restingBox>[] {
+  const at =
+    grown === undefined
+      ? -1
+      : boxes.findIndex((b) => b.el.dataset.dropWindowId === grown.windowId);
+  if (grown === undefined || at < 0) return boxes;
+  return boxes.map((b, i) =>
+    i < at
+      ? b
+      : {
+          ...b,
+          top: i === at ? b.top : b.top + grown.by,
+          bottom: b.bottom + grown.by,
+        }
+  );
+}
+
 // KAN-379 D3. Is the point on the block itself, not the gap the block answers
 // for? Its resting box, so a window shift never moves what can dwell.
 export function isOnBlock(block: HTMLElement, x: number, y: number): boolean {
@@ -816,12 +843,14 @@ export function isOnBlock(block: HTMLElement, x: number, y: number): boolean {
 export function windowBlockAt(
   container: HTMLElement | null,
   x: number,
-  y: number
+  y: number,
+  grown?: GrownWindow
 ): HTMLElement | null {
   const blocks = windowBlocksIn(container);
+  const all = asGrown(blocks.map(restingBox), grown);
   // The trailing block (isTrailingBlock, KAN-361/366) is no window to the
   // box and gap rules: it is the one exception between them.
-  const boxes = blocks.filter((el) => !isTrailingBlock(el)).map(restingBox);
+  const boxes = all.filter((b) => !isTrailingBlock(b.el));
 
   for (const b of boxes) {
     if (x >= b.left && x <= b.right && y >= b.top && y <= b.bottom) return b.el;
@@ -846,12 +875,11 @@ export function windowBlockAt(
   //
   // Only BELOW the last window, so never a point the gap rule answers: that
   // one is between two windows.
-  const trailing = blocks.find(isTrailingBlock);
+  const trailing = all.find((box) => isTrailingBlock(box.el));
   if (trailing !== undefined) {
-    const b = restingBox(trailing);
     const last = boxes[boxes.length - 1];
-    const below = last === undefined ? y >= b.top : y > last.bottom;
-    if (below && x >= b.left && x <= b.right) return trailing;
+    const below = last === undefined ? y >= trailing.top : y > last.bottom;
+    if (below && x >= trailing.left && x <= trailing.right) return trailing.el;
   }
 
   // THE GAP BETWEEN TWO WINDOWS BELONGS TO THE NEARER OF THEM (KAN-185).
