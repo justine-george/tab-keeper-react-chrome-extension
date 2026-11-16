@@ -154,8 +154,8 @@ test.describe('Import from bookmarks in Settings (KAN-862)', () => {
     ]);
   });
 
-  // KAN-862 (11-16). A folder imported once can't be imported again on this device, even after a reload.
-  test('full view: after a reload an imported folder reads Already imported and can’t be ticked; the bar imports the rest, one copy each', async ({
+  // KAN-862 (11-16). What was imported once is left out of the tree on this device, even after a reload (R19).
+  test('full view: after a reload an imported folder is gone from the tree; the bar imports the rest, one copy each', async ({
     context,
     extensionId,
     serviceWorker,
@@ -175,28 +175,83 @@ test.describe('Import from bookmarks in Settings (KAN-862)', () => {
     await page.reload();
     await onSyncAndBackup(page);
     await page.getByRole('button', { name: 'Import from bookmarks' }).click();
-    const alpha = dialog.getByRole('checkbox', { name: 'Alpha trip' });
-    await expect(alpha).toHaveAttribute('aria-disabled', 'true');
-    // `has` is matched inside each row, so it starts from the page, not the dialog.
-    const alphaRow = dialog.locator('[data-folder-row]').filter({
-      has: page.getByRole('checkbox', { name: 'Alpha trip' }),
-    });
-    await expect(alphaRow.locator('[data-row-tag]')).toHaveText(
-      'Already imported'
-    );
-    // Playwright waits for an aria-disabled box to enable; force sends the click anyway.
-    await alpha.click({ force: true });
-    await alphaRow.getByText('Alpha trip', { exact: true }).click();
-    await expect(alpha).not.toBeChecked();
+    await expect(
+      dialog.getByRole('checkbox', { name: 'Beta research' })
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole('checkbox', { name: 'Alpha trip' })
+    ).toHaveCount(0);
 
     await dialog.getByRole('checkbox', { name: bar, exact: true }).check();
-    await expect(alpha).not.toBeChecked();
     await dialog.getByRole('button', { name: 'Import 3 sessions' }).click();
     await expect(dialog).toBeHidden();
 
     await expect
       .poll(async () => (await storedSessions(page)).map((s) => s.title))
       .toEqual([bar, 'Beta research', 'Gamma untouched', 'Alpha trip']);
+  });
+
+  // KAN-862 R19, R20, R22. With everything imported the tree says so; a link added to the bar later brings the bar back.
+  test('full view: Select all imports everything; then the tree says so, and a link added to the bar later is importable', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const bar = await barTitle(serviceWorker);
+    const page = await openFullView(context, extensionId);
+    await onSyncAndBackup(page);
+    const importButton = page.getByRole('button', {
+      name: 'Import from bookmarks',
+    });
+    await importButton.click();
+    const dialog = dialogOn(page);
+    await dialog.getByRole('button', { name: 'Select all' }).click();
+    await expect(
+      dialog.getByRole('button', { name: 'Deselect all' })
+    ).toBeVisible();
+    await dialog.getByRole('button', { name: 'Import 4 sessions' }).click();
+    await expect(dialog).toBeHidden();
+
+    await importButton.click();
+    await expect(
+      dialog.getByText('Everything in your bookmarks is already imported.')
+    ).toBeVisible();
+    await expect(dialog.getByRole('checkbox')).toHaveCount(0);
+    await expect(
+      dialog.getByRole('button', { name: 'Select all' })
+    ).toHaveCount(0);
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog).toBeHidden();
+
+    await serviceWorker.evaluate(async () => {
+      const [root] = await chrome.bookmarks.getTree();
+      const barId = root.children?.[0]?.id;
+      if (barId === undefined) throw new Error('no bookmarks bar');
+      await chrome.bookmarks.create({
+        parentId: barId,
+        title: 'bar-loose-3',
+        url: 'https://example.com/bar-loose-3',
+      });
+    });
+    await importButton.click();
+    await dialog.getByRole('checkbox', { name: bar, exact: true }).check();
+    await dialog.getByRole('button', { name: 'Import 1 session' }).click();
+    await expect(dialog).toBeHidden();
+
+    await expect
+      .poll(async () =>
+        (await storedSessions(page)).map((s) => [
+          s.title,
+          s.windows.map((w) => w.tabCount),
+        ])
+      )
+      .toEqual([
+        [bar, [1]],
+        [bar, [2]],
+        ['Alpha trip', [1, 2, 2]],
+        ['Beta research', [1, 1]],
+        ['Gamma untouched', [1]],
+      ]);
   });
 
   test('full view: Cancel closes the dialog and saves nothing', async ({
