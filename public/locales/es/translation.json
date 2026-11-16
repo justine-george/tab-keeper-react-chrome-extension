@@ -530,5 +530,19 @@
   "WhatsNewLiveNewWindowTitle": "Arrastra una pestaña abierta a una ventana nueva",
   "WhatsNewLiveNewWindowBody": "En «Pestañas abiertas», arrastra una pestaña, una vista dividida o un grupo a «Nueva ventana» para llevarlo a una ventana propia.",
   "WhatsNewUndoDropTitle": "Deshaz lo que sueltes en «Pestañas abiertas»",
-  "WhatsNewUndoDropBody": "¿Soltaste por error una pestaña, un grupo o una ventana guardados en «Pestañas abiertas»? «Deshacer» cierra las pestañas que se abrieron."
+  "WhatsNewUndoDropBody": "¿Soltaste por error una pestaña, un grupo o una ventana guardados en «Pestañas abiertas»? «Deshacer» cierra las pestañas que se abrieron.",
+  "Import from bookmarks": "Importar desde marcadores",
+  "ImportBookmarksLead": "Marca las carpetas que quieras importar. Cada una se convierte en una sesión, y las carpetas que contiene, en sus ventanas.",
+  "ImportSessions_one": "Importar 1 sesión",
+  "ImportSessions_many": "Importar {{count}} sesiones",
+  "ImportSessions_other": "Importar {{count}} sesiones",
+  "Import": "Importar",
+  "ImportPreviewEmpty": "Aquí aparecerán las sesiones que cree tu importación.",
+  "BookmarkCount_one": "1 marcador",
+  "BookmarkCount_many": "{{count}} marcadores",
+  "BookmarkCount_other": "{{count}} marcadores",
+  "In your Google Account": "En tu cuenta de Google",
+  "Only on this device": "Solo en este dispositivo",
+  "Untitled folder": "Carpeta sin nombre",
+  "BookmarksUnreadable": "No se pudieron leer tus marcadores. Inténtalo de nuevo."
 }

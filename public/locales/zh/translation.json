@@ -494,5 +494,15 @@
   "WhatsNewLiveNewWindowTitle": "将打开的标签页拖到新窗口",
   "WhatsNewLiveNewWindowBody": "在“当前打开的标签页”中，将标签页、分屏或群组拖到“新窗口”上，即可将其移到单独的窗口中。",
   "WhatsNewUndoDropTitle": "撤销拖放到“当前打开的标签页”",
-  "WhatsNewUndoDropBody": "不小心把已保存的标签页、群组或窗口拖放到了“当前打开的标签页”？“撤销”会关闭因此打开的标签页。"
+  "WhatsNewUndoDropBody": "不小心把已保存的标签页、群组或窗口拖放到了“当前打开的标签页”？“撤销”会关闭因此打开的标签页。",
+  "Import from bookmarks": "从书签导入",
+  "ImportBookmarksLead": "勾选要导入的文件夹。每个文件夹会成为一个会话，其中的文件夹会成为它的窗口。",
+  "ImportSessions_other": "导入 {{count}} 个会话",
+  "Import": "导入",
+  "ImportPreviewEmpty": "导入后生成的会话会显示在这里。",
+  "BookmarkCount_other": "{{count}} 个书签",
+  "In your Google Account": "在您的 Google 账号中",
+  "Only on this device": "仅在此设备上",
+  "Untitled folder": "未命名文件夹",
+  "BookmarksUnreadable": "无法读取您的书签。请重试。"
 }

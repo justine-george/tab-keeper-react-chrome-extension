@@ -548,5 +548,21 @@
   "WhatsNewLiveNewWindowTitle": "Перетаскивание открытой вкладки в новое окно",
   "WhatsNewLiveNewWindowBody": "В разделе «Открытые вкладки» перетащите вкладку, разделённое окно или группу на «Новое окно», чтобы вынести в отдельное окно.",
   "WhatsNewUndoDropTitle": "Отмена перетаскивания в «Открытые вкладки»",
-  "WhatsNewUndoDropBody": "Случайно перетащили сохранённую вкладку, группу или окно в раздел «Открытые вкладки»? «Отменить» закроет открывшиеся вкладки."
+  "WhatsNewUndoDropBody": "Случайно перетащили сохранённую вкладку, группу или окно в раздел «Открытые вкладки»? «Отменить» закроет открывшиеся вкладки.",
+  "Import from bookmarks": "Импорт из закладок",
+  "ImportBookmarksLead": "Отметьте папки для импорта. Каждая станет сессией, а папки внутри неё — её окнами.",
+  "ImportSessions_one": "Импортировать {{count}} сессию",
+  "ImportSessions_few": "Импортировать {{count}} сессии",
+  "ImportSessions_many": "Импортировать {{count}} сессий",
+  "ImportSessions_other": "Импортировать {{count}} сессии",
+  "Import": "Импортировать",
+  "ImportPreviewEmpty": "Здесь появятся сессии, которые создаст импорт.",
+  "BookmarkCount_one": "{{count}} закладка",
+  "BookmarkCount_few": "{{count}} закладки",
+  "BookmarkCount_many": "{{count}} закладок",
+  "BookmarkCount_other": "{{count}} закладки",
+  "In your Google Account": "В вашем аккаунте Google",
+  "Only on this device": "Только на этом устройстве",
+  "Untitled folder": "Папка без названия",
+  "BookmarksUnreadable": "Не удалось прочитать закладки. Попробуйте ещё раз."
 }

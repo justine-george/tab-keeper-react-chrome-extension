@@ -10,6 +10,7 @@ vi.mock('../../config/firebase', () => ({
 import App from '../../App';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { makeTestStore } from '../setup/makeStore';
+import { setupChromeFake } from '../setup/chrome.fake';
 import { takeShowFromAddress } from '../../utils/functions/fullViewShow';
 import { showInFullView } from '../../redux/fullViewShow';
 import { SHOW_IN_FULL_VIEW_MESSAGE } from '../../utils/functions/popOut';
@@ -170,6 +171,42 @@ describe('showInFullView: the backup file steps', () => {
     });
 
     await waitFor(() => expect(picked).toHaveBeenCalledTimes(1));
+    expect(window.location.search).toBe('?view=tab');
+  });
+});
+
+// KAN-862. The popup's Import from bookmarks: the full view asks for the permission there.
+describe('showInFullView: the import from bookmarks', () => {
+  test('importBookmarks: Settings on Sync & Backup, the permission asked, and the dialog open', async () => {
+    history.replaceState(null, '', '?view=tab');
+    setupChromeFake();
+    const { store } = makeTestStore();
+
+    store.dispatch(showInFullView('importBookmarks'));
+
+    await waitFor(() =>
+      expect(store.getState().globalState.isImportBookmarksOpen).toBe(true)
+    );
+    expect(store.getState().globalState.isSettingsPage).toBe(true);
+    expect(
+      store.getState().settingsCategoryState.find((c) => c.isSelected)?.name
+    ).toBe(SettingsCategory.SYNC);
+    expect(
+      await chrome.permissions.contains({ permissions: ['bookmarks'] })
+    ).toBe(true);
+  });
+
+  test('a new full view opened with show=importBookmarks opens the dialog', async () => {
+    history.replaceState(null, '', '?view=tab&show=importBookmarks');
+
+    const { store } = await renderWithProviders(<App />, {
+      seed: { tabs: [{ id: 5, windowId: 1 }], currentTabId: 5 },
+      seedStore: granted,
+    });
+
+    await waitFor(() =>
+      expect(store.getState().globalState.isImportBookmarksOpen).toBe(true)
+    );
     expect(window.location.search).toBe('?view=tab');
   });
 });

@@ -211,6 +211,8 @@ export const TOAST_MESSAGES = {
   // KAN-906. Skip duplicates when saving left out every tab of the copy: a tab, or a window's or group's tabs, with {{title}}.
   SESSION_ALREADY_HAS_THIS_TAB: 'SessionAlreadyHasThisTab',
   SESSION_ALREADY_HAS_THESE_TABS: 'SessionAlreadyHasTheseTabs',
+  // KAN-862. chrome.bookmarks.getTree failed as the import dialog opened or imported; the dialog has closed.
+  BOOKMARKS_UNREADABLE: 'BookmarksUnreadable',
 };
 
 // The frame an import failure is reported in, with the reason as {{detail}}

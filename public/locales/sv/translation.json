@@ -512,5 +512,17 @@
   "WhatsNewLiveNewWindowTitle": "Dra en öppen flik till ett nytt fönster",
   "WhatsNewLiveNewWindowBody": "I ”Öppna flikar” drar du en flik, delad vy eller grupp till ”Nytt fönster” för att flytta den till ett eget fönster.",
   "WhatsNewUndoDropTitle": "Ångra ett släpp i ”Öppna flikar”",
-  "WhatsNewUndoDropBody": "Råkade du släppa en sparad flik, grupp eller ett sparat fönster i ”Öppna flikar”? ”Ångra” stänger flikarna som öppnades."
+  "WhatsNewUndoDropBody": "Råkade du släppa en sparad flik, grupp eller ett sparat fönster i ”Öppna flikar”? ”Ångra” stänger flikarna som öppnades.",
+  "Import from bookmarks": "Importera från bokmärken",
+  "ImportBookmarksLead": "Markera mapparna du vill importera. Varje mapp blir en session, och mapparna i den blir dess fönster.",
+  "ImportSessions_one": "Importera 1 session",
+  "ImportSessions_other": "Importera {{count}} sessioner",
+  "Import": "Importera",
+  "ImportPreviewEmpty": "Sessionerna som importen skapar visas här.",
+  "BookmarkCount_one": "1 bokmärke",
+  "BookmarkCount_other": "{{count}} bokmärken",
+  "In your Google Account": "I ditt Google-konto",
+  "Only on this device": "Bara på den här enheten",
+  "Untitled folder": "Namnlös mapp",
+  "BookmarksUnreadable": "Det gick inte att läsa dina bokmärken. Försök igen."
 }

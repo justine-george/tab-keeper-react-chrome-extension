@@ -512,5 +512,17 @@
   "WhatsNewLiveNewWindowTitle": "Drag an open tab into a new window",
   "WhatsNewLiveNewWindowBody": "In Currently open, drag a tab, split view or group onto New window to move it into a window of its own.",
   "WhatsNewUndoDropTitle": "Undo a drop into Currently open",
-  "WhatsNewUndoDropBody": "Dropped a saved tab, group or window into Currently open by mistake? Undo closes the tabs it opened."
+  "WhatsNewUndoDropBody": "Dropped a saved tab, group or window into Currently open by mistake? Undo closes the tabs it opened.",
+  "Import from bookmarks": "Import from bookmarks",
+  "ImportBookmarksLead": "Tick the folders to import. Each one becomes a session, and the folders inside it become its windows.",
+  "ImportSessions_one": "Import 1 session",
+  "ImportSessions_other": "Import {{count}} sessions",
+  "Import": "Import",
+  "ImportPreviewEmpty": "The sessions your import makes show here.",
+  "BookmarkCount_one": "1 Bookmark",
+  "BookmarkCount_other": "{{count}} Bookmarks",
+  "In your Google Account": "In your Google Account",
+  "Only on this device": "Only on this device",
+  "Untitled folder": "Untitled folder",
+  "BookmarksUnreadable": "Couldn’t read your bookmarks. Try again."
 }

@@ -494,5 +494,15 @@
   "WhatsNewLiveNewWindowTitle": "開いているタブを新しいウィンドウへドラッグできます",
   "WhatsNewLiveNewWindowBody": "「現在開いているタブ」で、タブ、分割表示、またはグループを「新しいウィンドウ」にドラッグすると、独立したウィンドウに移動できます。",
   "WhatsNewUndoDropTitle": "「現在開いているタブ」へのドロップを元に戻せます",
-  "WhatsNewUndoDropBody": "保存済みのタブ、グループ、ウィンドウを誤って「現在開いているタブ」にドロップしても、「元に戻す」でそのとき開いたタブを閉じられます。"
+  "WhatsNewUndoDropBody": "保存済みのタブ、グループ、ウィンドウを誤って「現在開いているタブ」にドロップしても、「元に戻す」でそのとき開いたタブを閉じられます。",
+  "Import from bookmarks": "ブックマークからインポート",
+  "ImportBookmarksLead": "インポートするフォルダにチェックを入れてください。各フォルダが 1 つのセッションになり、その中のフォルダがウィンドウになります。",
+  "ImportSessions_other": "{{count}} 件のセッションをインポート",
+  "Import": "インポート",
+  "ImportPreviewEmpty": "インポートで作成されるセッションがここに表示されます。",
+  "BookmarkCount_other": "{{count}} 件のブックマーク",
+  "In your Google Account": "Google アカウント内",
+  "Only on this device": "このデバイスのみ",
+  "Untitled folder": "名前のないフォルダ",
+  "BookmarksUnreadable": "ブックマークを読み込めませんでした。もう一度お試しください。"
 }

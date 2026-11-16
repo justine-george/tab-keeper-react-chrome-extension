@@ -494,5 +494,15 @@
   "WhatsNewLiveNewWindowTitle": "열린 탭을 새 창으로 드래그",
   "WhatsNewLiveNewWindowBody": "“지금 열려 있는 탭”에서 탭, 분할 보기 또는 그룹을 “새 창”으로 드래그하면 별도의 창으로 옮길 수 있습니다.",
   "WhatsNewUndoDropTitle": "“지금 열려 있는 탭”에 놓은 항목 실행취소",
-  "WhatsNewUndoDropBody": "저장된 탭, 그룹 또는 창을 실수로 “지금 열려 있는 탭”에 놓았나요? “실행취소”를 누르면 그때 열린 탭이 닫힙니다."
+  "WhatsNewUndoDropBody": "저장된 탭, 그룹 또는 창을 실수로 “지금 열려 있는 탭”에 놓았나요? “실행취소”를 누르면 그때 열린 탭이 닫힙니다.",
+  "Import from bookmarks": "북마크에서 가져오기",
+  "ImportBookmarksLead": "가져올 폴더를 선택하세요. 각 폴더는 세션이 되고, 그 안의 폴더는 세션의 창이 됩니다.",
+  "ImportSessions_other": "세션 {{count}}개 가져오기",
+  "Import": "가져오기",
+  "ImportPreviewEmpty": "가져오기로 만들어질 세션이 여기에 표시됩니다.",
+  "BookmarkCount_other": "북마크 {{count}}개",
+  "In your Google Account": "Google 계정에 있음",
+  "Only on this device": "이 기기에만 있음",
+  "Untitled folder": "이름 없는 폴더",
+  "BookmarksUnreadable": "북마크를 읽을 수 없습니다. 다시 시도하세요."
 }

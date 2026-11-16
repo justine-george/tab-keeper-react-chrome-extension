@@ -512,5 +512,17 @@
   "WhatsNewLiveNewWindowTitle": "Offenen Tab in ein neues Fenster ziehen",
   "WhatsNewLiveNewWindowBody": "Ziehen Sie in „Offene Tabs“ einen Tab, eine geteilte Ansicht oder eine Gruppe auf „Neues Fenster“, um daraus ein eigenes Fenster zu machen.",
   "WhatsNewUndoDropTitle": "Ablegen in „Offene Tabs“ rückgängig machen",
-  "WhatsNewUndoDropBody": "Versehentlich einen gespeicherten Tab, eine Gruppe oder ein Fenster in „Offene Tabs“ abgelegt? „Rückgängig“ schließt die dabei geöffneten Tabs."
+  "WhatsNewUndoDropBody": "Versehentlich einen gespeicherten Tab, eine Gruppe oder ein Fenster in „Offene Tabs“ abgelegt? „Rückgängig“ schließt die dabei geöffneten Tabs.",
+  "Import from bookmarks": "Aus Lesezeichen importieren",
+  "ImportBookmarksLead": "Wählen Sie die Ordner aus, die importiert werden sollen. Jeder wird zu einer Sitzung, und die Ordner darin werden zu ihren Fenstern.",
+  "ImportSessions_one": "1 Sitzung importieren",
+  "ImportSessions_other": "{{count}} Sitzungen importieren",
+  "Import": "Importieren",
+  "ImportPreviewEmpty": "Hier erscheinen die Sitzungen, die Ihr Import anlegt.",
+  "BookmarkCount_one": "1 Lesezeichen",
+  "BookmarkCount_other": "{{count}} Lesezeichen",
+  "In your Google Account": "In Ihrem Google-Konto",
+  "Only on this device": "Nur auf diesem Gerät",
+  "Untitled folder": "Unbenannter Ordner",
+  "BookmarksUnreadable": "Ihre Lesezeichen konnten nicht gelesen werden. Versuchen Sie es noch einmal."
 }

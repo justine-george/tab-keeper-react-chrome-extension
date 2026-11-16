@@ -530,5 +530,19 @@
   "WhatsNewLiveNewWindowTitle": "Trascina una scheda aperta in una nuova finestra",
   "WhatsNewLiveNewWindowBody": "In «Schede aperte», trascina una scheda, una vista divisa o un gruppo su «Nuova finestra» per spostarlo in una finestra tutta sua.",
   "WhatsNewUndoDropTitle": "Annulla un trascinamento in «Schede aperte»",
-  "WhatsNewUndoDropBody": "Hai trascinato per errore una scheda, un gruppo o una finestra salvati in «Schede aperte»? «Annulla» chiude le schede che sono state aperte."
+  "WhatsNewUndoDropBody": "Hai trascinato per errore una scheda, un gruppo o una finestra salvati in «Schede aperte»? «Annulla» chiude le schede che sono state aperte.",
+  "Import from bookmarks": "Importa dai segnalibri",
+  "ImportBookmarksLead": "Seleziona le cartelle da importare. Ognuna diventa una sessione, e le cartelle al suo interno diventano le sue finestre.",
+  "ImportSessions_one": "Importa 1 sessione",
+  "ImportSessions_many": "Importa {{count}} sessioni",
+  "ImportSessions_other": "Importa {{count}} sessioni",
+  "Import": "Importa",
+  "ImportPreviewEmpty": "Qui compaiono le sessioni create dall’importazione.",
+  "BookmarkCount_one": "1 segnalibro",
+  "BookmarkCount_many": "{{count}} segnalibri",
+  "BookmarkCount_other": "{{count}} segnalibri",
+  "In your Google Account": "Nel tuo Account Google",
+  "Only on this device": "Solo su questo dispositivo",
+  "Untitled folder": "Cartella senza nome",
+  "BookmarksUnreadable": "Impossibile leggere i segnalibri. Riprova."
 }

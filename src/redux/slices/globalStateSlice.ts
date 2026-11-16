@@ -167,6 +167,8 @@ export interface Global {
   // the "Replace your saved sessions?" dialog is open exactly while this is
   // set. Session-only, like the other dialog flags.
   pendingImport: PendingImport | null;
+  // KAN-862. The import from bookmarks dialog; open only with the bookmarks permission granted.
+  isImportBookmarksOpen: boolean;
   // KAN-259. The cloud dialog: 'welcome' greets a new install and asks nothing; 'existing' and 'enable' ask.
   isCloudConsentModalOpen: boolean;
   cloudConsentVariant: CloudConsentVariant;
@@ -363,6 +365,7 @@ export const initialState: Global = {
   isDeleteCloudDataModalOpen: false,
   isCloudDeletedNoticeOpen: false,
   pendingImport: null,
+  isImportBookmarksOpen: false,
   isCloudConsentModalOpen: false,
   cloudConsentVariant: 'welcome',
   cloudConsentThen: null,
@@ -1135,6 +1138,7 @@ export const ERROR_TOASTS: ReadonlySet<string> = new Set([
   TOAST_MESSAGES.IMPORT_SYNC_FAILED,
   TOAST_MESSAGES.REOPEN_FAILED,
   TOAST_MESSAGES.STORAGE_FULL,
+  TOAST_MESSAGES.BOOKMARKS_UNREADABLE,
   IMPORT_ERROR_FRAME,
   SYNC_SIZE_REFUSAL,
 ]);
@@ -1317,6 +1321,14 @@ export const globalStateSlice = createSlice({
 
     closeDeleteCloudDataModal: (state) => {
       state.isDeleteCloudDataModalOpen = false;
+    },
+
+    openImportBookmarks: (state) => {
+      state.isImportBookmarksOpen = true;
+    },
+
+    closeImportBookmarks: (state) => {
+      state.isImportBookmarksOpen = false;
     },
 
     openCloudDeletedNotice: (state) => {
@@ -1787,6 +1799,8 @@ export const {
   closeFocusModal,
   openDeleteCloudDataModal,
   closeDeleteCloudDataModal,
+  openImportBookmarks,
+  closeImportBookmarks,
   openCloudDeletedNotice,
   closeCloudDeletedNotice,
   askToReplaceSessions,

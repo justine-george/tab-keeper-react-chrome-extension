@@ -494,5 +494,15 @@
   "WhatsNewLiveNewWindowTitle": "將開啟的分頁拖曳到新視窗",
   "WhatsNewLiveNewWindowBody": "在「目前開啟的分頁」中，將分頁、分割畫面或群組拖曳到「新視窗」，即可移到獨立的視窗。",
   "WhatsNewUndoDropTitle": "復原拖放到「目前開啟的分頁」",
-  "WhatsNewUndoDropBody": "不小心把已儲存的分頁、群組或視窗拖放到「目前開啟的分頁」？「復原」會關閉因此開啟的分頁。"
+  "WhatsNewUndoDropBody": "不小心把已儲存的分頁、群組或視窗拖放到「目前開啟的分頁」？「復原」會關閉因此開啟的分頁。",
+  "Import from bookmarks": "從書籤匯入",
+  "ImportBookmarksLead": "勾選要匯入的資料夾。每個資料夾會成為一個工作階段，其中的資料夾會成為它的視窗。",
+  "ImportSessions_other": "匯入 {{count}} 個工作階段",
+  "Import": "匯入",
+  "ImportPreviewEmpty": "匯入後產生的工作階段會顯示在這裡。",
+  "BookmarkCount_other": "{{count}} 個書籤",
+  "In your Google Account": "在你的 Google 帳戶中",
+  "Only on this device": "僅在這部裝置上",
+  "Untitled folder": "未命名資料夾",
+  "BookmarksUnreadable": "無法讀取你的書籤。請再試一次。"
 }

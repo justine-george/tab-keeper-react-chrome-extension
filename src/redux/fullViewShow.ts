@@ -14,6 +14,7 @@ import {
 } from './slices/globalStateSlice';
 import { SettingsCategory } from './slices/settingsCategoryStateSlice';
 import { loadBackupFile, saveBackupFile } from './backupFile';
+import { startBookmarkImport } from './startBookmarkImport';
 import { restartSetup } from './slices/settingsDataStateSlice';
 import type { FullViewShow } from '../utils/functions/popOut';
 import type { DialogEntry } from '../utils/functions/dialogQueue';
@@ -71,6 +72,12 @@ export const showInFullView =
     }
     if (show === 'pinGuide') {
       dispatch(openPinGuide());
+      return;
+    }
+    // KAN-862. Over the pane its button sits on, so a declined prompt leaves the button to press.
+    if (show === 'importBookmarks') {
+      void dispatch(openSettingsPage(SettingsCategory.SYNC));
+      void dispatch(startBookmarkImport());
       return;
     }
     // KAN-579. On the pane its button sits on, so a picker Chrome refuses leaves the button to press.

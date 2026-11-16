@@ -530,5 +530,19 @@
   "WhatsNewLiveNewWindowTitle": "Faites glisser un onglet ouvert dans une nouvelle fenêtre",
   "WhatsNewLiveNewWindowBody": "Dans « Onglets ouverts », faites glisser un onglet, une vue partagée ou un groupe sur « Nouvelle fenêtre » pour le placer dans une fenêtre à part.",
   "WhatsNewUndoDropTitle": "Annulez un glisser-déposer dans « Onglets ouverts »",
-  "WhatsNewUndoDropBody": "Vous avez déposé par erreur un onglet, un groupe ou une fenêtre enregistrés dans « Onglets ouverts » ? « Annuler » ferme les onglets ainsi ouverts."
+  "WhatsNewUndoDropBody": "Vous avez déposé par erreur un onglet, un groupe ou une fenêtre enregistrés dans « Onglets ouverts » ? « Annuler » ferme les onglets ainsi ouverts.",
+  "Import from bookmarks": "Importer depuis les favoris",
+  "ImportBookmarksLead": "Cochez les dossiers à importer. Chacun devient une session, et les dossiers qu’il contient deviennent ses fenêtres.",
+  "ImportSessions_one": "Importer 1 session",
+  "ImportSessions_many": "Importer {{count}} sessions",
+  "ImportSessions_other": "Importer {{count}} sessions",
+  "Import": "Importer",
+  "ImportPreviewEmpty": "Les sessions créées par votre import s’affichent ici.",
+  "BookmarkCount_one": "1 favori",
+  "BookmarkCount_many": "{{count}} favoris",
+  "BookmarkCount_other": "{{count}} favoris",
+  "In your Google Account": "Dans votre compte Google",
+  "Only on this device": "Uniquement sur cet appareil",
+  "Untitled folder": "Dossier sans nom",
+  "BookmarksUnreadable": "Impossible de lire vos favoris. Réessayez."
 }

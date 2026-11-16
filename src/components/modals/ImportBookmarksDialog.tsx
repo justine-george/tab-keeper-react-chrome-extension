@@ -1,0 +1,676 @@
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { useDispatch, useSelector, useStore } from 'react-redux';
+import { useTranslation } from 'react-i18next';
+
+import { css } from '@emotion/react';
+
+import { useFontFamily } from '../../hooks/useFontFamily';
+import { useThemeColors } from '../../hooks/useThemeColors';
+import type { AppDispatch, RootState } from '../../redux/store';
+import { showToast } from '../../redux/slices/globalStateSlice';
+import { selectSkipsDuplicateTabs } from '../../redux/slices/settingsDataStateSlice';
+import type { tabContainerData } from '../../redux/slices/tabContainerDataStateSlice';
+import {
+  importBookmarkSessions,
+  importSizeRefusal,
+} from '../../redux/bookmarkImport';
+import { endBookmarkImport } from '../../redux/startBookmarkImport';
+import {
+  folderTree,
+  sessionsFor,
+  type BookmarkFolder,
+} from '../../utils/functions/bookmarkImport';
+import {
+  formatActionOnItem,
+  formatGroupCounts,
+  formatTabCount,
+} from '../../utils/functions/local';
+import { windowLabel } from '../../utils/functions/windowLabel';
+import {
+  NON_INTERACTIVE_ICON_STYLE,
+  TOAST_MESSAGES,
+} from '../../utils/constants/common';
+import { RADIUS, TYPE } from '../../styles/scale';
+import { corners, trackClearOfCorners } from '../../styles/corners';
+import Icon from '../common/Icon';
+import ChevronGlyph from '../common/ChevronGlyph';
+import Tickbox, { type TickState } from '../common/Tickbox';
+import { RowTag } from '../common/RowTag';
+import { focusRingCss } from '../common/focusRing';
+import {
+  dialogButtonStyles,
+  flushLinkCss,
+  tallButtonCss,
+} from './dialogButtons';
+import { dialogTitleSize } from './dialogTitleSize';
+import { dialogFitsWindow } from './dialogFit';
+
+const TITLE_ID = 'import-bookmarks-title';
+const LEAD_ID = 'import-bookmarks-lead';
+
+// KAN-862 Review Focus 1. Ticks come in bursts; the sync size is measured once they settle.
+const SIZE_CHECK_DEBOUNCE_MS = 300;
+
+type BookmarkNode = chrome.bookmarks.BookmarkTreeNode;
+type Refusal = { used: string; limit: string };
+
+async function readBookmarkRoot(): Promise<BookmarkNode> {
+  const [root] = await chrome.bookmarks.getTree();
+  if (root === undefined)
+    throw new Error('chrome.bookmarks.getTree returned no root');
+  return root;
+}
+
+// Chrome's own Bookmarks Bar starts unfolded; folderType is Chrome 134+, and before it the bar comes first.
+function firstBarId(root: BookmarkNode): string | undefined {
+  const tops = (root.children ?? []).filter((n) => n.url === undefined);
+  return (tops.find((n) => n.folderType === 'bookmarks-bar') ?? tops[0])?.id;
+}
+
+function forEachFolder(
+  folders: readonly BookmarkFolder[],
+  visit: (folder: BookmarkFolder) => void
+): void {
+  for (const folder of folders) {
+    visit(folder);
+    forEachFolder(folder.children, visit);
+  }
+}
+
+interface ShownRow {
+  folder: BookmarkFolder;
+  depth: number;
+  tick: TickState;
+  isOpen: boolean;
+}
+
+// Only the rows on screen: a folded folder's subtree is never walked.
+function shownRows(
+  folders: readonly BookmarkFolder[],
+  unfolded: ReadonlySet<string>,
+  ticked: ReadonlySet<string>
+): ShownRow[] {
+  const rows: ShownRow[] = [];
+  const walk = (
+    list: readonly BookmarkFolder[],
+    depth: number,
+    underTick: boolean
+  ) => {
+    for (const folder of list) {
+      const isOn = ticked.has(folder.id);
+      const isOpen = unfolded.has(folder.id);
+      rows.push({
+        folder,
+        depth,
+        tick: underTick ? 'included' : isOn ? 'on' : 'off',
+        isOpen,
+      });
+      if (isOpen) walk(folder.children, depth + 1, underTick || isOn);
+    }
+  };
+  walk(folders, 0, false);
+  return rows;
+}
+
+interface FolderRowProps {
+  folder: BookmarkFolder;
+  depth: number;
+  tick: TickState;
+  isOpen: boolean;
+  untitled: string;
+  onTick: (id: string) => void;
+  onFold: (id: string, open: boolean) => void;
+}
+
+// Memoized: a tick re-renders only the rows whose state it changed.
+const FolderRow = React.memo(function FolderRow({
+  folder,
+  depth,
+  tick,
+  isOpen,
+  untitled,
+  onTick,
+  onFold,
+}: FolderRowProps) {
+  const COLORS = useThemeColors();
+  const { t } = useTranslation();
+  const name = folder.title || untitled;
+  const isEmpty = folder.count === 0;
+  const hasChildren = folder.children.length > 0;
+  const foldAction = isOpen ? t('Collapse') : t('Expand');
+
+  const rowCss = css`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 38px;
+    padding: 0 8px 0 ${4 + depth * 28}px;
+    ${corners(RADIUS.CONTROL)}
+    background-color: ${tick === 'on' ? COLORS.SELECTION_COLOR : 'transparent'};
+  `;
+  const nameBlockCss = css`
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  `;
+  const nameCss = css`
+    color: ${isEmpty ? COLORS.LABEL_L2_COLOR : COLORS.TEXT_COLOR};
+    overflow-wrap: anywhere;
+  `;
+  const noteCss = css`
+    font-size: ${TYPE.SECONDARY};
+    color: ${COLORS.LABEL_L2_COLOR};
+  `;
+
+  return (
+    <div
+      css={rowCss}
+      data-folder-row={folder.id}
+      onKeyDown={(e) => {
+        if (!hasChildren) return;
+        if (e.key === 'ArrowRight' && !isOpen) {
+          e.preventDefault();
+          onFold(folder.id, true);
+        } else if (e.key === 'ArrowLeft' && isOpen) {
+          e.preventDefault();
+          onFold(folder.id, false);
+        }
+      }}
+    >
+      {hasChildren ? (
+        <Icon
+          type={isOpen ? 'expand_less' : 'expand_more'}
+          tooltipText={foldAction}
+          ariaLabel={formatActionOnItem(foldAction, name, t)}
+          ariaExpanded={isOpen}
+          renderGlyph={(glyphCss) => (
+            <ChevronGlyph open={isOpen} glyphCss={glyphCss} />
+          )}
+          onClick={() => onFold(folder.id, !isOpen)}
+        />
+      ) : (
+        // Holds the chevron's place, so every row's tickbox lines up.
+        <Icon type="expand_more" style="visibility: hidden;" />
+      )}
+      <Tickbox
+        state={tick}
+        disabled={isEmpty}
+        label={name}
+        onToggle={() => onTick(folder.id)}
+      />
+      <Icon
+        type={isOpen ? 'folder_open' : 'folder'}
+        style={NON_INTERACTIVE_ICON_STYLE}
+      />
+      <span css={nameBlockCss}>
+        <span css={nameCss}>{name}</span>
+        {folder.where !== undefined && (
+          <span css={noteCss}>
+            {folder.where === 'account'
+              ? t('In your Google Account')
+              : t('Only on this device')}
+          </span>
+        )}
+      </span>
+      <RowTag value={t('BookmarkCount', { count: folder.count })} />
+    </div>
+  );
+});
+
+/**
+ * KAN-862. Import from bookmarks: Chrome's folder tree to tick on the left,
+ * the sessions the ticks make on the right. Opened only with the bookmarks
+ * permission granted (startBookmarkImport); every way out goes through
+ * endBookmarkImport, which gives it back. Opened unlit, as LoadBackupModal is.
+ */
+export const ImportBookmarksDialog: React.FC = () => {
+  const COLORS = useThemeColors();
+  const FONT_FAMILY = useFontFamily();
+  const { t, i18n } = useTranslation();
+  const dispatch: AppDispatch = useDispatch();
+  const store = useStore<RootState>();
+  const skipDuplicates = useSelector(selectSkipsDuplicateTabs);
+
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [root, setRoot] = useState<BookmarkNode | null>(null);
+  const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set());
+  const [unfolded, setUnfolded] = useState<ReadonlySet<string>>(new Set());
+  const [refusal, setRefusal] = useState<Refusal | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  // The size check that may still set the refusal; an older answer landing late is dropped.
+  const latestCheck = useRef(0);
+  const hasEnded = useRef(false);
+
+  const end = useCallback(
+    (unreadable: boolean) => {
+      if (hasEnded.current) return;
+      hasEnded.current = true;
+      if (unreadable) {
+        void dispatch(
+          showToast({ toastText: TOAST_MESSAGES.BOOKMARKS_UNREADABLE })
+        );
+      }
+      void dispatch(endBookmarkImport());
+    },
+    [dispatch]
+  );
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) {
+      dialog.showModal();
+      dialog.focus();
+    }
+  }, []);
+
+  useEffect(() => {
+    let isLive = true;
+    readBookmarkRoot().then(
+      (read) => {
+        if (!isLive) return;
+        setRoot(read);
+        const bar = firstBarId(read);
+        setUnfolded(new Set(bar === undefined ? [] : [bar]));
+      },
+      () => {
+        if (isLive) end(true);
+      }
+    );
+    return () => {
+      isLive = false;
+    };
+  }, [end]);
+
+  const ownOrigin = useMemo(() => chrome.runtime.getURL(''), []);
+  const untitled = t('Untitled folder');
+  const folders = useMemo(
+    () => (root === null ? [] : folderTree(root, ownOrigin)),
+    [root, ownOrigin]
+  );
+  const foldersById = useMemo(() => {
+    const byId = new Map<string, BookmarkFolder>();
+    forEachFolder(folders, (folder) => byId.set(folder.id, folder));
+    return byId;
+  }, [folders]);
+
+  const build = useCallback(
+    (from: BookmarkNode, ticks: ReadonlySet<string>): tabContainerData[] =>
+      ticks.size === 0
+        ? []
+        : sessionsFor(from, ticks, {
+            now: new Date(),
+            ownOrigin,
+            untitled,
+            skipDuplicates,
+          }),
+    [ownOrigin, untitled, skipDuplicates]
+  );
+  const sessions = useMemo(
+    () => (root === null ? [] : build(root, ticked)),
+    [root, ticked, build]
+  );
+  const rows = useMemo(
+    () => shownRows(folders, unfolded, ticked),
+    [folders, unfolded, ticked]
+  );
+
+  // A ticked folder covers its subfolders, so their own ticks go.
+  const toggleTick = useCallback(
+    (id: string) =>
+      setTicked((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) {
+          next.delete(id);
+          return next;
+        }
+        const folder = foldersById.get(id);
+        if (folder !== undefined)
+          forEachFolder(folder.children, (inside) => next.delete(inside.id));
+        next.add(id);
+        return next;
+      }),
+    [foldersById]
+  );
+  const setFold = useCallback(
+    (id: string, open: boolean) =>
+      setUnfolded((prev) => {
+        const next = new Set(prev);
+        if (open) next.add(id);
+        else next.delete(id);
+        return next;
+      }),
+    []
+  );
+
+  const measure = useCallback(
+    async (made: tabContainerData[]): Promise<Refusal | null> => {
+      try {
+        return await importSizeRefusal(store.getState(), made, i18n.language);
+      } catch (error) {
+        // Unmeasurable: let it through, as a save is; sync's own size refusal still stands guard.
+        console.warn('Could not measure the import for sync:', error);
+        return null;
+      }
+    },
+    [store, i18n.language]
+  );
+
+  useEffect(() => {
+    latestCheck.current += 1;
+    const check = latestCheck.current;
+    if (sessions.length === 0) return;
+    const timer = setTimeout(() => {
+      void measure(sessions).then((answer) => {
+        if (latestCheck.current === check) setRefusal(answer);
+      });
+    }, SIZE_CHECK_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [sessions, measure]);
+
+  // A refusal stands through the next check's wait; with nothing ticked there is nothing to refuse.
+  const standingRefusal = sessions.length === 0 ? null : refusal;
+  const canImport =
+    sessions.length > 0 && standingRefusal === null && !isImporting;
+
+  // KAN-862 Review Focus 2. Built from a fresh read: a folder deleted since the dialog opened adds nothing.
+  const handleImport = async () => {
+    if (!canImport) return;
+    setIsImporting(true);
+    let fresh: BookmarkNode;
+    try {
+      fresh = await readBookmarkRoot();
+    } catch {
+      end(true);
+      return;
+    }
+    const made = build(fresh, ticked);
+    if (made.length === 0) {
+      // Everything ticked is gone: show the library as it is now.
+      setRoot(fresh);
+      setIsImporting(false);
+      return;
+    }
+    const refused = await measure(made);
+    // Closed while it read and measured (Esc, ✕, Cancel): that close was the answer.
+    if (hasEnded.current) return;
+    if (refused !== null) {
+      latestCheck.current += 1;
+      setRefusal(refused);
+      setIsImporting(false);
+      return;
+    }
+    dispatch(importBookmarkSessions(made));
+    end(false);
+  };
+
+  const buttons = dialogButtonStyles(COLORS);
+
+  const dialogStyle = css`
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    margin: 0;
+    padding: 20px 24px;
+    box-sizing: border-box;
+    width: min(calc(100% - 32px), 1000px);
+    height: min(88vh, 660px);
+    max-width: none;
+    ${dialogFitsWindow()}
+    background-color: ${COLORS.PRIMARY_COLOR};
+    color: ${COLORS.LABEL_L1_COLOR};
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.DIALOG)}
+    font-family: ${FONT_FAMILY};
+    font-size: ${TYPE.BODY};
+
+    &[open] {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      gap: 16px;
+    }
+    &:focus {
+      outline: none;
+    }
+    &::backdrop {
+      background: ${COLORS.MODAL_BACKDROP};
+    }
+  `;
+  const titleRowStyle = css`
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  `;
+  const titleBlockStyle = css`
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  `;
+  const titleStyle = css`
+    margin: 0;
+    font-size: ${dialogTitleSize()};
+    font-weight: inherit;
+    color: ${COLORS.TEXT_COLOR};
+  `;
+  const leadStyle = css`
+    margin: 0;
+    color: ${COLORS.LABEL_L2_COLOR};
+    line-height: 1.5;
+  `;
+  const panesStyle = css`
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    gap: 16px;
+    min-height: 0;
+    @media (max-width: 719.98px) {
+      grid-template-columns: 1fr;
+      grid-template-rows: repeat(2, minmax(0, 1fr));
+    }
+  `;
+  const paneStyle = css`
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: auto;
+    padding: 4px;
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.PANEL)}
+    ${trackClearOfCorners(RADIUS.PANEL, ['top', 'bottom'])}
+    ${focusRingCss(COLORS)}
+  `;
+  const emptyStyle = css`
+    margin: auto;
+    padding: 0 16px;
+    text-align: center;
+    line-height: 1.5;
+    color: ${COLORS.LABEL_L2_COLOR};
+  `;
+  const sessionStyle = css`
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 8px 12px;
+    &:not(:last-child) {
+      border-bottom: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    }
+  `;
+  const sessionNameStyle = css`
+    color: ${COLORS.TEXT_COLOR};
+    overflow-wrap: anywhere;
+  `;
+  const sessionMetaStyle = css`
+    font-size: ${TYPE.SECONDARY};
+    color: ${COLORS.LABEL_L2_COLOR};
+  `;
+  const windowListStyle = css`
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 6px 0 0;
+    padding: 0;
+    list-style: none;
+  `;
+  const windowStyle = css`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: ${COLORS.TEXT_COLOR};
+  `;
+  const footerStyle = css`
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+  `;
+  const refusalStyle = css`
+    flex: 1;
+    margin: 0;
+    text-align: end;
+    font-size: ${TYPE.SECONDARY};
+    color: ${COLORS.LABEL_L1_COLOR};
+  `;
+  const importStyle = css`
+    margin-left: auto;
+    &[aria-disabled='true'] {
+      opacity: 0.45;
+      cursor: default;
+    }
+    &[aria-disabled='true']:hover,
+    &[aria-disabled='true']:active {
+      background-color: ${COLORS.TEXT_COLOR};
+      border-color: ${COLORS.TEXT_COLOR};
+    }
+  `;
+
+  return (
+    <dialog
+      ref={dialogRef}
+      tabIndex={-1}
+      css={dialogStyle}
+      aria-labelledby={TITLE_ID}
+      aria-describedby={LEAD_ID}
+      onCancel={(e) => {
+        e.preventDefault();
+        end(false);
+      }}
+    >
+      <div css={titleRowStyle}>
+        <div css={titleBlockStyle}>
+          <h2 id={TITLE_ID} css={titleStyle}>
+            {t('Import from bookmarks')}
+          </h2>
+          <p id={LEAD_ID} css={leadStyle}>
+            {t('ImportBookmarksLead')}
+          </p>
+        </div>
+        <Icon
+          type="close"
+          ariaLabel={t('Close')}
+          tooltipText={t('Close')}
+          onClick={() => end(false)}
+        />
+      </div>
+
+      <div css={panesStyle} data-import-panes="">
+        <div css={paneStyle}>
+          {rows.map((row) => (
+            <FolderRow
+              key={row.folder.id}
+              folder={row.folder}
+              depth={row.depth}
+              tick={row.tick}
+              isOpen={row.isOpen}
+              untitled={untitled}
+              onTick={toggleTick}
+              onFold={setFold}
+            />
+          ))}
+        </div>
+        {/* Focusable, so a long preview scrolls from the keyboard. */}
+        <div
+          css={paneStyle}
+          role="region"
+          aria-label={t('Preview')}
+          tabIndex={0}
+        >
+          {sessions.length === 0 ? (
+            <p css={emptyStyle}>{t('ImportPreviewEmpty')}</p>
+          ) : (
+            sessions.map((session) => (
+              <div
+                key={session.tabGroupId}
+                css={sessionStyle}
+                data-preview-session=""
+              >
+                <span css={sessionNameStyle}>{session.title}</span>
+                <span css={sessionMetaStyle}>
+                  {formatGroupCounts(
+                    session.windowCount,
+                    session.tabCount,
+                    false,
+                    t
+                  )}
+                </span>
+                <ul css={windowListStyle}>
+                  {session.windows.map((win, i) => (
+                    <li
+                      key={win.windowId}
+                      css={windowStyle}
+                      data-preview-window=""
+                    >
+                      <Icon
+                        type="web_asset"
+                        style={`${NON_INTERACTIVE_ICON_STYLE} opacity: 0.7;`}
+                      />
+                      <span data-preview-window-name="">
+                        {
+                          windowLabel(
+                            win.title,
+                            t('WindowNumbered', { number: i + 1 })
+                          ).text
+                        }
+                      </span>
+                      <RowTag value={formatTabCount(win.tabCount, t)} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      <div css={footerStyle}>
+        <button
+          type="button"
+          css={[buttons.link, flushLinkCss]}
+          onClick={() => end(false)}
+        >
+          {t('Cancel')}
+        </button>
+        {standingRefusal !== null && (
+          <p css={refusalStyle} role="status">
+            {t('ImportTooLarge', standingRefusal)}
+          </p>
+        )}
+        <button
+          type="button"
+          css={[buttons.filled, tallButtonCss(24), importStyle]}
+          aria-disabled={canImport ? undefined : true}
+          onClick={() => void handleImport()}
+        >
+          {sessions.length === 0
+            ? t('Import')
+            : t('ImportSessions', { count: sessions.length })}
+        </button>
+      </div>
+    </dialog>
+  );
+};
