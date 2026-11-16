@@ -545,5 +545,12 @@
   "In your Google Account": "Nel tuo Account Google",
   "Only on this device": "Solo su questo dispositivo",
   "Untitled folder": "Cartella senza nome",
-  "BookmarksUnreadable": "Impossibile leggere i segnalibri. Riprova."
+  "BookmarksUnreadable": "Impossibile leggere i segnalibri. Riprova.",
+  "Already keep tabs somewhere?": "Tieni già le schede da qualche parte?",
+  "Chrome bookmarks": "Segnalibri di Chrome",
+  "Pick folders. Each becomes a saved session.": "Scegli le cartelle. Ognuna diventa una sessione salvata.",
+  "ImportedInSetup_one": "{{count}} sessione importata. Premi per importarne altre.",
+  "ImportedInSetup_many": "{{count}} sessioni importate. Premi per importarne altre.",
+  "ImportedInSetup_other": "{{count}} sessioni importate. Premi per importarne altre.",
+  "You can import any time from Settings › Sync & backup.": "Puoi importare quando vuoi da Impostazioni › Sync e backup."
 }

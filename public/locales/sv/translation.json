@@ -525,5 +525,11 @@
   "In your Google Account": "I ditt Google-konto",
   "Only on this device": "Bara på den här enheten",
   "Untitled folder": "Namnlös mapp",
-  "BookmarksUnreadable": "Det gick inte att läsa dina bokmärken. Försök igen."
+  "BookmarksUnreadable": "Det gick inte att läsa dina bokmärken. Försök igen.",
+  "Already keep tabs somewhere?": "Sparar du redan flikar någon annanstans?",
+  "Chrome bookmarks": "Chrome-bokmärken",
+  "Pick folders. Each becomes a saved session.": "Välj mappar. Varje mapp blir en sparad session.",
+  "ImportedInSetup_one": "{{count}} session importerad. Tryck för att importera fler.",
+  "ImportedInSetup_other": "{{count}} sessioner importerade. Tryck för att importera fler.",
+  "You can import any time from Settings › Sync & backup.": "Du kan importera när som helst från Inställningar › Synk & säkerhetskopia."
 }

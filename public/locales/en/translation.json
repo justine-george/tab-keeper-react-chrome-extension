@@ -525,5 +525,11 @@
   "In your Google Account": "In your Google Account",
   "Only on this device": "Only on this device",
   "Untitled folder": "Untitled folder",
-  "BookmarksUnreadable": "Couldn’t read your bookmarks. Try again."
+  "BookmarksUnreadable": "Couldn’t read your bookmarks. Try again.",
+  "Already keep tabs somewhere?": "Already keep tabs somewhere?",
+  "Chrome bookmarks": "Chrome bookmarks",
+  "Pick folders. Each becomes a saved session.": "Pick folders. Each becomes a saved session.",
+  "ImportedInSetup_one": "{{count}} session imported. Press to import more.",
+  "ImportedInSetup_other": "{{count}} sessions imported. Press to import more.",
+  "You can import any time from Settings › Sync & backup.": "You can import any time from Settings › Sync & backup."
 }

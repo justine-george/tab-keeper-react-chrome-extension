@@ -145,7 +145,7 @@ const openOn = (page: Page, title: string) =>
 
 async function finishSetupWithDone(page: Page): Promise<void> {
   await expect(setup(page)).toBeVisible();
-  for (let n = 0; n < 4; n++)
+  for (let n = 0; n < 5; n++)
     await setup(page)
       .getByRole('button', { name: 'Next', exact: true })
       .click();

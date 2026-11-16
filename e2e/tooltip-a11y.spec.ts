@@ -370,6 +370,29 @@ const EXPECTED: Record<string, AxRecord[]> = {
     ['setup: step 5', 'button "Switch to tab: about:blank" #1', 'plain', '', ''],
     ['setup: step 5', 'div[button] "Close tab: about:blank" #1', 'plain', '', ''],
     ['setup: step 5', 'div[button] "Skip setup" #1', 'button', 'Skip setup', ''],
+    ['setup: step 6', 'anchor:compact #1', 'plain', '', ''],
+    ['setup: step 6', 'div[button] "Sort sessions" #1', 'plain', '', ''],
+    ['setup: step 6', 'div[button] "Undo" #1', 'plain', '', ''],
+    ['setup: step 6', 'div[button] "Redo" #1', 'plain', '', ''],
+    ['setup: step 6', 'div[button] "Sync now" #1', 'plain', '', ''],
+    ['setup: step 6', 'div[button] "Settings" #1', 'plain', '', ''],
+    ['setup: step 6', 'button "Save all open windows as a session" #1', 'plain', '', ''],
+    ['setup: step 6', 'div[button] "More actions" #1', 'plain', '', ''],
+    ['setup: step 6', 'div "Research" #1', 'plain', '', ''],
+    ['setup: step 6', 'div "Created Sep 1, 9:00 AM" #1', 'plain', '', ''],
+    ['setup: step 6', 'anchor:fold #1', 'plain', '', ''],
+    ['setup: step 6', 'div[button] "Collapse all windows" #1', 'plain', '', ''],
+    ['setup: step 6', 'div[button] "Save all open windows as a session" #1', 'plain', '', ''],
+    ['setup: step 6', 'div[button] "Save current window as a session" #1', 'plain', '', ''],
+    ['setup: step 6', 'div[button] "Copy all links" #1', 'plain', '', ''],
+    ['setup: step 6', 'div[button] "Save open windows as PDF…" #1', 'plain', '', ''],
+    ['setup: step 6', 'button "Back to your tab" #1', 'plain', '', ''],
+    ['setup: step 6', 'div[button] "Collapse: Window 1" #1', 'plain', '', ''],
+    ['setup: step 6', 'button "Save window as a session: Window 1" #1', 'plain', '', ''],
+    ['setup: step 6', 'div[button] "More actions: Window 1" #1', 'plain', '', ''],
+    ['setup: step 6', 'button "Switch to tab: about:blank" #1', 'plain', '', ''],
+    ['setup: step 6', 'div[button] "Close tab: about:blank" #1', 'plain', '', ''],
+    ['setup: step 6', 'div[button] "Skip setup" #1', 'button', 'Skip setup', ''],
   ]),
   tour: asRecords([
     ['tour: step 3', 'div[button] "Open full view" #1', 'button', 'Open full view', ''],
@@ -963,10 +986,10 @@ test('the Setup dialog, step by step', async ({ context, extensionId }) => {
     exact: true,
   });
   const ax: AxRecord[] = [];
-  for (let step = 1; step <= 5; step++) {
+  for (let step = 1; step <= 6; step++) {
     await expect(dialog).toBeVisible();
     ax.push(...(await recordAx(page, `setup: step ${step}`)));
-    if (step < 5) {
+    if (step < 6) {
       await dialog.getByRole('button', { name: 'Next', exact: true }).click();
     }
   }

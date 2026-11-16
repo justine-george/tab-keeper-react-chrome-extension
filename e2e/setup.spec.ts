@@ -145,6 +145,8 @@ test.describe('on a new install', () => {
       setup(full).getByText('Works in any window.', { exact: true })
     ).toBeVisible();
     await press(full, 'Next');
+    await expect(stepHeading(full)).toHaveText('Already keep tabs somewhere?');
+    await press(full, 'Next');
     await expect(stepHeading(full)).toHaveText('Sync across your devices?');
     await press(full, 'Done');
 
@@ -258,7 +260,7 @@ test('a pick resizes nothing: the pressed card strip is as tall as the other', a
   const page = await openFullView(context, extensionId);
   await press(page, 'Next');
   await press(page, 'Next');
-  const strips = setup(page).locator('[data-view-label]');
+  const strips = setup(page).locator('[data-card-label]');
   const heights = async () => (await rectsOf(strips)).map((r) => r.height);
 
   const before = await heights();
@@ -295,7 +297,7 @@ for (const lang of ['en', 'de', 'ru']) {
     await next.click();
     const cards = setupAnyLanguage(page).locator('button[aria-pressed]');
     await expect(cards).toHaveCount(2);
-    const captions = setupAnyLanguage(page).locator('[data-view-caption]');
+    const captions = setupAnyLanguage(page).locator('[data-card-caption]');
     await expect(captions).toHaveText([
       strings['Opens under the toolbar icon'],
       strings['Opens in its own tab'],
@@ -303,8 +305,8 @@ for (const lang of ['en', 'de', 'ru']) {
     const fit = await cards.evaluateAll((els) =>
       els.map((card) => {
         const box = card.getBoundingClientRect();
-        const strip = card.querySelector('[data-view-label]');
-        const caption = card.querySelector('[data-view-caption]');
+        const strip = card.querySelector('[data-card-label]');
+        const caption = card.querySelector('[data-card-caption]');
         if (strip === null || caption === null) throw new Error('no strip');
         const text = caption.getBoundingClientRect();
         const bar = strip.getBoundingClientRect();
@@ -338,7 +340,7 @@ for (const lang of ['en', 'de', 'ru', 'sv']) {
       serviceWorker,
     }) => {
       const strings = localeStrings(lang);
-      // A live group, so the walk takes in all six steps.
+      // A live group, so the walk takes in all seven steps.
       await openTabGroup(serviceWorker);
       await stubToolbarPin(context, { pinned: true });
       await seedSettings(context, { language: lang, setupState: 'pending' });
@@ -376,8 +378,13 @@ for (const lang of ['en', 'de', 'ru', 'sv']) {
       // Step 1 has no Back: the one button keeps its own width.
       await expect(button(strings.Back)).toHaveCount(0);
       await expect(button(strings.Next)).toBeVisible();
-      await expect(progress(page)).toHaveAttribute('aria-valuemax', '6');
-      const primaries = [strings.Next, strings.Next, strings.Next];
+      await expect(progress(page)).toHaveAttribute('aria-valuemax', '7');
+      const primaries = [
+        strings.Next,
+        strings.Next,
+        strings.Next,
+        strings.Next,
+      ];
       for (const primary of [...primaries, strings.Next, strings.Done]) {
         await button(strings.Next).click();
         await expect(button(strings.Back)).toBeVisible();
@@ -421,7 +428,7 @@ test('ko at a 24px root: step 6’s privacy policy link sits on one line', async
     name: strings.Next,
     exact: true,
   });
-  for (let n = 0; n < 4; n++) await next.click();
+  for (let n = 0; n < 5; n++) await next.click();
   await expect(
     setupAnyLanguage(page).getByRole('heading', { level: 3 })
   ).toHaveText(strings['Sync across your devices?']);
@@ -473,7 +480,7 @@ for (const [lang, root] of [
       name: strings.Next,
       exact: true,
     });
-    for (let n = 0; n < 4; n++) await next.click();
+    for (let n = 0; n < 5; n++) await next.click();
     await expect(
       setupAnyLanguage(page).getByRole('heading', { level: 3 })
     ).toHaveText(strings['Sync across your devices?']);
@@ -702,7 +709,7 @@ for (const [theme, palette] of THEMES) {
     const page = await openFullView(context, extensionId);
     expect(await pageGround(page)).toBe(palette.PRIMARY_COLOR);
     const steps = ['theme', 'language', 'default view', 'shortcut'];
-    for (const step of [...steps, 'tab groups', 'sync']) {
+    for (const step of [...steps, 'tab groups', 'import', 'sync']) {
       // Off the dialog: a hover repaints a button, and the read is of the resting colours.
       await page.mouse.move(0, 0);
       // A button the pointer just left is still fading its hover fill out: retry until it rests.
@@ -729,7 +736,7 @@ for (const [theme, palette] of THEMES) {
       if (step === 'default view') {
         // D2: the pressed card's label strip wears the same look; its outline is 1px TEXT.
         const card = setup(page).locator('button[aria-pressed="true"]');
-        const strip = await colours(card.locator('[data-view-label]'));
+        const strip = await colours(card.locator('[data-card-label]'));
         expect(rgbToHex(strip.fill)).toBe(palette.TEXT_COLOR);
         expect(rgbToHex(strip.text)).toBe(palette.PRIMARY_COLOR);
         // The picked caption reads on the fill as the name does; the other keeps LABEL_L1.
@@ -737,7 +744,7 @@ for (const [theme, palette] of THEMES) {
           colours(
             setup(page)
               .locator(`button[aria-pressed="${pressedCard}"]`)
-              .locator('[data-view-caption]')
+              .locator('[data-card-caption]')
           );
         expect(rgbToHex((await caption(true)).text)).toBe(
           palette.PRIMARY_COLOR
@@ -799,7 +806,7 @@ test.describe('step 5, Save tab groups too? (Q9)', () => {
     await before.close();
 
     const full = await openFullView(context, extensionId);
-    await expect(progress(full)).toHaveAttribute('aria-valuemax', '6');
+    await expect(progress(full)).toHaveAttribute('aria-valuemax', '7');
     for (const heading of [
       'Pick a theme',
       'Which language do you prefer?',
@@ -815,7 +822,7 @@ test.describe('step 5, Save tab groups too? (Q9)', () => {
       'true'
     );
     await press(full, 'Next');
-    await expect(stepHeading(full)).toHaveText('Sync across your devices?');
+    await expect(stepHeading(full)).toHaveText('Already keep tabs somewhere?');
     expect((await storedSettings(full)).isNeverAskAgainForTabGroups).toBe(true);
 
     const after = await openPopup(context, extensionId);
@@ -830,14 +837,15 @@ test.describe('step 5, Save tab groups too? (Q9)', () => {
     await stubToolbarPin(context, { pinned: true });
     await seedSettingsIfAbsent(context, { setupState: 'pending' });
     const full = await openFullView(context, extensionId);
-    await expect(progress(full)).toHaveAttribute('aria-valuemax', '5');
-    for (let n = 0; n < 4; n++) await press(full, 'Next');
+    await expect(progress(full)).toHaveAttribute('aria-valuemax', '6');
+    for (let n = 0; n < 5; n++) await press(full, 'Next');
     await expect(stepHeading(full)).toHaveText('Sync across your devices?');
     await expect(progress(full)).toHaveAttribute(
       'aria-valuetext',
-      'Step 5 of 5'
+      'Step 6 of 6'
     );
 
+    await press(full, 'Back');
     await press(full, 'Back');
     await expect(stepHeading(full)).toHaveText(
       'Open Tab Keeper from the keyboard'
@@ -847,7 +855,7 @@ test.describe('step 5, Save tab groups too? (Q9)', () => {
     await expect(stepHeading(full)).toHaveText('Save tab groups too?');
     await expect(progress(full)).toHaveAttribute(
       'aria-valuetext',
-      'Step 5 of 6'
+      'Step 5 of 7'
     );
   });
 });
@@ -868,7 +876,7 @@ async function expectStep6NotNow(
   requests: string[]
 ): Promise<Page> {
   const full = await openFullView(context, extensionId);
-  for (let n = 0; n < 4; n++) await press(full, 'Next');
+  for (let n = 0; n < 5; n++) await press(full, 'Next');
   await expect(stepHeading(full)).toHaveText('Sync across your devices?');
   await pairSide(full, 'Auto sync', 'On').click();
   const ask = full.getByRole('dialog', {

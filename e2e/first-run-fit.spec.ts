@@ -413,7 +413,7 @@ for (const lang of LANGS) {
       await expectFits(welcome(page), `${lang} welcome`);
     });
 
-    test('setup’s six steps fit, the switches of steps 5 and 6 included', async ({
+    test('setup’s seven steps fit, the switches of steps 5 and 7 included', async ({
       context,
       extensionId,
       serviceWorker,
@@ -430,15 +430,15 @@ for (const lang of LANGS) {
       const dialog = setupDialog(page);
       await expect(dialog.getByRole('progressbar')).toHaveAttribute(
         'aria-valuemax',
-        '6'
+        '7'
       );
-      for (let step = 1; step <= 6; step++) {
+      for (let step = 1; step <= 7; step++) {
         await expect(dialog.getByRole('progressbar')).toHaveAttribute(
           'aria-valuenow',
           String(step)
         );
         await expectFits(dialog, `${lang} setup step ${step}`);
-        if (step >= 5) {
+        if (step === 5 || step === 7) {
           // The Off/On words sit inside their track, which grows only as they need (M5).
           const pair = dialog.getByRole('group');
           await expect(pair).toHaveCount(1);
@@ -449,7 +449,7 @@ for (const lang of LANGS) {
             expect(fit.clearBottom, label).toBeGreaterThanOrEqual(0);
           }
         }
-        if (step < 6) await press(dialog, say('Next'));
+        if (step < 7) await press(dialog, say('Next'));
       }
     });
   });

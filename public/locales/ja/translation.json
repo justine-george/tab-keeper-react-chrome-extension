@@ -505,5 +505,10 @@
   "In your Google Account": "Google アカウント内",
   "Only on this device": "このデバイスのみ",
   "Untitled folder": "名前のないフォルダ",
-  "BookmarksUnreadable": "ブックマークを読み込めませんでした。もう一度お試しください。"
+  "BookmarksUnreadable": "ブックマークを読み込めませんでした。もう一度お試しください。",
+  "Already keep tabs somewhere?": "すでにどこかにタブを保存していますか？",
+  "Chrome bookmarks": "Chrome のブックマーク",
+  "Pick folders. Each becomes a saved session.": "フォルダを選んでください。各フォルダが保存済みセッションになります。",
+  "ImportedInSetup_other": "{{count}} 件のセッションをインポートしました。押すとさらにインポートできます。",
+  "You can import any time from Settings › Sync & backup.": "設定 › 同期とバックアップ からいつでもインポートできます。"
 }

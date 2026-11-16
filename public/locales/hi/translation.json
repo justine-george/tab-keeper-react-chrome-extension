@@ -525,5 +525,11 @@
   "In your Google Account": "आपके Google खाते में",
   "Only on this device": "सिर्फ़ इस डिवाइस पर",
   "Untitled folder": "बिना नाम का फ़ोल्डर",
-  "BookmarksUnreadable": "आपके बुकमार्क पढ़े नहीं जा सके। फिर से कोशिश करें।"
+  "BookmarksUnreadable": "आपके बुकमार्क पढ़े नहीं जा सके। फिर से कोशिश करें।",
+  "Already keep tabs somewhere?": "क्या आप पहले से कहीं टैब रखते हैं?",
+  "Chrome bookmarks": "Chrome बुकमार्क",
+  "Pick folders. Each becomes a saved session.": "फ़ोल्डर चुनें। हर फ़ोल्डर एक सहेजा गया सेशन बनता है।",
+  "ImportedInSetup_one": "{{count}} सेशन इंपोर्ट किया गया। और इंपोर्ट करने के लिए दबाएँ।",
+  "ImportedInSetup_other": "{{count}} सेशन इंपोर्ट किए गए। और इंपोर्ट करने के लिए दबाएँ।",
+  "You can import any time from Settings › Sync & backup.": "आप कभी भी सेटिंग्स › सिंक और बैकअप से इंपोर्ट कर सकते हैं।"
 }

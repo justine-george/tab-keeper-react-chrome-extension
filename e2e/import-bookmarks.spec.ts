@@ -2,6 +2,7 @@ import type { Page, Worker } from '@playwright/test';
 
 import { expect, grantedTest as test } from './fixtures/grantedExtension';
 import { FULL_VIEW_PATH, openFullView, openPopup } from './fixtures/onboarding';
+import { stubToolbarPin } from './fixtures/toolbarPin';
 import { seedSettings } from './fixtures/seed';
 
 // KAN-862. Settings › Sync & backup › Import opens the bookmark import dialog. `bookmarks` is made required in the
@@ -144,5 +145,89 @@ test.describe('Import from bookmarks in Settings (KAN-862)', () => {
       dialogOn(full).getByRole('checkbox', { name: 'Alpha trip' })
     ).toBeVisible();
     await expect(dialogOn(popup)).toHaveCount(0);
+  });
+});
+
+const IMPORT_STEP = 'Already keep tabs somewhere?';
+const setupOn = (page: Page) =>
+  page.getByRole('dialog', { name: 'Make Tab Keeper yours', exact: true });
+
+// A new install's setup, walked to the import step: tabGroups is granted here, so there is no tab groups step.
+async function onImportStep(page: Page): Promise<void> {
+  const setup = setupOn(page);
+  for (let n = 0; n < 4; n++) {
+    await setup.getByRole('button', { name: 'Next', exact: true }).click();
+  }
+  await expect(setup.getByRole('heading', { level: 3 })).toHaveText(
+    IMPORT_STEP
+  );
+}
+
+test.describe('Import from bookmarks in setup (KAN-862)', () => {
+  test.beforeEach(async ({ context, serviceWorker }) => {
+    await stubToolbarPin(context, { pinned: true });
+    await seedSettings(context, { setupState: 'pending' });
+    await seedBookmarks(serviceWorker);
+  });
+
+  test('the card opens the import over setup; after Import it is back on the same step, pressed, with the session behind', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openFullView(context, extensionId);
+    await onImportStep(page);
+    const setup = setupOn(page);
+    const card = setup.getByRole('button', { name: 'Chrome bookmarks' });
+    await expect(card).toHaveAttribute('aria-pressed', 'false');
+
+    await card.click();
+    const dialog = dialogOn(page);
+    // A click on a dialog under setup's backdrop would fail: the import sits on top.
+    await dialog.getByRole('checkbox', { name: 'Alpha trip' }).check();
+    await dialog.getByRole('button', { name: 'Import 1 session' }).click();
+    await expect(dialog).toBeHidden();
+
+    await expect(setup).toBeVisible();
+    await expect(setup.getByRole('heading', { level: 3 })).toHaveText(
+      IMPORT_STEP
+    );
+    await expect(card).toHaveAttribute('aria-pressed', 'true');
+    await expect(card).toHaveAccessibleDescription(
+      '1 session imported. Press to import more.'
+    );
+    await expect
+      .poll(async () => (await storedSessions(page)).map((s) => s.title))
+      .toEqual(['Alpha trip']);
+    await expect(
+      page.locator('[data-pane="sessions"]').getByText('Alpha trip')
+    ).toBeVisible();
+
+    await setup.getByRole('button', { name: 'Next', exact: true }).click();
+    await expect(setup.getByRole('heading', { level: 3 })).toHaveText(
+      'Sync across your devices?'
+    );
+  });
+
+  test('Esc in the import closes only the import: setup stays on the step, nothing imported', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openFullView(context, extensionId);
+    await onImportStep(page);
+    const setup = setupOn(page);
+    await setup.getByRole('button', { name: 'Chrome bookmarks' }).click();
+    const dialog = dialogOn(page);
+    await dialog.getByRole('checkbox', { name: 'Alpha trip' }).check();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+
+    await expect(setup).toBeVisible();
+    await expect(setup.getByRole('heading', { level: 3 })).toHaveText(
+      IMPORT_STEP
+    );
+    await expect(
+      setup.getByRole('button', { name: 'Chrome bookmarks' })
+    ).toHaveAttribute('aria-pressed', 'false');
+    expect(await storedSessions(page)).toEqual([]);
   });
 });

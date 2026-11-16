@@ -505,5 +505,10 @@
   "In your Google Account": "在你的 Google 帳戶中",
   "Only on this device": "僅在這部裝置上",
   "Untitled folder": "未命名資料夾",
-  "BookmarksUnreadable": "無法讀取你的書籤。請再試一次。"
+  "BookmarksUnreadable": "無法讀取你的書籤。請再試一次。",
+  "Already keep tabs somewhere?": "你已經在別處保存分頁了嗎？",
+  "Chrome bookmarks": "Chrome 書籤",
+  "Pick folders. Each becomes a saved session.": "選擇資料夾。每個資料夾會成為一個已儲存的工作階段。",
+  "ImportedInSetup_other": "已匯入 {{count}} 個工作階段。按下即可匯入更多。",
+  "You can import any time from Settings › Sync & backup.": "你隨時可以在「設定 › 同步與備份」中匯入。"
 }

@@ -525,5 +525,11 @@
   "In your Google Account": "In Ihrem Google-Konto",
   "Only on this device": "Nur auf diesem Gerät",
   "Untitled folder": "Unbenannter Ordner",
-  "BookmarksUnreadable": "Ihre Lesezeichen konnten nicht gelesen werden. Versuchen Sie es noch einmal."
+  "BookmarksUnreadable": "Ihre Lesezeichen konnten nicht gelesen werden. Versuchen Sie es noch einmal.",
+  "Already keep tabs somewhere?": "Speichern Sie Tabs schon woanders?",
+  "Chrome bookmarks": "Chrome-Lesezeichen",
+  "Pick folders. Each becomes a saved session.": "Wählen Sie Ordner aus. Jeder wird zu einer gespeicherten Sitzung.",
+  "ImportedInSetup_one": "{{count}} Sitzung importiert. Drücken Sie, um weitere zu importieren.",
+  "ImportedInSetup_other": "{{count}} Sitzungen importiert. Drücken Sie, um weitere zu importieren.",
+  "You can import any time from Settings › Sync & backup.": "Sie können jederzeit unter Einstellungen › Sync & Sicherung importieren."
 }

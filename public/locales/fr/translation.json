@@ -545,5 +545,12 @@
   "In your Google Account": "Dans votre compte Google",
   "Only on this device": "Uniquement sur cet appareil",
   "Untitled folder": "Dossier sans nom",
-  "BookmarksUnreadable": "Impossible de lire vos favoris. Réessayez."
+  "BookmarksUnreadable": "Impossible de lire vos favoris. Réessayez.",
+  "Already keep tabs somewhere?": "Vous gardez déjà des onglets ailleurs ?",
+  "Chrome bookmarks": "Favoris Chrome",
+  "Pick folders. Each becomes a saved session.": "Choisissez des dossiers. Chacun devient une session enregistrée.",
+  "ImportedInSetup_one": "{{count}} session importée. Appuyez pour en importer d’autres.",
+  "ImportedInSetup_many": "{{count}} sessions importées. Appuyez pour en importer d’autres.",
+  "ImportedInSetup_other": "{{count}} sessions importées. Appuyez pour en importer d’autres.",
+  "You can import any time from Settings › Sync & backup.": "Vous pouvez importer à tout moment depuis Paramètres › Sync & sauvegarde."
 }

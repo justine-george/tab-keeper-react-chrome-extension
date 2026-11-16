@@ -27,6 +27,7 @@ import { openSetup } from '../../redux/slices/globalStateSlice';
 import {
   initialState as settingsInitial,
   Language,
+  noteImportedSessions,
   settingsDataStateSlice,
   Theme,
   type SettingsData,
@@ -39,7 +40,7 @@ import { asWritten } from '../setup/asWritten';
 import { rgb } from '../setup/hexColor';
 import { CONTROL } from '../../styles/scale';
 
-// KAN-7 §5 and Q9. Five or six steps; each pick applies at once; Done, Skip
+// KAN-7 §5, Q9 and KAN-862. Six or seven steps; each pick applies at once; Done, Skip
 // setup, ✕ and Esc end it for good. Mounted behind its flag, as in MainContainer.
 
 function Gate() {
@@ -92,7 +93,7 @@ const press = (name: string) =>
 const line = () => within(dialog()).getByRole('progressbar');
 // Next on the shortcut step asks Chrome before it moves, so each press is awaited.
 const toStep = async (heading: string) => {
-  for (let i = 0; i < 6 && stepHeading().textContent !== heading; i++) {
+  for (let i = 0; i < 7 && stepHeading().textContent !== heading; i++) {
     press('Next');
     await act(async () => {});
   }
@@ -311,7 +312,7 @@ describe('Make Tab Keeper yours', () => {
     const strip = (name: string) =>
       within(dialog())
         .getByRole('button', { name })
-        .querySelector('[data-view-label]');
+        .querySelector('[data-card-label]');
     expect(
       strip('Compact view')?.querySelector('.material-symbols-outlined')
         ?.textContent
@@ -333,7 +334,7 @@ describe('Make Tab Keeper yours', () => {
     expect(card('Full view')).toHaveAccessibleDescription(
       'Opens in its own tab'
     );
-    const lines = card('Full view').querySelector('[data-view-label]');
+    const lines = card('Full view').querySelector('[data-card-label]');
     expect(lines?.textContent).toBe('Full viewOpens in its own tab');
   });
 
@@ -391,11 +392,11 @@ describe('step 5, Save tab groups too? (Q9)', () => {
 
   test('skipped while the grant is held, though a group is open', async () => {
     await render({ ...GROUPED, grantedPermissions: ['tabGroups'] });
-    await waitFor(() => expect(line()).toHaveAttribute('aria-valuemax', '5'));
+    await waitFor(() => expect(line()).toHaveAttribute('aria-valuemax', '6'));
     await toStep('Open Tab Keeper from the keyboard');
     press('Next');
     await act(async () => {});
-    expect(stepHeading()).toHaveTextContent('Sync across your devices?');
+    expect(stepHeading()).toHaveTextContent('Already keep tabs somewhere?');
   });
 
   for (const how of ['Back', 'Skip setup', 'Esc'] as const) {
@@ -449,7 +450,7 @@ describe('step 5 with App: the switch follows the grant (Q9, §14)', () => {
     await waitFor(() =>
       expect(store.getState().globalState.isSetupOpen).toBe(true)
     );
-    await waitFor(() => expect(line()).toHaveAttribute('aria-valuemax', '6'));
+    await waitFor(() => expect(line()).toHaveAttribute('aria-valuemax', '7'));
     await toStep('Save tab groups too?');
     const side = (name: 'On' | 'Off') =>
       within(
@@ -473,6 +474,131 @@ describe('step 5 with App: the switch follows the grant (Q9, §14)', () => {
     });
     expect(side('On')).toHaveAttribute('aria-pressed', 'true');
   });
+});
+
+// KAN-862. Just before sync, so what comes in is there when sync is offered.
+describe('the import step, Already keep tabs somewhere?', () => {
+  const IMPORT = 'Already keep tabs somewhere?';
+  const headings = async () => {
+    const seen = [stepHeading().textContent];
+    while (within(dialog()).queryByRole('button', { name: 'Next' })) {
+      press('Next');
+      await act(async () => {});
+      seen.push(stepHeading().textContent);
+    }
+    return seen;
+  };
+  const card = () =>
+    within(dialog()).getByRole('button', { name: 'Chrome bookmarks' });
+  afterEach(() => history.replaceState(null, '', '?'));
+
+  test('comes after the shortcut step and just before sync', async () => {
+    await render();
+    await waitFor(() => expect(line()).toHaveAttribute('aria-valuemax', '6'));
+    expect(await headings()).toEqual([
+      'Pick a theme',
+      'Which language do you prefer?',
+      'When you click Tab Keeper, open…',
+      'Open Tab Keeper from the keyboard',
+      IMPORT,
+      'Sync across your devices?',
+    ]);
+  });
+
+  test('comes after the tab groups step when that one shows', async () => {
+    await render(GROUPED);
+    await waitFor(() => expect(line()).toHaveAttribute('aria-valuemax', '7'));
+    expect((await headings()).slice(3)).toEqual([
+      'Open Tab Keeper from the keyboard',
+      'Save tab groups too?',
+      IMPORT,
+      'Sync across your devices?',
+    ]);
+  });
+
+  test('one unpressed card in the default view cards’ look, with its subline, and the Settings caption', async () => {
+    await render();
+    await toStep('When you click Tab Keeper, open…');
+    const viewCard = (name: string) =>
+      within(dialog()).getByRole('button', { name });
+    const unpressedLook = viewCard('Full view').className;
+    const stripLook =
+      viewCard('Full view').querySelector('[data-card-label]')?.className;
+    await toStep(IMPORT);
+    expect(card()).toHaveAttribute('aria-pressed', 'false');
+    expect(card().className).toBe(unpressedLook);
+    expect(card().querySelector('[data-card-label]')?.className).toBe(
+      stripLook
+    );
+    expect(card()).toHaveAccessibleDescription(
+      'Pick folders. Each becomes a saved session.'
+    );
+    expect(
+      card().querySelector('[data-card-label] .material-symbols-outlined')
+    ).toBeNull();
+    expect(card().querySelector('svg')?.getAttribute('viewBox')).toBe(
+      '0 0 440 120'
+    );
+    expect(dialog()).toHaveTextContent(
+      'You can import any time from Settings › Sync & backup.'
+    );
+  });
+
+  test('pressing the card asks for bookmarks and opens the import dialog over setup', async () => {
+    history.replaceState(null, '', '?view=tab');
+    const { store } = await render();
+    await toStep(IMPORT);
+    const request = vi.spyOn(chrome.permissions, 'request');
+    fireEvent.click(card());
+    await act(async () => {});
+    expect(request.mock.calls).toEqual([[{ permissions: ['bookmarks'] }]]);
+    expect(store.getState().globalState.isImportBookmarksOpen).toBe(true);
+    expect(store.getState().globalState.isSetupOpen).toBe(true);
+    expect(stepHeading()).toHaveTextContent(IMPORT);
+  });
+
+  test('after an import the card is pressed, with a ✓, and says how many came in', async () => {
+    const { store } = await render();
+    await toStep(IMPORT);
+    act(() => {
+      store.dispatch(noteImportedSessions(['a', 'b']));
+    });
+    expect(card()).toHaveAttribute('aria-pressed', 'true');
+    expect(card()).toHaveAccessibleDescription(
+      '2 sessions imported. Press to import more.'
+    );
+    expect(
+      card().querySelector('[data-card-label] .material-symbols-outlined')
+        ?.textContent
+    ).toBe('check');
+  });
+
+  test('counts only what came in since setup opened', async () => {
+    const { store } = await render(BOUND, { importedSessionIds: ['older'] });
+    await toStep(IMPORT);
+    expect(card()).toHaveAttribute('aria-pressed', 'false');
+    act(() => {
+      store.dispatch(noteImportedSessions(['a']));
+    });
+    expect(card()).toHaveAccessibleDescription(
+      '1 session imported. Press to import more.'
+    );
+  });
+
+  for (const imported of [false, true]) {
+    test(`Next moves on to sync ${imported ? 'after an import' : 'with nothing imported'}`, async () => {
+      const { store } = await render();
+      await toStep(IMPORT);
+      if (imported) {
+        act(() => {
+          store.dispatch(noteImportedSessions(['a']));
+        });
+      }
+      press('Next');
+      await act(async () => {});
+      expect(stepHeading()).toHaveTextContent('Sync across your devices?');
+    });
+  }
 });
 
 describe('step 6, Sync across your devices? (Q9)', () => {
@@ -554,7 +680,7 @@ describe('Next answers one press at a time (review)', () => {
 
   test('Go back pressed before Chrome answers the re-ask keeps the user where Go back put them', async () => {
     await render();
-    await waitFor(() => expect(line()).toHaveAttribute('aria-valuemax', '5'));
+    await waitFor(() => expect(line()).toHaveAttribute('aria-valuemax', '6'));
     await toStep('Open Tab Keeper from the keyboard');
     // Chrome has not answered yet: the grant check of the shortcut step's re-ask waits.
     let answer: (held: boolean) => void = () => {};
@@ -637,7 +763,7 @@ describe('setup’s buttons (KAN-501)', () => {
     ).toBeNull();
     for (
       let i = 0;
-      i < 6 &&
+      i < 7 &&
       within(dialog()).queryByRole('button', { name: 'Done' }) === null;
       i++
     ) {

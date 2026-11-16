@@ -6,6 +6,7 @@ import { css } from '@emotion/react';
 import Icon from '../common/Icon';
 import ProgressLine from '../common/ProgressLine';
 import DefaultViewCards from '../common/DefaultViewCards';
+import ImportSourceCards from '../common/ImportSourceCards';
 import SlidingPair from '../common/SlidingPair';
 import { SETTINGS_PAIR_METRICS } from '../common/slidingPairMetrics';
 import TabKeeperMark from '../common/TabKeeperMark';
@@ -23,6 +24,7 @@ import {
 } from '../../hooks/usePopupShortcut';
 import type { AppDispatch, RootState } from '../../redux/store';
 import { leaveSetup } from '../../redux/firstOpenFollowUps';
+import { selectImportedSessionIds } from '../../redux/bookmarkImport';
 import { openCloudConsentModal } from '../../redux/slices/globalStateSlice';
 import {
   cloudSyncAllowed,
@@ -56,7 +58,13 @@ import { dialogFitsWindow } from './dialogFit';
 
 const TITLE_ID = 'setup-title';
 type Step =
-  'theme' | 'language' | 'defaultView' | 'shortcut' | 'tabGroups' | 'sync';
+  | 'theme'
+  | 'language'
+  | 'defaultView'
+  | 'shortcut'
+  | 'tabGroups'
+  | 'import'
+  | 'sync';
 const FIRST_STEPS: readonly Step[] = [
   'theme',
   'language',
@@ -79,6 +87,9 @@ export const SetupModal: React.FC = () => {
   const hasTabGroups = useSelector(
     (s: RootState) => s.globalState.hasTabGroupsPermission
   );
+  const importedCount = useSelector(selectImportedSessionIds).length;
+  // KAN-862. The import card shows what came in while setup was open, not before.
+  const [importedAtOpen] = useState(importedCount);
   const popupShortcut = usePopupShortcut();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -100,6 +111,8 @@ export const SetupModal: React.FC = () => {
   const steps: readonly Step[] = [
     ...FIRST_STEPS,
     ...(asksTabGroups === true ? (['tabGroups'] as const) : []),
+    // KAN-862. Before sync, so what comes in is there when sync is offered.
+    'import',
     'sync',
   ];
   const step: Step = steps[Math.min(stepIndex, steps.length - 1)];
@@ -410,6 +423,17 @@ export const SetupModal: React.FC = () => {
           </p>
           <p css={fineStyle}>
             {t('You can change this any time in Settings.')}
+          </p>
+        </>
+      ),
+    },
+    import: {
+      heading: t('Already keep tabs somewhere?'),
+      body: (
+        <>
+          <ImportSourceCards importedInSetup={importedCount - importedAtOpen} />
+          <p css={fineStyle}>
+            {t('You can import any time from Settings › Sync & backup.')}
           </p>
         </>
       ),

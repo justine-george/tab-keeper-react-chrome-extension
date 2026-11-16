@@ -505,5 +505,10 @@
   "In your Google Account": "在您的 Google 账号中",
   "Only on this device": "仅在此设备上",
   "Untitled folder": "未命名文件夹",
-  "BookmarksUnreadable": "无法读取您的书签。请重试。"
+  "BookmarksUnreadable": "无法读取您的书签。请重试。",
+  "Already keep tabs somewhere?": "您已经在别处保存标签页了吗？",
+  "Chrome bookmarks": "Chrome 书签",
+  "Pick folders. Each becomes a saved session.": "选择文件夹。每个文件夹会成为一个已保存的会话。",
+  "ImportedInSetup_other": "已导入 {{count}} 个会话。按下可导入更多。",
+  "You can import any time from Settings › Sync & backup.": "您随时可以在 设置 › 同步与备份 中导入。"
 }

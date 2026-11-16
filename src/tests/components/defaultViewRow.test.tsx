@@ -61,7 +61,7 @@ describe('the Default view row (KAN-7 §7)', () => {
       expect(side(name).querySelector('svg')).not.toBeNull();
     }
     const tick = (name: 'Compact view' | 'Full view') =>
-      side(name).querySelector('[data-view-label] .material-symbols-outlined');
+      side(name).querySelector('[data-card-label] .material-symbols-outlined');
     expect(tick('Compact view')?.textContent).toBe('check');
     expect(tick('Full view')).toBeNull();
 
