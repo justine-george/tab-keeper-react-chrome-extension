@@ -169,6 +169,7 @@
   "Date modified": "수정한 날짜",
   "EditedOn": "{{date}} 수정",
   "CreatedOn": "{{date}} 생성",
+  "ImportedOn": "북마크에서 가져옴 · {{date}}",
   "Sessions reordered. Undo to restore the previous order.": "세션 순서를 변경했습니다. 실행취소하면 이전 순서로 돌아갑니다.",
   "Save session as PDF": "PDF로 저장…",
   "Copy all links": "모든 링크 복사",

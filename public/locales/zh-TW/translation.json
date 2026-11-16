@@ -169,6 +169,7 @@
   "Date modified": "修改日期",
   "EditedOn": "編輯於 {{date}}",
   "CreatedOn": "建立於 {{date}}",
+  "ImportedOn": "從書籤匯入 · {{date}}",
   "Sessions reordered. Undo to restore the previous order.": "已重新排序工作階段。按「復原」即可恢復先前的順序。",
   "Save session as PDF": "儲存為 PDF…",
   "Copy all links": "複製所有連結",

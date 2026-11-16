@@ -141,7 +141,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     tabGroupData,
     sessionDateBasis,
     i18n.language,
-    timeFormat
+    timeFormat,
+    t
   );
 
   // Folded, no session is shown: the selection is kept, not drawn.
@@ -611,7 +612,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             text-overflow: ellipsis;
           `}
         >
-          {/* "Edited <date>" or "Created <date>", following whichever date
+          {/* "Edited <date>" or "Created <date>" (an import's says where it
+              came from, KAN-862), following whichever date
               order the sort menu last chose (KAN-141). The date shown is the
               one the list is ordered by, so the column reads top to bottom in
               both date sorts -- and the WORD is what keeps that from being a

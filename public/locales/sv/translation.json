@@ -172,6 +172,7 @@
   "Date modified": "Ändringsdatum",
   "EditedOn": "Redigerad {{date}}",
   "CreatedOn": "Skapad {{date}}",
+  "ImportedOn": "Importerad från bokmärken · {{date}}",
   "Sessions reordered. Undo to restore the previous order.": "Sessionerna har sorterats om. Ångra för att återställa den tidigare ordningen.",
   "Save session as PDF": "Spara som PDF…",
   "Copy all links": "Kopiera alla länkar",

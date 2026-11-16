@@ -188,6 +188,7 @@ function toSession(
     isAutoSave: false,
     isSelected: true,
     windows: kept,
+    importedFrom: 'bookmarks',
   };
 }
 

@@ -119,6 +119,57 @@ test.describe('Import from bookmarks in Settings (KAN-862)', () => {
     );
   });
 
+  // KAN-862 (11-16 13:05). An imported session's date line says where it came from until its contents are edited.
+  test('full view: an imported session reads "Imported from bookmarks", and "Edited" once a tab is deleted from it', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openFullView(context, extensionId);
+    await onImportPane(page);
+    await page.getByRole('button', { name: 'Import from bookmarks' }).click();
+    const dialog = dialogOn(page);
+    await dialog.getByRole('checkbox', { name: 'Alpha trip' }).check();
+    await dialog.getByRole('checkbox', { name: 'Beta research' }).check();
+    await dialog.getByRole('button', { name: 'Import 2 sessions' }).click();
+    await expect(dialog).toBeHidden();
+
+    // Reloaded onto the session list.
+    await page.reload();
+    const dateLine = (title: string) =>
+      page
+        .locator('[data-pane="sessions"]')
+        .getByRole('button', { name: title, exact: true })
+        .locator('[aria-description]');
+    for (const title of ['Alpha trip', 'Beta research']) {
+      await expect(dateLine(title)).toHaveText(/^Imported from bookmarks · /);
+      // The hover and the description say it too, with the full date.
+      await expect(dateLine(title)).toHaveAttribute(
+        'aria-description',
+        /^Imported from bookmarks · .*\d{4}/
+      );
+    }
+
+    await page
+      .locator('[data-pane="sessions"]')
+      .getByRole('button', { name: 'Alpha trip', exact: true })
+      .click();
+    const tab = page
+      .locator(
+        '[data-pane="detail"] [data-drag-row-id]:has([aria-label="Delete tab"])'
+      )
+      .first();
+    await tab.hover();
+    await tab.getByRole('button', { name: 'Delete tab' }).click();
+    await expect(dateLine('Alpha trip')).toHaveText(/^Edited /);
+    await expect(dateLine('Alpha trip')).not.toHaveAttribute(
+      'aria-description',
+      /Imported/
+    );
+    await expect(dateLine('Beta research')).toHaveText(
+      /^Imported from bookmarks · /
+    );
+  });
+
   // KAN-862 (11-16). A top folder is no one session: its loose links are one, and each folder in it is another.
   test('full view: tick the bookmarks bar, Import, and its loose links and each folder in it are saved as sessions', async ({
     context,

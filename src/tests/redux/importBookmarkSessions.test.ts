@@ -29,6 +29,8 @@ import {
 } from '../../redux/bookmarkImport';
 import {
   deleteTabContainerInternal,
+  deleteTabInternal,
+  moveToNewSessionInternal,
   restoreDeletedSessionInternal,
   saveToTabContainer,
   type tabContainerData,
@@ -120,6 +122,58 @@ describe('importBookmarkSessions', () => {
     expect(
       state.tabContainerDataState.tabGroups.map((g) => g.isSelected)
     ).toEqual([true, false, false]);
+  });
+
+  // KAN-862 (11-16 13:05). The import is no edit: the date line says "Imported from bookmarks" until one.
+  test('an imported session lands unedited, keeping its mark; an edit to it stamps it and keeps the mark', () => {
+    const { store } = makeTestStore();
+    store.dispatch(
+      importBookmarkSessions(
+        fromFolders([
+          { ...session('a'), importedFrom: 'bookmarks' },
+          { ...session('b'), importedFrom: 'bookmarks' },
+        ])
+      )
+    );
+    const byId = (id: string) =>
+      store
+        .getState()
+        .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === id);
+    expect(byId('a')?.contentModified).toBeUndefined();
+    expect(byId('b')?.contentModified).toBeUndefined();
+    expect(byId('a')?.importedFrom).toBe('bookmarks');
+
+    store.dispatch(
+      deleteTabInternal({ tabGroupId: 'a', windowId: 'a-w', tabId: 'a-t0' })
+    );
+    expect(byId('a')?.contentModified).toEqual(expect.any(Number));
+    expect(byId('a')?.importedFrom).toBe('bookmarks');
+  });
+
+  // A tab moved out to a new session makes a session of the user's own: no mark goes with it.
+  test('a new session made from an imported one carries no mark', () => {
+    const { store } = makeTestStore();
+    store.dispatch(
+      importBookmarkSessions(
+        fromFolders([{ ...session('a'), importedFrom: 'bookmarks' }])
+      )
+    );
+    store.dispatch(
+      moveToNewSessionInternal(
+        { kind: 'tab', tabGroupId: 'a', windowId: 'a-w', tabId: 'a-t0' },
+        'Fallback',
+        '',
+        { tabGroupId: 'mine' }
+      )
+    );
+    const groups = store.getState().tabContainerDataState.tabGroups;
+    expect(groups.find((g) => g.tabGroupId === 'mine')?.tabCount).toBe(1);
+    expect(groups.find((g) => g.tabGroupId === 'mine')).not.toHaveProperty(
+      'importedFrom'
+    );
+    expect(groups.find((g) => g.tabGroupId === 'a')?.importedFrom).toBe(
+      'bookmarks'
+    );
   });
 
   test('it notes the ids it added, and nothing else', () => {

@@ -169,6 +169,7 @@
   "Date modified": "修改日期",
   "EditedOn": "编辑于 {{date}}",
   "CreatedOn": "创建于 {{date}}",
+  "ImportedOn": "从书签导入 · {{date}}",
   "Sessions reordered. Undo to restore the previous order.": "会话已重新排序。使用“撤销”可恢复之前的顺序。",
   "Save session as PDF": "保存为 PDF…",
   "Copy all links": "复制所有链接",

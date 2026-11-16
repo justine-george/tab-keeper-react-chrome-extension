@@ -215,6 +215,8 @@ export interface tabContainerData {
   // is no stored sort mode: a container-level field would need its own merge
   // rule, and this merge has none for one.
   rank?: number;
+  // KAN-862. Set only by an import; absent on every session a save makes.
+  importedFrom?: 'bookmarks';
 }
 
 // A deleted session has to leave a trace. Merging by tabGroupId alone would
@@ -2123,6 +2125,7 @@ export const tabContainerDataStateSlice = createSlice({
 
     // KAN-862. An import's sessions, the first newest. Each is stamped a millisecond apart: the list is
     // ordered by that stamp, and equal ones fall back to the random ids, so the first could land anywhere.
+    // The stamp is their creation, not an edit: their date line says Imported from bookmarks until one (11-16).
     saveImportedSessionsInternal: (
       state,
       action: PayloadAction<tabContainerData[]>
@@ -2131,13 +2134,15 @@ export const tabContainerDataStateSlice = createSlice({
       if (sessions.length === 0) return;
       const base = Date.now();
       sessions.forEach((session, index) => {
-        state.tabGroups.unshift(session);
-        touchContent(
-          state,
-          state.tabGroups[0],
-          base + (sessions.length - 1 - index)
-        );
+        const at = base + (sessions.length - 1 - index);
+        state.tabGroups.unshift({
+          ...session,
+          createdTime: getStringDate(new Date(at)),
+          createdAt: at,
+        });
+        touch(state.tabGroups[0], at);
       });
+      resortSessions(state);
       state.lastModified = base + sessions.length;
       tabContainerDataStateSlice.caseReducers.selectTabContainer(state, {
         type: selectTabContainer.type,

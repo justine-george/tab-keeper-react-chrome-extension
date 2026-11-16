@@ -169,6 +169,7 @@
   "Date modified": "更新日",
   "EditedOn": "{{date}}に編集",
   "CreatedOn": "{{date}}に作成",
+  "ImportedOn": "{{date}}にブックマークからインポート",
   "Sessions reordered. Undo to restore the previous order.": "セッションを並べ替えました。「元に戻す」で以前の順序に戻せます。",
   "Save session as PDF": "PDFとして保存…",
   "Copy all links": "すべてのリンクをコピー",

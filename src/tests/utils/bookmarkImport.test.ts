@@ -308,6 +308,36 @@ describe('sessionsFor', () => {
 });
 
 // KAN-862 (11-16). What was imported before is left out: user folders whole, and a top folder's loose links one by one (R22).
+// KAN-862 (11-16 13:05). Every session an import makes carries where it came from, for its date line.
+describe('the imported mark', () => {
+  it('a folder session is marked as imported from bookmarks', () => {
+    const bar = fixture().children?.[0];
+    const node = bar?.children?.find((c) => c.id === 'kitchen');
+    if (node === undefined) throw new Error('fixture');
+    expect(folderToSession(node, NOW, OWN, 'U', NONE)?.importedFrom).toBe(
+      'bookmarks'
+    );
+  });
+
+  it.each([false, true])(
+    'every session sessionsFor makes is marked, loose links included (skip duplicates %s)',
+    (skipDuplicates) => {
+      const out = sessionsOf(fixture(), new Set(['1', 'kitchen', '2']), {
+        now: NOW,
+        ownOrigin: OWN,
+        untitled: 'U',
+        skipDuplicates,
+        imported: NONE,
+      });
+      expect(out.map((s) => [s.title, s.importedFrom])).toEqual([
+        ['Bookmarks bar', 'bookmarks'],
+        ['Kitchen remodel', 'bookmarks'],
+        ['Other bookmarks', 'bookmarks'],
+      ]);
+    }
+  );
+});
+
 describe('with bookmarks imported before', () => {
   const opts = {
     now: NOW,

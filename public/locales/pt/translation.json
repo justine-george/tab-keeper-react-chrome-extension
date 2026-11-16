@@ -175,6 +175,7 @@
   "Date modified": "Data de modificação",
   "EditedOn": "Editada {{date}}",
   "CreatedOn": "Criada {{date}}",
+  "ImportedOn": "Importada dos favoritos · {{date}}",
   "Sessions reordered. Undo to restore the previous order.": "Sessões reordenadas. Use \"Desfazer\" para restaurar a ordem anterior.",
   "Save session as PDF": "Salvar como PDF…",
   "Copy all links": "Copiar todos os links",
