@@ -8,6 +8,7 @@ vi.mock('../../config/firebase', () => ({
 }));
 
 import App from '../../App';
+import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { makeTestStore } from '../setup/makeStore';
 import { setupChromeFake } from '../setup/chrome.fake';
@@ -20,6 +21,7 @@ import {
   openSettingsPage,
   openSetup,
   setSearchInputText,
+  requestImportButtonFocus,
 } from '../../redux/slices/globalStateSlice';
 import { selectRunHere } from '../../redux/firstRun';
 import { RUN_LOCK, holdTourLock } from '../../utils/functions/tourLock';
@@ -30,7 +32,10 @@ import {
   settingsDataStateSlice,
 } from '../../redux/slices/settingsDataStateSlice';
 import { RUN_FINISHED_SETTINGS } from '../fixtures/firstRunFixture';
-import { SettingsCategory } from '../../redux/slices/settingsCategoryStateSlice';
+import {
+  SettingsCategory,
+  selectCategory,
+} from '../../redux/slices/settingsCategoryStateSlice';
 
 // KAN-7, in the full view: asked on the address or by the worker's message.
 
@@ -210,6 +215,34 @@ describe('showInFullView: the import from bookmarks', () => {
     );
     expect(store.getState().globalState.isImportBookmarksOpen).toBe(false);
     expect(window.location.search).toBe('?view=tab');
+  });
+});
+
+describe('showInFullView: the import button, from another Settings category', () => {
+  test('a full view already on About ends with the Import from bookmarks button focused', async () => {
+    history.replaceState(null, '', '?view=tab');
+    const { store } = await renderWithProviders(<SettingsDetailsContainer />, {
+      seedStore: (s) => {
+        s.dispatch(selectCategory(SettingsCategory.ABOUT));
+      },
+    });
+    expect(
+      screen.queryByRole('button', { name: 'Import from bookmarks' })
+    ).toBeNull();
+
+    // The category lands after the request has rendered, as an async thunk's does.
+    await act(async () => {
+      store.dispatch(requestImportButtonFocus());
+    });
+    await act(async () => {
+      store.dispatch(selectCategory(SettingsCategory.SYNC));
+    });
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'Import from bookmarks' })
+      )
+    );
   });
 });
 

@@ -70,16 +70,12 @@ describe('the settings rail names what each pane holds (KAN-253)', () => {
 
   // KAN-862.
   test('Sync & Backup orders Backup, then Import, then Cloud data', async () => {
-    await renderOn(SettingsCategory.SYNC);
-    const order = ['Backup', 'Import', 'Cloud data'].map((label) =>
-      screen.getByText(label, { selector: 'span, p, div, label' })
-    );
-    for (let i = 0; i < order.length - 1; i++) {
-      expect(
-        order[i].compareDocumentPosition(order[i + 1]) &
-          Node.DOCUMENT_POSITION_FOLLOWING
-      ).toBeTruthy();
-    }
+    const { container } = await renderOn(SettingsCategory.SYNC);
+    expect(sectionLabels(container).slice(-3)).toEqual([
+      'Backup',
+      'Import',
+      'Cloud data',
+    ]);
   });
 
   // KAN-652. Sessions held six settings, three of them about how Tab Keeper

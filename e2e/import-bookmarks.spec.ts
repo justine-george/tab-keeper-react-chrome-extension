@@ -5,8 +5,8 @@ import { FULL_VIEW_PATH, openFullView, openPopup } from './fixtures/onboarding';
 import { seedSettings } from './fixtures/seed';
 
 // KAN-862. Settings › Sync & backup › Import opens the bookmark import dialog. `bookmarks` is made required in the
-// scratch manifest, so the full view's ask resolves without a prompt (whether a real optional grant prompts without
-// a click is checked by hand, not here).
+// scratch manifest, so the full view's ask resolves without a prompt. The real optional-grant prompt on a press is
+// checked by hand, not here.
 test.use({ grantBookmarks: true });
 
 // Two top folders with distinctive names; each has its own link, subfolders that become windows, and one deeper

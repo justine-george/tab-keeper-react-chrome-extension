@@ -109,12 +109,18 @@ const SettingsDetailsContainer: React.FC = () => {
   const isImportFocusRequested = useSelector(
     (state: RootState) => state.globalState.isImportButtonFocusRequested
   );
-  // KAN-862. One-shot: focus once the pane has rendered the button.
+  const selectedCategory = useSelector(
+    (state: RootState) =>
+      state.settingsCategoryState.find((c) => c.isSelected)?.name
+  );
+  // KAN-862. One-shot: kept until the Sync pane has rendered the button to focus.
   useEffect(() => {
     if (!isImportFocusRequested) return;
-    importButtonBox.current?.querySelector('button')?.focus();
+    const button = importButtonBox.current?.querySelector('button');
+    if (!button) return;
+    button.focus();
     dispatch(importButtonFocused());
-  }, [isImportFocusRequested, dispatch]);
+  }, [isImportFocusRequested, selectedCategory, dispatch]);
 
   // Chrome's language doesn't change while the page is open.
   const [languageCells] = useState(chromeLanguageOrder);

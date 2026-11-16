@@ -8,8 +8,8 @@ import {
   closeSetup,
   openPinGuide,
   openSettingsPage,
-  requestImportButtonFocus,
   openSetup,
+  requestImportButtonFocus,
   setEndingCard,
   setSearchInputText,
 } from './slices/globalStateSlice';
