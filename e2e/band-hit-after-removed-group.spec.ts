@@ -28,7 +28,8 @@ const GROUPS = [
 function tabsWith(watchlist: string[]) {
   return [
     ...watchlist.map((t) => tab(t, t, 'watch')),
-    tab('im', 'IMDb', 'ratings'),
+    // KAN-822 (pick 2B). Loose under Watchlist, so no band follows it and it still goes (KAN-916).
+    tab('im', 'IMDb'),
     tab('sp', 'Spotify', 'sound'),
     tab('pc', 'Popcorn', 'snacks'),
     tab('ex', 'Extensions'),
@@ -180,23 +181,19 @@ for (const watchlist of [['lb'], ['lb', 'mu']]) {
       expect(misses).toEqual([]);
     });
 
-    // The gone band's own edge, and Ratings' right below it (KAN-822 pick 2B: Watchlist keeps its room until
-    // Ratings is passed), are where the drop starts or stops removing it. Neither box moves, so either way
-    // across, a y means one thing.
-    test('across the edges of the group it leaves and the group right below, the answer depends on the pointer alone', async ({
+    // The gone band's own edge is where the drop starts or stops removing
+    // it. Its box does not move, so either way across, a y means one thing.
+    test('across the edge of the group it leaves, the answer depends on the pointer alone', async ({
       context,
       extensionId,
     }) => {
       const page = await popup(context, extensionId);
       const x = await pickUp(page);
-      const bottomOf = async (id: string) => {
-        const b = await page.locator(`[data-band-id="${id}"]`).boundingBox();
-        if (b === null) throw new Error(`no ${id} band`);
-        return b.y + b.height;
-      };
+      const watch = await page.locator('[data-band-id="watch"]').boundingBox();
+      if (watch === null) throw new Error('no Watchlist band');
+      const edge = watch.y + watch.height;
       const ys: number[] = [];
-      for (const edge of [await bottomOf('watch'), await bottomOf('ratings')])
-        for (let y = edge - 12; y <= edge + 12; y += 0.5) ys.push(y);
+      for (let y = edge - 12; y <= edge + 12; y += 0.5) ys.push(y);
       const read = () =>
         page.evaluate(() =>
           [

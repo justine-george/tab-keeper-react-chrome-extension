@@ -31,8 +31,9 @@ const GROUPS = [
 function tabsWith(watchlist: string[]) {
   return [
     ...watchlist.map((t) => tab(t, t, 'watch')),
+    // KAN-822 (pick 2B). Loose under Watchlist, so no band follows it and it still goes (KAN-916).
+    tab('jw', 'JustWatch'),
     tab('im', 'IMDb', 'ratings'),
-    tab('jw', 'JustWatch', 'ratings'),
     tab('sp', 'Spotify', 'sound'),
     tab('pc', 'Popcorn', 'snacks'),
     tab('ex', 'Extensions'),
@@ -87,10 +88,8 @@ const CASES = [
     name: 'over Ratings, the Soundtrack header below it is not tinted',
     target: 'ratings',
     aim: 'im',
-    lastTab: 'jw',
+    lastTab: 'im',
     below: titleRow('sound'),
-    // KAN-822 (pick 2B). Ratings is right below Watchlist, which keeps its room over it.
-    heldOpen: true,
   },
   {
     name: 'over Snacks, the loose Extensions below it is not tinted',
@@ -98,7 +97,6 @@ const CASES = [
     aim: 'pc',
     lastTab: 'pc',
     below: '[data-drag-row-id="ex"]',
-    heldOpen: false,
   },
 ];
 
@@ -151,10 +149,9 @@ for (const only of [true, false]) {
           await page.mouse.down();
           await page.mouse.move(x, lb.y + lb.height / 2 + 8, { steps: 2 });
           await settled(page);
-          // KAN-916: with Watchlist gone, the rows below it are drawn 40px
-          // higher and hit there, so the aim follows them.
-          const gone = only && !c.heldOpen;
-          const closedBy = gone ? 40 : 0;
+          // KAN-916: with Watchlist gone, the rows below it are drawn 36px
+          // higher (its chrome over a loose tab) and hit there, so the aim follows them.
+          const closedBy = only ? 36 : 0;
           const aim = await drawn(page, `[data-drag-row-id="${c.aim}"]`);
           await page.mouse.move(x, aim.top + 4 - closedBy, { steps: 8 });
           await settled(page);
@@ -179,7 +176,7 @@ for (const only of [true, false]) {
           if (only)
             await expect(
               page.locator('[data-band-id="watch"][data-drag-removed]')
-            ).toHaveCount(gone ? 1 : 0);
+            ).toBeAttached();
 
           const band = await drawn(page, `[data-band-id="${c.target}"]`);
           const px = band.right - 12;

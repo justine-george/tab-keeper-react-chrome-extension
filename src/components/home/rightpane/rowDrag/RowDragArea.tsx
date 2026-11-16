@@ -57,7 +57,6 @@ import {
   setDragNewSession,
   setDragNewWindow,
   releaseKeptRoom,
-  spanOfBands,
   windowBlockAt,
   windowBlocksIn,
   windowOf,
@@ -856,28 +855,99 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       const paneBottom = paneOf(l.heldEl)?.getBoundingClientRect().bottom;
       if (paneBottom === undefined || l.lastY > paneBottom) return null;
       if (overshootsLastWindow(l)) return null;
-      return lastWindowAfterItsGroup(l) ?? block;
+      return lastWindowTakingHalfRowBelowItsGroup(l) ?? block;
     };
 
-    // KAN-822 (pick 1B). For a tab, the last window, where the pointer is within half a row below the group that ends it.
-    const lastWindowAfterItsGroup = (
+    // KAN-822 (pick 1B). The last window block when the pointer is in the half row below the group that ends it, else null.
+    const lastWindowTakingHalfRowBelowItsGroup = (
       l: NonNullable<typeof live.current>
     ): HTMLElement | null => {
-      if (dragKind !== 'tab') return null;
-      const lastId = l.windowOrder[l.windowOrder.length - 1];
-      const last = windowBlocksIn(containerRef.current).find(
-        (b) => b.dataset.dropWindowId === lastId
-      );
-      if (last === undefined || refuses(l, lastId)) return null;
-      const scrollTop = l.scroller?.scrollTop ?? 0;
-      const rowsBottom = rowsIn(l, lastId).reduce(
-        (bottom, r) => Math.max(bottom, r.mid + r.height / 2 - scrollTop),
-        -Infinity
-      );
-      const groupBottom = bottomOfBandEndingBlock(last, rowsBottom);
-      return groupBottom !== undefined && l.lastY <= groupBottom + l.height / 2
-        ? last
+      const below = halfRowBelowLastGroup(l, l.height);
+      return below !== undefined && contentY(l, l.lastY) <= below.reach
+        ? below.block
         : null;
+    };
+
+    // KAN-822 (pick 1B). For a tab, the last window and how far down (content space) its ending group's half row reaches.
+    const halfRowBelowLastGroup = (
+      l: NonNullable<typeof live.current>,
+      heldHeight: number
+    ): { block: HTMLElement; reach: number } | undefined => {
+      if (dragKind !== 'tab' || !l.heldWindow || !dropsAcrossWindows) {
+        return undefined;
+      }
+      const last = lastWindowRows(l);
+      if (last === undefined || refuses(l, last.id)) return undefined;
+      const scrollTop = l.scroller?.scrollTop ?? 0;
+      const bottom = bottomOfBandEndingBlock(
+        last.block,
+        last.rowsBottom - scrollTop
+      );
+      return bottom === undefined
+        ? undefined
+        : {
+            block: last.block,
+            reach:
+              bottom +
+              scrollTop -
+              closedUpByLandingAtEnd(l, last.id) +
+              heldHeight / 2,
+          };
+    };
+
+    // KAN-822 (pick 1B). The last window and where its rows end (content space): as measured, or off the page before measuring.
+    const lastWindowRows = (
+      l: NonNullable<typeof live.current>
+    ): { id: string; block: HTMLElement; rowsBottom: number } | undefined => {
+      const blocks = windowBlocksIn(containerRef.current).filter(
+        (b) => !isTrailingBlock(b)
+      );
+      const measuredId = l.windowOrder[l.windowOrder.length - 1];
+      const block =
+        measuredId === undefined
+          ? blocks[blocks.length - 1]
+          : blocks.find((b) => b.dataset.dropWindowId === measuredId);
+      const id = block?.dataset.dropWindowId;
+      if (block === undefined || id === undefined) return undefined;
+      if (measuredId !== undefined) {
+        return {
+          id,
+          block,
+          rowsBottom: rowsIn(l, id).reduce(
+            (bottom, r) => Math.max(bottom, r.mid + r.height / 2),
+            -Infinity
+          ),
+        };
+      }
+      const scrollTop = l.scroller?.scrollTop ?? 0;
+      return {
+        id,
+        block,
+        rowsBottom: rowIds.reduce((bottom, rowId) => {
+          const el = rows.current.get(rowId);
+          return el !== undefined && windowOf(el) === block
+            ? Math.max(bottom, el.getBoundingClientRect().bottom + scrollTop)
+            : bottom;
+        }, -Infinity),
+      };
+    };
+
+    // KAN-822 (pick 1B). How far a release at the last window's end closes that window up (KAN-916), so the half row follows the drawn group.
+    const closedUpByLandingAtEnd = (
+      l: NonNullable<typeof live.current>,
+      lastId: string
+    ): number => {
+      const atEnd: Landing = {
+        windowId: lastId,
+        index: rowsIn(l, lastId).filter((r) => r.id !== l.rowId).length,
+        clamped: false,
+      };
+      const span = removedSpanOf(l, atEnd, undefined);
+      return span !== undefined &&
+        l.slots[span.first]?.windowId === lastId &&
+        heldOpenRoomOf(l, span, atEnd) === undefined
+        ? span.freed
+        : 0;
     };
 
     // Is the held row's own window the last one -- the one the trailing
@@ -908,7 +978,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     const giveRoomIfTight = (l: NonNullable<typeof live.current>) => {
       const free = newWindowFree();
       const heldHeight = l.heldEl?.getBoundingClientRect().height ?? 0;
-      if (free === null || free >= heldHeight / 2) return;
+      if (
+        free === null ||
+        free - takenFromNewWindow(l, heldHeight) >= heldHeight / 2
+      )
+        return;
       const pane = paneOf(l.heldEl);
       setDragNewWindow(true, true);
       publishNewWindowFree(pane, true);
@@ -921,6 +995,21 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       if (!scrollFrame.current) {
         scrollFrame.current = requestAnimationFrame(autoScroll);
       }
+    };
+
+    // KAN-822 (pick 1B, R3). How much of the New window block the half row below the last window's group takes.
+    const takenFromNewWindow = (
+      l: NonNullable<typeof live.current>,
+      heldHeight: number
+    ): number => {
+      const below = halfRowBelowLastGroup(l, heldHeight);
+      const trailing = windowBlocksIn(containerRef.current).find(
+        isTrailingBlock
+      );
+      if (below === undefined || trailing === undefined) return 0;
+      const trailingTop =
+        trailing.getBoundingClientRect().top + (l.scroller?.scrollTop ?? 0);
+      return Math.max(0, below.reach - trailingTop);
     };
 
     // Whether a landing in `windowId` makes a new window: the session header's
@@ -1243,7 +1332,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       const restingTarget = targetOf(l, block, resting);
       const span = removedSpanOf(l, resting, restingTarget.bandId);
       const roomHeldOpen =
-        span === undefined ? undefined : heldOpenRoomOf(l, span);
+        span === undefined ? undefined : heldOpenRoomOf(l, span, resting);
       if (
         span === undefined ||
         span.freed === 0 ||
@@ -1272,25 +1361,19 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       };
     };
 
-    // KAN-822 (pick 2B). A lone tab's emptied band keeps its room from its own top until the pointer passes the band right below it.
+    // KAN-822 (pick 2B, R1). A lone tab's emptied band keeps its room while the release lands in its window, if a band follows it there.
     const heldOpenRoomOf = (
       l: NonNullable<typeof live.current>,
-      span: { bandId: string; last: number }
+      span: { bandId: string; last: number },
+      landing: Landing | undefined
     ): HeldOpenRoom | undefined => {
       const windowId = l.slots[span.last]?.windowId;
       const below = l.slots[span.last + 1];
-      if (
-        below === undefined ||
-        below.windowId !== windowId ||
-        !l.slotOfFixed.has(below.key)
-      )
-        return undefined;
-      const both = spanOfBands(
-        l.heldWindow ?? containerRef.current,
-        span.bandId,
-        below.key
-      );
-      return both !== undefined && l.lastY >= both.top && l.lastY <= both.bottom
+      return landing !== undefined &&
+        landing.windowId === windowId &&
+        below !== undefined &&
+        below.windowId === windowId &&
+        l.slotOfFixed.has(below.key)
         ? { bandId: span.bandId, belowBandId: below.key }
         : undefined;
     };
@@ -1406,9 +1489,15 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
               previewed.windowId,
               foldedBandBelowId
             );
-      // KAN-822 (pick 2B). Loose in a room held open, the row is in front of the band below, not its own band's head (still drawn).
+      // KAN-822 (pick 2B). Loose under its held row in a room held open: its own room, in front of the band below, folded or open.
+      const heldBottom =
+        (l.rects[l.fromIndex]?.top ?? 0) + (l.rects[l.fromIndex]?.height ?? 0);
       const beside: FixedRowLanding | undefined =
-        roomHeldOpen !== undefined && listed?.fixedRowId === roomHeldOpen.bandId
+        roomHeldOpen !== undefined &&
+        contentY(l, l.lastY) > heldBottom &&
+        listed?.side === 'before' &&
+        (listed.fixedRowId === roomHeldOpen.bandId ||
+          listed.fixedRowId === roomHeldOpen.belowBandId)
           ? { fixedRowId: roomHeldOpen.belowBandId, side: 'before' }
           : listed;
       // What the drop REMOVES (KAN-169): a span of fixed rows the list says

@@ -498,32 +498,6 @@ test.describe('the preview predicts the drop', () => {
     expect(removed.solo).toEqual({ header: 0, strip: 0 });
   });
 
-  // KAN-822 (pick 2B). Solo keeps its room until the pointer is past Beta, so Beta holds still and its head opens for s0.
-  test('joining the group below at its head: that group holds still, and room opens under its title', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await open(context, extensionId, GROUP_BELOW);
-    const head = await page
-      .locator('[data-band-id="beta"] [data-group-drag-handle]')
-      .boundingBox();
-    if (head === null) throw new Error('no Beta title row');
-    const { tops: p, removed } = await previewOfDragging(
-      page,
-      's0',
-      head.y + head.height / 2
-    );
-
-    const before = GROUP_BELOW_TRUTH.before;
-    expect(p['head:solo']).toBe(before['head:solo']);
-    expect(p['head:beta']).toBe(before['head:beta']);
-    expect(p.s0).toBe(before.b0);
-    expect(p.b0).toBe(before.b0 + 32);
-    expect(p.b1).toBe(before.b1 + 32);
-    expect(p.a3).toBe(before.a3 + 32);
-    expect(Object.keys(removed)).toEqual([]);
-  });
-
   test('leading the window: the rows below close up to the list’s top', async ({
     context,
     extensionId,
@@ -557,27 +531,6 @@ test.describe('the preview predicts the drop', () => {
     // The group above is untouched.
     expect(p['head:beta']).toBe(GROUP_ABOVE_TRUTH.leftDown['head:beta']);
     expect(p.b1).toBe(GROUP_ABOVE_TRUTH.leftDown.b1);
-  });
-
-  test('between two groups, landing loose in place: the gap closes to a margin each side', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await open(context, extensionId, SANDWICH);
-    const { tops: p } = await previewOfDragging(
-      page,
-      's0',
-      (await page.locator('[data-band-id="solo"]').boundingBox())!.y - 4
-    );
-
-    expect(p['head:gamma']).toBe(SANDWICH_TRUTH.leftInPlace['head:gamma']);
-    expect(p.g0).toBe(SANDWICH_TRUTH.leftInPlace.g0);
-    expect(p.g1).toBe(SANDWICH_TRUTH.leftInPlace.g1);
-    expect(p.a3).toBe(SANDWICH_TRUTH.leftInPlace.a3);
-    expect(p.b1).toBe(SANDWICH_TRUTH.leftInPlace.b1);
-    // Exact, including the adjacent-group margin the slot is measured under
-    // (KAN-167).
-    expect(p.s0).toBe(SANDWICH_TRUTH.leftInPlace.s0);
   });
 
   test('into another window: the source closes up, the destination is untouched', async ({
@@ -625,5 +578,60 @@ test.describe('the preview predicts the drop', () => {
         .locator('[data-band-id="solo"] [data-group-drag-handle]')
         .evaluate((el) => getComputedStyle(el).opacity)
     ).toBe('1');
+  });
+});
+
+// KAN-822 (pick 2B, R1). Solo keeps its room while the drop stays in its window, so Beta holds still and its head
+// opens for s0. The preview is deliberately not the drop's truth here: the rows move up after the drop (R2, KAN-956).
+test.describe('a room held open for the group below', () => {
+  test('joining the group below at its head: that group holds still, and room opens under its title', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId, GROUP_BELOW);
+    const head = await page
+      .locator('[data-band-id="beta"] [data-group-drag-handle]')
+      .boundingBox();
+    if (head === null) throw new Error('no Beta title row');
+    const { tops: p, removed } = await previewOfDragging(
+      page,
+      's0',
+      head.y + head.height / 2
+    );
+
+    const before = GROUP_BELOW_TRUTH.before;
+    expect(p['head:solo']).toBe(before['head:solo']);
+    expect(p['head:beta']).toBe(before['head:beta']);
+    expect(p.s0).toBe(before.b0);
+    expect(p.b0).toBe(before.b0 + 32);
+    expect(p.b1).toBe(before.b1 + 32);
+    expect(p.a3).toBe(before.a3 + 32);
+    expect(Object.keys(removed)).toEqual([]);
+  });
+
+  // Above Solo, in its window: held too (R1). Its title steps down into s0's room, and the slot is above it.
+  test('between two groups, let go loose in place: nothing below Solo moves', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId, SANDWICH);
+    const solo = await page.locator('[data-band-id="solo"]').boundingBox();
+    if (solo === null) throw new Error('no Solo band');
+    const { tops: p, removed } = await previewOfDragging(
+      page,
+      's0',
+      solo.y - 4
+    );
+
+    const before = SANDWICH_TRUTH.before;
+    expect(p.b1).toBe(before.b1);
+    expect(p['head:solo']).toBe(before['head:solo'] + 32);
+    // Where s0 rests once dropped (KAN-167's adjacent-group margin): the slot is exact.
+    expect(p.s0).toBe(SANDWICH_TRUTH.leftInPlace.s0);
+    expect(p['head:gamma']).toBe(before['head:gamma']);
+    expect(p.g0).toBe(before.g0);
+    expect(p.g1).toBe(before.g1);
+    expect(p.a3).toBe(before.a3);
+    expect(Object.keys(removed)).toEqual([]);
   });
 });

@@ -10,7 +10,6 @@ import {
   bandAt,
   bottomOfBandEndingBlock,
   nearestFoldedBandBelow,
-  spanOfBands,
 } from '../../components/home/rightpane/rowDrag/dropRules';
 import {
   endDragHold,
@@ -612,8 +611,8 @@ describe('nearestFoldedBandBelow', () => {
   });
 });
 
-// KAN-822 edge picks: the band boxes 1B and 2B read, on bandAt's resting boxes.
-describe('the bands a window ends with, and two bands together', () => {
+// KAN-822 (pick 1B). The band a window ends with, on bandAt's resting boxes.
+describe('the band a window ends with', () => {
   const block = (...bands: [string, number, number][]) => {
     const root = document.createElement('div');
     root.dataset.dropWindowId = 'w1';
@@ -651,20 +650,6 @@ describe('the bands a window ends with, and two bands together', () => {
     el.style.paddingBottom = '30px';
     el.getBoundingClientRect = () => box(10, 70, 0, 100);
     expect(bottomOfBandEndingBlock(root, -Infinity)).toBe(50);
-  });
-
-  test('two bands: from the upper one’s top to the lower one’s bottom', () => {
-    expect(spanOfBands(block(['g', 10, 40], ['h', 60, 30]), 'g', 'h')).toEqual({
-      top: 10,
-      bottom: 90,
-    });
-  });
-
-  test('the lower band above the upper one, or either missing: none', () => {
-    const root = block(['g', 10, 40], ['h', 60, 30]);
-    expect(spanOfBands(root, 'h', 'g')).toBeUndefined();
-    expect(spanOfBands(root, 'g', 'x')).toBeUndefined();
-    expect(spanOfBands(root, 'x', 'h')).toBeUndefined();
   });
 });
 

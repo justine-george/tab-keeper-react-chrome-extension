@@ -699,6 +699,68 @@ test.describe('a folded saved group among other windows and groups', () => {
       .toEqual(['c', 'o1:p', 'p1:p', 'p2:p', 'tail']);
   });
 
+  // KAN-822 (R1). The room stays open down the whole window, so the spot loose after Research is there to drop on.
+  test('the only member of an open group swept down its whole window: nothing jumps, and let go after the folded group below it lands there', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSessions(context, {
+      ...buildContainer([
+        sessionOfWindows([
+          tab('c'),
+          tab('o1', 'o'),
+          tab('a', 'g1'),
+          tab('b', 'g1'),
+          tab('tail'),
+          tab('p1', 'p'),
+          tab('p2', 'p'),
+          tab('last'),
+        ]),
+      ]),
+      selectedTabGroupId: 'S1',
+    });
+    const page = await context.newPage();
+    await openTrip(page, extensionId);
+    const plans = page.locator(
+      '[data-pane="detail"] [data-band-id="p"] [data-group-drag-handle]'
+    );
+    const height = (await boxOf(savedRow(page, 'o1'))).height;
+    const sweep = await sweepDrawnTops(
+      page,
+      savedRow(page, 'o1'),
+      {
+        research: bandHandle(page, 'g1'),
+        tail: savedRow(page, 'tail'),
+        plans,
+        p2: savedRow(page, 'p2'),
+        last: savedRow(page, 'last'),
+      },
+      (await boxOf(savedRow(page, 'last'))).y + height - 4
+    );
+    expectNothingJumps(sweep, height);
+    // Back to just under Research: the slot is under its title, and it holds still.
+    await page.mouse.move(sweep.x, sweep.rest.research + height + 4, {
+      steps: 6,
+    });
+    const drawn = await settledPreview(band(page));
+    expect(drawn.joins).toBe(false);
+    expect(Math.abs(drawn.title.top - sweep.rest.research)).toBeLessThanOrEqual(
+      1
+    );
+    const promised = (drawn.slot?.top ?? NaN) - drawn.title.bottom;
+    expect(promised).toBeGreaterThanOrEqual(-1);
+    await page.mouse.up();
+    await expect
+      .poll(() => windowOrder(page, 'w1'))
+      .toEqual(['c', 'a:g1', 'b:g1', 'o1', 'tail', 'p1:p', 'p2:p', 'last']);
+    // Rests where promised against Research's title; the rows' move up after the drop is the motion batch's (R2).
+    await elementLanded(savedRow(page, 'o1'), 'ancestors');
+    const title = await boxOf(bandHandle(page, 'g1'));
+    const rested =
+      (await boxOf(savedRow(page, 'o1'))).y - (title.y + title.height);
+    expect(Math.abs(rested - promised)).toBeLessThanOrEqual(1);
+  });
+
   test('a folded group that ends its window takes a loose drop below it, in the gap before the next window', async ({
     context,
     extensionId,
@@ -1113,13 +1175,18 @@ async function dropAt(page: Page, held: Locator, selector: string, y: number) {
 
 // KAN-822 edge picks. What a release would do at each pointer y, read 1px at a time: join the band, land beside it, or a new window.
 type EdgeState = 'join' | 'slot' | 'new window' | 'none';
+interface EdgeStep {
+  y: number;
+  state: EdgeState;
+  slotTop: number | null;
+}
 async function walkBelow(
   page: Page,
   held: Locator,
   bandEl: Locator,
   from: number,
   to: number
-): Promise<{ x: number; states: { y: number; state: EdgeState }[] }> {
+): Promise<{ x: number; states: EdgeStep[] }> {
   await elementLanded(held, 'ancestors');
   const start = await boxOf(held);
   const x = start.x + 40;
@@ -1128,33 +1195,36 @@ async function walkBelow(
   await page.mouse.move(x, start.y + start.height / 2 + 8, { steps: 2 });
   await expect(page.locator('[data-drag-held]')).toHaveCount(1);
   await page.mouse.move(x, from, { steps: 10 });
-  const states: { y: number; state: EdgeState }[] = [];
+  const states: EdgeStep[] = [];
   for (let y = from; y <= to; y += 1) {
     await page.mouse.move(x, y);
-    const state = await bandEl.evaluate(
+    const read = await bandEl.evaluate(
       (band) =>
-        new Promise<EdgeState>((resolve) =>
-          requestAnimationFrame(() =>
-            resolve(
-              document.querySelector(
-                '[data-new-window-target="last"][data-landing], [data-new-window-target="open-now-last"][data-landing]'
-              ) !== null
-                ? 'new window'
-                : band.hasAttribute('data-drop-target')
-                  ? 'join'
-                  : document.querySelector('[data-drag-landing-slot]') !== null
-                    ? 'slot'
-                    : 'none'
-            )
-          )
+        new Promise<{ state: EdgeState; slotTop: number | null }>((resolve) =>
+          requestAnimationFrame(() => {
+            const slot = document.querySelector('[data-drag-landing-slot]');
+            resolve({
+              state:
+                document.querySelector(
+                  '[data-new-window-target="last"][data-landing], [data-new-window-target="open-now-last"][data-landing]'
+                ) !== null
+                  ? 'new window'
+                  : band.hasAttribute('data-drop-target')
+                    ? 'join'
+                    : slot !== null
+                      ? 'slot'
+                      : 'none',
+              slotTop: slot === null ? null : slot.getBoundingClientRect().top,
+            });
+          })
         )
     );
-    states.push({ y, state });
+    states.push({ y, ...read });
   }
   return { x, states };
 }
 
-// From inside the band down past it: join, then at least half a row of landing beside it, then New window. Returns a point in that half row.
+// From inside the band down past it: join, half a row landing under it, then half a row of New window (R3). Returns a point in the first.
 async function expectRoomBelow(page: Page, held: Locator, bandEl: Locator) {
   const half = (await boxOf(held)).height / 2;
   const rest = await boxOf(bandEl);
@@ -1164,15 +1234,26 @@ async function expectRoomBelow(page: Page, held: Locator, bandEl: Locator) {
     held,
     bandEl,
     Math.round(bottom - 4),
-    Math.round(bottom + half + 8)
+    Math.round(bottom + 2 * half + 4)
   );
-  const where = JSON.stringify(states.map((s) => `${s.y}:${s.state}`));
+  const where = JSON.stringify(
+    states.map((s) => `${s.y}:${s.state}:${s.slotTop ?? '-'}`)
+  );
   expect(
     states.map((s) => s.state).filter((z, i, all) => z !== all[i - 1]),
     where
   ).toEqual(['join', 'slot', 'new window']);
   const room = states.filter((s) => s.state === 'slot');
   expect(room.length, where).toBeGreaterThanOrEqual(Math.floor(half) - 1);
+  // Minor 4. At every px of it the slot is drawn under the band's top, not anywhere else.
+  for (const s of room) {
+    expect(s.slotTop ?? -Infinity, where).toBeGreaterThanOrEqual(rest.y - 1);
+    expect(s.slotTop ?? Infinity, where).toBeLessThanOrEqual(bottom + 2);
+  }
+  expect(
+    states.filter((s) => s.state === 'new window').length,
+    where
+  ).toBeGreaterThanOrEqual(Math.floor(half) - 1);
   return { x, y: room[Math.floor(room.length / 2)].y };
 }
 
@@ -1186,25 +1267,84 @@ async function expectSlotBelow(bandEl: Locator) {
   );
 }
 
-// KAN-822 (pick 2B). Down from a lone tab's group: the band below stays put until the pointer is past it, takes the join on its rows, then moves up.
+// KAN-822 (pick 2B, R1). Down from a lone tab's group, in its window: the band below never moves, and takes the join on its rows.
 function expectHoldsStillThenJoins(steps: readonly SweepStep[]) {
   let joined = 0;
   for (const step of steps) {
     const where = JSON.stringify(step);
-    if (step.y <= step.rest.bottom)
-      expect(
-        Math.abs(step.title.top - step.rest.top),
-        where
-      ).toBeLessThanOrEqual(1);
+    expect(Math.abs(step.title.top - step.rest.top), where).toBeLessThanOrEqual(
+      1
+    );
     if (step.y >= step.rest.top && step.y <= step.rest.bottom) {
       expect(step.joins, where).toBe(true);
       joined += 1;
     }
-    // Past it, the emptied group closes up as KAN-916 draws it: the band is drawn higher.
-    if (step.y > step.rest.bottom)
-      expect(step.title.top, where).toBeLessThan(step.rest.top - 8);
   }
   expect(joined).toBeGreaterThan(0);
+}
+
+// KAN-822 (R1). Holds `held` and steps down to `toY`, reading where each of `watched` is drawn once nothing moves.
+async function sweepDrawnTops(
+  page: Page,
+  held: Locator,
+  watched: Record<string, Locator>,
+  toY: number
+): Promise<{
+  x: number;
+  rest: Record<string, number>;
+  steps: { y: number; tops: Record<string, number> }[];
+}> {
+  const topsOf = async () => {
+    const out: Record<string, number> = {};
+    for (const [key, loc] of Object.entries(watched))
+      out[key] = (await boxOf(loc)).y;
+    return out;
+  };
+  await elementLanded(held, 'ancestors');
+  const rest = await topsOf();
+  const from = await boxOf(held);
+  const x = from.x + 40;
+  const y0 = from.y + from.height / 2;
+  await page.mouse.move(x, y0);
+  await page.mouse.down();
+  await page.mouse.move(x, y0 + 8, { steps: 2 });
+  await expect(page.locator('[data-drag-held]')).toHaveCount(1);
+  const steps: { y: number; tops: Record<string, number> }[] = [];
+  for (let y = y0 + 8; y <= toY; y += 4) {
+    await page.mouse.move(x, y);
+    await page.evaluate(async () => {
+      const frame = () =>
+        new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      await frame();
+      for (;;) {
+        const running = document
+          .getAnimations()
+          .filter(
+            (a) => a instanceof CSSTransition && a.playState === 'running'
+          );
+        if (running.length === 0) return;
+        await Promise.all(
+          running.map((a) => a.finished.catch(() => undefined))
+        );
+        await frame();
+      }
+    });
+    steps.push({ y, tops: await topsOf() });
+  }
+  return { x, rest, steps };
+}
+
+// No watched row is ever drawn more than the held row's own footprint from where it rests: nothing jumps (R1).
+function expectNothingJumps(
+  sweep: Awaited<ReturnType<typeof sweepDrawnTops>>,
+  footprint: number
+) {
+  for (const step of sweep.steps)
+    for (const [key, top] of Object.entries(step.tops))
+      expect(
+        Math.abs(top - (sweep.rest[key] ?? NaN)),
+        `${key} at y ${step.y}: ${JSON.stringify(step.tops)} rest ${JSON.stringify(sweep.rest)}`
+      ).toBeLessThanOrEqual(footprint + 1);
 }
 
 const plainTabs = ['a', 'b', 'c', 'd', 'e'].map((id) => tab(id));
@@ -2212,6 +2352,46 @@ test.describe('a group in Currently open', () => {
       .poll(() => placeOf(serviceWorker, w.tabs[1]))
       .toEqual({ index: 3, groupId: w.groupId });
     expect(await chromeCollapsed(serviceWorker, w.groupId)).toBe(true);
+  });
+
+  // KAN-822 (R1). Tea swept down its whole window: nothing jumps, and let go after collapsed Nara it lands there, before Tail.
+  test('the only tab of a group swept down its whole window: nothing jumps, and let go after the collapsed group below it lands there', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+    const w = await openSoloAbove(serviceWorker, true);
+    const naraBand = await foldedNaraBand(page, w);
+    const naraTitle = naraBand.locator('[data-group-drag-handle]');
+    const tea = liveRow(page, w, w.tabs[1]);
+    const tail = liveRow(page, w, w.tabs[4]);
+    const height = (await boxOf(tea)).height;
+    const sweep = await sweepDrawnTops(
+      page,
+      tea,
+      { nara: naraTitle, tail },
+      (await boxOf(tail)).y + height - 4
+    );
+    expectNothingJumps(sweep, height);
+    await page.mouse.move(sweep.x, sweep.rest.nara + height + 4, { steps: 6 });
+    const drawn = await settledPreview(naraBand);
+    expect(drawn.joins).toBe(false);
+    expect(Math.abs(drawn.title.top - sweep.rest.nara)).toBeLessThanOrEqual(1);
+    const promised = (drawn.slot?.top ?? NaN) - drawn.title.bottom;
+    await page.mouse.up();
+    await expect
+      .poll(() => placeOf(serviceWorker, w.tabs[1]))
+      .toEqual({ index: 3, groupId: -1 });
+    expect(await placeOf(serviceWorker, w.tabs[4])).toEqual({
+      index: 4,
+      groupId: -1,
+    });
+    expect(await chromeCollapsed(serviceWorker, w.groupId)).toBe(true);
+    await elementLanded(tea, 'ancestors');
+    const title = await boxOf(naraTitle);
+    const rested = (await boxOf(tea)).y - (title.y + title.height);
+    expect(Math.abs(rested - promised)).toBeLessThanOrEqual(1);
   });
 
   test('the only tab of a group, dragged down onto the open group right below: that group holds still, and it joins at its head', async ({
