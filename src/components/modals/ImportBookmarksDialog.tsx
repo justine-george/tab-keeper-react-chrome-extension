@@ -22,9 +22,14 @@ import {
   importedBookmarkKeys,
   selectImportedBookmarks,
 } from '../../redux/bookmarkImport';
-import { endBookmarkImport } from '../../redux/startBookmarkImport';
+import {
+  endBookmarkImport,
+  NOTHING_TO_IMPORT_TEXT,
+  readBookmarkRoot,
+} from '../../redux/startBookmarkImport';
 import {
   folderTree,
+  nothingToImport,
   sessionsFor,
   topFolders,
   type BookmarkFolder,
@@ -64,13 +69,6 @@ const SIZE_CHECK_DEBOUNCE_MS = 300;
 
 type BookmarkNode = chrome.bookmarks.BookmarkTreeNode;
 type Refusal = { used: string; limit: string };
-
-async function readBookmarkRoot(): Promise<BookmarkNode> {
-  const [root] = await chrome.bookmarks.getTree();
-  if (root === undefined)
-    throw new Error('chrome.bookmarks.getTree returned no root');
-  return root;
-}
 
 // Chrome's own Bookmarks Bar starts unfolded; folderType is Chrome 134+, and before it the bar comes first.
 function firstBarId(root: BookmarkNode): string | undefined {
@@ -154,6 +152,16 @@ function toggledTicks(
   } else if (folder !== undefined) addTick(next, folder);
   else next.add(id);
   return next;
+}
+
+// KAN-862 H. Whether the ticks already take everything left in `folder`: a ticked user folder takes all of it; otherwise
+// its own links need its own tick (a top folder's are its loose links), and each folder in it must be taken.
+function isTaken(folder: BookmarkFolder, ticked: ReadonlySet<string>): boolean {
+  const isTicked = ticked.has(folder.id);
+  if (isTicked && !folder.isTop) return true;
+  const inFolders = folder.children.reduce((sum, c) => sum + c.count, 0);
+  const ownTaken = folder.count === inFolders || isTicked;
+  return ownTaken && folder.children.every((c) => isTaken(c, ticked));
 }
 
 // KAN-862 R20. Select all: every top folder ticked, and so every folder directly in one.
@@ -416,15 +424,17 @@ export const ImportBookmarksDialog: React.FC = () => {
     [folders, unfolded, ticked]
   );
   // KAN-862 R19. Nothing left to list: everything was imported, or there was never a link to import.
-  const emptyTreeText = useMemo(() => {
-    if (root === null || folders.length > 0) return null;
-    return folderTree(root, ownOrigin, new Set()).length > 0
-      ? t('Everything in your bookmarks is already imported.')
-      : t('There are no bookmarks to import.');
-  }, [root, folders, ownOrigin, t]);
+  // The press opens no dialog with nothing left (R23); this covers a list that empties while open, as when another page imports.
+  const nothingLeft = useMemo(
+    () =>
+      root === null || folders.length > 0
+        ? null
+        : nothingToImport(root, ownOrigin, imported),
+    [root, folders, ownOrigin, imported]
+  );
   const allTicks = useMemo(() => everyTick(folders), [folders]);
-  const isAllTicked = [...allTicks].every((id) => ticked.has(id));
-  const toggleAll = () => setTicked(isAllTicked ? new Set() : allTicks);
+  const isEverythingTaken = folders.every((top) => isTaken(top, ticked));
+  const toggleAll = () => setTicked(isEverythingTaken ? new Set() : allTicks);
 
   const toggleTick = useCallback(
     (id: string) =>
@@ -693,10 +703,12 @@ export const ImportBookmarksDialog: React.FC = () => {
               css={[buttons.link, selectAllStyle]}
               onClick={toggleAll}
             >
-              {isAllTicked ? t('Deselect all') : t('Select all')}
+              {isEverythingTaken ? t('Deselect all') : t('Select all')}
             </button>
           )}
-          {emptyTreeText !== null && <p css={emptyStyle}>{emptyTreeText}</p>}
+          {nothingLeft !== null && (
+            <p css={emptyStyle}>{t(NOTHING_TO_IMPORT_TEXT[nothingLeft])}</p>
+          )}
           {rows.map((row) => (
             <FolderRow
               key={row.folder.id}

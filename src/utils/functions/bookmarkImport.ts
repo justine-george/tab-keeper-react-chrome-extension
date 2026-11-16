@@ -107,6 +107,21 @@ export function folderTree(
   });
 }
 
+// KAN-862 R23. Why a library offers nothing to import: all of it was imported, or it never held a link to import.
+export type NothingToImport = 'allImported' | 'noBookmarks';
+
+// null when the tree lists something to import.
+export function nothingToImport(
+  root: BookmarkNode,
+  ownOrigin: string,
+  imported: ReadonlySet<string>
+): NothingToImport | null {
+  if (folderTree(root, ownOrigin, imported).length > 0) return null;
+  return folderTree(root, ownOrigin, new Set()).length > 0
+    ? 'allImported'
+    : 'noBookmarks';
+}
+
 function toTab(node: BookmarkNode, url: string): tabData {
   return { tabId: uuidv4(), favicon: '', title: node.title || url, url };
 }

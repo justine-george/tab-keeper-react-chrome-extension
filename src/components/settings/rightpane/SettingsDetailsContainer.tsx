@@ -43,7 +43,7 @@ import {
 } from '../../../utils/constants/common';
 import { SettingsCategoryContainer } from '../leftpane/SettingsCategoryContainer';
 import { loadBackupFile, saveBackupFile } from '../../../redux/backupFile';
-import { startBookmarkImport } from '../../../redux/startBookmarkImport';
+import { importBookmarksFromSettings } from '../../../redux/startBookmarkImport';
 import { requestTabView } from '../../../utils/functions/popOut';
 import { isTabView } from '../../../utils/functions/viewMode';
 import {
@@ -544,7 +544,7 @@ const SettingsDetailsContainer: React.FC = () => {
             <Button
               text={t('Import from bookmarks')}
               iconType="bookmarks"
-              onClick={() => void dispatch(startBookmarkImport())}
+              onClick={() => void dispatch(importBookmarksFromSettings())}
               ariaDescribedBy={importHelpId}
             />
           </div>

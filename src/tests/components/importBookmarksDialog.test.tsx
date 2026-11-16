@@ -454,7 +454,8 @@ describe('the import dialog: importing', () => {
     await waitFor(() =>
       expect(store.getState().globalState.isImportBookmarksOpen).toBe(false)
     );
-    expect(getTree).toHaveBeenCalledTimes(2);
+    // The press's read (R23), the dialog's own, and Import's fresh one.
+    expect(getTree).toHaveBeenCalledTimes(3);
     const [made] = store.getState().tabContainerDataState.tabGroups;
     expect(made.title).toBe('Kitchen remodel');
     expect(made.tabCount).toBe(15);
@@ -549,13 +550,24 @@ describe('the import dialog: bookmarks imported before', () => {
   });
 
   test('a folder stays listed while anything in it is new, and goes once all of it is imported', async () => {
-    await importedBefore(['tiles', 'appl']);
+    const { store } = await importedBefore(['tiles', 'appl']);
     await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
     expect(tagOf('kitchen')).toBe('3 Bookmarks');
     // Nothing listed inside it any more, so nothing to unfold.
     expect(
       screen.queryByRole('button', { name: 'Expand: Kitchen remodel' })
     ).toBeNull();
+
+    // Its own links recorded too (another page's import): nothing in it is new.
+    act(() => {
+      store.dispatch(
+        noteImportedBookmarks([
+          { sessionId: 'later', bookmarks: marks(['k0', 'k1', 'k2']) },
+        ])
+      );
+    });
+    expect(listedRow('kitchen')).toBeNull();
+    expect(tagOf('bar')).toBe(`${3 + 23 + 9} Bookmarks`);
   });
 
   test('a folder whose links all sit in imported folders is not listed', async () => {
@@ -604,18 +616,33 @@ describe('the import dialog: bookmarks imported before', () => {
     expect(listedRow('bar')).toBeNull();
   });
 
-  test('with everything imported, the tree says so, Select all is gone and Import stays dimmed', async () => {
-    await importedBefore([
-      'b0',
-      'b1',
-      'b2',
-      'kitchen',
-      'recipes',
-      'work',
-      'reading',
-    ]);
+  // KAN-862 R23. A press with nothing left opens no dialog (startBookmarkImport.test); these lines cover a list that empties while open.
+  test('emptied while open by another page’s import: the tree says so, Select all is gone and Import stays dimmed', async () => {
+    const { store } = await openDialog();
+    await screen.findByRole('checkbox', { name: 'Work' });
+    tick('Work');
+
+    act(() => {
+      store.dispatch(
+        noteImportedBookmarks([
+          {
+            sessionId: 'elsewhere',
+            bookmarks: marks([
+              'b0',
+              'b1',
+              'b2',
+              'kitchen',
+              'recipes',
+              'work',
+              'reading',
+            ]),
+          },
+        ])
+      );
+    });
+
     expect(
-      await within(dialog()).findByText(
+      within(dialog()).getByText(
         'Everything in your bookmarks is already imported.'
       )
     ).toBeInTheDocument();
@@ -628,7 +655,10 @@ describe('the import dialog: bookmarks imported before', () => {
     expect(importButton()).toHaveAttribute('aria-disabled', 'true');
   });
 
-  test('a library with no links to import says so instead', async () => {
+  test('a fresh read at Import that finds no links at all says there are none', async () => {
+    await openDialog();
+    await screen.findByRole('checkbox', { name: 'Work' });
+    tick('Work');
     getTree.mockResolvedValue([
       folder('0', '', [
         folder('bar', 'Bookmarks Bar', [folder('e', 'Empty', [])], {
@@ -636,7 +666,11 @@ describe('the import dialog: bookmarks imported before', () => {
         }),
       ]),
     ]);
-    await openDialog();
+
+    await act(async () => {
+      fireEvent.click(importButton());
+    });
+
     expect(
       await within(dialog()).findByText('There are no bookmarks to import.')
     ).toBeInTheDocument();
@@ -789,6 +823,72 @@ describe('the import dialog: Select all', () => {
 
     expect(row('tiles')).toHaveTextContent('Becomes a window');
     expect(previewTitles()).not.toContain('Tiles');
+  });
+
+  // KAN-862 H. The label follows what is left, not the ticks alone.
+  test('a top folder with no loose links reads Deselect all once every folder in it is ticked by hand', async () => {
+    await openDialog();
+    await screen.findByRole('checkbox', { name: 'Work' });
+    tick('Bookmarks Bar');
+    expect(selectAllButton()).toHaveTextContent('Select all');
+    unfold('Other Bookmarks');
+
+    tick('Reading list');
+
+    expect(box('Other Bookmarks')).toHaveAttribute('aria-checked', 'false');
+    expect(selectAllButton()).toHaveTextContent('Deselect all');
+    fireEvent.click(selectAllButton());
+    expect(previewTitles()).toEqual([]);
+  });
+
+  test('a folder’s subfolders ticked by hand cover it only when it has no links of its own', async () => {
+    await openDialog();
+    await screen.findByRole('checkbox', { name: 'Work' });
+    tick('Bookmarks Bar');
+    tick('Kitchen remodel');
+    unfold('Kitchen remodel');
+    tick('Tiles');
+    tick('Appliances');
+    tick('Other Bookmarks');
+    expect(selectAllButton()).toHaveTextContent('Select all');
+  });
+
+  test('… and with no links of its own, they do', async () => {
+    getTree.mockResolvedValue(library({ kitchenOwn: 0 }));
+    await openDialog();
+    await screen.findByRole('checkbox', { name: 'Work' });
+    tick('Bookmarks Bar');
+    tick('Kitchen remodel');
+    unfold('Kitchen remodel');
+    tick('Tiles');
+    tick('Appliances');
+    tick('Other Bookmarks');
+    expect(selectAllButton()).toHaveTextContent('Deselect all');
+  });
+
+  // KAN-862 I. A refusal goes with the selection Deselect all clears.
+  test('Select all under a refused size: the refusal shows; Deselect all clears it, and Select all measures afresh', async () => {
+    vi.mocked(importSizeRefusal).mockResolvedValue({ used: '1.2', limit: '1' });
+    await openDialog();
+    await screen.findByRole('checkbox', { name: 'Work' });
+
+    fireEvent.click(selectAllButton());
+    expect(
+      await within(dialog()).findByText(/Too large to sync/)
+    ).toBeInTheDocument();
+    expect(importButton()).toHaveAttribute('aria-disabled', 'true');
+
+    fireEvent.click(selectAllButton());
+    expect(within(dialog()).queryByText(/Too large to sync/)).toBeNull();
+
+    vi.mocked(importSizeRefusal).mockResolvedValue(null);
+    const calls = vi.mocked(importSizeRefusal).mock.calls.length;
+    fireEvent.click(selectAllButton());
+    await waitFor(() =>
+      expect(vi.mocked(importSizeRefusal).mock.calls.length).toBe(calls + 1)
+    );
+    expect(within(dialog()).queryByText(/Too large to sync/)).toBeNull();
+    expect(importButton()).not.toHaveAttribute('aria-disabled');
   });
 
   test('Select all leaves out what was imported', async () => {

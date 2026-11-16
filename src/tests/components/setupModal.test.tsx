@@ -27,6 +27,7 @@ import { openSetup } from '../../redux/slices/globalStateSlice';
 import {
   initialState as settingsInitial,
   Language,
+  noteImportedBookmarks,
   noteImportedSessions,
   settingsDataStateSlice,
   Theme,
@@ -556,6 +557,66 @@ describe('the import step, Already keep tabs somewhere?', () => {
     expect(store.getState().globalState.isSetupOpen).toBe(true);
     expect(stepHeading()).toHaveTextContent(IMPORT);
   });
+
+  // KAN-862 R23 F-setup. Toasts sit under setup's backdrop, so the card's own line says it, in its pressed ✓ look.
+  test.each([
+    [
+      'everything imported',
+      ['2'],
+      'Everything in your bookmarks is already imported.',
+    ],
+    ['nothing importable', [], 'There are no bookmarks to import.'],
+  ])(
+    'pressing the card with %s opens no dialog; the card says so, pressed',
+    async (_, importedIds, text) => {
+      history.replaceState(null, '', '?view=tab');
+      const { store } = await render();
+      if (importedIds.length === 0)
+        Object.assign(chrome.bookmarks, {
+          getTree: async () => [
+            {
+              id: '0',
+              title: '',
+              syncing: false,
+              children: [
+                {
+                  id: '1',
+                  title: 'Bookmarks Bar',
+                  syncing: false,
+                  children: [],
+                },
+              ],
+            },
+          ],
+        });
+      act(() => {
+        store.dispatch(
+          noteImportedBookmarks([
+            {
+              sessionId: 's',
+              bookmarks: importedIds.map((id) => ({ id, dateAdded: null })),
+            },
+          ])
+        );
+      });
+      await toStep(IMPORT);
+
+      fireEvent.click(card());
+      await act(async () => {});
+
+      expect(store.getState().globalState.isImportBookmarksOpen).toBe(false);
+      expect(
+        await chrome.permissions.contains({ permissions: ['bookmarks'] })
+      ).toBe(false);
+      expect(card()).toHaveAttribute('aria-pressed', 'true');
+      expect(card()).toHaveAccessibleDescription(text);
+      expect(
+        card().querySelector('[data-card-label] .material-symbols-outlined')
+          ?.textContent
+      ).toBe('check');
+      expect(store.getState().globalState.toasts).toEqual([]);
+    }
+  );
 
   test('after an import the card is pressed, with a ✓, and says how many came in', async () => {
     const { store } = await render();

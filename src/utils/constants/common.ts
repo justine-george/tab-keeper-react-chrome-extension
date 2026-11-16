@@ -213,6 +213,9 @@ export const TOAST_MESSAGES = {
   SESSION_ALREADY_HAS_THESE_TABS: 'SessionAlreadyHasTheseTabs',
   // KAN-862. chrome.bookmarks.getTree failed as the import dialog opened or imported; the dialog has closed.
   BOOKMARKS_UNREADABLE: 'BookmarksUnreadable',
+  // KAN-862 R23. A press on Import from bookmarks found nothing left to import, so no dialog opened.
+  BOOKMARKS_ALL_IMPORTED: 'Everything in your bookmarks is already imported.',
+  NO_BOOKMARKS_TO_IMPORT: 'There are no bookmarks to import.',
 };
 
 // The frame an import failure is reported in, with the reason as {{detail}}

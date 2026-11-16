@@ -150,7 +150,33 @@ export type ChromeSeed = {
   i18nMessages?: Record<string, string>;
   // KAN-420. What chrome.i18n.getUILanguage() answers; seeding it adds i18n.
   uiLanguage?: string;
+  // KAN-862. What chrome.bookmarks.getTree() answers. Absent is a bar holding one link, so an import has something to show.
+  bookmarkTree?: chrome.bookmarks.BookmarkTreeNode[];
 };
+
+const ONE_LINK_LIBRARY: chrome.bookmarks.BookmarkTreeNode[] = [
+  {
+    id: '0',
+    title: '',
+    syncing: false,
+    children: [
+      {
+        id: '1',
+        title: 'Bookmarks Bar',
+        syncing: false,
+        folderType: 'bookmarks-bar',
+        children: [
+          {
+            id: '2',
+            title: 'Example',
+            url: 'https://example.com/',
+            syncing: false,
+          },
+        ],
+      },
+    ],
+  },
+];
 
 export type ChromeFakeHandle = {
   sentMessages: unknown[];
@@ -2802,6 +2828,9 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       onRemoved: windowsOnRemoved,
     },
 
+    bookmarks: {
+      getTree: async () => seed.bookmarkTree ?? ONE_LINK_LIBRARY,
+    },
     extension: {
       isAllowedIncognitoAccess: (cb?: (allowed: boolean) => void) =>
         settle(seed.incognitoAllowed === true, cb),
