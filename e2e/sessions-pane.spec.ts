@@ -87,7 +87,7 @@ test.describe('the Sessions pane (KAN-249, KAN-250, KAN-253)', () => {
     // Backup lives under Sync & Backup now (KAN-253).
     await expect(page.getByText('Backup', { exact: true })).toHaveCount(0);
     await expect(
-      page.getByRole('button', { name: 'Save sessions to a file' })
+      page.getByRole('button', { name: 'Save a backup' })
     ).toHaveCount(0);
   });
 });

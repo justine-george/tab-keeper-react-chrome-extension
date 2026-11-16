@@ -22,7 +22,7 @@ const renderOn = (category: SettingsCategory) =>
 const AUTO_SYNC_HELP =
   'Syncs your sessions across your Chrome devices. Settings stay separate on each device.';
 const BACKUP_HELP =
-  'Saves your sessions to a file. Settings aren’t included. Loading a backup asks whether to merge it with your sessions or replace them.';
+  'A backup is a file with your saved sessions. When you load a backup, you choose to merge it with your sessions or replace them.';
 const IMPORT_HELP =
   'Turns bookmark folders into saved sessions. Your bookmarks stay as they are.';
 const CLOUD_DATA_HELP =
@@ -38,10 +38,7 @@ describe('settings help lines (KAN-860)', () => {
     expect(autoSync).toHaveAccessibleDescription(AUTO_SYNC_HELP);
     expect(screen.getByText(AUTO_SYNC_HELP).tagName).toBe('P');
 
-    for (const name of [
-      'Save sessions to a file',
-      'Load sessions from a backup',
-    ]) {
+    for (const name of ['Save a backup', 'Load a backup']) {
       expect(screen.getByRole('button', { name })).toHaveAccessibleDescription(
         BACKUP_HELP
       );
@@ -76,7 +73,7 @@ describe('settings help lines (KAN-860)', () => {
     ).toBeTruthy();
     expect(
       within(sectionOf(BACKUP_HELP)).getByRole('button', {
-        name: 'Load sessions from a backup',
+        name: 'Load a backup',
       })
     ).toBeTruthy();
     expect(

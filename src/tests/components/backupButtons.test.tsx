@@ -34,17 +34,17 @@ describe('the backup buttons say what they do (KAN-251)', () => {
   // KAN-261 renamed the second button from "Replace sessions from a backup":
   // once it can merge, "Replace" was the lie. "Load" names the file step; the
   // dialog that follows names the two things it can do with it.
-  test('save is a download, load is an upload, and both name sessions', async () => {
+  test('save is output, load is input, and both say backup', async () => {
     await renderSyncAndBackup();
 
     const save = screen.getByRole('button', {
-      name: 'Save sessions to a file',
+      name: 'Save a backup',
     });
     const load = screen.getByRole('button', {
-      name: 'Load sessions from a backup',
+      name: 'Load a backup',
     });
-    expect(glyphOf(save)).toBe('download');
-    expect(glyphOf(load)).toBe('upload');
+    expect(glyphOf(save)).toBe('output');
+    expect(glyphOf(load)).toBe('input');
 
     // "Restore" is the session-opening verb: nothing on this pane uses it for
     // a file operation.
@@ -75,8 +75,8 @@ describe('where the backup file step happens (KAN-579)', () => {
   });
 
   test.each([
-    ['Save sessions to a file', 'saveBackup'],
-    ['Load sessions from a backup', 'loadBackup'],
+    ['Save a backup', 'saveBackup'],
+    ['Load a backup', 'loadBackup'],
   ] as const)(
     'popup, %s: asks the full view, and opens no file step here',
     async (name, show) => {
@@ -100,9 +100,7 @@ describe('where the backup file step happens (KAN-579)', () => {
     const { chrome } = await renderSyncAndBackup();
     const { download } = spyFileSteps();
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Save sessions to a file' })
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Save a backup' }));
 
     expect(download).toHaveBeenCalledTimes(1);
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -114,9 +112,7 @@ describe('where the backup file step happens (KAN-579)', () => {
     const { chrome } = await renderSyncAndBackup();
     const { picker } = spyFileSteps();
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Load sessions from a backup' })
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Load a backup' }));
 
     expect(picker).toHaveBeenCalledTimes(1);
     await new Promise((resolve) => setTimeout(resolve, 50));

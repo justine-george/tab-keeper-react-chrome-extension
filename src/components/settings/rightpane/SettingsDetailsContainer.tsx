@@ -445,8 +445,7 @@ const SettingsDetailsContainer: React.FC = () => {
         {/* Backup. KAN-251: the buttons name what they do to SESSIONS --
             "Restore" is this app's verb for opening a saved session, and
             "App Data" promised settings the file does not carry -- and the
-            icons point the way the browser's do: save is a download, replace
-            an upload. "Replace" because that is what loading a backup does to
+            icons are output (save) and input (load), KAN-962. "Replace" because that is what loading a backup does to
             what is there (KAN-252 holds the question of whether it should). */}
         <div
           data-settings-section
@@ -487,15 +486,15 @@ const SettingsDetailsContainer: React.FC = () => {
             `}
           >
             <Button
-              text={t('Save sessions to a file')}
-              iconType="download"
+              text={t('Save a backup')}
+              iconType="output"
               onClick={handleExportJSON}
               style="width: 100%; justify-content: center;"
               ariaDescribedBy={backupHelpId}
             />
             <Button
-              text={t('Load sessions from a backup')}
-              iconType="upload"
+              text={t('Load a backup')}
+              iconType="input"
               onClick={handleImportJSON}
               style="width: 100%; justify-content: center;"
               ariaDescribedBy={backupHelpId}
@@ -503,7 +502,7 @@ const SettingsDetailsContainer: React.FC = () => {
           </div>
           <p id={backupHelpId} css={helpLineStyle}>
             {t(
-              'Saves your sessions to a file. Settings aren’t included. Loading a backup asks whether to merge it with your sessions or replace them.'
+              'A backup is a file with your saved sessions. When you load a backup, you choose to merge it with your sessions or replace them.'
             )}
           </p>
         </div>

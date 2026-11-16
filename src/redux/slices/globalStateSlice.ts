@@ -1004,7 +1004,7 @@ export const deleteCloudData = createAsyncThunk<
 );
 
 /**
- * The tail every answer to "Load sessions from a backup" shares (KAN-252,
+ * The tail every answer to "Load a backup" shares (KAN-252,
  * KAN-261): mark dirty, write to the cloud only with Auto Sync on and consent
  * given (KAN-257, KAN-415 -- otherwise the container stays dirty and the next
  * allowed sync carries it, like any edit), and say how it went. The local change is done and persisted

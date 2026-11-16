@@ -73,7 +73,7 @@ function glyphOf(control: Locator): Locator {
 // Probes the glyph specifically, not the control's centre. On an icon-only
 // button the two coincide, but on an icon+text button the centre lands on the
 // text -- which was never broken -- so a centre probe would pass against the
-// defect. "Save sessions to a file" below is the case that proves this matters.
+// defect. "Save a backup" below is the case that proves this matters.
 async function cursorOverIconOf(page: Page, control: Locator): Promise<string> {
   return cursorAtCentreOf(page, glyphOf(control));
 }
@@ -210,9 +210,9 @@ test.describe('clickable controls show a pointer over their icon (KAN-76)', () =
     await openSettingsCategory(page, 'Sync & backup');
 
     const button = page.getByRole('button', {
-      name: 'Save sessions to a file',
+      name: 'Save a backup',
     });
-    const label = button.getByText('Save sessions to a file');
+    const label = button.getByText('Save a backup');
 
     expect(await cursorAtCentreOf(page, label)).toBe('pointer');
     expect(await cursorOverIconOf(page, button)).toBe('pointer');

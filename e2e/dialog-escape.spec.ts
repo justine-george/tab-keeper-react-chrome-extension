@@ -228,9 +228,7 @@ test('load backup (full view): Esc is consumed, and is Cancel', async ({
   await seedSessions(context, here);
   const page = await openSyncAndBackup(context, extensionId, openFullView);
   const chooser = page.waitForEvent('filechooser');
-  await page
-    .getByRole('button', { name: 'Load sessions from a backup' })
-    .click();
+  await page.getByRole('button', { name: 'Load a backup' }).click();
   await (
     await chooser
   ).setFiles({

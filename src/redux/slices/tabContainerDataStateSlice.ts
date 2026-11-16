@@ -3779,7 +3779,7 @@ export const tabContainerDataStateSlice = createSlice({
       withASelection(action.payload),
 
     // Replace the container with a backup file the user is explicitly
-    // asserting ("Load sessions from a backup" → Replace sessions). Kept
+    // asserting ("Load a backup" → Replace sessions). Kept
     // separate from replaceState, which the sync uses for merged results and
     // must not touch timestamps. Undo no longer comes through here
     // (applyUndoSnapshot).
@@ -3830,7 +3830,7 @@ export const tabContainerDataStateSlice = createSlice({
       return restored;
     },
 
-    // Merge, the additive answer to "Load sessions from a backup" (KAN-261).
+    // Merge, the additive answer to "Load a backup" (KAN-261).
     // The promise is "nothing here changes": every session saved here stays
     // exactly as it is -- same object, same timestamp -- and the file's
     // sessions that are not here yet go on top, where a freshly saved one

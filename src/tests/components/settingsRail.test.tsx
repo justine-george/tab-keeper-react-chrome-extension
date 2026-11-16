@@ -67,12 +67,8 @@ describe('the settings rail names what each pane holds (KAN-253)', () => {
     expect(screen.getByRole('group', { name: 'Auto sync' })).toBeTruthy();
     expect(screen.getByTestId('sync-status')).toBeTruthy();
     expect(screen.getByText('Backup')).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: 'Save sessions to a file' })
-    ).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: 'Load sessions from a backup' })
-    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save a backup' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Load a backup' })).toBeTruthy();
     // And not the capture setting.
     expect(screen.queryByRole('group', { name: 'Save tab groups' })).toBeNull();
   });

@@ -141,9 +141,7 @@ describe('import size guard (KAN-27)', () => {
     const inputs = captureFileInput();
     const { store } = await renderSyncAndBackup();
 
-    await userEvent.click(
-      await screen.findByText('Load sessions from a backup')
-    );
+    await userEvent.click(await screen.findByText('Load a backup'));
     dropFile(inputs[0], buildOversizedBackup());
 
     // KAN-86. The toast is now a frame key plus a {{detail}} value, rather
@@ -170,9 +168,7 @@ describe('import size guard (KAN-27)', () => {
     const inputs = captureFileInput();
     const { store } = await renderSyncAndBackup();
 
-    await userEvent.click(
-      await screen.findByText('Load sessions from a backup')
-    );
+    await userEvent.click(await screen.findByText('Load a backup'));
     dropFile(inputs[0], buildOversizedBackup('x'.repeat(1_200_000)));
 
     await waitFor(() => {
@@ -187,9 +183,7 @@ describe('import size guard (KAN-27)', () => {
     const inputs = captureFileInput();
     const { store } = await renderSyncAndBackup();
 
-    await userEvent.click(
-      await screen.findByText('Load sessions from a backup')
-    );
+    await userEvent.click(await screen.findByText('Load a backup'));
     dropFile(inputs[0], '{not json');
 
     await waitFor(() => {
@@ -200,7 +194,7 @@ describe('import size guard (KAN-27)', () => {
     );
     expect(store.getState().tabContainerDataState.tabGroups).toHaveLength(0);
     expect(store.getState().globalState.isDirty).toBe(false);
-    expect(screen.getByText('Load sessions from a backup')).toBeTruthy();
+    expect(screen.getByText('Load a backup')).toBeTruthy();
   });
 });
 
@@ -233,9 +227,7 @@ describe('import sync failure (KAN-43)', () => {
       },
     });
 
-    await userEvent.click(
-      await screen.findByText('Load sessions from a backup')
-    );
+    await userEvent.click(await screen.findByText('Load a backup'));
     dropFile(inputs[0], buildSmallBackup());
 
     // The local half genuinely succeeded -- this is not data loss, and the
@@ -286,9 +278,7 @@ describe('import respects Auto Sync (KAN-257)', () => {
     });
     expect(store.getState().settingsDataState.isAutoSync).toBe(false);
 
-    await userEvent.click(
-      await screen.findByText('Load sessions from a backup')
-    );
+    await userEvent.click(await screen.findByText('Load a backup'));
     dropFile(inputs[0], buildSmallBackup());
 
     await waitFor(() => {
@@ -315,9 +305,7 @@ describe('import respects Auto Sync (KAN-257)', () => {
       },
     });
 
-    await userEvent.click(
-      await screen.findByText('Load sessions from a backup')
-    );
+    await userEvent.click(await screen.findByText('Load a backup'));
     dropFile(inputs[0], buildSmallBackup());
 
     await waitFor(() => {
@@ -368,9 +356,7 @@ describe('import respects cloud consent (KAN-415)', () => {
         consent === 'declined' ? 'declined' : ''
       );
 
-      await userEvent.click(
-        await screen.findByText('Load sessions from a backup')
-      );
+      await userEvent.click(await screen.findByText('Load a backup'));
       dropFile(inputs[0], buildSmallBackup());
 
       await waitFor(() => {
