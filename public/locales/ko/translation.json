@@ -514,5 +514,8 @@
   "You can import any time from Settings › Sync & backup.": "설정 › 동기화 및 백업에서 언제든지 가져올 수 있습니다.",
   "Becomes a window": "창이 됩니다",
   "Goes into the window above": "위 창에 들어갑니다",
-  "Already imported": "이미 가져옴"
+  "Select all": "모두 선택",
+  "Deselect all": "모두 선택 해제",
+  "Everything in your bookmarks is already imported.": "북마크를 모두 이미 가져왔습니다.",
+  "There are no bookmarks to import.": "가져올 북마크가 없습니다."
 }

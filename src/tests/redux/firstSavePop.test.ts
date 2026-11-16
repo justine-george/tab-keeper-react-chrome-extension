@@ -134,7 +134,7 @@ describe('the first save after an import', () => {
   const importOf = (store: Store, ...ids: string[]) =>
     store.dispatch(
       importBookmarkSessions(
-        ids.map((id) => ({ folderId: `f-${id}`, session: session(id, 2) }))
+        ids.map((id) => ({ bookmarkIds: [`f-${id}`], session: session(id, 2) }))
       )
     );
 

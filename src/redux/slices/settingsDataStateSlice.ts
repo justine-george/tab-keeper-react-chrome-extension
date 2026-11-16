@@ -215,8 +215,16 @@ export interface SettingsData {
   isFullViewEndingSeen: boolean;
   // KAN-862. The sessions an import from bookmarks made on this device, so the tour can skip them.
   importedSessionIds: string[];
-  // KAN-862 (11-16). The bookmark folders those sessions came from; a top folder's id means its loose links. Never imported again.
-  importedBookmarkFolderIds: string[];
+  // KAN-862 (11-16). What each of those sessions covers, so it isn't imported again here. Deleting a session keeps its entry; undoing the import marks it undone (R21).
+  importedBookmarks: ImportedBookmarks[];
+}
+
+// KAN-862. One imported session's bookmark ids: a user folder's own id, or a top folder's loose links (R22).
+export interface ImportedBookmarks {
+  sessionId: string;
+  bookmarkIds: string[];
+  // The import was undone: its bookmarks are free again until a redo.
+  isUndone: boolean;
 }
 
 /**
@@ -249,7 +257,7 @@ export type OnboardingSettings = Pick<
   | 'isPopupEndingSeen'
   | 'isFullViewEndingSeen'
   | 'importedSessionIds'
-  | 'importedBookmarkFolderIds'
+  | 'importedBookmarks'
 >;
 
 export const ONBOARDING_DEFAULTS: OnboardingSettings = {
@@ -267,7 +275,7 @@ export const ONBOARDING_DEFAULTS: OnboardingSettings = {
   isPopupEndingSeen: false,
   isFullViewEndingSeen: false,
   importedSessionIds: [],
-  importedBookmarkFolderIds: [],
+  importedBookmarks: [],
 };
 
 export function asSetupState(value: unknown): SetupState {
@@ -282,12 +290,24 @@ export const asIds = (value: unknown): string[] =>
     ? value.filter((id): id is string => typeof id === 'string')
     : [];
 
-// KAN-862. Appends the ids `list` lacks, once each; true when it added any.
-function addNewIds(list: string[], ids: readonly string[]): boolean {
-  const fresh = [...new Set(ids)].filter((id) => !list.includes(id));
-  list.push(...fresh);
-  return fresh.length > 0;
-}
+// KAN-862. Entries of the wrong shape drop out; a stray id inside one drops out alone.
+export const asImportedBookmarks = (value: unknown): ImportedBookmarks[] =>
+  Array.isArray(value)
+    ? value.flatMap((entry: unknown): ImportedBookmarks[] =>
+        typeof entry === 'object' &&
+        entry !== null &&
+        'sessionId' in entry &&
+        typeof entry.sessionId === 'string'
+          ? [
+              {
+                sessionId: entry.sessionId,
+                bookmarkIds: asIds(Reflect.get(entry, 'bookmarkIds')),
+                isUndone: asFlag(Reflect.get(entry, 'isUndone')),
+              },
+            ]
+          : []
+      )
+    : [];
 
 /** KAN-911. Presses after which the Save as PDF… pointer is done. */
 export const SAVE_PDF_POINTER_PRESSES = 2;
@@ -346,7 +366,7 @@ export function guardOnboarding(
     isPopupEndingSeen: read('isPopupEndingSeen', asFlag),
     isFullViewEndingSeen: read('isFullViewEndingSeen', asFlag),
     importedSessionIds: read('importedSessionIds', asIds),
-    importedBookmarkFolderIds: read('importedBookmarkFolderIds', asIds),
+    importedBookmarks: read('importedBookmarks', asImportedBookmarks),
   };
 }
 
@@ -834,14 +854,44 @@ export const settingsDataStateSlice = createSlice({
 
     // KAN-862. An import's new sessions, kept so the tour can leave them out.
     noteImportedSessions: (state, action: PayloadAction<string[]>) => {
-      if (addNewIds(state.importedSessionIds, action.payload))
-        saveLocalSettings(state);
+      const fresh = action.payload.filter(
+        (id) => !state.importedSessionIds.includes(id)
+      );
+      if (fresh.length === 0) return;
+      state.importedSessionIds.push(...fresh);
+      saveLocalSettings(state);
     },
 
-    // KAN-862 (11-16). The folders an import came from: none of them can be imported again here.
-    noteImportedBookmarkFolders: (state, action: PayloadAction<string[]>) => {
-      if (addNewIds(state.importedBookmarkFolderIds, action.payload))
-        saveLocalSettings(state);
+    // KAN-862 (11-16). What an import's sessions cover: none of it can be imported again here.
+    noteImportedBookmarks: (
+      state,
+      action: PayloadAction<{ sessionId: string; bookmarkIds: string[] }[]>
+    ) => {
+      const known = new Set(state.importedBookmarks.map((e) => e.sessionId));
+      const fresh = action.payload.filter((e) => !known.has(e.sessionId));
+      if (fresh.length === 0) return;
+      for (const e of fresh)
+        state.importedBookmarks.push({ ...e, isUndone: false });
+      saveLocalSettings(state);
+    },
+
+    // KAN-862 R21. Undoing an import frees what its sessions cover; redoing it takes it again.
+    setImportsUndone: (
+      state,
+      action: PayloadAction<{ sessionIds: string[]; isUndone: boolean }>
+    ) => {
+      const { sessionIds, isUndone } = action.payload;
+      let changed = false;
+      for (const entry of state.importedBookmarks) {
+        if (
+          !sessionIds.includes(entry.sessionId) ||
+          entry.isUndone === isUndone
+        )
+          continue;
+        entry.isUndone = isUndone;
+        changed = true;
+      }
+      if (changed) saveLocalSettings(state);
     },
 
     // Every Save as PDF… press dispatches this; it writes up to the second press.
@@ -992,7 +1042,8 @@ export const {
   markHadSavedSession,
   markHadImportedSession,
   noteImportedSessions,
-  noteImportedBookmarkFolders,
+  noteImportedBookmarks,
+  setImportsUndone,
   markPressedSaveAsPdf,
   setDefaultView,
   setToolbarIcon,

@@ -16,13 +16,17 @@ vi.mock('../../redux/bookmarkImport', async (importOriginal) => ({
 import { ImportBookmarksDialog } from '../../components/modals/ImportBookmarksDialog';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { startBookmarkImport } from '../../redux/startBookmarkImport';
-import { noteImportedBookmarkFolders } from '../../redux/slices/settingsDataStateSlice';
+import { noteImportedBookmarks } from '../../redux/slices/settingsDataStateSlice';
+import { undo } from '../../redux/slices/undoRedoSlice';
+import {
+  importedBookmarkIds,
+  selectImportedBookmarks,
+} from '../../redux/bookmarkImport';
 import { importSizeRefusal } from '../../redux/bookmarkImport';
 import type { AppDispatch, RootState } from '../../redux/store';
 import { toastTexts } from '../setup/toasts';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { testI18n } from '../setup/i18nForTests';
-import fr from '../../../public/locales/fr/translation.json';
 import de from '../../../public/locales/de/translation.json';
 
 // KAN-862. The import dialog: a folder tree to tick, a preview of the sessions it makes.
@@ -47,14 +51,14 @@ const folder = (
 
 // Mock r3's library: Kitchen remodel makes 3 windows and 14 tabs.
 const library = (
-  opts: { kitchenOwn?: number; withWork?: boolean } = {}
+  opts: { kitchenOwn?: number; withWork?: boolean; barLinks?: number } = {}
 ): Node[] => [
   folder('0', '', [
     folder(
       'bar',
       'Bookmarks Bar',
       [
-        ...links('b', 3),
+        ...links('b', opts.barLinks ?? 3),
         folder('kitchen', 'Kitchen remodel', [
           ...links('k', opts.kitchenOwn ?? 3),
           folder('tiles', 'Tiles', links('t', 5)),
@@ -129,6 +133,11 @@ const previewTitles = () =>
   );
 const sessionTitles = (state: RootState) =>
   state.tabContainerDataState.tabGroups.map((g) => g.title);
+// The bookmark ids no import may take again, sorted.
+const recorded = (state: RootState) =>
+  [...importedBookmarkIds(selectImportedBookmarks(state))].sort();
+const selectAllButton = () =>
+  within(dialog()).getByRole('button', { name: /^(Select|Deselect) all$/ });
 
 beforeEach(() => {
   history.replaceState(null, '', '?view=tab');
@@ -156,33 +165,18 @@ describe('the import dialog: layout', () => {
       'Kitchen remodel',
       'Recipes',
       'Work',
-      'Old stuff',
       'Other Bookmarks',
     ]);
   });
 
-  test('an empty folder cannot be ticked', async () => {
+  // KAN-862 R19. Nothing to import in it, so it isn't listed; a parent holding only empty folders isn't either.
+  test('an empty folder is not listed', async () => {
     await openDialog();
-    expect(
-      await screen.findByRole('checkbox', { name: 'Old stuff' })
-    ).toHaveAttribute('aria-disabled', 'true');
-    expect(within(dialog()).getByText('0 Bookmarks')).toBeInTheDocument();
-  });
-
-  // French CLDR "one" covers 0: a hard-coded "1" there said "1 favori" for an empty folder.
-  test('in French, an empty folder reads "0 favori"', async () => {
-    await openDialog();
-    await screen.findByRole('checkbox', { name: 'Old stuff' });
-    testI18n.addResourceBundle('fr', 'translation', fr, true, true);
-    await act(async () => {
-      await testI18n.changeLanguage('fr');
-    });
-    const old = screen
-      .getByRole('checkbox', { name: 'Old stuff' })
-      .closest('[data-folder-row]');
-    expect(old?.querySelector('[data-row-tag]')).toHaveTextContent(
-      /^0 favori$/
-    );
+    await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
+    unfold('Kitchen remodel');
+    expect(screen.queryByRole('checkbox', { name: 'Old stuff' })).toBeNull();
+    expect(screen.queryByRole('checkbox', { name: 'Scraps' })).toBeNull();
+    expect(within(dialog()).queryByText('0 Bookmarks')).toBeNull();
   });
 
   test('nothing ticked: Import reads "Import", is dimmed, and the preview says what shows there', async () => {
@@ -270,7 +264,7 @@ describe('the import dialog: ticking', () => {
 
     tick('Kitchen remodel');
 
-    for (const id of ['tiles', 'appl', 'fridges', 'scraps'])
+    for (const id of ['tiles', 'appl', 'fridges'])
       expect(within(row(id)).queryByRole('checkbox')).toBeNull();
     for (const id of ['tiles', 'appl']) {
       expect(row(id)).toHaveTextContent('Becomes a window');
@@ -278,9 +272,6 @@ describe('the import dialog: ticking', () => {
     }
     expect(row('fridges')).toHaveTextContent('Goes into the window above');
     expect(row('fridges')).not.toHaveTextContent('web_asset');
-    expect(row('scraps')).not.toHaveTextContent(
-      /Becomes a window|Goes into the window above|web_asset/
-    );
   });
 
   test('a top folder ticks each non-empty folder directly in it, and adds its loose links as a session', async () => {
@@ -291,7 +282,6 @@ describe('the import dialog: ticking', () => {
 
     for (const name of ['Bookmarks Bar', 'Kitchen remodel', 'Recipes', 'Work'])
       expect(box(name)).toHaveAttribute('aria-checked', 'true');
-    expect(box('Old stuff')).toHaveAttribute('aria-checked', 'false');
     expect(previewTitles()).toEqual([
       'Bookmarks Bar',
       'Kitchen remodel',
@@ -361,18 +351,6 @@ describe('the import dialog: ticking', () => {
     expect(importButton()).toHaveTextContent('Import 1 session');
   });
 
-  test('an empty folder inside a ticked one reads unchecked, as it draws', async () => {
-    await openDialog();
-    await screen.findByRole('checkbox', { name: 'Old stuff' });
-    tick('Bookmarks Bar');
-    expect(box('Work')).toHaveAttribute('aria-checked', 'true');
-    expect(box('Old stuff')).toHaveAttribute('aria-checked', 'false');
-    expect(box('Old stuff')).toHaveAttribute('aria-disabled', 'true');
-    // Not ticked behind its dimmed box either: no selection color on its row.
-    expect(background('work')).not.toBe(background('other'));
-    expect(background('old')).toBe(background('other'));
-  });
-
   test('unticking the parent frees what it covered', async () => {
     await openDialog();
     await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
@@ -380,7 +358,6 @@ describe('the import dialog: ticking', () => {
     tick('Kitchen remodel');
     tick('Kitchen remodel');
     expect(box('Tiles')).toHaveAttribute('aria-checked', 'false');
-    expect(box('Tiles')).not.toHaveAttribute('aria-disabled');
   });
 
   test("ticking a parent takes back its subfolders' own ticks", async () => {
@@ -411,7 +388,7 @@ describe('the import dialog: ticking', () => {
     expect(box('Work')).toHaveAttribute('aria-checked', 'false');
   });
 
-  test('a click on a marked row, its mark, or an empty folder changes nothing', async () => {
+  test('a click on a marked row or its mark changes nothing', async () => {
     await openDialog();
     await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
     unfold('Kitchen remodel');
@@ -427,15 +404,13 @@ describe('the import dialog: ticking', () => {
     expect(within(row('tiles')).queryByRole('checkbox')).toBeNull();
     expect(row('tiles')).toHaveTextContent('Becomes a window');
     expect(box('Kitchen remodel')).toHaveAttribute('aria-checked', 'true');
-    fireEvent.click(nameOf('Old stuff'));
-    expect(box('Old stuff')).toHaveAttribute('aria-checked', 'false');
     expect(importButton()).toHaveTextContent('Import 1 session');
 
     // Freed, none of those clicks left a tick behind.
     tick('Kitchen remodel');
     expect(box('Tiles')).toHaveAttribute('aria-checked', 'false');
     expect(box('Fridges')).toHaveAttribute('aria-checked', 'false');
-    expect(background('old')).toBe(background('other'));
+    expect(background('tiles')).toBe(background('other'));
     expect(importButton()).toHaveTextContent(/^Import$/);
   });
 
@@ -534,6 +509,7 @@ describe('the import dialog: importing', () => {
       expect(store.getState().globalState.isImportBookmarksOpen).toBe(false)
     );
     expect(sessionTitles(store.getState())).toEqual([]);
+    expect(recorded(store.getState())).toEqual([]);
     expect(toastTexts(store.getState())).toContain(
       TOAST_MESSAGES.BOOKMARKS_UNREADABLE
     );
@@ -541,95 +517,142 @@ describe('the import dialog: importing', () => {
   });
 });
 
-// KAN-862 (11-16). A folder imported once can't be imported again on this device.
-describe('the import dialog: folders imported before', () => {
-  const importedBefore = (...ids: string[]) =>
-    openDialog({
+// KAN-862 (11-16). What was imported once is left out of the tree on this device (R19, R22).
+describe('the import dialog: bookmarks imported before', () => {
+  const importedBefore = (ids: string[], tree: Node[] = library()) => {
+    getTree.mockResolvedValue(tree);
+    return openDialog({
       seedStore: (s) => {
-        s.dispatch(noteImportedBookmarkFolders(ids));
+        s.dispatch(
+          noteImportedBookmarks([{ sessionId: 'old', bookmarkIds: ids }])
+        );
       },
     });
+  };
   const tagOf = (id: string) =>
     row(id).querySelector('[data-row-tag]')?.textContent;
-  const nameIn = (id: string, name: string) => within(row(id)).getByText(name);
+  const listedRow = (id: string) =>
+    dialog().querySelector(`[data-folder-row="${id}"]`);
 
-  test('an imported folder reads "Already imported", its box is disabled, and a click on it does nothing', async () => {
-    await importedBefore('kitchen');
-    await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
+  test('an imported folder and the folders in it are not listed; its parent counts what is left', async () => {
+    await importedBefore(['kitchen']);
+    await screen.findByRole('checkbox', { name: 'Recipes' });
 
-    expect(tagOf('kitchen')).toBe('Already imported');
-    expect(box('Kitchen remodel')).toHaveAttribute('aria-disabled', 'true');
-    fireEvent.click(nameIn('kitchen', 'Kitchen remodel'));
-    tick('Kitchen remodel');
-
-    expect(box('Kitchen remodel')).toHaveAttribute('aria-checked', 'false');
-    expect(background('kitchen')).toBe(background('other'));
-    expect(previewTitles()).toEqual([]);
-    expect(importButton()).toHaveTextContent(/^Import$/);
+    expect(
+      screen.queryByRole('checkbox', { name: 'Kitchen remodel' })
+    ).toBeNull();
+    expect(listedRow('kitchen')).toBeNull();
+    expect(tagOf('bar')).toBe(`${3 + 23 + 9} Bookmarks`);
   });
 
-  test('the folders in an imported one keep their counts but cannot be ticked', async () => {
-    await importedBefore('kitchen');
+  test('a folder stays listed while anything in it is new, and goes once all of it is imported', async () => {
+    await importedBefore(['tiles', 'appl']);
     await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
-    unfold('Kitchen remodel');
+    expect(tagOf('kitchen')).toBe('3 Bookmarks');
+    // Nothing listed inside it any more, so nothing to unfold.
+    expect(
+      screen.queryByRole('button', { name: 'Expand: Kitchen remodel' })
+    ).toBeNull();
+  });
 
-    expect(tagOf('tiles')).toBe('5 Bookmarks');
-    expect(box('Tiles')).toHaveAttribute('aria-disabled', 'true');
-    fireEvent.click(nameIn('tiles', 'Tiles'));
-    tick('Tiles');
-    expect(box('Tiles')).toHaveAttribute('aria-checked', 'false');
-    expect(importButton()).toHaveTextContent(/^Import$/);
+  test('a folder whose links all sit in imported folders is not listed', async () => {
+    await importedBefore(['tiles', 'appl'], library({ kitchenOwn: 0 }));
+    await screen.findByRole('checkbox', { name: 'Recipes' });
+    expect(listedRow('kitchen')).toBeNull();
   });
 
   test('ticking Bookmarks Bar after Kitchen remodel was imported gives the remaining sessions only', async () => {
-    await importedBefore('kitchen');
-    await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
-    expect(tagOf('bar')).toBe(`${3 + 23 + 9} Bookmarks`);
+    await importedBefore(['kitchen']);
+    await screen.findByRole('checkbox', { name: 'Recipes' });
 
     tick('Bookmarks Bar');
 
-    expect(box('Kitchen remodel')).toHaveAttribute('aria-checked', 'false');
     expect(previewTitles()).toEqual(['Bookmarks Bar', 'Recipes', 'Work']);
     expect(importButton()).toHaveTextContent('Import 3 sessions');
   });
 
-  test('a top folder whose loose links were imported ticks only its folders', async () => {
-    await importedBefore('bar');
+  test('with the bar’s loose links imported, its tick takes only its folders', async () => {
+    await importedBefore(['b0', 'b1', 'b2']);
     await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
     expect(tagOf('bar')).toBe(`${14 + 23 + 9} Bookmarks`);
 
     tick('Bookmarks Bar');
 
     expect(previewTitles()).toEqual(['Kitchen remodel', 'Recipes', 'Work']);
-    expect(importButton()).toHaveTextContent('Import 3 sessions');
   });
 
-  test('a top folder with nothing left is disabled and reads "Already imported"', async () => {
-    await importedBefore('bar', 'kitchen', 'recipes', 'work');
-    await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
+  test('a link added to the bar after its loose links were imported makes the bar’s session again', async () => {
+    await importedBefore(
+      ['b0', 'b1', 'b2', 'kitchen', 'recipes', 'work'],
+      library({ barLinks: 4 })
+    );
+    await screen.findByRole('checkbox', { name: 'Bookmarks Bar' });
+    expect(tagOf('bar')).toBe('1 Bookmark');
 
-    expect(tagOf('bar')).toBe('Already imported');
-    expect(box('Bookmarks Bar')).toHaveAttribute('aria-disabled', 'true');
-    fireEvent.click(nameIn('bar', 'Bookmarks Bar'));
     tick('Bookmarks Bar');
-    expect(box('Bookmarks Bar')).toHaveAttribute('aria-checked', 'false');
-    expect(importButton()).toHaveTextContent(/^Import$/);
+
+    expect(previewTitles()).toEqual(['Bookmarks Bar']);
+    expect(within(preview()).getByText('1 Window · 1 Tab')).toBeInTheDocument();
   });
 
-  test('under a ticked folder, an imported folder shows no mark and leaves the session', async () => {
-    await importedBefore('appl');
+  test('a top folder with nothing left is not listed', async () => {
+    await importedBefore(['b0', 'b1', 'b2', 'kitchen', 'recipes', 'work']);
+    await screen.findByRole('checkbox', { name: 'Other Bookmarks' });
+    expect(listedRow('bar')).toBeNull();
+  });
+
+  test('with everything imported, the tree says so, Select all is gone and Import stays dimmed', async () => {
+    await importedBefore([
+      'b0',
+      'b1',
+      'b2',
+      'kitchen',
+      'recipes',
+      'work',
+      'reading',
+    ]);
+    expect(
+      await within(dialog()).findByText(
+        'Everything in your bookmarks is already imported.'
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryAllByRole('checkbox')).toEqual([]);
+    expect(
+      within(dialog()).queryByRole('button', {
+        name: /^(Select|Deselect) all$/,
+      })
+    ).toBeNull();
+    expect(importButton()).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  test('a library with no links to import says so instead', async () => {
+    getTree.mockResolvedValue([
+      folder('0', '', [
+        folder('bar', 'Bookmarks Bar', [folder('e', 'Empty', [])], {
+          folderType: 'bookmarks-bar',
+        }),
+      ]),
+    ]);
+    await openDialog();
+    expect(
+      await within(dialog()).findByText('There are no bookmarks to import.')
+    ).toBeInTheDocument();
+    expect(
+      within(dialog()).queryByText(
+        'Everything in your bookmarks is already imported.'
+      )
+    ).toBeNull();
+  });
+
+  test('under a ticked folder, an imported folder is not listed and leaves the session', async () => {
+    await importedBefore(['appl']);
     await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
-    expect(tagOf('kitchen')).toBe(`${3 + 5} Bookmarks`);
     unfold('Kitchen remodel');
-    unfold('Appliances');
 
     tick('Kitchen remodel');
 
     expect(row('tiles')).toHaveTextContent('Becomes a window');
-    for (const id of ['appl', 'fridges'])
-      expect(row(id)).not.toHaveTextContent(
-        /Becomes a window|Goes into the window above|web_asset/
-      );
+    expect(listedRow('appl')).toBeNull();
     const windows = preview().querySelectorAll('[data-preview-window]');
     expect(
       [...windows].map(
@@ -638,11 +661,11 @@ describe('the import dialog: folders imported before', () => {
     ).toEqual(['Kitchen remodel', 'Tiles']);
   });
 
-  test('Import records the folders; reopened, the dialog reads them "Already imported"', async () => {
-    const { store } = await importedBefore('appl');
+  test('Import records what it took, the bar’s loose links by id; reopened, the dialog leaves it out', async () => {
+    const { store } = await importedBefore(['appl']);
     await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
-    tick('Kitchen remodel');
-    tick('Work');
+    tick('Bookmarks Bar');
+    tick('Recipes');
 
     await act(async () => {
       fireEvent.click(importButton());
@@ -656,20 +679,145 @@ describe('the import dialog: folders imported before', () => {
         .getState()
         .tabContainerDataState.tabGroups.map((g) => [g.title, g.tabCount])
     ).toEqual([
+      ['Bookmarks Bar', 3],
       ['Kitchen remodel', 8],
       ['Work', 9],
     ]);
-    expect(
-      store.getState().settingsDataState.importedBookmarkFolderIds
-    ).toEqual(['appl', 'kitchen', 'work']);
+    expect(recorded(store.getState())).toEqual(
+      ['appl', 'b0', 'b1', 'b2', 'kitchen', 'work'].sort()
+    );
 
     await act(async () => {
       await store.dispatch(startBookmarkImport());
     });
+    await screen.findByRole('checkbox', { name: 'Recipes' });
+    for (const id of ['kitchen', 'work']) expect(listedRow(id)).toBeNull();
+    expect(tagOf('bar')).toBe('23 Bookmarks');
+  });
+
+  // KAN-862 R21. ⌘Z on the import is as if it never happened.
+  test('undoing the import lists its folders again', async () => {
+    const { store } = await openDialog();
+    await screen.findByRole('checkbox', { name: 'Work' });
+    tick('Work');
+    await act(async () => {
+      fireEvent.click(importButton());
+    });
+    await waitFor(() =>
+      expect(store.getState().globalState.isImportBookmarksOpen).toBe(false)
+    );
+    expect(recorded(store.getState())).toEqual(['work']);
+
+    act(() => {
+      store.dispatch(undo());
+    });
+    expect(sessionTitles(store.getState())).toEqual([]);
+    expect(recorded(store.getState())).toEqual([]);
+    await act(async () => {
+      await store.dispatch(startBookmarkImport());
+    });
+    expect(
+      await screen.findByRole('checkbox', { name: 'Work' })
+    ).toBeInTheDocument();
+  });
+});
+
+// KAN-862 R20. One press ticks everything left; once all of it is ticked the same button clears it.
+describe('the import dialog: Select all', () => {
+  test('Select all ticks every top folder with something left, and so each folder in them', async () => {
+    await openDialog();
+    await screen.findByRole('checkbox', { name: 'Work' });
+    expect(selectAllButton()).toHaveTextContent('Select all');
+
+    fireEvent.click(selectAllButton());
+
+    for (const name of [
+      'Bookmarks Bar',
+      'Kitchen remodel',
+      'Recipes',
+      'Work',
+      'Other Bookmarks',
+    ])
+      expect(box(name)).toHaveAttribute('aria-checked', 'true');
+    expect(previewTitles()).toEqual([
+      'Bookmarks Bar',
+      'Kitchen remodel',
+      'Recipes',
+      'Work',
+      'Reading list',
+    ]);
+    expect(selectAllButton()).toHaveTextContent('Deselect all');
+  });
+
+  test('Deselect all clears every tick', async () => {
+    await openDialog();
+    await screen.findByRole('checkbox', { name: 'Work' });
+    fireEvent.click(selectAllButton());
+
+    fireEvent.click(selectAllButton());
+
+    expect(
+      screen
+        .getAllByRole('checkbox')
+        .filter((b) => b.getAttribute('aria-checked') === 'true')
+    ).toEqual([]);
+    expect(selectAllButton()).toHaveTextContent('Select all');
+    expect(importButton()).toHaveTextContent(/^Import$/);
+  });
+
+  test('everything ticked by hand reads Deselect all; one unticked reads Select all again', async () => {
+    await openDialog();
+    await screen.findByRole('checkbox', { name: 'Work' });
+    tick('Bookmarks Bar');
+    expect(selectAllButton()).toHaveTextContent('Select all');
+    tick('Other Bookmarks');
+    expect(selectAllButton()).toHaveTextContent('Deselect all');
+    tick('Work');
+    expect(selectAllButton()).toHaveTextContent('Select all');
+  });
+
+  test('Select all takes in a deeper tick: its folder is part of its parent’s session', async () => {
+    await openDialog();
     await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
-    for (const id of ['kitchen', 'work'])
-      expect(tagOf(id)).toBe('Already imported');
-    expect(box('Work')).toHaveAttribute('aria-disabled', 'true');
+    unfold('Kitchen remodel');
+    tick('Tiles');
+
+    fireEvent.click(selectAllButton());
+
+    expect(row('tiles')).toHaveTextContent('Becomes a window');
+    expect(previewTitles()).not.toContain('Tiles');
+  });
+
+  test('Select all leaves out what was imported', async () => {
+    await openDialog({
+      seedStore: (s) => {
+        s.dispatch(
+          noteImportedBookmarks([
+            { sessionId: 'old', bookmarkIds: ['kitchen'] },
+          ])
+        );
+      },
+    });
+    await screen.findByRole('checkbox', { name: 'Work' });
+
+    fireEvent.click(selectAllButton());
+
+    expect(previewTitles()).toEqual([
+      'Bookmarks Bar',
+      'Recipes',
+      'Work',
+      'Reading list',
+    ]);
+  });
+
+  test('it is a button the keyboard reaches', async () => {
+    await openDialog();
+    await screen.findByRole('checkbox', { name: 'Work' });
+    const button = selectAllButton();
+    expect(button.tagName).toBe('BUTTON');
+    expect(button).toHaveAttribute('type', 'button');
+    button.focus();
+    expect(button).toHaveFocus();
   });
 });
 
@@ -694,6 +842,7 @@ describe('the import dialog: closing', () => {
     });
 
     expect(toastTexts(store.getState())).toEqual([]);
+    expect(recorded(store.getState())).toEqual([]);
     expect(remove).toHaveBeenCalledTimes(1);
   });
 
@@ -718,7 +867,35 @@ describe('the import dialog: closing', () => {
 
     expect(store.getState().globalState.isImportBookmarksOpen).toBe(false);
     expect(sessionTitles(store.getState())).toEqual([]);
+    expect(recorded(store.getState())).toEqual([]);
     expect(remove).toHaveBeenCalledTimes(1);
+  });
+
+  // KAN-862 (11-16). Closed while the size was measured: that close was the answer, so nothing lands or is recorded.
+  test('Esc while Import measures the size: nothing imports and nothing is recorded', async () => {
+    const { store } = await openDialog();
+    await screen.findByRole('checkbox', { name: 'Work' });
+    tick('Work');
+    await waitFor(() => expect(importSizeRefusal).toHaveBeenCalledTimes(1));
+    let answer: (refusal: null) => void = () => {};
+    vi.mocked(importSizeRefusal).mockImplementation(
+      () => new Promise((resolve) => (answer = resolve))
+    );
+
+    await act(async () => {
+      fireEvent.click(importButton());
+    });
+    await waitFor(() => expect(importSizeRefusal).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      fireEvent(dialog(), new Event('cancel', { cancelable: true }));
+    });
+    await act(async () => {
+      answer(null);
+    });
+
+    expect(store.getState().globalState.isImportBookmarksOpen).toBe(false);
+    expect(sessionTitles(store.getState())).toEqual([]);
+    expect(recorded(store.getState())).toEqual([]);
   });
 
   test.each([
@@ -744,6 +921,7 @@ describe('the import dialog: closing', () => {
 
       expect(store.getState().globalState.isImportBookmarksOpen).toBe(false);
       expect(sessionTitles(store.getState())).toEqual([]);
+      expect(recorded(store.getState())).toEqual([]);
       expect(remove).toHaveBeenCalledTimes(1);
     }
   );
@@ -859,6 +1037,7 @@ describe('the import dialog: the sync size check', () => {
       await within(dialog()).findByText(/Too large to sync/)
     ).toBeInTheDocument();
     expect(sessionTitles(store.getState())).toEqual([]);
+    expect(recorded(store.getState())).toEqual([]);
     expect(store.getState().globalState.isImportBookmarksOpen).toBe(true);
     expect(importButton()).toHaveAttribute('aria-disabled', 'true');
   });

@@ -535,5 +535,8 @@
   "You can import any time from Settings › Sync & backup.": "You can import any time from Settings › Sync & backup.",
   "Becomes a window": "Becomes a window",
   "Goes into the window above": "Goes into the window above",
-  "Already imported": "Already imported"
+  "Select all": "Select all",
+  "Deselect all": "Deselect all",
+  "Everything in your bookmarks is already imported.": "Everything in your bookmarks is already imported.",
+  "There are no bookmarks to import.": "There are no bookmarks to import."
 }

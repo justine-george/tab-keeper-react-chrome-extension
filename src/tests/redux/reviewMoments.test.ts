@@ -537,7 +537,7 @@ describe('a save after an import', () => {
     store.dispatch(
       importBookmarkSessions(
         sizes.map((n, i) => ({
-          folderId: `f${i}`,
+          bookmarkIds: [`f${i}`],
           session: session(`imp${i}`, n),
         }))
       )

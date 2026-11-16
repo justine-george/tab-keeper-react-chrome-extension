@@ -23,19 +23,21 @@ import { makeTestStore } from '../setup/makeStore';
 import {
   importBookmarkSessions,
   importSizeRefusal,
-  selectImportedBookmarkFolderIds,
+  importedBookmarkIds,
+  selectImportedBookmarks,
   selectImportedSessionIds,
 } from '../../redux/bookmarkImport';
 import {
+  deleteTabContainerInternal,
   saveToTabContainer,
   type tabContainerData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import type { RootState } from '../../redux/store';
-import { undo } from '../../redux/slices/undoRedoSlice';
+import { redo, undo } from '../../redux/slices/undoRedoSlice';
 import { syncBytes } from '../../utils/functions/cloudDocument';
 import {
   sessionsFor,
-  type FolderSession,
+  type SessionFromBookmarks,
 } from '../../utils/functions/bookmarkImport';
 import { FIRESTORE_MAX_DOCUMENT_BYTES } from '../../utils/functions/local';
 import { BOOKMARKS_IMPORTED_FRAME } from '../../utils/constants/common';
@@ -73,8 +75,15 @@ const session = (id: string, tabCount = 2): tabContainerData => ({
 });
 
 // Each session as if made from a folder of its own id's.
-const fromFolders = (sessions: tabContainerData[]): FolderSession[] =>
-  sessions.map((s) => ({ folderId: `folder-${s.tabGroupId}`, session: s }));
+const fromFolders = (sessions: tabContainerData[]): SessionFromBookmarks[] =>
+  sessions.map((s) => ({
+    bookmarkIds: [`folder-${s.tabGroupId}`],
+    session: s,
+  }));
+
+// The bookmark ids the record holds now, sorted.
+const recorded = (state: RootState) =>
+  [...importedBookmarkIds(selectImportedBookmarks(state))].sort();
 
 const idsOf = (state: RootState) =>
   state.tabContainerDataState.tabGroups.map((g) => g.tabGroupId);
@@ -111,42 +120,85 @@ describe('importBookmarkSessions', () => {
     expect(selectImportedSessionIds(store.getState())).toEqual(['a', 'b', 'c']);
   });
 
-  // KAN-862 (11-16). The folders it came from, so they can't be imported again on this device.
-  test('it records the folder each session came from, once each, and saves the record', () => {
+  // KAN-862 (11-16). What it came from, so none of it is imported again on this device.
+  test('it records the bookmark ids each session covers, with the session, and saves the record', () => {
     const { store } = makeTestStore();
     store.dispatch(
       importBookmarkSessions([
-        { folderId: '1', session: session('a') },
-        { folderId: 'kitchen', session: session('b') },
+        { bookmarkIds: ['l1', 'l3'], session: session('a') },
+        { bookmarkIds: ['kitchen'], session: session('b') },
       ])
     );
     store.dispatch(
-      importBookmarkSessions([
-        { folderId: 'kitchen', session: session('c') },
-        { folderId: 'work', session: session('d') },
-      ])
+      importBookmarkSessions([{ bookmarkIds: ['work'], session: session('c') }])
     );
-    expect(selectImportedBookmarkFolderIds(store.getState())).toEqual([
-      '1',
-      'kitchen',
-      'work',
+    expect(recorded(store.getState())).toEqual(['kitchen', 'l1', 'l3', 'work']);
+    const saved = JSON.parse(localStorage.getItem('settingsData') ?? '{}');
+    expect(saved.importedBookmarks).toEqual([
+      { sessionId: 'a', bookmarkIds: ['l1', 'l3'], isUndone: false },
+      { sessionId: 'b', bookmarkIds: ['kitchen'], isUndone: false },
+      { sessionId: 'c', bookmarkIds: ['work'], isUndone: false },
     ]);
-    expect(
-      JSON.parse(localStorage.getItem('settingsData') ?? '{}')
-        .importedBookmarkFolderIds
-    ).toEqual(['1', 'kitchen', 'work']);
   });
 
-  test('deleting an imported session leaves its folder recorded', () => {
+  // KAN-862 R21. His permanent rule: a session deleted later frees nothing, nor does undoing or redoing that delete.
+  test('deleting an imported session later leaves its bookmarks recorded', () => {
     const { store } = makeTestStore();
     store.dispatch(
-      importBookmarkSessions([{ folderId: 'kitchen', session: session('a') }])
+      importBookmarkSessions([
+        { bookmarkIds: ['kitchen'], session: session('a') },
+      ])
     );
-    store.dispatch(undo());
+    store.dispatch(deleteTabContainerInternal('a'));
     expect(idsOf(store.getState())).toEqual([]);
-    expect(selectImportedBookmarkFolderIds(store.getState())).toEqual([
-      'kitchen',
+    expect(recorded(store.getState())).toEqual(['kitchen']);
+    store.dispatch(undo());
+    expect(idsOf(store.getState())).toEqual(['a']);
+    expect(recorded(store.getState())).toEqual(['kitchen']);
+    store.dispatch(redo());
+    expect(idsOf(store.getState())).toEqual([]);
+    expect(recorded(store.getState())).toEqual(['kitchen']);
+  });
+
+  // KAN-862 R21. Undoing the import is as if it never happened; redo makes it happen again.
+  test('undoing the import frees what it recorded, and redo records it again', () => {
+    const { store } = makeTestStore();
+    store.dispatch(
+      importBookmarkSessions([{ bookmarkIds: ['work'], session: session('w') }])
+    );
+    store.dispatch(
+      importBookmarkSessions([
+        { bookmarkIds: ['l1'], session: session('a') },
+        { bookmarkIds: ['kitchen'], session: session('b') },
+      ])
+    );
+
+    store.dispatch(undo());
+    expect(idsOf(store.getState())).toEqual(['w']);
+    expect(recorded(store.getState())).toEqual(['work']);
+    expect(
+      JSON.parse(localStorage.getItem('settingsData') ?? '{}').importedBookmarks
+    ).toEqual([
+      { sessionId: 'w', bookmarkIds: ['work'], isUndone: false },
+      { sessionId: 'a', bookmarkIds: ['l1'], isUndone: true },
+      { sessionId: 'b', bookmarkIds: ['kitchen'], isUndone: true },
     ]);
+
+    store.dispatch(redo());
+    expect(idsOf(store.getState())).toEqual(['a', 'b', 'w']);
+    expect(recorded(store.getState())).toEqual(['kitchen', 'l1', 'work']);
+  });
+
+  test('undoing a later step leaves the import recorded', () => {
+    const { store } = makeTestStore();
+    store.dispatch(
+      importBookmarkSessions([
+        { bookmarkIds: ['kitchen'], session: session('a') },
+      ])
+    );
+    store.dispatch(importBookmarkSessions(fromFolders([session('b')])));
+    store.dispatch(undo());
+    expect(recorded(store.getState())).toEqual(['kitchen']);
   });
 
   test('it makes hasHadSavedSession true', () => {

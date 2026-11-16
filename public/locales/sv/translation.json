@@ -535,5 +535,8 @@
   "You can import any time from Settings › Sync & backup.": "Du kan importera när som helst från Inställningar › Synk & säkerhetskopia.",
   "Becomes a window": "Blir ett fönster",
   "Goes into the window above": "Hamnar i fönstret ovanför",
-  "Already imported": "Redan importerad"
+  "Select all": "Markera alla",
+  "Deselect all": "Avmarkera alla",
+  "Everything in your bookmarks is already imported.": "Allt i dina bokmärken är redan importerat.",
+  "There are no bookmarks to import.": "Det finns inga bokmärken att importera."
 }

@@ -514,5 +514,8 @@
   "You can import any time from Settings › Sync & backup.": "您随时可以在 设置 › 同步与备份 中导入。",
   "Becomes a window": "成为一个窗口",
   "Goes into the window above": "并入上方的窗口",
-  "Already imported": "已导入"
+  "Select all": "全选",
+  "Deselect all": "取消全选",
+  "Everything in your bookmarks is already imported.": "您的书签已全部导入。",
+  "There are no bookmarks to import.": "没有可导入的书签。"
 }

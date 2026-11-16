@@ -19,7 +19,8 @@ import type { tabContainerData } from '../../redux/slices/tabContainerDataStateS
 import {
   importBookmarkSessions,
   importSizeRefusal,
-  selectImportedBookmarkFolderIds,
+  importedBookmarkIds,
+  selectImportedBookmarks,
 } from '../../redux/bookmarkImport';
 import { endBookmarkImport } from '../../redux/startBookmarkImport';
 import {
@@ -27,7 +28,7 @@ import {
   sessionsFor,
   topFolders,
   type BookmarkFolder,
-  type FolderSession,
+  type SessionFromBookmarks,
 } from '../../utils/functions/bookmarkImport';
 import {
   formatActionOnItem,
@@ -87,12 +88,8 @@ function forEachFolder(
   }
 }
 
-// KAN-862 (11-16). Nothing an import could take: empty, imported before, or inside an imported folder.
-const isUnpickable = (folder: BookmarkFolder): boolean =>
-  folder.count === 0 || folder.importState !== 'notImported';
-
-// KAN-862 (11-16). The tickbox slot: a tickbox, or under a ticked user folder what the folder becomes; 'nothing' is an unpickable one there.
-type RowSlot = TickState | 'becomesWindow' | 'joinsWindowAbove' | 'nothing';
+// KAN-862 (11-16). The tickbox slot: a tickbox, or under a ticked user folder what the folder becomes.
+type RowSlot = TickState | 'becomesWindow' | 'joinsWindowAbove';
 
 interface ShownRow {
   folder: BookmarkFolder;
@@ -122,11 +119,9 @@ function shownRows(
           ? isOn
             ? 'on'
             : 'off'
-          : isUnpickable(folder)
-            ? 'nothing'
-            : covered === 'directly'
-              ? 'becomesWindow'
-              : 'joinsWindowAbove';
+          : covered === 'directly'
+            ? 'becomesWindow'
+            : 'joinsWindowAbove';
       rows.push({ folder, depth, slot, isOpen });
       // A ticked top folder covers nothing: its folders tick on their own.
       const next =
@@ -138,24 +133,34 @@ function shownRows(
   return rows;
 }
 
-// KAN-862 (11-16). Ticking a folder takes back the ticks inside it, which it covers. A top folder also ticks each non-empty folder directly in it, and unticking it clears those.
+// KAN-862 (11-16). Ticking a folder takes back the ticks inside it, which it covers. A top folder also ticks each folder directly in it.
+function addTick(ticks: Set<string>, folder: BookmarkFolder): void {
+  forEachFolder(folder.children, (inside) => ticks.delete(inside.id));
+  ticks.add(folder.id);
+  if (folder.isTop) for (const child of folder.children) ticks.add(child.id);
+}
+
+// Unticking a top folder clears the folders directly in it too.
 function toggledTicks(
   prev: ReadonlySet<string>,
   id: string,
   folder: BookmarkFolder | undefined
 ): ReadonlySet<string> {
   const next = new Set(prev);
-  const direct = folder?.isTop === true ? folder.children : [];
   if (next.has(id)) {
     next.delete(id);
-    for (const child of direct) next.delete(child.id);
-    return next;
-  }
-  if (folder !== undefined)
-    forEachFolder(folder.children, (inside) => next.delete(inside.id));
-  next.add(id);
-  for (const child of direct) if (child.count > 0) next.add(child.id);
+    if (folder?.isTop === true)
+      for (const child of folder.children) next.delete(child.id);
+  } else if (folder !== undefined) addTick(next, folder);
+  else next.add(id);
   return next;
+}
+
+// KAN-862 R20. Select all: every top folder ticked, and so every folder directly in one.
+function everyTick(folders: readonly BookmarkFolder[]): ReadonlySet<string> {
+  const ticks = new Set<string>();
+  for (const top of folders) addTick(ticks, top);
+  return ticks;
 }
 
 interface FolderRowProps {
@@ -181,10 +186,8 @@ const FolderRow = React.memo(function FolderRow({
   const COLORS = useThemeColors();
   const { t } = useTranslation();
   const name = folder.title || untitled;
-  const isDisabled = isUnpickable(folder);
   const hasChildren = folder.children.length > 0;
   const hasTickbox = slot === 'on' || slot === 'off';
-  const isLocked = isDisabled || !hasTickbox;
   const foldAction = isOpen ? t('Collapse') : t('Expand');
 
   const rowCss = css`
@@ -203,7 +206,7 @@ const FolderRow = React.memo(function FolderRow({
     gap: 8px;
     min-width: 0;
     align-self: stretch;
-    cursor: ${isLocked ? 'default' : 'pointer'};
+    cursor: ${hasTickbox ? 'pointer' : 'default'};
   `;
   const nameBlockCss = css`
     display: flex;
@@ -211,7 +214,7 @@ const FolderRow = React.memo(function FolderRow({
     min-width: 0;
   `;
   const nameCss = css`
-    color: ${isDisabled ? COLORS.LABEL_L2_COLOR : COLORS.TEXT_COLOR};
+    color: ${COLORS.TEXT_COLOR};
     overflow-wrap: anywhere;
   `;
   // The tickbox's 18px, so marked rows line up with ticked ones.
@@ -260,12 +263,7 @@ const FolderRow = React.memo(function FolderRow({
         <Icon type="expand_more" style="visibility: hidden;" />
       )}
       {hasTickbox ? (
-        <Tickbox
-          state={slot}
-          disabled={isDisabled}
-          label={name}
-          onToggle={() => onTick(folder.id)}
-        />
+        <Tickbox state={slot} label={name} onToggle={() => onTick(folder.id)} />
       ) : (
         <span css={markSlotCss}>
           {slot === 'becomesWindow' && (
@@ -275,19 +273,17 @@ const FolderRow = React.memo(function FolderRow({
               style={`${NON_INTERACTIVE_ICON_STYLE} padding: 0;`}
             />
           )}
-          {slot !== 'nothing' && (
-            <span css={visuallyHiddenStyle}>
-              {slot === 'becomesWindow'
-                ? t('Becomes a window')
-                : t('Goes into the window above')}
-            </span>
-          )}
+          <span css={visuallyHiddenStyle}>
+            {slot === 'becomesWindow'
+              ? t('Becomes a window')
+              : t('Goes into the window above')}
+          </span>
         </span>
       )}
       {/* A click past the box ticks too, as on a <label>; the keyboard has the box. */}
       <span
         css={pickCss}
-        onClick={isLocked ? undefined : () => onTick(folder.id)}
+        onClick={hasTickbox ? () => onTick(folder.id) : undefined}
       >
         <Icon
           type={isOpen ? 'folder_open' : 'folder'}
@@ -303,13 +299,7 @@ const FolderRow = React.memo(function FolderRow({
             </span>
           )}
         </span>
-        <RowTag
-          value={
-            folder.importState === 'imported'
-              ? t('Already imported')
-              : t('BookmarkCount', { count: folder.count })
-          }
-        />
+        <RowTag value={t('BookmarkCount', { count: folder.count })} />
       </span>
     </div>
   );
@@ -328,8 +318,11 @@ export const ImportBookmarksDialog: React.FC = () => {
   const dispatch: AppDispatch = useDispatch();
   const store = useStore<RootState>();
   const skipDuplicates = useSelector(selectSkipsDuplicateTabs);
-  const importedIds = useSelector(selectImportedBookmarkFolderIds);
-  const imported = useMemo(() => new Set(importedIds), [importedIds]);
+  const importedEntries = useSelector(selectImportedBookmarks);
+  const imported = useMemo(
+    () => importedBookmarkIds(importedEntries),
+    [importedEntries]
+  );
 
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [root, setRoot] = useState<BookmarkNode | null>(null);
@@ -401,7 +394,7 @@ export const ImportBookmarksDialog: React.FC = () => {
   }, [folders]);
 
   const build = useCallback(
-    (from: BookmarkNode, ticks: ReadonlySet<string>): FolderSession[] =>
+    (from: BookmarkNode, ticks: ReadonlySet<string>): SessionFromBookmarks[] =>
       ticks.size === 0
         ? []
         : sessionsFor(from, ticks, {
@@ -422,6 +415,16 @@ export const ImportBookmarksDialog: React.FC = () => {
     () => shownRows(folders, unfolded, ticked),
     [folders, unfolded, ticked]
   );
+  // KAN-862 R19. Nothing left to list: everything was imported, or there was never a link to import.
+  const emptyTreeText = useMemo(() => {
+    if (root === null || folders.length > 0) return null;
+    return folderTree(root, ownOrigin, new Set()).length > 0
+      ? t('Everything in your bookmarks is already imported.')
+      : t('There are no bookmarks to import.');
+  }, [root, folders, ownOrigin, t]);
+  const allTicks = useMemo(() => everyTick(folders), [folders]);
+  const isAllTicked = [...allTicks].every((id) => ticked.has(id));
+  const toggleAll = () => setTicked(isAllTicked ? new Set() : allTicks);
 
   const toggleTick = useCallback(
     (id: string) =>
@@ -582,6 +585,13 @@ export const ImportBookmarksDialog: React.FC = () => {
     ${trackClearOfCorners(RADIUS.PANEL, ['top', 'bottom'])}
     ${focusRingCss(COLORS)}
   `;
+  // Above the rows, by itself: it ticks every top folder.
+  const selectAllStyle = css`
+    flex: none;
+    align-self: flex-start;
+    margin: 0 0 4px;
+    padding-block: 4px;
+  `;
   const emptyStyle = css`
     margin: auto;
     padding: 0 16px;
@@ -677,6 +687,16 @@ export const ImportBookmarksDialog: React.FC = () => {
 
       <div css={panesStyle} data-import-panes="">
         <div css={paneStyle}>
+          {folders.length > 0 && (
+            <button
+              type="button"
+              css={[buttons.link, selectAllStyle]}
+              onClick={toggleAll}
+            >
+              {isAllTicked ? t('Deselect all') : t('Select all')}
+            </button>
+          )}
+          {emptyTreeText !== null && <p css={emptyStyle}>{emptyTreeText}</p>}
           {rows.map((row) => (
             <FolderRow
               key={row.folder.id}

@@ -514,5 +514,8 @@
   "You can import any time from Settings › Sync & backup.": "設定 › 同期とバックアップ からいつでもインポートできます。",
   "Becomes a window": "ウィンドウになります",
   "Goes into the window above": "上のウィンドウに入ります",
-  "Already imported": "インポート済み"
+  "Select all": "すべて選択",
+  "Deselect all": "すべて選択解除",
+  "Everything in your bookmarks is already imported.": "ブックマークはすべてインポート済みです。",
+  "There are no bookmarks to import.": "インポートできるブックマークがありません。"
 }

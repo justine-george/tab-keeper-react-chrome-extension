@@ -23,7 +23,8 @@ import {
   markHadSavedSession,
   markHadImportedSession,
   noteImportedSessions,
-  noteImportedBookmarkFolders,
+  noteImportedBookmarks,
+  setImportsUndone,
   markPressedSaveAsPdf,
   SAVE_PDF_POINTER_PRESSES,
   markFullViewCalloutSeen,
@@ -67,7 +68,7 @@ const GARBAGE = {
   isPopupEndingSeen: 'true',
   isFullViewEndingSeen: 1,
   importedSessionIds: 'a',
-  importedBookmarkFolderIds: { kitchen: true },
+  importedBookmarks: { kitchen: true },
 };
 
 const ALL_SET = {
@@ -96,7 +97,10 @@ const ALL_SET = {
   isPopupEndingSeen: true,
   isFullViewEndingSeen: true,
   importedSessionIds: Array.of('a', 'b'),
-  importedBookmarkFolderIds: Array.of('1', 'kitchen'),
+  importedBookmarks: Array.of(
+    { sessionId: 's1', bookmarkIds: Array.of('l1', 'l3'), isUndone: false },
+    { sessionId: 's2', bookmarkIds: Array.of('kitchen'), isUndone: true }
+  ),
 } as const;
 
 const ONBOARDING_KEYS: string[] = Object.keys(ONBOARDING_DEFAULTS);
@@ -265,9 +269,13 @@ describe('the onboarding reducers persist what they set', () => {
       { importedSessionIds: ['a', 'b'] },
     ],
     [
-      'noteImportedBookmarkFolders',
-      noteImportedBookmarkFolders(['1', 'kitchen']),
-      { importedBookmarkFolderIds: ['1', 'kitchen'] },
+      'noteImportedBookmarks',
+      noteImportedBookmarks([{ sessionId: 's1', bookmarkIds: ['kitchen'] }]),
+      {
+        importedBookmarks: [
+          { sessionId: 's1', bookmarkIds: ['kitchen'], isUndone: false },
+        ],
+      },
     ],
     ['setDefaultView', setDefaultView('full'), { defaultView: 'full' }],
   ] as const)('%s sets and saves', (_name, action, expected) => {
@@ -292,22 +300,62 @@ describe('the onboarding reducers persist what they set', () => {
   });
 
   // KAN-862 (11-16). Permanent per device: a folder's record stays whatever happens to its session.
-  it('noteImportedBookmarkFolders skips ids it has and writes nothing for them', () => {
-    const once = reduce([noteImportedBookmarkFolders(['1', 'kitchen'])]);
+  it('noteImportedBookmarks skips a session it has and writes nothing for it', () => {
+    const once = reduce([
+      noteImportedBookmarks([{ sessionId: 's1', bookmarkIds: ['kitchen'] }]),
+    ]);
     const setItem = vi.spyOn(localStorage, 'setItem');
     setItem.mockClear();
     const again = settingsDataStateSlice.reducer(
       once,
-      noteImportedBookmarkFolders(['kitchen'])
+      noteImportedBookmarks([{ sessionId: 's1', bookmarkIds: ['other'] }])
     );
     expect(setItem).not.toHaveBeenCalled();
-    expect(again.importedBookmarkFolderIds).toEqual(['1', 'kitchen']);
+    expect(again.importedBookmarks).toEqual(once.importedBookmarks);
+  });
+
+  // KAN-862 R21. Undo and redo of an import flip its entries; a write only when one flips.
+  it('setImportsUndone flips only the named sessions, and writes only on a change', () => {
+    const noted = reduce([
+      noteImportedBookmarks([
+        { sessionId: 's1', bookmarkIds: ['a'] },
+        { sessionId: 's2', bookmarkIds: ['b'] },
+      ]),
+    ]);
+    const undone = settingsDataStateSlice.reducer(
+      noted,
+      setImportsUndone({ sessionIds: ['s2', 'nope'], isUndone: true })
+    );
+    expect(undone.importedBookmarks.map((e) => e.isUndone)).toEqual([
+      false,
+      true,
+    ]);
+    expect(saved()).toMatchObject({
+      importedBookmarks: [{ isUndone: false }, { isUndone: true }],
+    });
+    const setItem = vi.spyOn(localStorage, 'setItem');
+    setItem.mockClear();
+    settingsDataStateSlice.reducer(
+      undone,
+      setImportsUndone({ sessionIds: ['s2'], isUndone: true })
+    );
+    expect(setItem).not.toHaveBeenCalled();
+  });
+
+  it('importedBookmarks keeps well-formed entries and drops the rest', () => {
     expect(
-      settingsDataStateSlice.reducer(
-        once,
-        noteImportedBookmarkFolders(['work', 'work'])
-      ).importedBookmarkFolderIds
-    ).toEqual(['1', 'kitchen', 'work']);
+      guardOnboarding(
+        {
+          importedBookmarks: [
+            { sessionId: 's1', bookmarkIds: ['a', 2], isUndone: 'yes' },
+            { sessionId: 3, bookmarkIds: ['b'], isUndone: false },
+            null,
+            'x',
+          ],
+        },
+        ONBOARDING_DEFAULTS
+      ).importedBookmarks
+    ).toEqual([{ sessionId: 's1', bookmarkIds: ['a'], isUndone: false }]);
   });
 
   // KAN-862 R14. Only imports: the first-save pop is still to come. Any other session held ends that.

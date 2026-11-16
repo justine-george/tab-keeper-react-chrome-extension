@@ -73,14 +73,14 @@ describe('isImportableUrl', () => {
 });
 
 describe('folderTree', () => {
-  it('counts importable links at any depth and lists only folders', () => {
+  it('counts importable links at any depth and lists only folders that have some', () => {
     const [bar, other] = folderTree(fixture(), OWN, NONE);
     expect(bar.title).toBe('Bookmarks bar');
-    expect(bar.count).toBe(2 + 14 + 0 + 2);
+    expect(bar.count).toBe(2 + 14 + 2);
     expect(other.count).toBe(1);
     const titles = bar.children.map((c) => c.title);
-    expect(titles).toEqual(['Kitchen remodel', 'Old stuff', 'Recipes']);
-    expect(bar.children[1].count).toBe(0);
+    // KAN-862 R19. Old stuff is empty: nothing to import, so not listed.
+    expect(titles).toEqual(['Kitchen remodel', 'Recipes']);
     expect([bar.isTop, other.isTop, bar.children[0].isTop]).toEqual([
       true,
       true,
@@ -93,15 +93,15 @@ describe('folderTree', () => {
   });
   it('marks twin top folders account or device, and only then', () => {
     const root = folder('0', '', [
-      folder('1', 'Bookmarks bar', [], {
+      folder('1', 'Bookmarks bar', links('a', 1), {
         folderType: 'bookmarks-bar',
         syncing: true,
       }),
-      folder('2', 'Bookmarks bar', [], {
+      folder('2', 'Bookmarks bar', links('d', 1), {
         folderType: 'bookmarks-bar',
         syncing: false,
       }),
-      folder('3', 'Other', [], { folderType: 'other' }),
+      folder('3', 'Other', links('o', 1), { folderType: 'other' }),
     ]);
     const tops = folderTree(root, OWN, NONE);
     expect(tops.map((t) => t.where)).toEqual(['account', 'device', undefined]);
@@ -303,8 +303,8 @@ describe('sessionsFor', () => {
   });
 });
 
-// KAN-862 (11-16). A folder imported once can't be imported again: the tree and the sessions leave it out.
-describe('with folders imported before', () => {
+// KAN-862 (11-16). What was imported before is left out: user folders whole, and a top folder's loose links one by one (R22).
+describe('with bookmarks imported before', () => {
   const opts = {
     now: NOW,
     ownOrigin: OWN,
@@ -313,18 +313,12 @@ describe('with folders imported before', () => {
   };
   const tree = (...imported: string[]) =>
     folderTree(fixture(), OWN, new Set(imported));
-  const everyFolder = (folders: BookmarkFolder[]): BookmarkFolder[] =>
-    folders.flatMap((f) => [f, ...everyFolder(f.children)]);
-  const byId = (folders: BookmarkFolder[], id: string): BookmarkFolder => {
-    const found = everyFolder(folders).find((f) => f.id === id);
-    if (found === undefined) throw new Error(`no folder ${id}`);
-    return found;
-  };
-  const stateAndCount = (folders: BookmarkFolder[], ids: string[]) =>
-    ids.map((id) => {
-      const f = byId(folders, id);
-      return [id, f.importState, f.count];
-    });
+  // Every listed folder, depth first, with its count.
+  const listed = (folders: BookmarkFolder[]): [string, number][] =>
+    folders.flatMap((f): [string, number][] => [
+      [f.id, f.count],
+      ...listed(f.children),
+    ]);
   const madeFrom = (imported: string[], ticked: string[]) =>
     sessionsFor(fixture(), new Set(ticked), {
       ...opts,
@@ -336,91 +330,87 @@ describe('with folders imported before', () => {
       session.windows.map((w) => [w.title, w.tabCount]),
     ]);
 
-  it('nothing imported: every folder is notImported', () => {
-    const folders = tree();
-    expect(
-      stateAndCount(folders, ['1', 'kitchen', 'appl', 'old', '2'])
-    ).toEqual([
-      ['1', 'notImported', 18],
-      ['kitchen', 'notImported', 14],
-      ['appl', 'notImported', 6],
-      ['old', 'notImported', 0],
-      ['2', 'notImported', 1],
+  it('nothing imported: every folder with links is listed', () => {
+    expect(listed(tree())).toEqual([
+      ['1', 18],
+      ['kitchen', 14],
+      ['tiles', 5],
+      ['appl', 6],
+      ['fridges', 2],
+      ['recipes', 2],
+      ['2', 1],
     ]);
   });
 
-  it('an imported user folder counts nothing; the folders in it keep their counts but are insideImported', () => {
-    expect(
-      stateAndCount(tree('kitchen'), [
-        '1',
-        'kitchen',
-        'tiles',
-        'appl',
-        'fridges',
-        'recipes',
-      ])
-    ).toEqual([
-      ['1', 'notImported', 2 + 2],
-      ['kitchen', 'imported', 0],
-      ['tiles', 'insideImported', 5],
-      ['appl', 'insideImported', 6],
-      ['fridges', 'insideImported', 2],
-      ['recipes', 'notImported', 2],
+  it('an imported user folder, and every folder in it, is not listed and counts nothing', () => {
+    expect(listed(tree('kitchen'))).toEqual([
+      ['1', 2 + 2],
+      ['recipes', 2],
+      ['2', 1],
     ]);
   });
 
-  it('an imported subfolder leaves its parent’s count, and the parent stays tickable', () => {
-    expect(
-      stateAndCount(tree('appl'), ['1', 'kitchen', 'appl', 'fridges', 'tiles'])
-    ).toEqual([
-      ['1', 'notImported', 2 + 8 + 2],
-      ['kitchen', 'notImported', 3 + 5],
-      ['appl', 'imported', 0],
-      ['fridges', 'insideImported', 2],
-      ['tiles', 'notImported', 5],
+  it('an imported subfolder leaves its parent listed, counting what is left', () => {
+    expect(listed(tree('appl'))).toEqual([
+      ['1', 2 + 8 + 2],
+      ['kitchen', 3 + 5],
+      ['tiles', 5],
+      ['recipes', 2],
+      ['2', 1],
     ]);
   });
 
-  it('a top folder’s record covers only its loose links: its folders stay free', () => {
-    expect(stateAndCount(tree('1'), ['1', 'kitchen', 'recipes'])).toEqual([
-      ['1', 'notImported', 14 + 2],
-      ['kitchen', 'notImported', 14],
-      ['recipes', 'notImported', 2],
-    ]);
-  });
-
-  it('a top folder with nothing left reads imported', () => {
-    expect(
-      stateAndCount(tree('1', 'kitchen', 'recipes', '2'), ['1', '2', 'old'])
-    ).toEqual([
-      ['1', 'imported', 0],
-      ['2', 'imported', 0],
-      ['old', 'notImported', 0],
-    ]);
-  });
-
-  it('a user folder whose every link is in imported folders reads imported', () => {
+  it('a user folder whose every link is in imported folders is not listed', () => {
     const root = folder('0', '', [
       folder('bar', 'Bar', [
+        link('loose', 'https://l.test/'),
         folder('x', 'X', [
           folder('y', 'Y', links('y', 2)),
           folder('e', 'E', []),
         ]),
       ]),
     ]);
-    const [bar] = folderTree(root, OWN, new Set(['y']));
-    expect(stateAndCount([bar], ['bar', 'x', 'y', 'e'])).toEqual([
-      ['bar', 'imported', 0],
-      ['x', 'imported', 0],
-      ['y', 'imported', 0],
-      ['e', 'notImported', 0],
+    expect(listed(folderTree(root, OWN, new Set(['y'])))).toEqual([['bar', 1]]);
+  });
+
+  it('imported loose links leave the top folder’s count; its folders stay', () => {
+    expect(listed(tree('l1', 'l3')).slice(0, 2)).toEqual([
+      ['1', 14 + 2],
+      ['kitchen', 14],
+    ]);
+    expect(listed(tree('l1')).slice(0, 1)).toEqual([['1', 1 + 14 + 2]]);
+  });
+
+  it('a top folder with nothing left is not listed', () => {
+    expect(listed(tree('l1', 'l3', 'kitchen', 'recipes'))).toEqual([['2', 1]]);
+    expect(tree('l1', 'l3', 'kitchen', 'recipes', 'o0')).toEqual([]);
+  });
+
+  it('a top folder’s session covers the loose links it took, by bookmark id; a user folder’s, the folder', () => {
+    expect(
+      madeFrom([], ['recipes', '1', 'kitchen', 'old']).map((m) => [
+        m.session.title,
+        m.bookmarkIds,
+      ])
+    ).toEqual([
+      ['Bookmarks bar', ['l1', 'l3']],
+      ['Kitchen remodel', ['kitchen']],
+      ['Recipes', ['recipes']],
     ]);
   });
 
-  it('each session says which folder it came from', () => {
+  it('a link added to the bar after its loose links were imported is the bar’s whole session next time', () => {
+    const made = madeFrom(['l1'], ['1']);
+    expect(shapeOf(made)).toEqual([['Bookmarks bar', [['Bookmarks bar', 1]]]]);
+    expect(made.map((m) => m.bookmarkIds)).toEqual([['l3']]);
+  });
+
+  it('a ticked top folder whose loose links are all imported adds no session of its own', () => {
     expect(
-      madeFrom([], ['recipes', '1', 'kitchen', 'old']).map((m) => m.folderId)
-    ).toEqual(['1', 'kitchen', 'recipes']);
+      madeFrom(['l1', 'l3'], ['1', 'kitchen', 'recipes']).map(
+        (m) => m.bookmarkIds
+      )
+    ).toEqual([['kitchen'], ['recipes']]);
   });
 
   it('a ticked user folder leaves out the imported folders in it', () => {
@@ -448,15 +438,11 @@ describe('with folders imported before', () => {
     ]);
   });
 
-  it('a ticked top folder whose loose links are imported adds no session of its own', () => {
-    expect(
-      madeFrom(['1'], ['1', 'kitchen', 'recipes']).map((m) => m.folderId)
-    ).toEqual(['kitchen', 'recipes']);
-  });
-
   it('an imported folder’s tick, or a tick inside one, adds nothing', () => {
     expect(
-      madeFrom(['appl'], ['appl', 'fridges', 'recipes']).map((m) => m.folderId)
-    ).toEqual(['recipes']);
+      madeFrom(['appl'], ['appl', 'fridges', 'recipes']).map(
+        (m) => m.bookmarkIds
+      )
+    ).toEqual([['recipes']]);
   });
 });

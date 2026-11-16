@@ -556,5 +556,8 @@
   "You can import any time from Settings › Sync & backup.": "Vous pouvez importer à tout moment depuis Paramètres › Sync & sauvegarde.",
   "Becomes a window": "Devient une fenêtre",
   "Goes into the window above": "Va dans la fenêtre au-dessus",
-  "Already imported": "Déjà importé"
+  "Select all": "Tout sélectionner",
+  "Deselect all": "Tout désélectionner",
+  "Everything in your bookmarks is already imported.": "Tout le contenu de vos favoris est déjà importé.",
+  "There are no bookmarks to import.": "Il n’y a aucun favori à importer."
 }

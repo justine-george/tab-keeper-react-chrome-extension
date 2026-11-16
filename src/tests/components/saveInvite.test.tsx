@@ -208,7 +208,7 @@ describe('the list after an import', () => {
       seedStore: (s) => {
         s.dispatch(
           importBookmarkSessions([
-            { folderId: 'f', session: buildSession({ tabGroupId: 'i' }) },
+            { bookmarkIds: ['f'], session: buildSession({ tabGroupId: 'i' }) },
           ])
         );
       },
@@ -222,7 +222,7 @@ describe('the list after an import', () => {
     const { store } = await renderWithProviders(<UserInputContainer />, {
       seedStore: (s) => {
         s.dispatch(
-          importBookmarkSessions([{ folderId: 'f', session: imported }])
+          importBookmarkSessions([{ bookmarkIds: ['f'], session: imported }])
         );
       },
     });

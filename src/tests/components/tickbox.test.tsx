@@ -8,10 +8,10 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 // KAN-862. One box per folder row in the import dialog.
 const box = () => screen.getByRole('checkbox', { name: 'Work' });
 
-const show = async (state: TickState, extra: { disabled?: boolean } = {}) => {
+const show = async (state: TickState) => {
   const onToggle = vi.fn();
   await renderWithProviders(
-    <Tickbox state={state} label="Work" onToggle={onToggle} {...extra} />
+    <Tickbox state={state} label="Work" onToggle={onToggle} />
   );
   return onToggle;
 };
@@ -54,26 +54,8 @@ describe('Tickbox', () => {
     expect(onToggle).not.toHaveBeenCalled();
   });
 
-  test.each([
-    ['off', { disabled: true }],
-    ['on', { disabled: true }],
-  ] as const)('%s %j is aria-disabled and inert', async (state, extra) => {
-    const onToggle = await show(state, extra);
-    expect(box()).toHaveAttribute('aria-disabled', 'true');
-    fireEvent.click(box());
-    fireEvent.keyDown(box(), { key: ' ' });
-    expect(onToggle).not.toHaveBeenCalled();
-  });
-
-  // An empty folder adds nothing, even ticked: it draws an empty box, so it says unchecked too.
-  test('on and disabled reads and draws unchecked', async () => {
-    await show('on', { disabled: true });
-    expect(box()).toHaveAttribute('aria-checked', 'false');
-    expect(box()).not.toHaveTextContent('check');
-  });
-
-  test('stays in the tab order when inert', async () => {
-    await show('off', { disabled: true });
+  test('stays in the tab order', async () => {
+    await show('off');
     expect(box()).toHaveAttribute('tabindex', '0');
   });
 

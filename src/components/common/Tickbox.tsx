@@ -11,8 +11,6 @@ export type TickState = 'off' | 'on';
 
 interface TickboxProps {
   state: TickState;
-  // A folder with nothing to import (empty, or imported before): it reads and draws unchecked whatever its state.
-  disabled?: boolean;
   label: string;
   onToggle: () => void;
 }
@@ -20,18 +18,12 @@ interface TickboxProps {
 /**
  * KAN-862. A checkbox for the import dialog's folder tree. A span, not an
  * <input>: the drawing is ours, and the ARIA checkbox pattern takes Space
- * only, which a <button> would widen to Enter. A disabled box says
- * aria-disabled and stays in the tab order, like the app's other
- * unavailable controls.
+ * only, which a <button> would widen to Enter. Every listed folder has
+ * something to import (R19), so there is no disabled box.
  */
-const Tickbox: React.FC<TickboxProps> = ({
-  state,
-  disabled = false,
-  label,
-  onToggle,
-}) => {
+const Tickbox: React.FC<TickboxProps> = ({ state, label, onToggle }) => {
   const COLORS = useThemeColors();
-  const ticked = state === 'on' && !disabled;
+  const ticked = state === 'on';
 
   const boxStyle = css`
     box-sizing: border-box;
@@ -41,12 +33,11 @@ const Tickbox: React.FC<TickboxProps> = ({
     justify-content: center;
     width: 18px;
     height: 18px;
-    border: 1.5px solid
-      ${disabled ? COLORS.PANEL_BORDER_COLOR : COLORS.TEXT_COLOR};
+    border: 1.5px solid ${COLORS.TEXT_COLOR};
     border-radius: ${RADIUS.MARK};
     corner-shape: ${CORNER_SHAPE};
     background: ${ticked ? COLORS.TEXT_COLOR : 'transparent'};
-    cursor: ${disabled ? 'default' : 'pointer'};
+    cursor: pointer;
     ${focusRingOutsideCss(COLORS)}
   `;
 
@@ -55,15 +46,14 @@ const Tickbox: React.FC<TickboxProps> = ({
       role="checkbox"
       tabIndex={0}
       aria-checked={ticked}
-      aria-disabled={disabled ? true : undefined}
       aria-label={label}
       css={boxStyle}
-      onClick={disabled ? undefined : onToggle}
+      onClick={onToggle}
       onKeyDown={(e) => {
         if (e.key !== ' ') return;
         // Space would scroll the dialog's list.
         e.preventDefault();
-        if (!disabled) onToggle();
+        onToggle();
       }}
     >
       {ticked && (
