@@ -393,7 +393,7 @@ test.describe('a group released over another window', () => {
   }) => {
     const page = await open(context, extensionId);
     await page
-      .locator('[data-drop-window-id="w2"]')
+      .locator('[data-drop-window-id="w2"] [data-window-drag-handle]')
       .getByRole('button', { name: /^Collapse(: |$)/ })
       .click();
     await expect(
@@ -418,7 +418,7 @@ test.describe('a group released over another window', () => {
     expect(await groupsOf(page, 'w2')).toEqual([BETA, ALPHA]);
     // And the rows really are there once the window is opened again.
     await page
-      .locator('[data-drop-window-id="w2"]')
+      .locator('[data-drop-window-id="w2"] [data-window-drag-handle]')
       .getByRole('button', { name: /^Expand(: |$)/ })
       .click();
     await expect(
@@ -633,7 +633,7 @@ test.describe('what a group drag into another window previews', () => {
   }) => {
     const page = await open(context, extensionId);
     await page
-      .locator('[data-drop-window-id="w2"]')
+      .locator('[data-drop-window-id="w2"] [data-window-drag-handle]')
       .getByRole('button', { name: /^Collapse(: |$)/ })
       .click();
     await expect(

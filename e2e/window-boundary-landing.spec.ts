@@ -2,6 +2,7 @@ import type { BrowserContext, Page } from '@playwright/test';
 
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
+import { elementLanded } from './fixtures/landed';
 
 // KAN-185. The boundary between two saved windows is a POINT, not a band.
 //
@@ -174,7 +175,8 @@ test.describe('the gap between two windows', () => {
     await page.mouse.up();
 
     await expect.poll(() => order(page, 'w1')).toBe('a0 a1 a2 a3 a4 a5 be0');
-    // What it promised is where it went: the end of the window above.
+    // What it promised is where it went: the end of the window above, once its landing glide (KAN-822) ends.
+    await elementLanded(page.locator('[data-drag-row-id="be0"]'), 'ancestors');
     const landed = await boxOf(page, '[data-drag-row-id="be0"]');
     expect(Math.abs(landed.y - promised!)).toBeLessThanOrEqual(2);
   });

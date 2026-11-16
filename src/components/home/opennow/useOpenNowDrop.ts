@@ -61,9 +61,13 @@ import {
   withoutSplitFollowers,
 } from '../../../utils/functions/splitPartners';
 import {
+  groupEndIndex,
+  groupStartIndex,
+  foldedMemberIds,
   itemIdOf,
   partitionTabsIntoItems,
 } from '../../../utils/functions/tabGroups';
+import { indexOfDrawnRow } from '../../../utils/functions/savedPairs';
 import {
   OPEN_NOW_HEADER_NEW_WINDOW,
   OPEN_NOW_NEW_WINDOW,
@@ -123,6 +127,35 @@ export function openDragWindows(
   }));
 }
 
+// KAN-822. A drawn row as moveOpenTab's index, held row out: as savedIndexOfDrawnRow, and null for a row not drawn.
+export function liveIndexOfDrawnRow(
+  window: DragWindows[number],
+  heldId: string,
+  rowIndex: number,
+  bandId: string | undefined,
+  beforeFoldedGroupId: string | undefined,
+  foldedGroupIds: ReadonlySet<string>
+): number | null {
+  const rowless = foldedMemberIds(
+    window.tabs,
+    window.chromeTabGroups,
+    foldedGroupIds
+  );
+  const others = window.tabs.filter((tab) => tab.tabId !== heldId);
+  const drawsNoRow = others.map((tab) => rowless.has(tab.tabId));
+  const rows = drawsNoRow.filter((noRow) => !noRow).length;
+  if (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex > rows) {
+    return null;
+  }
+  if (bandId === undefined && beforeFoldedGroupId !== undefined) {
+    return groupStartIndex(window.tabs, beforeFoldedGroupId, new Set([heldId]));
+  }
+  const row = indexOfDrawnRow(drawsNoRow, rowIndex);
+  if (bandId === undefined) return row;
+  const end = groupEndIndex(window.tabs, bandId, new Set([heldId]));
+  return foldedGroupIds.has(bandId) ? end : Math.min(row, end);
+}
+
 // What a window shows, for landingRange: the engine counts only the rows a
 // window DRAWS, and a folded window draws none (Task 5, 4958c2a).
 interface Shown {
@@ -168,6 +201,8 @@ interface Options {
   hasTabGroups: boolean;
   // The windows the pane has folded shut, by Chrome id.
   collapsedIds: ReadonlySet<number>;
+  // KAN-822. The groups the pane draws folded, by string id: Chrome's collapse, or a search's own set.
+  foldedGroupIds: ReadonlySet<string>;
   // KAN-815. A saved tab or group carried in, or null. Memoized by the
   // caller, like `windows`: the tables are built from it.
   carriedIn: CarriedIntoOpenNow | null;
@@ -183,6 +218,7 @@ export function useOpenNowDrop({
   windows,
   hasTabGroups,
   collapsedIds,
+  foldedGroupIds,
   carriedIn,
   liveNewWindow,
 }: Options) {
@@ -228,10 +264,8 @@ export function useOpenNowDrop({
     ],
     [windows, hasTabGroups, carriedIn, liveNewWindow]
   );
-  const { describeTabMove, ...tabGeometry } = useTabDropGeometry(
-    dragWindows,
-    hasTabGroups
-  );
+  const { describeTabMove, foldedGroupBelowLanding, ...tabGeometry } =
+    useTabDropGeometry(dragWindows, hasTabGroups, foldedGroupIds);
   const { describeGroupMove, ...itemGeometry } = useGroupDropGeometry(
     dragWindows,
     hasTabGroups
@@ -257,12 +291,18 @@ export function useOpenNowDrop({
         window.tabs,
         window.chromeTabGroups
       );
+      // KAN-822. A folded group's members are no rows.
+      const rowless = foldedMemberIds(
+        window.tabs,
+        window.chromeTabGroups,
+        foldedGroupIds
+      );
       shown.set(
         window.windowId,
         open !== undefined && collapsedIds.has(open.id)
           ? NOTHING_SHOWN
           : {
-              tabs: window.tabs.length,
+              tabs: window.tabs.length - rowless.size,
               items: partition.length,
               pinned: window.tabs.filter((tab) => tab.pinned).length,
             }
@@ -289,7 +329,7 @@ export function useOpenNowDrop({
       )
     );
     return { shown, incognito, tabs, items, pairHeads };
-  }, [dragWindows, windows, collapsedIds, carriedIn]);
+  }, [dragWindows, windows, collapsedIds, carriedIn, foldedGroupIds]);
 
   const accepts = useCallback(
     (held: Held | undefined, windowId: string): boolean => {
@@ -427,23 +467,45 @@ export function useOpenNowDrop({
       rowId: string,
       toIndex: number,
       dropTargetId?: string,
-      toWindowId?: string
+      toWindowId?: string,
+      foldedBandBelowId?: string
     ): Promise<MovedTabs | 'copied' | null> => {
       // A folded window shows no slot, so the engine's position 0 chose no
       // pin there: the tab keeps its own, as in a saved session.
       const folded = windows.find(
         (w) => String(w.id) === toWindowId && collapsedIds.has(w.id)
       );
+      // KAN-822. The drawn row as the row Chrome's strip is counted in.
+      const landing = dragWindows.find((w) => w.windowId === toWindowId);
+      const row =
+        landing === undefined
+          ? toIndex
+          : liveIndexOfDrawnRow(
+              landing,
+              rowId,
+              toIndex,
+              dropTargetId,
+              foldedGroupBelowLanding(
+                rowId,
+                toIndex,
+                toWindowId,
+                foldedBandBelowId
+              ),
+              foldedGroupIds
+            );
       const carried = carriedFor(rowId);
       if (carried !== undefined) {
         const savedPinned = carriedIn?.pinned === true;
         return openCopy(carried, toWindowId, (liveId) => {
+          const at =
+            folded === undefined
+              ? row
+              : noRowsTabIndex(withoutSplitFollowers(folded.tabs), savedPinned);
+          if (at === null) return null;
           const slot = tabCopySlot(
             windows,
             liveId,
-            folded === undefined
-              ? toIndex
-              : noRowsTabIndex(withoutSplitFollowers(folded.tabs), savedPinned),
+            at,
             savedPinned,
             dropTargetId,
             hasTabGroups
@@ -454,11 +516,12 @@ export function useOpenNowDrop({
       if (isNewWindowTarget(toWindowId)) return moveToNewWindow(rowId);
       const index =
         folded === undefined
-          ? toIndex
+          ? row
           : noRowsTabIndex(
               withoutSplitFollowers(folded.tabs),
               tables.tabs.get(rowId)?.pinned === true
             );
+      if (index === null) return null;
       const move = describeTabMove(rowId, index, dropTargetId, toWindowId);
       if (move === undefined) return null;
       const isPair = tables.pairHeads.has(rowId);
@@ -490,6 +553,9 @@ export function useOpenNowDrop({
     [
       describeTabMove,
       windows,
+      dragWindows,
+      foldedGroupIds,
+      foldedGroupBelowLanding,
       collapsedIds,
       tables,
       hasTabGroups,

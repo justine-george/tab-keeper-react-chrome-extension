@@ -20,6 +20,7 @@ import {
   DraggableRow,
   PhantomRestingSlot,
 } from '../rightpane/rowDrag/RowDragArea';
+import { useDragState } from '../rightpane/rowDrag/dragContext';
 import { OPEN_NOW_LAST_TARGET } from '../rightpane/newWindowTarget';
 import { OPEN_NOW_NEW_WINDOW } from './carriedIntoOpenNow';
 import { OPEN_ITEMS_SCOPE, OPEN_TABS_SCOPE } from './useOpenNowDrop';
@@ -38,10 +39,20 @@ export default function OpenNowNewWindowBlock({
 }: Props) {
   const COLORS = useThemeColors();
   const { t } = useTranslation();
+  // KAN-822 (Important 1). Moved with the windows above it, published for the hit test as OpenNowWindow's is (KAN-184).
+  const tabDrag = useDragState(OPEN_TABS_SCOPE);
+  const itemDrag = useDragState(OPEN_ITEMS_SCOPE);
+  const windowShift =
+    (tabDrag?.windowShifts[OPEN_NOW_NEW_WINDOW] ?? 0) ||
+    (itemDrag?.windowShifts[OPEN_NOW_NEW_WINDOW] ?? 0);
   return (
     <div
       data-drop-window-id={OPEN_NOW_NEW_WINDOW}
       data-new-window-target={OPEN_NOW_LAST_TARGET}
+      data-window-shift={windowShift || undefined}
+      style={{
+        transform: windowShift ? `translateY(${windowShift}px)` : undefined,
+      }}
       aria-hidden="true"
       css={[
         dropBoxStyle(COLORS),

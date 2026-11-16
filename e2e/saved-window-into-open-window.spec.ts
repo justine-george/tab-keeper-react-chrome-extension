@@ -1227,6 +1227,67 @@ test('pinned saved tabs: a fill on the pinned run and one on the tail, the old r
   expect(Math.abs(out1 - out0)).toBeLessThan(5);
 });
 
+// KAN-822. S1 w1: s1, then "Day trips" (g0, g1) stored folded, so it lands collapsed (s1 is the opening tab).
+const FOLDED_GROUP = (): tabContainerData =>
+  session('S1', 'Trip', [
+    win(
+      'w1',
+      [tab('s1'), tab('g0', 'day'), tab('g1', 'day')],
+      [{ groupId: 'day', title: 'Day trips', color: 'green', collapsed: true }]
+    ),
+  ]);
+
+test('a saved group stored folded lands collapsed: one fill covers the loose tab and the folded band', async ({
+  context,
+  extensionId,
+  serviceWorker: worker,
+}) => {
+  const live = await openLiveWindow(worker, ['A', 'B']);
+  const page = await setUp(context, extensionId, FOLDED_GROUP());
+  await expect(liveRow(page, live.idOf('B'))).toBeVisible();
+  const before = (await strip(worker, live.windowId)).map((t) => t.id);
+
+  await pickUp(page, windowHandle(page, 'w1'));
+  await carryTo(page, await middleOf(windowRow(page, live.windowId)));
+  await expect(block(page, live.windowId)).toHaveAttribute('data-landing', '');
+  await recordArrival(page, live.windowId, { pause: true });
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => (await strip(worker, live.windowId)).length, SETTLE)
+    .toBe(before.length + 3);
+  const added = (await strip(worker, live.windowId)).filter(
+    (t) => !before.includes(t.id)
+  );
+  const loose = added.find((t) => t.groupId === -1);
+  const grouped = added.find((t) => t.groupId !== -1);
+  if (loose === undefined || grouped === undefined)
+    throw new Error('the loose tab or the group did not land');
+  // PREMISE: Chrome has the group collapsed, and Open now draws it folded, no member rows in it.
+  expect(
+    await worker.evaluate(
+      async (g) => (await chrome.tabGroups.get(g)).collapsed,
+      grouped.groupId
+    )
+  ).toBe(true);
+  const band = block(page, live.windowId).locator(
+    `[data-band-id="${grouped.groupId}"][role="group"]`
+  );
+  await expect(band).toHaveAttribute('data-group-folded', '');
+  await expect(band.locator('[data-open-tab-id]')).toHaveCount(0);
+
+  const fill = page.locator('[data-arrival]');
+  await expect(fill).toHaveCount(1);
+  // Every tab in the band is new, so the run takes in its title row after the loose row.
+  const fillBox = await boxOf(fill);
+  const rowBox = await boxOf(liveRow(page, loose.id));
+  const bandBox = await boxOf(band);
+  expect(Math.abs(fillBox.y - rowBox.y)).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(fillBox.y + fillBox.height - (bandBox.y + bandBox.height))
+  ).toBeLessThanOrEqual(1);
+});
+
 test('reduce motion: no smooth scroll, the fill shows and goes without a fade', async ({
   context,
   extensionId,

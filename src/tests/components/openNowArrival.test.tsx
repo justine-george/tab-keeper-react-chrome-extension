@@ -228,3 +228,201 @@ describe('the arrival fill', () => {
     });
   }
 });
+
+// KAN-822. A folded group draws its title row only: its new tabs count as listed, its band joins a run only when all are new.
+describe('the arrival fill with a folded group', () => {
+  const tab = (
+    id: number,
+    groupId: number | null
+  ): OpenWindow['tabs'][number] => ({
+    id,
+    windowId: 2,
+    title: '',
+    url: '',
+    favIconUrl: '',
+    active: false,
+    pinned: false,
+    audible: false,
+    muted: false,
+    groupId,
+    index: id,
+  });
+  // Window 2: tabs in Chrome's order; group 7 folded, group 8 open.
+  const windowOf = (tabs: OpenWindow['tabs']): OpenWindow => ({
+    id: 2,
+    isThisWindow: false,
+    tabs,
+    groups: [
+      { id: 7, title: 'Folded', color: 'blue', collapsed: true },
+      { id: 8, title: 'Open', color: 'red', collapsed: false },
+    ],
+    bounds: null,
+    state: 'normal',
+    incognito: false,
+  });
+
+  // Drawn as Open now draws it: loose rows, each band at its first tab, a folded band its title row only.
+  function GroupedList({ openWindow }: { openWindow: OpenWindow }) {
+    const paneRef = useRef<HTMLDivElement>(null);
+    const scrollerRef = useRef<HTMLDivElement>(null);
+    useArrival(paneRef, scrollerRef, [openWindow]);
+    const seen = new Set<number>();
+    return (
+      <div ref={paneRef}>
+        <div ref={scrollerRef}>
+          <div data-open-window-id={openWindow.id}>
+            {openWindow.tabs.map((t) => {
+              if (t.groupId === null)
+                return <div key={t.id} data-open-tab-id={t.id} />;
+              if (seen.has(t.groupId)) return null;
+              seen.add(t.groupId);
+              const groupId = t.groupId;
+              const folded = openWindow.groups.some(
+                (g) => g.id === groupId && g.collapsed
+              );
+              return (
+                <div
+                  key={`g${groupId}`}
+                  data-band-id={groupId}
+                  data-group-folded={folded ? '' : undefined}
+                >
+                  <div data-group-drag-handle />
+                  {!folded &&
+                    openWindow.tabs
+                      .filter((m) => m.groupId === groupId)
+                      .map((m) => <div key={m.id} data-open-tab-id={m.id} />)}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Each drawn line (tab row or title row) 32px tall from y 0, in order; a band spans its own lines.
+  function layOut(container: HTMLElement) {
+    const lines = [
+      ...container.querySelectorAll(
+        '[data-open-tab-id], [data-group-drag-handle]'
+      ),
+    ];
+    lines.forEach((line, i) => {
+      line.getBoundingClientRect = () =>
+        new DOMRect(10, i * ROW_PX, 300, ROW_PX);
+    });
+    container.querySelectorAll('[data-band-id]').forEach((band) => {
+      const own = lines.filter((line) => band.contains(line));
+      const first = lines.indexOf(own[0]);
+      band.getBoundingClientRect = () =>
+        new DOMRect(10, first * ROW_PX, 300, own.length * ROW_PX);
+    });
+    const block = container.querySelector('[data-open-window-id]');
+    if (block === null) throw new Error('no block');
+    block.getBoundingClientRect = () =>
+      new DOMRect(0, 0, 320, lines.length * ROW_PX);
+  }
+  const spans = (container: HTMLElement) =>
+    fills(container).map((fill) =>
+      fill instanceof HTMLElement
+        ? { top: fill.style.top, height: fill.style.height }
+        : null
+    );
+
+  test('a new tab in a folded group beside old ones: the loose new row still fills, the band does not', () => {
+    // Drawn: 10, band 7 (11, 12 inside), 13.
+    const { container } = render(
+      <GroupedList
+        openWindow={windowOf([
+          tab(10, null),
+          tab(11, 7),
+          tab(12, 7),
+          tab(13, null),
+        ])}
+      />
+    );
+    layOut(container);
+
+    act(() => announceArrival(2, [12, 13]));
+
+    expect(spans(container)).toEqual([
+      { top: `${2 * ROW_PX}px`, height: `${ROW_PX}px` },
+    ]);
+  });
+
+  test('a folded group all of whose tabs are new: its band joins the run beside it', () => {
+    // Drawn: 10, band 7 (11, 12 inside), 13.
+    const { container } = render(
+      <GroupedList
+        openWindow={windowOf([
+          tab(10, null),
+          tab(11, 7),
+          tab(12, 7),
+          tab(13, null),
+        ])}
+      />
+    );
+    layOut(container);
+
+    act(() => announceArrival(2, [11, 12, 13]));
+
+    expect(spans(container)).toEqual([
+      { top: `${ROW_PX}px`, height: `${2 * ROW_PX}px` },
+    ]);
+  });
+
+  test('an old row between a new folded band and a new row: a fill on each, in drawn order', () => {
+    // Drawn: band 7 (11, 12 inside), 10, 13.
+    const { container } = render(
+      <GroupedList
+        openWindow={windowOf([
+          tab(11, 7),
+          tab(12, 7),
+          tab(10, null),
+          tab(13, null),
+        ])}
+      />
+    );
+    layOut(container);
+
+    act(() => announceArrival(2, [11, 12, 13]));
+
+    expect(spans(container)).toEqual([
+      { top: '0px', height: `${ROW_PX}px` },
+      { top: `${2 * ROW_PX}px`, height: `${ROW_PX}px` },
+    ]);
+  });
+
+  test('every new tab in a folded group beside old ones: the arrival ends with no fill', () => {
+    const { container } = render(
+      <GroupedList
+        openWindow={windowOf([tab(10, null), tab(11, 7), tab(12, 7)])}
+      />
+    );
+    layOut(container);
+
+    act(() => announceArrival(2, [12]));
+
+    expect(fills(container)).toHaveLength(0);
+    // Not waiting on a row that never draws: nothing is left to run.
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  // The open band's rule is unchanged: a new tab in it waits for its row.
+  test('a new tab in an open group not drawn yet: it waits for its row', () => {
+    const drawnWithout = windowOf([tab(10, null), tab(14, 8)]);
+    const { container, rerender } = render(
+      <GroupedList openWindow={drawnWithout} />
+    );
+    act(() => announceArrival(2, [15]));
+    expect(fills(container)).toHaveLength(0);
+
+    rerender(
+      <GroupedList
+        openWindow={windowOf([tab(10, null), tab(14, 8), tab(15, 8)])}
+      />
+    );
+
+    expect(fills(container)).toHaveLength(1);
+  });
+});

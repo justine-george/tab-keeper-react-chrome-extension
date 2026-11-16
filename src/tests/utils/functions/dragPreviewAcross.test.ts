@@ -5,6 +5,7 @@ import {
   landsPastWindowEnd,
   previewShifts,
   previewShiftsAcross,
+  reopeningShifts,
   type WindowedSlot,
 } from '../../../utils/functions/dragPreview';
 import {
@@ -211,5 +212,29 @@ describe('a row not drawn when measured', () => {
         }
       }
     }
+  });
+});
+
+// KAN-822 (pick 2B). A lone tab's room held open: summed with previewShifts, the slots it passed hold still.
+describe('reopeningShifts', () => {
+  test('every slot after the held row in its window moves down by the footprint, no other window', () => {
+    expect(reopeningShifts(SLOTS, at('a1'), FP)).toEqual({
+      G: FP,
+      g0: FP,
+      'G:tail': FP,
+    });
+  });
+
+  test('with previewShifts down to G, the passed slots stay and the rest opens', () => {
+    const passed = previewShifts(SLOTS, at('a0'), at('G'), FP);
+    const held = reopeningShifts(SLOTS, at('a0'), FP);
+    const sum = Object.fromEntries(
+      Object.keys(held).map((k) => [k, (passed[k] ?? 0) + (held[k] ?? 0)])
+    );
+    expect(sum).toEqual({ a1: 0, G: 0, g0: FP, 'G:tail': FP });
+  });
+
+  test('the last slot of its window: nothing to move', () => {
+    expect(reopeningShifts(SLOTS, at('b1'), FP)).toEqual({});
   });
 });

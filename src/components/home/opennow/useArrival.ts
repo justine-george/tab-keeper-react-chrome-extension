@@ -34,27 +34,70 @@ const easeOutCubic = (k: number) => 1 - (1 - k) ** 3;
 
 type Run = [HTMLElement, ...HTMLElement[]];
 
+// KAN-822. Each group's tab ids in the window that took the drop, by band id: a folded band draws none of its rows.
+type GroupMembers = ReadonlyMap<string, readonly string[]>;
+
+function groupMembersIn(
+  windows: readonly OpenWindow[] | null,
+  windowId: number
+): GroupMembers {
+  const members = new Map<string, string[]>();
+  for (const tab of windows?.find((w) => w.id === windowId)?.tabs ?? []) {
+    if (tab.groupId === null) continue;
+    const key = String(tab.groupId);
+    members.set(key, [...(members.get(key) ?? []), String(tab.id)]);
+  }
+  return members;
+}
+
 // A dropped window's new rows in their block, one list per run of them next
 // to each other (R17), each with every group band all of whose rows are new;
 // null until every one of them is listed.
-function newRunsIn(block: Element, tabIds: readonly number[]): Run[] | null {
+// KAN-822. A tab in a folded band is listed there; the band joins a run when its tabs are all new.
+function newRunsIn(
+  block: Element,
+  tabIds: readonly number[],
+  members: GroupMembers
+): Run[] | null {
   const idOf = (row: Element) => row.getAttribute('data-open-tab-id') ?? '';
+  const bandIdOf = (band: Element) => band.getAttribute('data-band-id') ?? '';
+  const isNew = new Set(tabIds.map(String));
+  const areAllNew = (ids: readonly (string | null)[]) =>
+    ids.length > 0 && ids.every((id) => id !== null && isNew.has(id));
   const rows = [...block.querySelectorAll<HTMLElement>('[data-open-tab-id]')];
-  const listed = new Set(rows.map(idOf));
+  const foldedBands = [
+    ...block.querySelectorAll<HTMLElement>('[data-band-id][data-group-folded]'),
+  ];
+  const listed = new Set([
+    ...rows.map(idOf),
+    ...foldedBands.flatMap((band) => members.get(bandIdOf(band)) ?? []),
+  ]);
   if (tabIds.length === 0 || tabIds.some((id) => !listed.has(String(id))))
     return null;
-  const isNew = new Set(tabIds.map(String));
-  const bands = [
-    ...block.querySelectorAll<HTMLElement>('[data-band-id]'),
-  ].filter((band) => {
-    const ids = [...band.querySelectorAll('[data-open-tab-id]')].map((row) =>
-      row.getAttribute('data-open-tab-id')
-    );
-    return ids.length > 0 && ids.every((id) => id !== null && isNew.has(id));
-  });
-  return arrivalRuns(rows, (row) => isNew.has(idOf(row))).map((run): Run => [
+  const openBands = [
+    ...block.querySelectorAll<HTMLElement>(
+      '[data-band-id]:not([data-group-folded])'
+    ),
+  ].filter((band) =>
+    areAllNew(
+      [...band.querySelectorAll('[data-open-tab-id]')].map((row) =>
+        row.getAttribute('data-open-tab-id')
+      )
+    )
+  );
+  // In drawn order: a folded band sits where its title row is.
+  const drawn = [
+    ...block.querySelectorAll<HTMLElement>(
+      '[data-open-tab-id], [data-band-id][data-group-folded]'
+    ),
+  ];
+  const isNewItem = (item: HTMLElement) =>
+    item.hasAttribute('data-open-tab-id')
+      ? isNew.has(idOf(item))
+      : areAllNew(members.get(bandIdOf(item)) ?? []);
+  return arrivalRuns(drawn, isNewItem).map((run): Run => [
     ...run,
-    ...bands.filter((band) => run.some((row) => band.contains(row))),
+    ...openBands.filter((band) => run.some((row) => band.contains(row))),
   ]);
 }
 
@@ -140,10 +183,12 @@ interface Shown {
 function show(
   block: HTMLElement,
   tabIds: readonly number[],
-  scroller: HTMLElement
+  scroller: HTMLElement,
+  membersNow: () => GroupMembers
 ): Shown {
   const reduced = prefersReducedMotion();
-  const fills = (newRunsIn(block, tabIds) ?? []).map(() => {
+  const runsNow = () => newRunsIn(block, tabIds, membersNow());
+  const fills = (runsNow() ?? []).map(() => {
     const fill = document.createElement('div');
     fill.setAttribute('data-arrival', '');
     fill.setAttribute('aria-hidden', 'true');
@@ -151,7 +196,7 @@ function show(
     return fill;
   });
   const place = () => {
-    const runs = newRunsIn(block, tabIds);
+    const runs = runsNow();
     if (runs === null) return;
     const at = block.getBoundingClientRect();
     fills.forEach((fill, i) => {
@@ -172,8 +217,10 @@ function show(
     });
   };
   const aim = () => {
-    const runs = newRunsIn(block, tabIds);
-    return runs === null ? null : scrollTopShowing(scroller, runs.flat());
+    const runs = runsNow();
+    return runs === null || runs.length === 0
+      ? null
+      : scrollTopShowing(scroller, runs.flat());
   };
   place();
   let scrolling = glide(scroller, aim, reduced);
@@ -245,6 +292,8 @@ export function useArrival(
 ): void {
   const [waiting, setWaiting] = useState<Arrival | null>(null);
   const shown = useRef<Shown | null>(null);
+  // KAN-822. The latest read, for the groups a shown fill's folded bands hold.
+  const latestWindows = useRef(windows);
 
   useEffect(() => subscribeArrival((arrival) => setWaiting(arrival)), []);
 
@@ -256,6 +305,7 @@ export function useArrival(
 
   // Before paint: the rows a re-read listed are in the page.
   useLayoutEffect(() => {
+    latestWindows.current = windows;
     const block =
       waiting === null ? null : blockOf(paneRef.current, waiting.windowId);
     const scroller = scrollerRef.current;
@@ -263,10 +313,17 @@ export function useArrival(
       waiting !== null &&
       block !== null &&
       scroller !== null &&
-      newRunsIn(block, waiting.tabIds) !== null
+      newRunsIn(
+        block,
+        waiting.tabIds,
+        groupMembersIn(windows, waiting.windowId)
+      ) !== null
     ) {
+      const { windowId } = waiting;
       shown.current?.stop();
-      shown.current = show(block, waiting.tabIds, scroller);
+      shown.current = show(block, waiting.tabIds, scroller, () =>
+        groupMembersIn(latestWindows.current, windowId)
+      );
       setWaiting(null);
       return;
     }

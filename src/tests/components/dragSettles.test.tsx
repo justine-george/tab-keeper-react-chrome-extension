@@ -12,7 +12,7 @@ import {
   useRowDragHandle,
 } from '../../components/home/rightpane/rowDrag/dragContext';
 import { endDragHold } from '../../redux/dragHold';
-import { endCarry, startCarry } from '../../redux/carry';
+import { endCarry, startCarry, type CarryOut } from '../../redux/carry';
 import { savedItem } from '../../redux/carriedItem';
 
 // KAN-835. A committed drop holds its rows where it put them until the list
@@ -61,13 +61,15 @@ const Area = ({
   onMove,
   kind = 'tab',
   generation = 0,
+  carryOut,
 }: {
   ids: string[];
   onMove: OnMove;
-  kind?: 'window' | 'tab';
+  kind?: 'window' | 'tab' | 'group';
   generation?: number;
+  carryOut?: (rowId: string) => CarryOut | null;
 }) => (
-  <RowDragArea rowIds={ids} onMove={onMove} dragKind={kind}>
+  <RowDragArea rowIds={ids} onMove={onMove} dragKind={kind} carryOut={carryOut}>
     <Probe />
     <HandleProbe />
     {ids.map((id, i) => (
@@ -166,6 +168,40 @@ describe('a move committed in the drop’s own task', () => {
     expect(probe()).toBe('none');
     expect(wrapperOf('Row b').style.transform).toBe('');
     expect(wrapperOf('Row b').style.transition).toContain('transform');
+  });
+});
+
+// KAN-822. Only a tab starts its landing from the card it was let go as; a group or window keeps its old release.
+describe('where a drop shown by a card is held while it lands later', () => {
+  const withCard = (rowId: string): CarryOut => ({
+    item: savedItem({
+      kind: 'tab',
+      tabGroupId: 'S',
+      windowId: 'w',
+      tabId: rowId,
+    }),
+    card: { kind: 'tab', title: rowId, faviconUrl: '' },
+  });
+
+  // Picked up at 15 (its middle), let go at 70: held 55 down. Its card's top is 4 under the pointer, at 74; its box at 0.
+  test.each([
+    ['a tab: at its card', 'tab', 55 + 74],
+    ['a group: where it was held', 'group', 55],
+    ['a window: where it was held', 'window', 55],
+  ] as const)('%s', (_what, kind, at) => {
+    const { onMove } = later();
+    render(
+      <Area
+        ids={['a', 'b', 'c']}
+        onMove={onMove}
+        kind={kind}
+        carryOut={withCard}
+      />
+    );
+    dropAPastB();
+
+    expect(probe()).toBe('settling');
+    expect(wrapperOf('Row a').style.transform).toBe(`translateY(${at}px)`);
   });
 });
 

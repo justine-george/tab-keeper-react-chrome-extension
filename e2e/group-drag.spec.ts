@@ -6,6 +6,7 @@ import {
   startGeometryEvidence,
   withGeometryEvidence,
 } from './fixtures/dragEvidence';
+import { elementLanded } from './fixtures/landed';
 
 // KAN-160 in the real popup size (790x550, measured 2026-09-10). Every drag
 // starts SCROLLED, because scrollTop 0 is the one position where stale-origin
@@ -1251,6 +1252,8 @@ test.describe('the slot a dragged row will land in', () => {
         )
       )
       .toBe('p0');
+    // KAN-822. The dropped row glides into its slot: read it where it rests.
+    await elementLanded(page.locator('[data-drag-row-id="p0"]'), 'ancestors');
 
     const landed = await page.evaluate(
       () =>
@@ -1409,6 +1412,8 @@ test.describe('the slot a dragged row will land in', () => {
 
     await page.mouse.up();
     await expect.poll(() => itemOrder(page)).not.toEqual(START);
+    // KAN-822. The dropped row glides into its slot: read it where it rests.
+    await elementLanded(page.locator('[data-drag-row-id="a0"]'), 'ancestors');
 
     const landed = await page.evaluate(
       () =>

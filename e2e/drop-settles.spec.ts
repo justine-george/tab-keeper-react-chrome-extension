@@ -39,7 +39,7 @@ import {
 //
 // Measured per frame, on the real layout: each row's top from the instant of
 // release (a capture-phase pointerup, before the engine's handler) and on
-// every animation frame after it. No row may leave the span between its top
+// every animation frame after it; a held row's, its card's while the card is up (KAN-822). No row may leave the span between its top
 // at release and its settled top. The controls hold the other half: a drag
 // that moves nothing still eases its rows home.
 
@@ -70,11 +70,23 @@ async function recordFrames(
   await page.evaluate(
     ({ rows, key, trigger, frames, blocks }) => {
       window.__dropFrames = null;
+      // KAN-822. A held row is drawn as its card, so until the release its card's top is where it is seen.
+      const seenTop = (el: Element) => {
+        const card = document.querySelector(
+          '[data-drag-card], [data-carry-card]'
+        );
+        const held =
+          el.closest('[data-drag-row-id]')?.hasAttribute('data-drag-held') ===
+          true;
+        return held && card !== null
+          ? card.getBoundingClientRect().top
+          : el.getBoundingClientRect().top;
+      };
       const read = (): Record<string, number> => ({
         ...Object.fromEntries(
           [...document.querySelectorAll(rows)].map((el) => [
             el.getAttribute(key) ?? '',
-            el.getBoundingClientRect().top,
+            seenTop(el),
           ])
         ),
         ...(blocks === undefined

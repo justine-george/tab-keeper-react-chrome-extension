@@ -44,7 +44,12 @@ export const tab = (id: string, g?: string): SeedTab => ({
 export const win = (
   id: string,
   tabs: SeedTab[],
-  groups: { groupId: string; title: string; color: string }[] = []
+  groups: {
+    groupId: string;
+    title: string;
+    color: string;
+    collapsed?: true;
+  }[] = []
 ) => ({
   windowId: id,
   windowHeight: 1080,
@@ -569,7 +574,7 @@ export async function collapseWindow(
   windowId: string
 ): Promise<void> {
   await page
-    .locator(blockOf(windowId))
+    .locator(titleOf(windowId))
     .getByRole('button', { name: /^Collapse(: |$)/ })
     .click();
   await expect(

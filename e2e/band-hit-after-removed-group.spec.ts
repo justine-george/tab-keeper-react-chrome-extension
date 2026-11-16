@@ -28,7 +28,8 @@ const GROUPS = [
 function tabsWith(watchlist: string[]) {
   return [
     ...watchlist.map((t) => tab(t, t, 'watch')),
-    tab('im', 'IMDb', 'ratings'),
+    // KAN-822 (pick 2B). Loose under Watchlist, so no band follows it and it still goes (KAN-916).
+    tab('im', 'IMDb'),
     tab('sp', 'Spotify', 'sound'),
     tab('pc', 'Popcorn', 'snacks'),
     tab('ex', 'Extensions'),

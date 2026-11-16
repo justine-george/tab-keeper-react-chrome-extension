@@ -67,7 +67,7 @@ async function openPopup(
     (window as unknown as { chevronRuns: typeof runs }).chevronRuns = runs;
     document.addEventListener('transitionrun', (e) => {
       const target = e.target as Element;
-      if (!target.closest('[data-window-chevron]')) return;
+      if (!target.closest('[data-fold-chevron]')) return;
       const run = target
         .getAnimations()
         .find(
@@ -107,16 +107,15 @@ async function pose(button: Locator) {
   await expect
     .poll(() =>
       button.evaluate(
-        (el) =>
-          el.querySelector('[data-window-chevron]')!.getAnimations().length
+        (el) => el.querySelector('[data-fold-chevron]')!.getAnimations().length
       )
     )
     .toBe(0);
   return button.evaluate((el) => {
-    const glyph = el.querySelector('[data-window-chevron]')!;
+    const glyph = el.querySelector('[data-fold-chevron]')!;
     const m = new DOMMatrix(getComputedStyle(glyph).transform);
     return {
-      shows: glyph.getAttribute('data-window-chevron'),
+      shows: glyph.getAttribute('data-fold-chevron'),
       text: glyph.textContent,
       deg: Math.round((Math.atan2(m.b, m.a) * 180) / Math.PI),
     };
@@ -156,7 +155,7 @@ test('a second press mid-turn turns it back from where it is', async ({
   await page.evaluate(() => {
     const hold = (e: TransitionEvent) => {
       if (!(e.target instanceof Element)) return;
-      if (!e.target.closest('[data-window-chevron]')) return;
+      if (!e.target.closest('[data-fold-chevron]')) return;
       document.removeEventListener('transitionrun', hold);
       const [turn] = e.target.getAnimations();
       turn.pause();
@@ -167,8 +166,11 @@ test('a second press mid-turn turns it back from where it is', async ({
   await page.getByRole('button', { name: 'Collapse: Flights' }).click();
   await page.waitForFunction(
     () =>
-      document.querySelector('[data-window-chevron]')?.getAnimations()[0]
-        ?.playState === 'paused'
+      document
+        .querySelector(
+          '[data-drop-window-id="w1"] [data-window-drag-handle] [data-fold-chevron]'
+        )
+        ?.getAnimations()[0]?.playState === 'paused'
   );
   await page.getByRole('button', { name: 'Expand: Flights' }).click();
   expect(
@@ -326,7 +328,7 @@ test.describe('at scale 2', () => {
     await pose(button);
     // Off the button, so no hover fill sits under either shot.
     await page.mouse.move(5, 540);
-    const glyph = button.locator('[data-window-chevron]');
+    const glyph = button.locator('[data-fold-chevron]');
     // One clip for both shots, from the glyph's slot, which nothing turns.
     const clip = await glyph.evaluate((el) => {
       const r = el.parentElement!.getBoundingClientRect();

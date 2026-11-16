@@ -296,6 +296,8 @@ async function renderOpenNow(onCloseTab: (tab: OpenTab) => void) {
         number={2}
         lastUsedTabId={null}
         matchedTabIds={null}
+        searchFoldedGroupIds={null}
+        onSearchGroupFoldToggle={() => undefined}
         isOpen={true}
         onToggle={() => undefined}
         onCloseTab={onCloseTab}

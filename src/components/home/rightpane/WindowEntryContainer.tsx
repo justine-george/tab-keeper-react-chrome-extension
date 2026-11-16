@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import ChevronGlyph from '../../common/ChevronGlyph';
+import { GROUP_CHEVRON_BOX_STYLE } from '../../common/groupChevronBox';
 import ClickableRow from '../../common/ClickableRow';
 import {
   focusRingOutsideCss,
@@ -81,6 +82,7 @@ import {
   ungroupChromeTabGroup,
   deleteChromeTabGroup,
   updateChromeTabGroupColor,
+  setChromeTabGroupCollapsed,
   removeDuplicateTabs,
   replaceWindowWithCurrentWindow,
   sortGroupTabsBySite,
@@ -1805,6 +1807,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                   }
                   role="group"
                   aria-label={item.group.title || t('Unnamed group')}
+                  // KAN-822. The stored fold; a search leaves it (D6).
+                  data-group-folded={item.group.collapsed ? '' : undefined}
                   css={css`
                     display: flex;
                     align-items: stretch;
@@ -1977,10 +1981,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         & > :has(> [data-row-tag]) {
                           ${ROW_PULL_END}
                         }
-                        ${focusRingOverTickCss(
-                          COLORS,
-                          '&:has(> input:focus-visible)'
-                        )}
                         /* Fills like the window row above and the tab rows
                          below, which both paint HOVER_COLOR under the pointer.
                          Without it this row revealed its actions while giving
@@ -2026,6 +2026,39 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                       onPointerEnter={measureTagsUnder('.group-actions')}
                       onFocus={measureTagsUnder('.group-actions')}
                     >
+                      {/* KAN-822. The window row's chevron, in the tab rows' icon column. */}
+                      <Icon
+                        tooltipText={
+                          item.group.collapsed ? t('Expand') : t('Collapse')
+                        }
+                        ariaLabel={formatActionOnItem(
+                          item.group.collapsed ? t('Expand') : t('Collapse'),
+                          groupDisplayName(item.group),
+                          t
+                        )}
+                        ariaExpanded={!item.group.collapsed}
+                        style={GROUP_CHEVRON_BOX_STYLE}
+                        type={
+                          item.group.collapsed ? 'expand_more' : 'expand_less'
+                        }
+                        renderGlyph={(glyphCss) => (
+                          <ChevronGlyph
+                            open={!item.group.collapsed}
+                            glyphCss={glyphCss}
+                          />
+                        )}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          dispatch(
+                            setChromeTabGroupCollapsed({
+                              tabGroupId,
+                              windowId,
+                              groupId: item.group.groupId,
+                              collapsed: !item.group.collapsed,
+                            })
+                          );
+                        }}
+                      />
                       <DragHandle
                         scope="items"
                         rowId={itemIdOf(item)}
@@ -2033,66 +2066,80 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         outsideRow
                       />
                       {editingGroupId === item.group.groupId ? (
-                        <input
-                          value={groupDraft}
-                          aria-label={renameGroupLabel(item.group)}
-                          onBlur={() => commitGroupRename(item.group)}
-                          onChange={(e) => setGroupDraft(e.target.value)}
-                          placeholder={t('Name this group')}
-                          onKeyDown={(e) =>
-                            renameKeyDown(
-                              e,
-                              () => {
-                                titleFocus.ask(item.group.groupId);
-                                commitGroupRename(item.group);
-                              },
-                              () => {
-                                titleFocus.ask(item.group.groupId);
-                                cancelGroupRename();
-                              }
-                            )
-                          }
-                          autoFocus
+                        // KAN-822. The ring hugs the field, leaving the chevron outside it, as the window row's does.
+                        <div
                           css={css`
-                            color: ${COLORS.TEXT_COLOR};
-                            background-color: ${COLORS.PRIMARY_COLOR};
-                            border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
-                            ${corners(RADIUS.CONTROL)}
-                            /* Same four declarations the window title editor
-                             carries. Without height and padding the field
-                             collapsed to the intrinsic height of its text and
-                             sat 2px short of its own row, with the browser's
-                             default 2px padding rather than a chosen one --
-                             which read as a thinner, tighter box than the
-                             editor one level above it. */
                             display: flex;
-                            align-items: center;
-                            font-family: ${FONT_FAMILY};
-                            /* Matches the label this replaces, or the text
-                             visibly jumps size on entering edit mode. */
-                            /* Matches groupTitleLabel exactly -- the editor
-                               replaces that label in place, so a different size
-                               makes the text jump on entering edit mode. Both
-                               are the documented off-scale exemption; see
-                               scaleConformance.test.ts. */
-                            font-size: ${GROUP_TITLE_SIZE};
-                            padding-left: 8px;
-                            /* align-self, NOT height: 100%. The strip is a flex
-                             container with align-items: center and only a
-                             min-height, so it has no definite height for a
-                             percentage to resolve against and the child is not
-                             stretched -- height: 100% computed, rendered
-                             nothing, and left the field 2px short of its row.
-                             Stretching the item is what actually fills it. */
                             align-self: stretch;
-                            width: 100%;
+                            flex: 1;
                             min-width: 0;
-                            &:focus {
-                              outline: none;
-                            }
-                            ${renameFieldPlaceholder}
+                            ${focusRingOverTickCss(
+                              COLORS,
+                              '&:has(> input:focus-visible)'
+                            )}
                           `}
-                        />
+                        >
+                          <input
+                            value={groupDraft}
+                            aria-label={renameGroupLabel(item.group)}
+                            onBlur={() => commitGroupRename(item.group)}
+                            onChange={(e) => setGroupDraft(e.target.value)}
+                            placeholder={t('Name this group')}
+                            onKeyDown={(e) =>
+                              renameKeyDown(
+                                e,
+                                () => {
+                                  titleFocus.ask(item.group.groupId);
+                                  commitGroupRename(item.group);
+                                },
+                                () => {
+                                  titleFocus.ask(item.group.groupId);
+                                  cancelGroupRename();
+                                }
+                              )
+                            }
+                            autoFocus
+                            css={css`
+                              color: ${COLORS.TEXT_COLOR};
+                              background-color: ${COLORS.PRIMARY_COLOR};
+                              border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
+                              ${corners(RADIUS.CONTROL)}
+                              /* Same four declarations the window title editor
+                               carries. Without height and padding the field
+                               collapsed to the intrinsic height of its text and
+                               sat 2px short of its own row, with the browser's
+                               default 2px padding rather than a chosen one --
+                               which read as a thinner, tighter box than the
+                               editor one level above it. */
+                              display: flex;
+                              align-items: center;
+                              font-family: ${FONT_FAMILY};
+                              /* Matches the label this replaces, or the text
+                               visibly jumps size on entering edit mode. */
+                              /* Matches groupTitleLabel exactly -- the editor
+                                 replaces that label in place, so a different size
+                                 makes the text jump on entering edit mode. Both
+                                 are the documented off-scale exemption; see
+                                 scaleConformance.test.ts. */
+                              font-size: ${GROUP_TITLE_SIZE};
+                              padding-left: 8px;
+                              /* align-self, NOT height: 100%. The strip is a flex
+                               container with align-items: center and only a
+                               min-height, so it has no definite height for a
+                               percentage to resolve against and the child is not
+                               stretched -- height: 100% computed, rendered
+                               nothing, and left the field 2px short of its row.
+                               Stretching the item is what actually fills it. */
+                              align-self: stretch;
+                              width: 100%;
+                              min-width: 0;
+                              &:focus {
+                                outline: none;
+                              }
+                              ${renameFieldPlaceholder}
+                            `}
+                          />
+                        </div>
                       ) : (
                         // WCAG 2.5.3, same shape as KAN-77: the accessible name
                         // CONTAINS the visible one, so "click Research" works.
@@ -2243,19 +2290,21 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         </div>
                       )}
                     </div>
-                    <div data-group-tabs>
-                      {item.tabs
-                        .filter((tabItem) => !followers.has(tabItem.tabId))
-                        .map((tabItem) => (
-                          <DraggableRow
-                            key={tabItem.tabId}
-                            scope="tabs"
-                            rowId={tabItem.tabId}
-                          >
-                            {renderRowTabs(tabItem, true)}
-                          </DraggableRow>
-                        ))}
-                      {/* KAN-175. The group's TAIL, declared the same way
+                    {/* KAN-822. Folded: no member rows and no tail, not hidden ones (zero rects break the drag index). */}
+                    {!item.group.collapsed && (
+                      <div data-group-tabs>
+                        {item.tabs
+                          .filter((tabItem) => !followers.has(tabItem.tabId))
+                          .map((tabItem) => (
+                            <DraggableRow
+                              key={tabItem.tabId}
+                              scope="tabs"
+                              rowId={tabItem.tabId}
+                            >
+                              {renderRowTabs(tabItem, true)}
+                            </DraggableRow>
+                          ))}
+                        {/* KAN-175. The group's TAIL, declared the same way
                               its title row declares its head. Zero height, so
                               it changes no layout -- it exists only to hold a
                               place in the drawn list, where previewShifts
@@ -2270,14 +2319,15 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                               the last member's shift, which assumes the last
                               member stays last -- and it does not when the
                               group is gaining or losing one. */}
-                      <div
-                        aria-hidden="true"
-                        data-fixed-row-id={`${item.group.groupId}:tail`}
-                        css={css`
-                          height: 0;
-                        `}
-                      />
-                    </div>
+                        <div
+                          aria-hidden="true"
+                          data-fixed-row-id={`${item.group.groupId}:tail`}
+                          css={css`
+                            height: 0;
+                          `}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </DraggableRow>

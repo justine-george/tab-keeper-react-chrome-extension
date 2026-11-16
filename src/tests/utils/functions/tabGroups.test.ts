@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'vitest';
 
 import {
+  foldedMemberIds,
+  groupEndIndex,
+  groupStartIndex,
   partitionTabsIntoRuns,
   partitionTabsIntoItems,
   itemIdOf,
@@ -202,5 +205,111 @@ describe('groupIdOfItemId', () => {
 
   test('neither prefix is not a group', () => {
     expect(groupIdOfItemId('alpha')).toBeUndefined();
+  });
+});
+
+// KAN-822 (Minor 4). Every row count in both panes starts here: a folded group's members draw no row.
+describe('foldedMemberIds (KAN-822)', () => {
+  const groups = [group('g'), group('h')];
+  test.each([
+    [
+      'nothing folded',
+      [tab('a'), tab('x', 'g'), tab('b')],
+      new Set<string>(),
+      [],
+    ],
+    [
+      'a folded group: its members',
+      [tab('a'), tab('x', 'g'), tab('y', 'g'), tab('b')],
+      new Set(['g']),
+      ['x', 'y'],
+    ],
+    [
+      'only the folded one of two',
+      [tab('x', 'g'), tab('z', 'h')],
+      new Set(['h']),
+      ['z'],
+    ],
+    // Coalesced as the partition draws it: a member split off its run is still in its band.
+    [
+      'a group split into two runs: both runs',
+      [tab('x', 'g'), tab('a'), tab('y', 'g')],
+      new Set(['g']),
+      ['x', 'y'],
+    ],
+    [
+      'a claimed group that is not stored: a loose tab',
+      [tab('x', 'gone')],
+      new Set(['gone']),
+      [],
+    ],
+  ])('%s', (_what, tabs, folded, members) => {
+    expect([...foldedMemberIds(tabs, groups, folded)].sort()).toEqual(members);
+  });
+});
+
+describe('groupStartIndex (KAN-822)', () => {
+  const window4 = [tab('L'), tab('G1', 'g'), tab('G2', 'g'), tab('M')];
+  const none: ReadonlySet<string> = new Set();
+
+  test('the first member', () => {
+    expect(groupStartIndex(window4, 'g', none)).toBe(1);
+  });
+
+  test('a held tab above the group shifts the start up one', () => {
+    expect(groupStartIndex(window4, 'g', new Set(['L']))).toBe(0);
+  });
+
+  test('a held tab below the group leaves the start', () => {
+    expect(groupStartIndex(window4, 'g', new Set(['M']))).toBe(1);
+  });
+
+  test('a held first member: the start is the next member', () => {
+    expect(groupStartIndex(window4, 'g', new Set(['G1']))).toBe(1);
+  });
+
+  test('a group at the window start starts at 0', () => {
+    expect(groupStartIndex(window4.slice(1), 'g', none)).toBe(0);
+  });
+
+  test('a group with no member here: the list end', () => {
+    expect(groupStartIndex(window4, 'other', new Set(['M']))).toBe(3);
+  });
+});
+
+describe('groupEndIndex (KAN-822)', () => {
+  const window4 = [tab('L'), tab('G1', 'g'), tab('G2', 'g'), tab('M')];
+  const none: ReadonlySet<string> = new Set();
+
+  test('one past the last member', () => {
+    expect(groupEndIndex(window4, 'g', none)).toBe(3);
+  });
+
+  test('a held member is lifted out first', () => {
+    expect(groupEndIndex(window4, 'g', new Set(['G1']))).toBe(2);
+  });
+
+  test('the held last member: the end is after the one left', () => {
+    expect(groupEndIndex(window4, 'g', new Set(['G2']))).toBe(2);
+  });
+
+  test('a held tab above the group shifts the end up one', () => {
+    expect(groupEndIndex(window4, 'g', new Set(['L']))).toBe(2);
+  });
+
+  test('a held tab below the group leaves the end', () => {
+    expect(groupEndIndex(window4, 'g', new Set(['M']))).toBe(3);
+  });
+
+  test('a group at the window end ends at the list end', () => {
+    expect(groupEndIndex(window4.slice(0, 3), 'g', none)).toBe(3);
+  });
+
+  test('every member held: where the group stood', () => {
+    expect(groupEndIndex(window4, 'g', new Set(['G1', 'G2']))).toBe(1);
+  });
+
+  test('a group with no member here: the list end', () => {
+    expect(groupEndIndex(window4, 'other', new Set(['M']))).toBe(3);
   });
 });

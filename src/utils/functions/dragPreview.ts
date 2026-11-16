@@ -207,6 +207,27 @@ export function previewShiftsAcross(
   at: number,
   footprint: number
 ): Record<string, number> {
+  const shifts = closingShifts(slots, from, footprint);
+  slots.forEach((slot, i) => {
+    if (
+      shifts[slot.key] === undefined &&
+      i >= at &&
+      slot.windowId === toWindowId
+    )
+      shifts[slot.key] = footprint;
+  });
+  return shifts;
+}
+
+/**
+ * The held row's own window closing up behind it, and nothing opening: the
+ * source half of previewShiftsAcross, for a row going where no slot is drawn.
+ */
+export function closingShifts(
+  slots: readonly WindowedSlot[],
+  from: number,
+  footprint: number
+): Record<string, number> {
   const fromWindowId = slots[from]?.windowId;
   const shifts: Record<string, number> = {};
   slots.forEach((slot, i) => {
@@ -216,9 +237,18 @@ export function previewShiftsAcross(
       slot.windowId === fromWindowId
     )
       shifts[slot.key] = -footprint;
-    else if (i >= at && slot.windowId === toWindowId)
-      shifts[slot.key] = footprint;
   });
+  return shifts;
+}
+
+// KAN-822 (pick 2B). closingShifts reversed: the held row's room opens again, so with previewShifts the rows it passed hold still.
+export function reopeningShifts(
+  slots: readonly WindowedSlot[],
+  from: number,
+  footprint: number
+): Record<string, number> {
+  const shifts = closingShifts(slots, from, footprint);
+  for (const key of Object.keys(shifts)) shifts[key] = footprint;
   return shifts;
 }
 

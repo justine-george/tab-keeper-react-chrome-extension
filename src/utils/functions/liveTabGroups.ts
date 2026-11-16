@@ -61,11 +61,11 @@ export async function countOpenTabGroups(): Promise<number> {
   return groupIds.size;
 }
 
-// KAN-568. Open now's rename and recolour: Chrome's own group, never a saved session.
+// KAN-568. Open now's rename and recolour: Chrome's own group, never a saved session. KAN-822: and its fold.
 // Never throws: a group closed, or a grant revoked, since the pane read it costs the edit; the next read shows Chrome's.
 export async function updateLiveGroup(
   groupId: number,
-  props: { title?: string; color?: TabGroupColor }
+  props: { title?: string; color?: TabGroupColor; collapsed?: boolean }
 ): Promise<boolean> {
   try {
     await chrome.tabGroups.update(groupId, props);

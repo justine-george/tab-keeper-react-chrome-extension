@@ -39,12 +39,9 @@ import {
   type CarryReceiver,
 } from '../../redux/carry';
 import { useDragCard } from '../../redux/dragCard';
-import { CARD_WIDTH_PX, cardLeft } from './cardPlace';
+import { CARD_OFFSET_Y, CARD_WIDTH_PX, cardLeft } from './cardPlace';
 import { corners } from '../../styles/corners';
 
-// Where the card sits from the pointer: just below and to the right of the
-// arrow's tip, as the mock draws it. x gap: CARD_OFFSET_X in cardPlace.ts.
-const CARD_OFFSET_Y = 4;
 // Above the toast (1050): the card is under the pointer, and a toast arriving
 // mid-carry must not cover what is being carried.
 const CARD_Z_INDEX = 1100;

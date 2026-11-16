@@ -100,6 +100,8 @@ export interface RemovedFixedRows {
 export interface DropTarget {
   // Which Chrome group band the pointer is over, if any.
   bandId: string | undefined;
+  // KAN-822. Off every band, the nearest folded band below the pointer: a folded group's row index names both gaps beside it.
+  foldedBandBelowId?: string;
 }
 
 // The engine cannot answer this itself: for tabs it is which Chrome group the
@@ -213,7 +215,9 @@ export interface RowDragAreaProps {
     rowId: string,
     toIndex: number,
     dropTargetId?: string,
-    toWindowId?: string
+    toWindowId?: string,
+    // KAN-822. resolveDrop's nearest folded band below the pointer, for a list whose rows sit in windows.
+    foldedBandBelowId?: string
   ) => void | Promise<unknown>;
   // A CSS selector for the part of a row that starts a drag. Omitted, the whole
   // row does.
@@ -395,7 +399,9 @@ export interface RowDragAreaProps {
     rowId: string,
     toIndex: number,
     target: string | undefined,
-    windowId: string | undefined
+    windowId: string | undefined,
+    // KAN-822. resolveDrop's nearest folded band below the pointer.
+    foldedBandBelowId: string | undefined
   ) => FixedRowLanding | undefined;
   /**
    * Which fixed rows the drop REMOVES, when it removes any (KAN-169).
@@ -447,7 +453,9 @@ export interface RowDragAreaProps {
     rowId: string,
     toIndex: number,
     target: string | undefined,
-    windowId: string | undefined
+    windowId: string | undefined,
+    // KAN-822. resolveDrop's nearest folded band below the pointer.
+    foldedBandBelowId: string | undefined
   ) => BandGapChange[];
   /**
    * Hand a drag that reaches a carry receiver -- the session list -- to the
@@ -626,7 +634,56 @@ export function bandAt(
   y: number,
   closedUp?: ClosedUp
 ): string | undefined {
-  if (!container) return undefined;
+  for (const box of bandHitBoxes(container, closedUp)) {
+    if (
+      x >= box.left &&
+      x <= box.right &&
+      y + box.lift >= box.top &&
+      y + box.lift <= box.bottom
+    ) {
+      return box.band.dataset.bandId;
+    }
+  }
+  return undefined;
+}
+
+// KAN-822. The first folded band whose middle is below `y`, on bandAt's boxes: off every band, above its middle is before it, like a row.
+export function nearestFoldedBandBelow(
+  container: HTMLElement | null,
+  y: number,
+  closedUp?: ClosedUp
+): string | undefined {
+  for (const box of bandHitBoxes(container, closedUp)) {
+    if (isBandFolded(box.band) && y + box.lift < (box.top + box.bottom) / 2)
+      return box.band.dataset.bandId;
+  }
+  return undefined;
+}
+
+// KAN-822 (pick 1B). The resting bottom of the band `block` ends with, on bandAt's boxes: undefined where a row ends below it.
+export function bottomOfBandEndingBlock(
+  block: HTMLElement,
+  rowsBottom: number
+): number | undefined {
+  let bottom: number | undefined;
+  for (const box of bandHitBoxes(block, undefined))
+    bottom = Math.max(bottom ?? box.bottom, box.bottom);
+  return bottom !== undefined && bottom + 1 >= rowsBottom ? bottom : undefined;
+}
+
+// Each band's hit box, in document order: what bandAt and nearestFoldedBandBelow test the pointer against.
+function* bandHitBoxes(
+  container: HTMLElement | null,
+  closedUp: ClosedUp | undefined
+): Generator<{
+  band: HTMLElement;
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+  lift: number;
+}> {
+  if (!container) return;
   let closedWindow: HTMLElement | null | undefined;
   for (const band of container.querySelectorAll<HTMLElement>(
     '[data-band-id]'
@@ -657,16 +714,15 @@ export function bandAt(
     // was enough to latch: the pointer marked the band, the band grew, the
     // boundary moved past the pointer, and it unmarked again on the next move.
     const grewBy = parseFloat(band.dataset.bandGrewBy ?? '') || 0;
-    if (
-      x >= r.left &&
-      x <= r.right &&
-      y + lift >= r.top + grewBy &&
-      y + lift <= r.bottom - padBottom
-    ) {
-      return band.dataset.bandId;
-    }
+    yield {
+      band,
+      left: r.left,
+      right: r.right,
+      top: r.top + grewBy,
+      bottom: r.bottom - padBottom,
+      lift,
+    };
   }
-  return undefined;
 }
 
 /**
@@ -739,6 +795,33 @@ function restingBox(el: HTMLElement) {
   };
 }
 
+// KAN-822 (pick 2B). A window drawn `by` px taller than it rests, every block after it `by` px lower.
+export interface GrownWindow {
+  windowId: string;
+  by: number;
+}
+
+// KAN-822. The boxes as drawn with `grown`; as they rest without it.
+function asGrown(
+  boxes: ReturnType<typeof restingBox>[],
+  grown: GrownWindow | undefined
+): ReturnType<typeof restingBox>[] {
+  const at =
+    grown === undefined
+      ? -1
+      : boxes.findIndex((b) => b.el.dataset.dropWindowId === grown.windowId);
+  if (grown === undefined || at < 0) return boxes;
+  return boxes.map((b, i) =>
+    i < at
+      ? b
+      : {
+          ...b,
+          top: i === at ? b.top : b.top + grown.by,
+          bottom: b.bottom + grown.by,
+        }
+  );
+}
+
 // KAN-379 D3. Is the point on the block itself, not the gap the block answers
 // for? Its resting box, so a window shift never moves what can dwell.
 export function isOnBlock(block: HTMLElement, x: number, y: number): boolean {
@@ -760,12 +843,14 @@ export function isOnBlock(block: HTMLElement, x: number, y: number): boolean {
 export function windowBlockAt(
   container: HTMLElement | null,
   x: number,
-  y: number
+  y: number,
+  grown?: GrownWindow
 ): HTMLElement | null {
   const blocks = windowBlocksIn(container);
+  const all = asGrown(blocks.map(restingBox), grown);
   // The trailing block (isTrailingBlock, KAN-361/366) is no window to the
   // box and gap rules: it is the one exception between them.
-  const boxes = blocks.filter((el) => !isTrailingBlock(el)).map(restingBox);
+  const boxes = all.filter((b) => !isTrailingBlock(b.el));
 
   for (const b of boxes) {
     if (x >= b.left && x <= b.right && y >= b.top && y <= b.bottom) return b.el;
@@ -790,12 +875,11 @@ export function windowBlockAt(
   //
   // Only BELOW the last window, so never a point the gap rule answers: that
   // one is between two windows.
-  const trailing = blocks.find(isTrailingBlock);
+  const trailing = all.find((box) => isTrailingBlock(box.el));
   if (trailing !== undefined) {
-    const b = restingBox(trailing);
     const last = boxes[boxes.length - 1];
-    const below = last === undefined ? y >= b.top : y > last.bottom;
-    if (below && x >= b.left && x <= b.right) return trailing;
+    const below = last === undefined ? y >= trailing.top : y > last.bottom;
+    if (below && x >= trailing.left && x <= trailing.right) return trailing.el;
   }
 
   // THE GAP BETWEEN TWO WINDOWS BELONGS TO THE NEARER OF THEM (KAN-185).
@@ -838,6 +922,11 @@ export function isTrailingBlock(el: HTMLElement): boolean {
 // KAN-379. A window block drawn folded, as WindowEntryContainer marks it.
 export function isWindowCollapsed(block: HTMLElement): boolean {
   return block.hasAttribute('data-window-collapsed');
+}
+
+// KAN-822. A group band drawn folded to its title row, as both panes mark it.
+export function isBandFolded(band: HTMLElement): boolean {
+  return band.hasAttribute('data-group-folded');
 }
 
 // Every saved-window block below `container`, in document order.

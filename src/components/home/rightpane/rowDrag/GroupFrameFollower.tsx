@@ -44,7 +44,7 @@ export const GroupFrameFollower: React.FC<{
   // last member stays last -- false whenever the group is gaining or losing
   // one, and the strip then failed to cover a tab joining at the tail.
   const top = drag?.shifts[groupId] ?? 0;
-  const bottom = drag?.shifts[`${groupId}:tail`] ?? 0;
+  const tailShift = drag?.shifts[`${groupId}:tail`] ?? 0;
   // KAN-169. The drop REMOVES this group: its only member is held outside it,
   // and the reducer will prune what is left. The rows below have already
   // closed up in `shifts`; what remains is to stop drawing a band the drop
@@ -57,6 +57,8 @@ export const GroupFrameFollower: React.FC<{
   useLayoutEffect(() => {
     const band = anchor.current?.closest<HTMLElement>('[data-band-id]');
     if (!band) return;
+    // KAN-822. A folded band is its title row alone, with no tail: its bottom moves with the title.
+    const bottom = band.hasAttribute('data-group-folded') ? top : tailShift;
     // An attribute rather than inline styles, so the band's own stylesheet
     // says what a removed band looks like -- and the strip, drawn by
     // GroupColorPicker, can be reached from there without that component
@@ -165,7 +167,7 @@ export const GroupFrameFollower: React.FC<{
       handle.style.transition = appears ? 'none' : '';
       handle.style.transform = top ? `translateY(${top}px)` : '';
     }
-  }, [top, bottom, removed, appears]);
+  }, [top, tailShift, removed, appears]);
 
   return <span ref={anchor} hidden />;
 };

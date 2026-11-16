@@ -233,8 +233,7 @@ const titlesIn = async (worker: Worker, windowId: number): Promise<string[]> =>
 //
 // Garden's activation is the LAST arranging event, and the one change the
 // pane renders (aria-current), so a pane showing Garden in front has read the
-// window after every arranging event. Collapsing Later last instead left the
-// final event invisible to the pane (it does not render collapse).
+// window after every arranging event. KAN-822: the pane now shows Later's collapse too, as a fold.
 async function openKyotoWindow(worker: Worker): Promise<MadeWindow> {
   const made = await openWindow(
     worker,
@@ -273,9 +272,13 @@ async function openKyotoWindow(worker: Worker): Promise<MadeWindow> {
 // (Garden's activation is the last arranging event, see openKyotoWindow).
 async function expectPaneListsKyoto(page: Page, made: MadeWindow) {
   const block = windowBlock(page, made.windowId);
-  await expect(rowsIn(block)).toHaveCount(4);
+  // KAN-822. Later is collapsed in Chrome, so it shows folded: Receipt's row is not drawn.
+  await expect(rowsIn(block)).toHaveCount(3);
   await expect(block.getByRole('group', { name: 'Kyoto' })).toBeVisible();
   await expect(block.getByRole('group', { name: 'Later' })).toBeVisible();
+  await expect(
+    block.getByRole('button', { name: 'Expand: Later', exact: true })
+  ).toBeVisible();
   await expect(liveRowIn(block, 'Garden')).toHaveAttribute(
     'aria-current',
     'true'

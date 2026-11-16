@@ -314,6 +314,10 @@ export interface updateChromeTabGroupColorParams extends chromeTabGroupTargetPar
   colorPickRun?: number;
 }
 
+export interface setChromeTabGroupCollapsedParams extends chromeTabGroupTargetParams {
+  collapsed: boolean;
+}
+
 export interface addCurrTabToChromeGroupParams extends chromeTabGroupTargetParams {
   tabData: tabData;
 }
@@ -2482,6 +2486,36 @@ export const tabContainerDataStateSlice = createSlice({
       saveLocalSessions(state);
     },
 
+    // KAN-822. Fold or unfold a saved group; unfolded is the field absent.
+    setChromeTabGroupCollapsed: (
+      state,
+      action: PayloadAction<setChromeTabGroupCollapsedParams>
+    ) => {
+      const { tabGroupId, windowId, groupId, collapsed } = action.payload;
+
+      const located = locateChromeTabGroup(
+        state,
+        tabGroupId,
+        windowId,
+        groupId
+      );
+      if (!located) return;
+      const { container, window } = located;
+
+      const group = window.chromeTabGroups?.find((g) => g.groupId === groupId);
+      if (!group) return;
+
+      // No-op must not dirty the container (same as the recolour).
+      if ((group.collapsed === true) === collapsed) return;
+
+      // Never store false: the sync validator accepts only true or absent.
+      if (collapsed) group.collapsed = true;
+      else delete group.collapsed;
+      touchContent(state, container);
+      state.lastModified = Date.now();
+      saveLocalSessions(state);
+    },
+
     // recolour a Chrome tab group
     updateChromeTabGroupColor: (
       state,
@@ -4097,6 +4131,7 @@ export const {
   addCurrTabToChromeGroupInternal,
   ungroupChromeTabGroup,
   updateChromeTabGroupColor,
+  setChromeTabGroupCollapsed,
   deleteChromeTabGroupInternal,
   deleteTabContainerInternal,
   deleteWindowInternal,

@@ -18,8 +18,9 @@ import {
   ungroupChromeTabGroup,
   deleteChromeTabGroupInternal,
   updateChromeTabGroupColor,
+  setChromeTabGroupCollapsed,
 } from '../../redux/slices/tabContainerDataStateSlice';
-import { undo } from '../../redux/slices/undoRedoSlice';
+import { redo, undo } from '../../redux/slices/undoRedoSlice';
 import { setIsNotDirty } from '../../redux/slices/globalStateSlice';
 
 // Same trap as KAN-107: an action missing from actionsToCapture still renders
@@ -139,5 +140,23 @@ describe('the Chrome group actions are captured actions', () => {
 
     store.dispatch(undo());
     expect(win(store).chromeTabGroups![0].color).toBe('blue');
+  });
+
+  test('folding is undoable, redoable and dirties the container (KAN-822)', () => {
+    const store = seeded();
+    const group = () => {
+      const found = win(store).chromeTabGroups?.[0];
+      if (found === undefined) throw new Error('seed has no group');
+      return found;
+    };
+    store.dispatch(setChromeTabGroupCollapsed({ ...target, collapsed: true }));
+    expect(group().collapsed).toBe(true);
+    expect(store.getState().globalState.isDirty).toBe(true);
+
+    store.dispatch(undo());
+    expect('collapsed' in group()).toBe(false);
+
+    store.dispatch(redo());
+    expect(group().collapsed).toBe(true);
   });
 });

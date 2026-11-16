@@ -156,7 +156,7 @@ describe('landingRange clamps the landing, in the preview and the release', () =
     const { preview, released } = holdAndRelease({}, 'a2', 12);
     expect(preview.shifted).toEqual({ a0: ROW_H, a1: ROW_H });
     expect(preview.slotTop).toBe(topOf('a0'));
-    expect(released).toEqual([['a2', 0, undefined, 'wA']]);
+    expect(released).toEqual([['a2', 0, undefined, 'wA', undefined]]);
   });
 
   test('clamped to 1..2, the same hold previews and lands at 1', () => {
@@ -164,7 +164,7 @@ describe('landingRange clamps the landing, in the preview and the release', () =
     const { preview, released } = holdAndRelease({ landingRange }, 'a2', 12);
     expect(preview.shifted).toEqual({ a1: ROW_H });
     expect(preview.slotTop).toBe(topOf('a1'));
-    expect(released).toEqual([['a2', 1, undefined, 'wA']]);
+    expect(released).toEqual([['a2', 1, undefined, 'wA', undefined]]);
     expect(landingRange).toHaveBeenCalledWith('a2', 'wA');
   });
 
@@ -175,7 +175,7 @@ describe('landingRange clamps the landing, in the preview and the release', () =
     // the window's end (KAN-182).
     expect(preview.shifted).toEqual({ a2: -ROW_H });
     expect(preview.slotTop).toBe(WINDOWS[1].top + BLOCK_H);
-    expect(released).toEqual([['a1', 3, undefined, 'wB']]);
+    expect(released).toEqual([['a1', 3, undefined, 'wB', undefined]]);
   });
 
   test('clamped per window, the same hold previews and lands inside the range', () => {
@@ -184,7 +184,7 @@ describe('landingRange clamps the landing, in the preview and the release', () =
     const { preview, released } = holdAndRelease({ landingRange }, 'a1', 155);
     expect(preview.shifted).toEqual({ a2: -ROW_H, b1: ROW_H, b2: ROW_H });
     expect(preview.slotTop).toBe(topOf('b1'));
-    expect(released).toEqual([['a1', 1, undefined, 'wB']]);
+    expect(released).toEqual([['a1', 1, undefined, 'wB', undefined]]);
   });
 
   // Off the happy path: a range that contains no index at all is a window
@@ -205,7 +205,7 @@ describe('acceptsWindow false is a release outside the list', () => {
     const { preview, released } = holdAndRelease({}, 'a1', 125);
     expect(preview.shifted).toEqual({ a2: -ROW_H, b1: ROW_H, b2: ROW_H });
     expect(preview.slotTop).toBe(topOf('b1'));
-    expect(released).toEqual([['a1', 1, undefined, 'wB']]);
+    expect(released).toEqual([['a1', 1, undefined, 'wB', undefined]]);
   });
 
   test('refused: no row steps aside, the slot stays on the origin, and the release moves nothing', () => {
@@ -222,7 +222,7 @@ describe('acceptsWindow false is a release outside the list', () => {
   // landing at the end of the row's own window.
   test('refused in the gap nearer the refusing window, too', () => {
     const control = holdAndRelease({}, 'a1', 85);
-    expect(control.released).toEqual([['a1', 0, undefined, 'wB']]);
+    expect(control.released).toEqual([['a1', 0, undefined, 'wB', undefined]]);
 
     const { preview, released } = holdAndRelease(
       { acceptsWindow: refusesB },
@@ -240,7 +240,7 @@ describe('acceptsWindow false is a release outside the list', () => {
       65
     );
     expect(preview.shifted).toEqual({ a2: -ROW_H });
-    expect(released).toEqual([['a1', 2, undefined, 'wA']]);
+    expect(released).toEqual([['a1', 2, undefined, 'wA', undefined]]);
   });
 
   // A band in a refused window must not light up as a target either: outside
@@ -511,7 +511,7 @@ describe('a range past the window’s end', () => {
     );
     expect(preview.shifted).toEqual({ a1: -ROW_H, a2: -ROW_H });
     expect(preview.slotTop).toBe(topOf('a2'));
-    expect(released).toEqual([['a0', 2, undefined, 'wA']]);
+    expect(released).toEqual([['a0', 2, undefined, 'wA', undefined]]);
   });
 
   test('a range wholly past the end refuses: nothing steps aside, nothing moves', () => {

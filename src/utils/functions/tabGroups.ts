@@ -164,6 +164,48 @@ export function partitionTabsIntoItems<T extends GroupableTab>(
   );
 }
 
+// KAN-822. The tabs a folded group holds, as the partition places them: they draw no row.
+export function foldedMemberIds(
+  tabs: readonly GroupableTab[],
+  groups: readonly chromeTabGroupData[] | undefined,
+  foldedGroupIds: ReadonlySet<string>
+): Set<string> {
+  return new Set(
+    partitionTabsIntoRuns(tabs, groups).flatMap((run) =>
+      run.kind === 'group' && foldedGroupIds.has(run.group.groupId)
+        ? run.tabs.map((tab) => tab.tabId)
+        : []
+    )
+  );
+}
+
+// KAN-822. Where a loose drop in front of a group lands, held tabs lifted out: at its first member, else the end.
+export function groupStartIndex(
+  tabs: readonly GroupableTab[],
+  groupId: string,
+  heldIds: ReadonlySet<string>
+): number {
+  const others = tabs.filter((tab) => !heldIds.has(tab.tabId));
+  const first = others.findIndex((tab) => tab.chromeGroupId === groupId);
+  return first === -1 ? others.length : first;
+}
+
+// KAN-822. Where a join at a group's end lands, held tabs lifted out: past its last member, else where it stood, else the end.
+export function groupEndIndex(
+  tabs: readonly GroupableTab[],
+  groupId: string,
+  heldIds: ReadonlySet<string>
+): number {
+  const others = tabs.filter((tab) => !heldIds.has(tab.tabId));
+  let end = others.length;
+  let passed = 0;
+  for (const tab of tabs) {
+    if (!heldIds.has(tab.tabId)) passed += 1;
+    if (tab.chromeGroupId === groupId) end = passed;
+  }
+  return end;
+}
+
 const TAB_ITEM = 'tab:';
 const GROUP_ITEM = 'group:';
 
