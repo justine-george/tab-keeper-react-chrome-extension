@@ -186,6 +186,8 @@ test.describe('Import from bookmarks in setup (KAN-862)', () => {
     await dialog.getByRole('checkbox', { name: 'Alpha trip' }).check();
     await dialog.getByRole('button', { name: 'Import 1 session' }).click();
     await expect(dialog).toBeHidden();
+    // Focus back on the card, not on <body>, where the next Tab reaches setup's ✕.
+    await expect(card).toBeFocused();
 
     await expect(setup).toBeVisible();
     await expect(setup.getByRole('heading', { level: 3 })).toHaveText(

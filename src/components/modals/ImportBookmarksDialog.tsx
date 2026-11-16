@@ -246,11 +246,16 @@ export const ImportBookmarksDialog: React.FC = () => {
   // The size check that may still set the refusal; an older answer landing late is dropped.
   const latestCheck = useRef(0);
   const hasEnded = useRef(false);
+  // The button or card that opened it: left on <body>, the next Tab over setup lands on its ✕.
+  const opener = useRef<HTMLElement | null>(null);
 
   const end = useCallback(
     (unreadable: boolean) => {
       if (hasEnded.current) return;
       hasEnded.current = true;
+      // The page behind a modal is inert, so the dialog closes before focus goes back.
+      dialogRef.current?.close();
+      if (opener.current?.isConnected) opener.current.focus();
       if (unreadable) {
         void dispatch(
           showToast({ toastText: TOAST_MESSAGES.BOOKMARKS_UNREADABLE })
@@ -264,6 +269,8 @@ export const ImportBookmarksDialog: React.FC = () => {
   useEffect(() => {
     const dialog = dialogRef.current;
     if (dialog && !dialog.open) {
+      const active = document.activeElement;
+      opener.current = active instanceof HTMLElement ? active : null;
       dialog.showModal();
       dialog.focus();
     }

@@ -6,7 +6,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 
 vi.mock('../../redux/bookmarkImport', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../redux/bookmarkImport')>()),
@@ -17,7 +17,7 @@ import { ImportBookmarksDialog } from '../../components/modals/ImportBookmarksDi
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { startBookmarkImport } from '../../redux/startBookmarkImport';
 import { importSizeRefusal } from '../../redux/bookmarkImport';
-import type { RootState } from '../../redux/store';
+import type { AppDispatch, RootState } from '../../redux/store';
 import { toastTexts } from '../setup/toasts';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { testI18n } from '../setup/i18nForTests';
@@ -595,5 +595,81 @@ describe('the import dialog: the sync size check', () => {
     expect(importSizeRefusal).toHaveBeenCalledTimes(2);
     expect(within(dialog()).queryByText(/Too large to sync/)).toBeNull();
     expect(importButton()).not.toHaveAttribute('aria-disabled');
+  });
+});
+
+describe('the import dialog: focus on close', () => {
+  // The Settings button or setup card that opened it; the dialog mounts beside it, as in MainContainer.
+  const HostWithOpener = () => {
+    const dispatch: AppDispatch = useDispatch();
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => void dispatch(startBookmarkImport())}
+        >
+          Opener
+        </button>
+        <Host />
+      </>
+    );
+  };
+  const openFromButton = async () => {
+    const result = await renderWithProviders(<HostWithOpener />);
+    Object.assign(globalThis.chrome, { bookmarks: { getTree } });
+    const opener = screen.getByRole('button', { name: 'Opener' });
+    opener.focus();
+    await act(async () => {
+      fireEvent.click(opener);
+    });
+    await screen.findByRole('checkbox', { name: 'Work' });
+    expect(document.activeElement).toBe(dialog());
+    return { ...result, opener };
+  };
+
+  test.each([
+    [
+      'Cancel',
+      () => fireEvent.click(screen.getByRole('button', { name: 'Cancel' })),
+    ],
+    ['✕', () => fireEvent.click(screen.getByRole('button', { name: 'Close' }))],
+    [
+      'Esc',
+      () => fireEvent(dialog(), new Event('cancel', { cancelable: true })),
+    ],
+  ])('%s gives focus back to what opened the dialog', async (_, close) => {
+    const { opener } = await openFromButton();
+    await act(async () => {
+      close();
+    });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(opener);
+  });
+
+  test('Import gives focus back to what opened the dialog', async () => {
+    const { store, opener } = await openFromButton();
+    tick('Work');
+    await act(async () => {
+      fireEvent.click(importButton());
+    });
+    await waitFor(() =>
+      expect(store.getState().globalState.isImportBookmarksOpen).toBe(false)
+    );
+    expect(sessionTitles(store.getState())).toEqual(['Work']);
+    expect(document.activeElement).toBe(opener);
+  });
+
+  test('an opener gone from the page is left alone: the close still ends the import', async () => {
+    // Outside React, so the test can take it off the page as a re-render would.
+    const opener = document.body.appendChild(document.createElement('button'));
+    opener.focus();
+    const { store } = await openDialog();
+    await screen.findByRole('checkbox', { name: 'Work' });
+    opener.remove();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    });
+    expect(store.getState().globalState.isImportBookmarksOpen).toBe(false);
+    expect(document.activeElement).toBe(document.body);
   });
 });
