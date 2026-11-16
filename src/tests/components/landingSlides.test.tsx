@@ -334,6 +334,30 @@ describe('slideLanding when the drop closes a room held open (KAN-959)', () => {
     expect(s).toHaveBeenCalledWith(...glidesBy(18));
   });
 
+  it('a join on a folded group in the last window draws no row and moves no block: its window still glides up', () => {
+    reduceMotion(false);
+    const { root, w1, w2, gs, gf, a1, s0 } = heldRoomList();
+    w2.remove();
+    at(w1, 0);
+    at(gs, 68);
+    at(gf, 140);
+    at(a1, 176);
+    const rows = new Map([['a1', a1]]);
+    const before = landingTops(root, undefined, { windowId: 'w1', rows });
+    // s0 joined the folded gf, so it draws no row; gs is gone.
+    gs.remove();
+    s0.remove();
+    at(gf, 68);
+    at(a1, 104);
+    const [b1, g, a] = [w1, gf, a1].map(animated);
+
+    slideLanding(root, before, undefined, rows);
+
+    expect(b1).not.toHaveBeenCalled();
+    expect(g).toHaveBeenCalledWith(...glidesBy(72));
+    expect(a).toHaveBeenCalledWith(...glidesBy(72));
+  });
+
   it('with no room held open, the rows of the window stay put (KAN-835)', () => {
     reduceMotion(false);
     const { root, w1, w2, gf, a1, s0 } = heldRoomList();

@@ -111,7 +111,7 @@ export function slideLanding(
   const closing = heldRoomGlides(root, before.heldRoom, row, rows);
   const block = row?.closest(BLOCK) ?? null;
   // KAN-957. A session row keeps main's snap: gliding one flickered the list 11px for a frame, cause untraced.
-  if (moved.size === 0 && block === null) return;
+  if (moved.size === 0 && block === null && closing.size === 0) return;
   const blockBy = block === null ? undefined : moved.get(block);
   const band = row?.closest(BAND) ?? null;
   const bandBy = band === null ? 0 : (closing.get(band) ?? 0);
