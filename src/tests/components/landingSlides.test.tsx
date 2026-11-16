@@ -73,7 +73,7 @@ describe('slideLanding', () => {
     for (const a of [a2, a3]) {
       expect(a).toHaveBeenCalledWith(
         [{ transform: 'translateY(32px)' }, { transform: 'none' }],
-        { duration: 200, easing: 'ease', id: LANDING_SLIDE }
+        { duration: 200, easing: EASE.OUT, id: LANDING_SLIDE }
       );
     }
   });
@@ -96,10 +96,10 @@ describe('slideLanding', () => {
 
     slideLanding(root, before, row);
 
-    // 120 -> 98 is 22; w2 carries 32 of it, so the row goes -10 on its own, eased as its block is so the two add up.
+    // 120 -> 98 is 22; w2 carries 32 of it, so the row goes -10 on its own, on its block's curve so the two add up (KAN-958).
     expect(r).toHaveBeenCalledWith(
       [{ transform: 'translateY(-10px)' }, { transform: 'none' }],
-      { duration: 200, easing: 'ease', id: LANDING_SLIDE }
+      { duration: 200, easing: EASE.OUT, id: LANDING_SLIDE }
     );
   });
 
@@ -123,8 +123,8 @@ describe('slideLanding', () => {
     );
   });
 
-  // KAN-957. Gliding a session row flickered the list 11px for a frame, cause untraced, so it keeps main's snap.
-  it("a session row keeps main's snap (KAN-957)", () => {
+  // KAN-957. A row in no window block (a session) glides from where it was let go too.
+  it('a session row glides into its slot (KAN-957)', () => {
     reduceMotion(false);
     const root = document.createElement('div');
     const row = document.createElement('div');
@@ -136,7 +136,10 @@ describe('slideLanding', () => {
 
     slideLanding(root, before, row);
 
-    expect(r).not.toHaveBeenCalled();
+    expect(r).toHaveBeenCalledWith(
+      [{ transform: 'translateY(30px)' }, { transform: 'none' }],
+      { duration: 200, easing: EASE.OUT, id: LANDING_SLIDE }
+    );
   });
 
   it('a row let go on its slot glides nothing', () => {
@@ -194,6 +197,39 @@ describe('slideLanding', () => {
         expect.anything()
       );
     }
+  });
+
+  // KAN-956. A new FIRST window has no block above it: it glides with the block below, so the two never overlap.
+  it('a window the drop made first glides with the block below it', () => {
+    reduceMotion(false);
+    const { root, blocks, row } = list();
+    const [w1, w2, w3] = blocks;
+    at(w1, 0);
+    at(w2, 120);
+    at(w3, 260);
+    at(row, 10);
+    const before = landingTops(root, row);
+    // A new window above w1 holds the dropped row: w1 down 72, the rest down 40 (w1 is a row shorter).
+    const made = block(root, 'new');
+    root.prepend(made);
+    at(made, 0);
+    at(w1, 72);
+    at(w2, 160);
+    at(w3, 300);
+    const [a1, a2, a3, aMade] = [...blocks, made].map(animated);
+
+    slideLanding(root, before, row);
+
+    for (const [a, by] of [
+      [aMade, -72],
+      [a1, -72],
+      [a2, -40],
+      [a3, -40],
+    ] as const)
+      expect(a).toHaveBeenCalledWith(
+        [{ transform: `translateY(${by}px)` }, { transform: 'none' }],
+        { duration: 200, easing: EASE.OUT, id: LANDING_SLIDE }
+      );
   });
 
   it('with Reduce motion on, nothing glides', () => {
