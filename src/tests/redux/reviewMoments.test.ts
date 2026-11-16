@@ -27,6 +27,9 @@ import {
 import { REVIEW_ASK_GAP_MS } from '../../utils/functions/reviewAsk';
 import { importBookmarkSessions } from '../../redux/bookmarkImport';
 
+// Bookmarks the record names, made with no dateAdded as the fixtures are.
+const marks = (ids: string[]) => ids.map((id) => ({ id, dateAdded: null }));
+
 // KAN-149, KAN-653. What counts as the extension having visibly paid off, and
 // which card each payoff asks with.
 //
@@ -537,7 +540,7 @@ describe('a save after an import', () => {
     store.dispatch(
       importBookmarkSessions(
         sizes.map((n, i) => ({
-          bookmarkIds: [`f${i}`],
+          bookmarks: marks([`f${i}`]),
           session: session(`imp${i}`, n),
         }))
       )

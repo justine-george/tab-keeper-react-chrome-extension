@@ -26,6 +26,7 @@ import {
   noteStoredSettingsSeen,
   saveLocalSettings,
 } from '../../utils/functions/localSettings';
+import type { BookmarkIdentity } from '../../utils/functions/bookmarkImport';
 import type { CaptureScope } from '../../utils/functions/capture';
 import type { CopyLinksLayout } from '../../utils/functions/copySessionLinks';
 // `import type`, so nothing is emitted: the generator imports this slice's
@@ -219,10 +220,10 @@ export interface SettingsData {
   importedBookmarks: ImportedBookmarks[];
 }
 
-// KAN-862. One imported session's bookmark ids: a user folder's own id, or a top folder's loose links (R22).
+// KAN-862. One imported session's bookmarks: a user folder itself, or a top folder's loose links (R22), each by id and dateAdded (G).
 export interface ImportedBookmarks {
   sessionId: string;
-  bookmarkIds: string[];
+  bookmarks: BookmarkIdentity[];
   // The import was undone: its bookmarks are free again until a redo.
   isUndone: boolean;
 }
@@ -290,7 +291,28 @@ export const asIds = (value: unknown): string[] =>
     ? value.filter((id): id is string => typeof id === 'string')
     : [];
 
-// KAN-862. Entries of the wrong shape drop out; a stray id inside one drops out alone.
+// KAN-862 G. A bookmark without a string id drops out; a dateAdded that is not a number reads as unknown.
+const asBookmarkIdentities = (value: unknown): BookmarkIdentity[] =>
+  Array.isArray(value)
+    ? value.flatMap((item: unknown): BookmarkIdentity[] =>
+        typeof item === 'object' &&
+        item !== null &&
+        'id' in item &&
+        typeof item.id === 'string'
+          ? [
+              {
+                id: item.id,
+                dateAdded:
+                  'dateAdded' in item && typeof item.dateAdded === 'number'
+                    ? item.dateAdded
+                    : null,
+              },
+            ]
+          : []
+      )
+    : [];
+
+// KAN-862. Entries of the wrong shape drop out; a stray bookmark inside one drops out alone.
 export const asImportedBookmarks = (value: unknown): ImportedBookmarks[] =>
   Array.isArray(value)
     ? value.flatMap((entry: unknown): ImportedBookmarks[] =>
@@ -301,7 +323,9 @@ export const asImportedBookmarks = (value: unknown): ImportedBookmarks[] =>
           ? [
               {
                 sessionId: entry.sessionId,
-                bookmarkIds: asIds(Reflect.get(entry, 'bookmarkIds')),
+                bookmarks: asBookmarkIdentities(
+                  Reflect.get(entry, 'bookmarks')
+                ),
                 isUndone: asFlag(Reflect.get(entry, 'isUndone')),
               },
             ]
@@ -865,7 +889,9 @@ export const settingsDataStateSlice = createSlice({
     // KAN-862 (11-16). What an import's sessions cover: none of it can be imported again here.
     noteImportedBookmarks: (
       state,
-      action: PayloadAction<{ sessionId: string; bookmarkIds: string[] }[]>
+      action: PayloadAction<
+        { sessionId: string; bookmarks: BookmarkIdentity[] }[]
+      >
     ) => {
       const known = new Set(state.importedBookmarks.map((e) => e.sessionId));
       const fresh = action.payload.filter((e) => !known.has(e.sessionId));

@@ -23,7 +23,7 @@ import { makeTestStore } from '../setup/makeStore';
 import {
   importBookmarkSessions,
   importSizeRefusal,
-  importedBookmarkIds,
+  importedBookmarkKeys,
   selectImportedBookmarks,
   selectImportedSessionIds,
 } from '../../redux/bookmarkImport';
@@ -36,11 +36,15 @@ import type { RootState } from '../../redux/store';
 import { redo, undo } from '../../redux/slices/undoRedoSlice';
 import { syncBytes } from '../../utils/functions/cloudDocument';
 import {
+  identityKey,
   sessionsFor,
   type SessionFromBookmarks,
 } from '../../utils/functions/bookmarkImport';
 import { FIRESTORE_MAX_DOCUMENT_BYTES } from '../../utils/functions/local';
 import { BOOKMARKS_IMPORTED_FRAME } from '../../utils/constants/common';
+
+// Bookmarks the record names, made with no dateAdded as the fixtures are.
+const marks = (ids: string[]) => ids.map((id) => ({ id, dateAdded: null }));
 
 // KAN-862. An import adds sessions the way a save does, without a save's side effects.
 
@@ -77,13 +81,16 @@ const session = (id: string, tabCount = 2): tabContainerData => ({
 // Each session as if made from a folder of its own id's.
 const fromFolders = (sessions: tabContainerData[]): SessionFromBookmarks[] =>
   sessions.map((s) => ({
-    bookmarkIds: [`folder-${s.tabGroupId}`],
+    bookmarks: marks([`folder-${s.tabGroupId}`]),
     session: s,
   }));
 
 // The bookmark ids the record holds now, sorted.
 const recorded = (state: RootState) =>
-  [...importedBookmarkIds(selectImportedBookmarks(state))].sort();
+  selectImportedBookmarks(state)
+    .filter((e) => !e.isUndone)
+    .flatMap((e) => e.bookmarks.map((b) => b.id))
+    .sort();
 
 const idsOf = (state: RootState) =>
   state.tabContainerDataState.tabGroups.map((g) => g.tabGroupId);
@@ -125,20 +132,47 @@ describe('importBookmarkSessions', () => {
     const { store } = makeTestStore();
     store.dispatch(
       importBookmarkSessions([
-        { bookmarkIds: ['l1', 'l3'], session: session('a') },
-        { bookmarkIds: ['kitchen'], session: session('b') },
+        { bookmarks: marks(['l1', 'l3']), session: session('a') },
+        { bookmarks: marks(['kitchen']), session: session('b') },
       ])
     );
     store.dispatch(
-      importBookmarkSessions([{ bookmarkIds: ['work'], session: session('c') }])
+      importBookmarkSessions([
+        { bookmarks: marks(['work']), session: session('c') },
+      ])
     );
     expect(recorded(store.getState())).toEqual(['kitchen', 'l1', 'l3', 'work']);
     const saved = JSON.parse(localStorage.getItem('settingsData') ?? '{}');
     expect(saved.importedBookmarks).toEqual([
-      { sessionId: 'a', bookmarkIds: ['l1', 'l3'], isUndone: false },
-      { sessionId: 'b', bookmarkIds: ['kitchen'], isUndone: false },
-      { sessionId: 'c', bookmarkIds: ['work'], isUndone: false },
+      { sessionId: 'a', bookmarks: marks(['l1', 'l3']), isUndone: false },
+      { sessionId: 'b', bookmarks: marks(['kitchen']), isUndone: false },
+      { sessionId: 'c', bookmarks: marks(['work']), isUndone: false },
     ]);
+  });
+
+  // KAN-862 G. The keys the tree checks: id and dateAdded, and none from an undone import.
+  test('importedBookmarkKeys keys each live entry by id and dateAdded', () => {
+    expect(
+      [
+        ...importedBookmarkKeys([
+          {
+            sessionId: 'a',
+            bookmarks: [{ id: '7', dateAdded: 1000 }],
+            isUndone: false,
+          },
+          { sessionId: 'b', bookmarks: marks(['8']), isUndone: false },
+          { sessionId: 'c', bookmarks: marks(['9']), isUndone: true },
+        ]),
+      ].sort()
+    ).toEqual(
+      [
+        identityKey({ id: '7', dateAdded: 1000 }),
+        identityKey({ id: '8', dateAdded: null }),
+      ].sort()
+    );
+    expect(identityKey({ id: '7', dateAdded: 1000 })).not.toBe(
+      identityKey({ id: '7', dateAdded: 2000 })
+    );
   });
 
   // KAN-862 R21. His permanent rule: a session deleted later frees nothing, nor does undoing or redoing that delete.
@@ -146,7 +180,7 @@ describe('importBookmarkSessions', () => {
     const { store } = makeTestStore();
     store.dispatch(
       importBookmarkSessions([
-        { bookmarkIds: ['kitchen'], session: session('a') },
+        { bookmarks: marks(['kitchen']), session: session('a') },
       ])
     );
     store.dispatch(deleteTabContainerInternal('a'));
@@ -164,12 +198,14 @@ describe('importBookmarkSessions', () => {
   test('undoing the import frees what it recorded, and redo records it again', () => {
     const { store } = makeTestStore();
     store.dispatch(
-      importBookmarkSessions([{ bookmarkIds: ['work'], session: session('w') }])
+      importBookmarkSessions([
+        { bookmarks: marks(['work']), session: session('w') },
+      ])
     );
     store.dispatch(
       importBookmarkSessions([
-        { bookmarkIds: ['l1'], session: session('a') },
-        { bookmarkIds: ['kitchen'], session: session('b') },
+        { bookmarks: marks(['l1']), session: session('a') },
+        { bookmarks: marks(['kitchen']), session: session('b') },
       ])
     );
 
@@ -179,9 +215,9 @@ describe('importBookmarkSessions', () => {
     expect(
       JSON.parse(localStorage.getItem('settingsData') ?? '{}').importedBookmarks
     ).toEqual([
-      { sessionId: 'w', bookmarkIds: ['work'], isUndone: false },
-      { sessionId: 'a', bookmarkIds: ['l1'], isUndone: true },
-      { sessionId: 'b', bookmarkIds: ['kitchen'], isUndone: true },
+      { sessionId: 'w', bookmarks: marks(['work']), isUndone: false },
+      { sessionId: 'a', bookmarks: marks(['l1']), isUndone: true },
+      { sessionId: 'b', bookmarks: marks(['kitchen']), isUndone: true },
     ]);
 
     store.dispatch(redo());
@@ -193,7 +229,7 @@ describe('importBookmarkSessions', () => {
     const { store } = makeTestStore();
     store.dispatch(
       importBookmarkSessions([
-        { bookmarkIds: ['kitchen'], session: session('a') },
+        { bookmarks: marks(['kitchen']), session: session('a') },
       ])
     );
     store.dispatch(importBookmarkSessions(fromFolders([session('b')])));

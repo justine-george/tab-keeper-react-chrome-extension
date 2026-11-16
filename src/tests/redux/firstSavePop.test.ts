@@ -21,6 +21,9 @@ import { SAMPLE_ID_PREFIX } from '../../utils/functions/sampleSession';
 import { markHadSavedSession } from '../../redux/slices/settingsDataStateSlice';
 import { importBookmarkSessions } from '../../redux/bookmarkImport';
 
+// Bookmarks the record names, made with no dateAdded as the fixtures are.
+const marks = (ids: string[]) => ids.map((id) => ({ id, dateAdded: null }));
+
 // KAN-875. The first session the user saves on this device pops floppy disks; this is the count the pop reads.
 
 const T0 = Date.UTC(2026, 9, 30, 12, 0, 0);
@@ -134,7 +137,10 @@ describe('the first save after an import', () => {
   const importOf = (store: Store, ...ids: string[]) =>
     store.dispatch(
       importBookmarkSessions(
-        ids.map((id) => ({ bookmarkIds: [`f-${id}`], session: session(id, 2) }))
+        ids.map((id) => ({
+          bookmarks: marks([`f-${id}`]),
+          session: session(id, 2),
+        }))
       )
     );
 

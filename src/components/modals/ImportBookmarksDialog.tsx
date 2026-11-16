@@ -19,7 +19,7 @@ import type { tabContainerData } from '../../redux/slices/tabContainerDataStateS
 import {
   importBookmarkSessions,
   importSizeRefusal,
-  importedBookmarkIds,
+  importedBookmarkKeys,
   selectImportedBookmarks,
 } from '../../redux/bookmarkImport';
 import { endBookmarkImport } from '../../redux/startBookmarkImport';
@@ -320,7 +320,7 @@ export const ImportBookmarksDialog: React.FC = () => {
   const skipDuplicates = useSelector(selectSkipsDuplicateTabs);
   const importedEntries = useSelector(selectImportedBookmarks);
   const imported = useMemo(
-    () => importedBookmarkIds(importedEntries),
+    () => importedBookmarkKeys(importedEntries),
     [importedEntries]
   );
 

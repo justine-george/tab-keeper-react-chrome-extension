@@ -4,6 +4,7 @@ import {
   folderToSession,
   folderTree,
   isImportableUrl,
+  identityKey,
   sessionsFor,
   type BookmarkFolder,
 } from '../../utils/functions/bookmarkImport';
@@ -11,6 +12,9 @@ import {
 const OWN = 'chrome-extension://abcdef/';
 const NOW = new Date(2026, 10, 15, 12, 0, 0);
 const NONE: ReadonlySet<string> = new Set();
+// The record's keys for nodes made with no dateAdded, as the fixture's are.
+const keys = (ids: string[]): ReadonlySet<string> =>
+  new Set(ids.map((id) => identityKey({ id, dateAdded: null })));
 
 type Node = chrome.bookmarks.BookmarkTreeNode;
 
@@ -312,7 +316,7 @@ describe('with bookmarks imported before', () => {
     skipDuplicates: false,
   };
   const tree = (...imported: string[]) =>
-    folderTree(fixture(), OWN, new Set(imported));
+    folderTree(fixture(), OWN, keys(imported));
   // Every listed folder, depth first, with its count.
   const listed = (folders: BookmarkFolder[]): [string, number][] =>
     folders.flatMap((f): [string, number][] => [
@@ -322,7 +326,7 @@ describe('with bookmarks imported before', () => {
   const madeFrom = (imported: string[], ticked: string[]) =>
     sessionsFor(fixture(), new Set(ticked), {
       ...opts,
-      imported: new Set(imported),
+      imported: keys(imported),
     });
   const shapeOf = (made: ReturnType<typeof madeFrom>) =>
     made.map(({ session }) => [
@@ -370,7 +374,7 @@ describe('with bookmarks imported before', () => {
         ]),
       ]),
     ]);
-    expect(listed(folderTree(root, OWN, new Set(['y'])))).toEqual([['bar', 1]]);
+    expect(listed(folderTree(root, OWN, keys(['y'])))).toEqual([['bar', 1]]);
   });
 
   it('imported loose links leave the top folder’s count; its folders stay', () => {
@@ -390,7 +394,7 @@ describe('with bookmarks imported before', () => {
     expect(
       madeFrom([], ['recipes', '1', 'kitchen', 'old']).map((m) => [
         m.session.title,
-        m.bookmarkIds,
+        m.bookmarks.map((b) => b.id),
       ])
     ).toEqual([
       ['Bookmarks bar', ['l1', 'l3']],
@@ -402,13 +406,15 @@ describe('with bookmarks imported before', () => {
   it('a link added to the bar after its loose links were imported is the bar’s whole session next time', () => {
     const made = madeFrom(['l1'], ['1']);
     expect(shapeOf(made)).toEqual([['Bookmarks bar', [['Bookmarks bar', 1]]]]);
-    expect(made.map((m) => m.bookmarkIds)).toEqual([['l3']]);
+    expect(made.map((m) => m.bookmarks)).toEqual([
+      [{ id: 'l3', dateAdded: null }],
+    ]);
   });
 
   it('a ticked top folder whose loose links are all imported adds no session of its own', () => {
     expect(
-      madeFrom(['l1', 'l3'], ['1', 'kitchen', 'recipes']).map(
-        (m) => m.bookmarkIds
+      madeFrom(['l1', 'l3'], ['1', 'kitchen', 'recipes']).map((m) =>
+        m.bookmarks.map((b) => b.id)
       )
     ).toEqual([['kitchen'], ['recipes']]);
   });
@@ -440,9 +446,35 @@ describe('with bookmarks imported before', () => {
 
   it('an imported folder’s tick, or a tick inside one, adds nothing', () => {
     expect(
-      madeFrom(['appl'], ['appl', 'fridges', 'recipes']).map(
-        (m) => m.bookmarkIds
+      madeFrom(['appl'], ['appl', 'fridges', 'recipes']).map((m) =>
+        m.bookmarks.map((b) => b.id)
       )
     ).toEqual([['recipes']]);
+  });
+
+  // KAN-862 G. Chrome gives a deleted bookmark's id to a new one after a restart; dateAdded tells them apart.
+  it('a bookmark that reuses an imported id, added later, is new; the same id and dateAdded is not', () => {
+    const root = folder('0', '', [
+      folder('bar', 'Bar', [
+        { ...link('7', 'https://new.test/'), dateAdded: 2000 },
+        { ...link('8', 'https://old.test/'), dateAdded: 1000 },
+        folder('9', 'New folder', links('n', 1), { dateAdded: 2000 }),
+      ]),
+    ]);
+    const imported = new Set(
+      ['7', '8', '9'].map((id) => identityKey({ id, dateAdded: 1000 }))
+    );
+    expect(listed(folderTree(root, OWN, imported))).toEqual([
+      ['bar', 2],
+      ['9', 1],
+    ]);
+    const made = sessionsFor(root, new Set(['bar', '9']), {
+      ...opts,
+      imported,
+    });
+    expect(made.map((m) => m.bookmarks)).toEqual([
+      [{ id: '7', dateAdded: 2000 }],
+      [{ id: '9', dateAdded: 2000 }],
+    ]);
   });
 });

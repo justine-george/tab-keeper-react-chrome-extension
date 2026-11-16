@@ -25,6 +25,26 @@ export interface BookmarkFolder {
 
 const isFolder = (node: BookmarkNode): boolean => node.url === undefined;
 
+// KAN-862 G. Chrome gives a deleted bookmark's id to a new one after a restart, so an id alone can name two
+// bookmarks; id and dateAdded together name one. dateAdded is null where Chrome left it out.
+export interface BookmarkIdentity {
+  id: string;
+  dateAdded: number | null;
+}
+
+export const identityOf = (node: BookmarkNode): BookmarkIdentity => ({
+  id: node.id,
+  dateAdded: node.dateAdded ?? null,
+});
+
+// The record's lookup key for one bookmark.
+export const identityKey = ({ id, dateAdded }: BookmarkIdentity): string =>
+  `${id}@${dateAdded ?? ''}`;
+
+// `imported` holds identityKey values.
+const isImported = (node: BookmarkNode, imported: ReadonlySet<string>) =>
+  imported.has(identityKey(identityOf(node)));
+
 // KAN-862. Chrome's own folders, the root's: Bookmarks Bar, Other Bookmarks, Mobile, managed, and their twins.
 export const topFolders = (root: BookmarkNode): BookmarkNode[] =>
   (root.children ?? []).filter(isFolder);
@@ -39,7 +59,7 @@ export function isImportableUrl(
   return !resolveTabUrl(url).startsWith(ownOrigin);
 }
 
-// KAN-862 (11-16). `imported` holds bookmark ids imported before: a user folder's covers everything in it, a link's only itself.
+// KAN-862 (11-16). `imported` holds the identityKey of each bookmark imported before: a user folder's covers everything in it, a link's only itself.
 // The folder with the links an import would still take, or null when there are none.
 function toFolder(
   node: BookmarkNode,
@@ -50,7 +70,7 @@ function toFolder(
   const children: BookmarkFolder[] = [];
   let count = 0;
   for (const child of node.children ?? []) {
-    if (imported.has(child.id)) continue;
+    if (isImported(child, imported)) continue;
     if (isFolder(child)) {
       const sub = toFolder(child, ownOrigin, false, imported);
       if (sub === null) continue;
@@ -112,7 +132,7 @@ function flatten(
   into: tabData[]
 ): void {
   for (const child of node.children ?? []) {
-    if (imported.has(child.id)) continue;
+    if (isImported(child, imported)) continue;
     if (isFolder(child)) flatten(child, ownOrigin, imported, into);
     else if (child.url !== undefined && isImportableUrl(child.url, ownOrigin))
       into.push(toTab(child, child.url));
@@ -124,15 +144,15 @@ function ownLinks(
   node: BookmarkNode,
   ownOrigin: string,
   imported: ReadonlySet<string>
-): { bookmarkId: string; tab: tabData }[] {
-  const links: { bookmarkId: string; tab: tabData }[] = [];
+): { bookmark: BookmarkIdentity; tab: tabData }[] {
+  const links: { bookmark: BookmarkIdentity; tab: tabData }[] = [];
   for (const child of node.children ?? [])
     if (
       child.url !== undefined &&
-      !imported.has(child.id) &&
+      !isImported(child, imported) &&
       isImportableUrl(child.url, ownOrigin)
     )
-      links.push({ bookmarkId: child.id, tab: toTab(child, child.url) });
+      links.push({ bookmark: identityOf(child), tab: toTab(child, child.url) });
   return links;
 }
 
@@ -169,7 +189,7 @@ export function folderToSession(
   const own = ownLinks(node, ownOrigin, imported).map((link) => link.tab);
   const windows = [toWindow(title, own)];
   for (const sub of node.children ?? []) {
-    if (!isFolder(sub) || imported.has(sub.id)) continue;
+    if (!isFolder(sub) || isImported(sub, imported)) continue;
     const tabs: tabData[] = [];
     flatten(sub, ownOrigin, imported, tabs);
     windows.push(toWindow(sub.title, tabs));
@@ -197,12 +217,12 @@ function looseLinksSession(
   );
   return session === null
     ? null
-    : { bookmarkIds: links.map((link) => link.bookmarkId), session };
+    : { bookmarks: links.map((link) => link.bookmark), session };
 }
 
-// KAN-862. A session an import would make, and the bookmark ids it covers: a user folder's own id, or a top folder's loose links.
+// KAN-862. A session an import would make, and the bookmarks it covers: a user folder itself, or a top folder's loose links.
 export interface SessionFromBookmarks {
-  bookmarkIds: string[];
+  bookmarks: BookmarkIdentity[];
   session: tabContainerData;
 }
 
@@ -211,7 +231,7 @@ interface SessionOptions {
   ownOrigin: string;
   untitled: string;
   skipDuplicates: boolean;
-  // Bookmark ids imported before: user folders whole, top folders' loose links one by one.
+  // identityKey of each bookmark imported before: user folders whole, top folders' loose links one by one.
   imported: ReadonlySet<string>;
 }
 
@@ -233,7 +253,7 @@ export function sessionsFor(
   };
   const visit = (node: BookmarkNode): void => {
     for (const child of node.children ?? []) {
-      if (!isFolder(child) || opts.imported.has(child.id)) continue;
+      if (!isFolder(child) || isImported(child, opts.imported)) continue;
       if (ticked.has(child.id)) {
         const session = folderToSession(
           child,
@@ -242,7 +262,9 @@ export function sessionsFor(
           opts.untitled,
           opts.imported
         );
-        add(session === null ? null : { bookmarkIds: [child.id], session });
+        add(
+          session === null ? null : { bookmarks: [identityOf(child)], session }
+        );
       } else visit(child);
     }
   };

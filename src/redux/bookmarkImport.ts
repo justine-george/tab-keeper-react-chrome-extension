@@ -13,7 +13,10 @@ import {
   saveImportedSessionsInternal,
   type tabContainerData,
 } from './slices/tabContainerDataStateSlice';
-import type { SessionFromBookmarks } from '../utils/functions/bookmarkImport';
+import {
+  identityKey,
+  type SessionFromBookmarks,
+} from '../utils/functions/bookmarkImport';
 import { syncBytes } from '../utils/functions/cloudDocument';
 import {
   bytesToMB,
@@ -39,7 +42,7 @@ export const importBookmarkSessions =
       noteImportedBookmarks(
         made.map((m) => ({
           sessionId: m.session.tabGroupId,
-          bookmarkIds: m.bookmarkIds,
+          bookmarks: m.bookmarks,
         }))
       )
     );
@@ -77,8 +80,12 @@ export const selectImportedBookmarks = (
   state: RootState
 ): readonly ImportedBookmarks[] => state.settingsDataState.importedBookmarks;
 
-// KAN-862 (11-16). The bookmark ids no import may take again: every entry's but an undone import's.
-export const importedBookmarkIds = (
+// KAN-862 (11-16). The bookmarks no import may take again, as identityKey values: every entry's but an undone import's.
+export const importedBookmarkKeys = (
   entries: readonly ImportedBookmarks[]
 ): ReadonlySet<string> =>
-  new Set(entries.filter((e) => !e.isUndone).flatMap((e) => e.bookmarkIds));
+  new Set(
+    entries
+      .filter((e) => !e.isUndone)
+      .flatMap((e) => e.bookmarks.map(identityKey))
+  );

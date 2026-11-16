@@ -18,16 +18,16 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { startBookmarkImport } from '../../redux/startBookmarkImport';
 import { noteImportedBookmarks } from '../../redux/slices/settingsDataStateSlice';
 import { undo } from '../../redux/slices/undoRedoSlice';
-import {
-  importedBookmarkIds,
-  selectImportedBookmarks,
-} from '../../redux/bookmarkImport';
+import { selectImportedBookmarks } from '../../redux/bookmarkImport';
 import { importSizeRefusal } from '../../redux/bookmarkImport';
 import type { AppDispatch, RootState } from '../../redux/store';
 import { toastTexts } from '../setup/toasts';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { testI18n } from '../setup/i18nForTests';
 import de from '../../../public/locales/de/translation.json';
+
+// Bookmarks the record names, made with no dateAdded as the fixtures are.
+const marks = (ids: string[]) => ids.map((id) => ({ id, dateAdded: null }));
 
 // KAN-862. The import dialog: a folder tree to tick, a preview of the sessions it makes.
 
@@ -135,7 +135,10 @@ const sessionTitles = (state: RootState) =>
   state.tabContainerDataState.tabGroups.map((g) => g.title);
 // The bookmark ids no import may take again, sorted.
 const recorded = (state: RootState) =>
-  [...importedBookmarkIds(selectImportedBookmarks(state))].sort();
+  selectImportedBookmarks(state)
+    .filter((e) => !e.isUndone)
+    .flatMap((e) => e.bookmarks.map((b) => b.id))
+    .sort();
 const selectAllButton = () =>
   within(dialog()).getByRole('button', { name: /^(Select|Deselect) all$/ });
 
@@ -524,7 +527,7 @@ describe('the import dialog: bookmarks imported before', () => {
     return openDialog({
       seedStore: (s) => {
         s.dispatch(
-          noteImportedBookmarks([{ sessionId: 'old', bookmarkIds: ids }])
+          noteImportedBookmarks([{ sessionId: 'old', bookmarks: marks(ids) }])
         );
       },
     });
@@ -793,7 +796,7 @@ describe('the import dialog: Select all', () => {
       seedStore: (s) => {
         s.dispatch(
           noteImportedBookmarks([
-            { sessionId: 'old', bookmarkIds: ['kitchen'] },
+            { sessionId: 'old', bookmarks: marks(['kitchen']) },
           ])
         );
       },

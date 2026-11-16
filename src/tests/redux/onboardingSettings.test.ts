@@ -42,6 +42,9 @@ import { asDefaultView } from '../../utils/functions/defaultView';
 import { newRun } from '../../utils/functions/firstRun';
 import { makeTestStore } from '../setup/makeStore';
 
+// Bookmarks the record names, made with no dateAdded as the fixtures are.
+const marks = (ids: string[]) => ids.map((id) => ({ id, dateAdded: null }));
+
 // KAN-7. Six per-machine answers in settingsData, each guarded on both read
 // paths: this page's startup and another page's write (KAN-279 D9).
 
@@ -98,8 +101,8 @@ const ALL_SET = {
   isFullViewEndingSeen: true,
   importedSessionIds: Array.of('a', 'b'),
   importedBookmarks: Array.of(
-    { sessionId: 's1', bookmarkIds: Array.of('l1', 'l3'), isUndone: false },
-    { sessionId: 's2', bookmarkIds: Array.of('kitchen'), isUndone: true }
+    { sessionId: 's1', bookmarks: marks(['l1', 'l3']), isUndone: false },
+    { sessionId: 's2', bookmarks: marks(['kitchen']), isUndone: true }
   ),
 } as const;
 
@@ -270,10 +273,12 @@ describe('the onboarding reducers persist what they set', () => {
     ],
     [
       'noteImportedBookmarks',
-      noteImportedBookmarks([{ sessionId: 's1', bookmarkIds: ['kitchen'] }]),
+      noteImportedBookmarks([
+        { sessionId: 's1', bookmarks: marks(['kitchen']) },
+      ]),
       {
         importedBookmarks: [
-          { sessionId: 's1', bookmarkIds: ['kitchen'], isUndone: false },
+          { sessionId: 's1', bookmarks: marks(['kitchen']), isUndone: false },
         ],
       },
     ],
@@ -302,13 +307,15 @@ describe('the onboarding reducers persist what they set', () => {
   // KAN-862 (11-16). Permanent per device: a folder's record stays whatever happens to its session.
   it('noteImportedBookmarks skips a session it has and writes nothing for it', () => {
     const once = reduce([
-      noteImportedBookmarks([{ sessionId: 's1', bookmarkIds: ['kitchen'] }]),
+      noteImportedBookmarks([
+        { sessionId: 's1', bookmarks: marks(['kitchen']) },
+      ]),
     ]);
     const setItem = vi.spyOn(localStorage, 'setItem');
     setItem.mockClear();
     const again = settingsDataStateSlice.reducer(
       once,
-      noteImportedBookmarks([{ sessionId: 's1', bookmarkIds: ['other'] }])
+      noteImportedBookmarks([{ sessionId: 's1', bookmarks: marks(['other']) }])
     );
     expect(setItem).not.toHaveBeenCalled();
     expect(again.importedBookmarks).toEqual(once.importedBookmarks);
@@ -318,8 +325,8 @@ describe('the onboarding reducers persist what they set', () => {
   it('setImportsUndone flips only the named sessions, and writes only on a change', () => {
     const noted = reduce([
       noteImportedBookmarks([
-        { sessionId: 's1', bookmarkIds: ['a'] },
-        { sessionId: 's2', bookmarkIds: ['b'] },
+        { sessionId: 's1', bookmarks: marks(['a']) },
+        { sessionId: 's2', bookmarks: marks(['b']) },
       ]),
     ]);
     const undone = settingsDataStateSlice.reducer(
@@ -347,15 +354,35 @@ describe('the onboarding reducers persist what they set', () => {
       guardOnboarding(
         {
           importedBookmarks: [
-            { sessionId: 's1', bookmarkIds: ['a', 2], isUndone: 'yes' },
-            { sessionId: 3, bookmarkIds: ['b'], isUndone: false },
+            {
+              sessionId: 's1',
+              bookmarks: [
+                { id: 'a', dateAdded: 1000 },
+                { id: 'b' },
+                { id: 2, dateAdded: 1000 },
+                'c',
+                { id: 'd', dateAdded: 'soon' },
+              ],
+              isUndone: 'yes',
+            },
+            { sessionId: 3, bookmarks: marks(['b']), isUndone: false },
             null,
             'x',
           ],
         },
         ONBOARDING_DEFAULTS
       ).importedBookmarks
-    ).toEqual([{ sessionId: 's1', bookmarkIds: ['a'], isUndone: false }]);
+    ).toEqual([
+      {
+        sessionId: 's1',
+        bookmarks: [
+          { id: 'a', dateAdded: 1000 },
+          { id: 'b', dateAdded: null },
+          { id: 'd', dateAdded: null },
+        ],
+        isUndone: false,
+      },
+    ]);
   });
 
   // KAN-862 R14. Only imports: the first-save pop is still to come. Any other session held ends that.

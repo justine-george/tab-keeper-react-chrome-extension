@@ -14,6 +14,9 @@ import { markHadSavedSession } from '../../redux/slices/settingsDataStateSlice';
 import { SAMPLE_ID_PREFIX } from '../../utils/functions/sampleSession';
 import { importBookmarkSessions } from '../../redux/bookmarkImport';
 
+// Bookmarks the record names, made with no dateAdded as the fixtures are.
+const marks = (ids: string[]) => ids.map((id) => ({ id, dateAdded: null }));
+
 // KAN-828. The mint ring on the save button shows exactly while the saved list's empty line does.
 
 const invite = () => document.querySelector('[data-save-invite]');
@@ -208,7 +211,10 @@ describe('the list after an import', () => {
       seedStore: (s) => {
         s.dispatch(
           importBookmarkSessions([
-            { bookmarkIds: ['f'], session: buildSession({ tabGroupId: 'i' }) },
+            {
+              bookmarks: marks(['f']),
+              session: buildSession({ tabGroupId: 'i' }),
+            },
           ])
         );
       },
@@ -222,7 +228,9 @@ describe('the list after an import', () => {
     const { store } = await renderWithProviders(<UserInputContainer />, {
       seedStore: (s) => {
         s.dispatch(
-          importBookmarkSessions([{ bookmarkIds: ['f'], session: imported }])
+          importBookmarkSessions([
+            { bookmarks: marks(['f']), session: imported },
+          ])
         );
       },
     });
