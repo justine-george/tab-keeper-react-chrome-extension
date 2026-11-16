@@ -81,14 +81,14 @@ describe('the date basis follows the chosen date order', () => {
     expect(basisOf(store)).toBe('edited');
   });
 
-  test('and returning to date modified switches them back', async () => {
+  test('and returning to date edited switches them back', async () => {
     const { store } = await render();
     openMenu();
-    fireEvent.click(item('Date saved'));
+    fireEvent.click(item('Date created'));
     expect(basisOf(store)).toBe('created');
 
     openMenu();
-    fireEvent.click(item('Date modified'));
+    fireEvent.click(item('Date edited'));
 
     expect(basisOf(store)).toBe('edited');
   });
@@ -99,7 +99,7 @@ describe('the date basis follows the chosen date order', () => {
   // This reverses KAN-141, which left the basis alone here on the grounds that
   // neither is a date order, so there is no date for them to be right about.
   // That argues for the default, not for keeping a stale one: it left every row
-  // reading "Created" after a trip through Date saved, including sessions
+  // reading "Created" after a trip through Date created, including sessions
   // edited since, in a list no longer in any date order at all. Justine:
   // "the created date in general for all should be shown only for the sort by
   // created date setting."
@@ -111,7 +111,7 @@ describe('the date basis follows the chosen date order', () => {
     test(`sorting by ${label} returns the basis to edited`, async () => {
       const { store } = await render();
       openMenu();
-      fireEvent.click(item('Date saved'));
+      fireEvent.click(item('Date created'));
       expect(basisOf(store)).toBe('created');
 
       openMenu();
@@ -139,7 +139,7 @@ describe('the basis is remembered on this device', () => {
   test('and is read back at module load, the way a popup open reads it', async () => {
     await render();
     openMenu();
-    fireEvent.click(item('Date saved'));
+    fireEvent.click(item('Date created'));
     expect(storedBasis()).toBe('created');
 
     vi.resetModules();
@@ -209,9 +209,9 @@ describe('the word on the row after a non-date sort', () => {
 
   test('an edited session reads Edited once the sort is by name', async () => {
     await renderRows();
-    // The premise: Date saved really does put it in the state being fixed.
+    // The premise: Date created really does put it in the state being fixed.
     openMenu();
-    fireEvent.click(item('Date saved'));
+    fireEvent.click(item('Date created'));
     expect(wordOn('edited-one')).toBe('Created');
 
     openMenu();

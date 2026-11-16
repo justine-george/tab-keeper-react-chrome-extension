@@ -1530,7 +1530,7 @@ function touch(group: tabContainerData, at: number = Date.now()): void {
 //
 // The cost is accepted and real: an edit resurfaces its session, so renaming
 // one moves it to the top of the list. That is what every recently-edited list
-// does, and it is what asking for "date modified" means.
+// does, and it is what asking for "date edited" means.
 //
 // An undo restores contentModified from its snapshot rather than setting it to
 // now, which is why applyUndoSnapshot must NOT use this.
@@ -1786,8 +1786,8 @@ function sameChromeTabGroups(
 // session HOLDS, and re-stamping them made the left pane resurface a session
 // you had just added tabs to. That is "recently changed first" ordering,
 // implemented by overwriting the creation date because until KAN-136 there was
-// no other way to ask for recency. KAN-136 shipped a Date modified sort on
-// KAN-138's `contentModified`, so the impersonation is redundant -- and it was
+// no other way to ask for recency. KAN-136 shipped a sort by edit date (now "Date edited")
+// on KAN-138's `contentModified`, so the impersonation is redundant -- and it was
 // actively lying: a session saved in July claimed today's date because one tab
 // was deleted from it.
 //
@@ -3094,7 +3094,7 @@ export const tabContainerDataStateSlice = createSlice({
     //
     // Unlike a drag, this necessarily touches EVERY session: an explicit order
     // needs an explicit rank on each one. That is the cost of the operation,
-    // not an oversight -- and it is why "sort by date saved" is a separate
+    // not an oversight -- and it is why "sort by date created" is a separate
     // reducer that removes ranks instead.
     sortSessionsInternal: (
       state,

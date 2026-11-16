@@ -128,7 +128,7 @@ export interface SettingsData {
    * derived in KAN-130 and KAN-136 rather than stored.
    *
    * The consequence is accepted and documented: the ORDER syncs, through ranks,
-   * and this does not. Sort by date saved here, open on another device, and
+   * and this does not. Sort by date created here, open on another device, and
    * that device shows edited dates in created order until its own menu is
    * touched. Cosmetic, confined to the multi-device-plus-explicit-sort corner,
    * and cheaper than a container field with its own last-writer-wins rule.

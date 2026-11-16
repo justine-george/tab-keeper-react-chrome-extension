@@ -287,10 +287,10 @@ export default function MenuContainer() {
   // be a container-level field, and this merge has no last-writer-wins rule for
   // one.
   //
-  // It is what makes "Date modified" legible as the way BACK rather than a
+  // It is what makes "Date edited" legible as the way BACK rather than a
   // fourth equal choice. Justine had to ask how to undo a sort, which is the
-  // whole reason this tick exists. (KAN-136 put the tick on "Date saved";
-  // KAN-141 moved the default order, and the tick followed it.)
+  // whole reason this tick exists. (KAN-136 put the tick on what was then
+  // "Date saved"; KAN-141 moved the default order, and the tick followed it.)
   const isDefaultOrder = useSelector((state: RootState) =>
     state.tabContainerDataState.tabGroups.every((g) => g.rank === undefined)
   );
@@ -304,11 +304,12 @@ export default function MenuContainer() {
   // about 200px into a ~355px pane, so a wider box runs off the left edge.
   // OverflowMenu names the menu itself from ariaLabel, so a screen reader
   // still hears "Sort sessions" before it hears "Name".
-  // KAN-141 swapped the first two. "Date modified" is now the DEFAULT order --
-  // the one the list is in when nothing carries a rank -- so it is the item
-  // that REMOVES ranks, and the only one that can be ticked, since it is the
-  // only reachable state the data can report. "Date saved" became an ordinary
-  // assigning sort like name and tab count.
+  // KAN-141 swapped the first two. "Date edited" (KAN-963 renamed it from
+  // "Date modified") is now the DEFAULT order -- the one the list is in when
+  // nothing carries a rank -- so it is the item that REMOVES ranks, and the
+  // only one that can be ticked, since it is the only reachable state the data
+  // can report. "Date created" (once "Date saved") became an ordinary assigning
+  // sort like name and tab count.
   //
   // Listed first because it is the default, so the way back sits where the eye
   // starts rather than being hunted for.
@@ -320,7 +321,7 @@ export default function MenuContainer() {
   // KAN-144 replaced the earlier version, where name and tab count left the
   // basis alone on the grounds that neither is a date order, so there was no
   // date for them to be right about. That argues for the DEFAULT, not for
-  // keeping whatever was chosen before: sorting by Date saved and then by Name
+  // keeping whatever was chosen before: sorting by Date created and then by Name
   // left every row reading "Created", including sessions edited since, in a
   // list no longer in any date order at all. Justine: "the created date in
   // general for all should be shown only for the sort by created date setting."
@@ -334,7 +335,7 @@ export default function MenuContainer() {
   const sortItems: OverflowMenuItem[] = [
     {
       key: 'modified',
-      label: t('Date modified'),
+      label: t('Date edited'),
       icon: 'history',
       checked: isDefaultOrder,
       onSelect: () => {
@@ -344,7 +345,7 @@ export default function MenuContainer() {
     },
     {
       key: 'date',
-      label: t('Date saved'),
+      label: t('Date created'),
       icon: 'schedule',
       checked: false,
       onSelect: () => {

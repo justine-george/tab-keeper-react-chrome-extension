@@ -1,8 +1,10 @@
 import { describe, expect, test, vi } from 'vitest';
-import { fireEvent, screen } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
 
 import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { testI18n } from '../setup/i18nForTests';
+import de from '../../../public/locales/de/translation.json';
 import type { RenderWithProvidersResult } from '../setup/renderWithProviders';
 import {
   saveToTabContainerInternal,
@@ -20,7 +22,7 @@ import {
 //
 // THE TICK EXISTS BECAUSE OF A QUESTION. Looking at the built menu, Justine
 // asked: "if I change sort to sort by name, how do I go back?" The answer was
-// already "Date saved" -- it deletes every rank -- but three items read as
+// already "Date created" -- it deletes every rank -- but three items read as
 // three equal choices and nothing said which order was active. Having to ask
 // is the defect; the tick is the fix.
 
@@ -104,12 +106,57 @@ describe('the sort menu', () => {
 
     // `item` resolves by ACCESSIBLE NAME, which is the assertion worth making:
     // each row also holds two aria-hidden ligature spans (the leading icon and
-    // the tick), so its textContent is "scheduleDate savedcheck" and a
+    // the tick), so its textContent is "historyDate editedcheck" and a
     // substring match on that would pass for a label the tree never exposed.
     expect(screen.getAllByRole('menuitemradio')).toHaveLength(4);
-    ['Date saved', 'Name', 'Tab count', 'Date modified'].forEach((label) => {
+    ['Date edited', 'Date created', 'Name', 'Tab count'].forEach((label) => {
       expect(item(label)).toBeInTheDocument();
     });
+  });
+
+  // KAN-963. Each date has one name: the menu says what the session line says
+  // ("Edited", "Created"), in the same order the menu lists them.
+  test('names its dates the way the session line does, and nothing else', async () => {
+    await render();
+    openMenu();
+
+    expect(
+      screen.getAllByRole('menuitemradio').map((el) => el.textContent)
+    ).toEqual([
+      expect.stringContaining('Date edited'),
+      expect.stringContaining('Date created'),
+      expect.stringContaining('Name'),
+      expect.stringContaining('Tab count'),
+    ]);
+    expect(
+      screen.queryByRole('menuitemradio', { name: 'Date saved' })
+    ).toBeNull();
+    expect(
+      screen.queryByRole('menuitemradio', { name: 'Date modified' })
+    ).toBeNull();
+  });
+
+  test('de: the dates read Bearbeitungsdatum and Erstellungsdatum', async () => {
+    await render();
+    // Switch AFTER render: renderWithProviders resets the language to en.
+    testI18n.addResourceBundle('de', 'translation', de, true, true);
+    try {
+      await act(async () => {
+        await testI18n.changeLanguage('de');
+      });
+      fireEvent.click(
+        screen.getByRole('button', { name: de['Sort sessions'] })
+      );
+
+      expect(item('Bearbeitungsdatum')).toBeInTheDocument();
+      expect(item('Erstellungsdatum')).toBeInTheDocument();
+      expect(item(de['Name'])).toBeInTheDocument();
+      expect(item(de['Tab count'])).toBeInTheDocument();
+    } finally {
+      await act(async () => {
+        await testI18n.changeLanguage('en');
+      });
+    }
   });
 
   // What licenses the one-word items. "Name" and "Tab count" say nothing on
@@ -144,7 +191,7 @@ describe('the sort menu', () => {
     expect(titles(store)).toEqual(['Cherry', 'Banana', 'apple']);
   });
 
-  // KAN-141 turned this one inside out. Date modified is now the DEFAULT order,
+  // KAN-141 turned this one inside out. Date edited is now the DEFAULT order,
   // so the list is already in it and the menu item merely REMOVES ranks to
   // return there -- which means the interesting assertion is no longer "does
   // clicking it sort", it is "does editing a session move it, with no click at
@@ -165,8 +212,8 @@ describe('the sort menu', () => {
   });
 
   // And the menu item is the way BACK to that order after an explicit sort has
-  // pinned something else, which is the job "Date saved" used to have.
-  test('date modified returns the list to the edited-first order', async () => {
+  // pinned something else, which is the job "Date created" used to have.
+  test('date edited returns the list to the edited-first order', async () => {
     const { store } = await render();
     store.dispatch(
       updateTabGroupTitle({ tabGroupId: 'c', editableTitle: 'Cherry' })
@@ -177,19 +224,19 @@ describe('the sort menu', () => {
     expect(titles(store)[0]).toBe('apple');
 
     openMenu();
-    fireEvent.click(item('Date modified'));
+    fireEvent.click(item('Date edited'));
 
     expect(titles(store)[0]).toBe('Cherry');
   });
 
   // The way back, which is the whole question that produced the tick. KAN-141
-  // moved it onto "Date modified": that is the item that removes ranks now.
+  // moved it onto "Date edited": that is the item that removes ranks now.
   //
   // The seeded sessions are saved in one tick with no edits, so their
   // contentModified values tie and the tabGroupId tiebreak decides -- which is
   // exactly what the merge does, so asserting the full order here is asserting
   // the list is TOTAL and stable, not just that it changed.
-  test('date modified returns to the default order', async () => {
+  test('date edited returns to the default order', async () => {
     const { store } = await render();
     const before = titles(store);
 
@@ -198,18 +245,18 @@ describe('the sort menu', () => {
     expect(titles(store)).toEqual(['apple', 'Banana', 'Cherry']);
 
     openMenu();
-    fireEvent.click(item('Date modified'));
+    fireEvent.click(item('Date edited'));
 
     expect(titles(store)).toEqual(before);
   });
 
-  test('sorting by date saved puts the newest save first', async () => {
+  test('sorting by date created puts the newest save first', async () => {
     const { store } = await render();
     openMenu();
     fireEvent.click(item('Name'));
 
     openMenu();
-    fireEvent.click(item('Date saved'));
+    fireEvent.click(item('Date created'));
 
     // Seeded c, a, b with increasing createdAt, so newest-save-first is b a c.
     expect(titles(store)).toEqual(['Banana', 'apple', 'Cherry']);
@@ -221,15 +268,15 @@ describe('the tick says which order you are in', () => {
   // aria-hidden, so a screen reader learns the state from the role -- and a
   // test reading the glyph would pass against a menu that never announced it
   // (KAN-56).
-  // KAN-141 moved the tick from "Date saved" to "Date modified", because the
+  // KAN-141 moved the tick from "Date created" to "Date edited", because the
   // tick marks the DEFAULT order and the default is now edited-first. Both
   // assertions matter: the second is what catches a tick left on the old item.
   test('the default order is checked when nothing has been rearranged', async () => {
     await render();
     openMenu();
 
-    expect(item('Date modified')).toHaveAttribute('aria-checked', 'true');
-    expect(item('Date saved')).toHaveAttribute('aria-checked', 'false');
+    expect(item('Date edited')).toHaveAttribute('aria-checked', 'true');
+    expect(item('Date created')).toHaveAttribute('aria-checked', 'false');
     expect(item('Name')).toHaveAttribute('aria-checked', 'false');
   });
 
@@ -239,31 +286,31 @@ describe('the tick says which order you are in', () => {
 
     openMenu();
 
-    expect(item('Date saved')).toHaveAttribute('aria-checked', 'false');
+    expect(item('Date created')).toHaveAttribute('aria-checked', 'false');
     screen.getAllByRole('menuitemradio').forEach((el) => {
       expect(el).toHaveAttribute('aria-checked', 'false');
     });
   });
 
-  test('and it comes back after returning to date modified', async () => {
+  test('and it comes back after returning to date edited', async () => {
     const { store } = await render();
     store.dispatch(moveSessionInternal({ tabGroupId: 'c', toIndex: 0 }));
 
     openMenu();
-    fireEvent.click(item('Date modified'));
+    fireEvent.click(item('Date edited'));
     openMenu();
 
-    expect(item('Date modified')).toHaveAttribute('aria-checked', 'true');
+    expect(item('Date edited')).toHaveAttribute('aria-checked', 'true');
   });
 
   // The other direction, and the one that catches a tick wired to "whatever
-  // was clicked last" rather than to the data. Date saved is an ordinary
+  // was clicked last" rather than to the data. Date created is an ordinary
   // assigning sort now (KAN-141), so choosing it leaves the list pinned and
   // NOTHING ticked -- there is no stored sort mode for the tick to report.
-  test('choosing date saved leaves nothing checked', async () => {
+  test('choosing date created leaves nothing checked', async () => {
     await render();
     openMenu();
-    fireEvent.click(item('Date saved'));
+    fireEvent.click(item('Date created'));
     openMenu();
 
     screen.getAllByRole('menuitemradio').forEach((el) => {
