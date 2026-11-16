@@ -120,6 +120,8 @@ const row = (id: string): HTMLElement => {
   if (!(found instanceof HTMLElement)) throw new Error(`no row ${id}`);
   return found;
 };
+// A ticked row is drawn on the selection color; jsdom reads Emotion's rules back.
+const background = (id: string) => getComputedStyle(row(id)).backgroundColor;
 const previewTitles = () =>
   [...preview().querySelectorAll('[data-preview-session] > :first-child')].map(
     (el) => el.textContent
@@ -342,6 +344,9 @@ describe('the import dialog: ticking', () => {
       'Recipes',
       'Work',
     ]);
+    // Taken back, not just covered: freed again, Tiles is not ticked.
+    tick('Kitchen remodel');
+    expect(box('Tiles')).toHaveAttribute('aria-checked', 'false');
   });
 
   test('a top folder with no loose links adds no session of its own', async () => {
@@ -362,6 +367,9 @@ describe('the import dialog: ticking', () => {
     expect(box('Work')).toHaveAttribute('aria-checked', 'true');
     expect(box('Old stuff')).toHaveAttribute('aria-checked', 'false');
     expect(box('Old stuff')).toHaveAttribute('aria-disabled', 'true');
+    // Not ticked behind its dimmed box either: no selection color on its row.
+    expect(background('work')).not.toBe(background('other'));
+    expect(background('old')).toBe(background('other'));
   });
 
   test('unticking the parent frees what it covered', async () => {
@@ -421,6 +429,13 @@ describe('the import dialog: ticking', () => {
     fireEvent.click(nameOf('Old stuff'));
     expect(box('Old stuff')).toHaveAttribute('aria-checked', 'false');
     expect(importButton()).toHaveTextContent('Import 1 session');
+
+    // Freed, none of those clicks left a tick behind.
+    tick('Kitchen remodel');
+    expect(box('Tiles')).toHaveAttribute('aria-checked', 'false');
+    expect(box('Fridges')).toHaveAttribute('aria-checked', 'false');
+    expect(background('old')).toBe(background('other'));
+    expect(importButton()).toHaveTextContent(/^Import$/);
   });
 
   test('a click on the box ticks once; a click on the chevron only folds', async () => {
