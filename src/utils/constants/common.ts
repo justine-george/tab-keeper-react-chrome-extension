@@ -239,3 +239,9 @@ export const WINDOW_CLOSED_FRAME = 'WindowClosed';
 // It is not part of TOAST_MESSAGES for the reason WINDOW_CLOSED_FRAME is not:
 // it is incomplete without its parameter.
 export const GROUP_CLOSED_FRAME = 'GroupClosed';
+
+// The toast after an import from bookmarks, with the session count as {{count}} (KAN-862) -- a plural
+// key, BookmarksImported_one/_other and each locale's own forms.
+//
+// It is not part of TOAST_MESSAGES for the reason GROUP_CLOSED_FRAME is not: it is incomplete without its parameter.
+export const BOOKMARKS_IMPORTED_FRAME = 'BookmarksImported';

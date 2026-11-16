@@ -211,6 +211,8 @@ export interface SettingsData {
   // KAN-879. The onboarding ending has shown in this view on this device.
   isPopupEndingSeen: boolean;
   isFullViewEndingSeen: boolean;
+  // KAN-862. The sessions an import from bookmarks made on this device, so the tour can skip them.
+  importedSessionIds: string[];
 }
 
 /**
@@ -241,6 +243,7 @@ export type OnboardingSettings = Pick<
   | 'saveAsPdfPresses'
   | 'isPopupEndingSeen'
   | 'isFullViewEndingSeen'
+  | 'importedSessionIds'
 >;
 
 export const ONBOARDING_DEFAULTS: OnboardingSettings = {
@@ -256,6 +259,7 @@ export const ONBOARDING_DEFAULTS: OnboardingSettings = {
   saveAsPdfPresses: 0,
   isPopupEndingSeen: false,
   isFullViewEndingSeen: false,
+  importedSessionIds: [],
 };
 
 export function asSetupState(value: unknown): SetupState {
@@ -263,6 +267,12 @@ export function asSetupState(value: unknown): SetupState {
 }
 
 const asFlag = (value: unknown): boolean => value === true;
+
+// KAN-862. Anything that is not a list of strings reads as none; a stray non-string drops out.
+export const asIds = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value.filter((id): id is string => typeof id === 'string')
+    : [];
 
 /** KAN-911. Presses after which the Save as PDF… pointer is done. */
 export const SAVE_PDF_POINTER_PRESSES = 2;
@@ -319,6 +329,7 @@ export function guardOnboarding(
         : read('saveAsPdfPresses', asPresses),
     isPopupEndingSeen: read('isPopupEndingSeen', asFlag),
     isFullViewEndingSeen: read('isFullViewEndingSeen', asFlag),
+    importedSessionIds: read('importedSessionIds', asIds),
   };
 }
 
@@ -795,6 +806,16 @@ export const settingsDataStateSlice = createSlice({
       saveLocalSettings(state);
     },
 
+    // KAN-862. An import's new sessions, kept so the tour can leave them out.
+    noteImportedSessions: (state, action: PayloadAction<string[]>) => {
+      const fresh = action.payload.filter(
+        (id) => !state.importedSessionIds.includes(id)
+      );
+      if (fresh.length === 0) return;
+      state.importedSessionIds.push(...fresh);
+      saveLocalSettings(state);
+    },
+
     // Every Save as PDF… press dispatches this; it writes up to the second press.
     markPressedSaveAsPdf: (state) => {
       if (state.saveAsPdfPresses >= SAVE_PDF_POINTER_PRESSES) return;
@@ -941,6 +962,7 @@ export const {
   markEndingSeen,
   markClosesThisTabCardAnswered,
   markHadSavedSession,
+  noteImportedSessions,
   markPressedSaveAsPdf,
   setDefaultView,
   setToolbarIcon,

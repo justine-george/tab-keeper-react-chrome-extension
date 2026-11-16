@@ -21,6 +21,7 @@ import {
   markClosesThisTabCardAnswered,
   markEndingSeen,
   markHadSavedSession,
+  noteImportedSessions,
   markPressedSaveAsPdf,
   SAVE_PDF_POINTER_PRESSES,
   markFullViewCalloutSeen,
@@ -62,6 +63,7 @@ const GARBAGE = {
   saveAsPdfPresses: 'yes',
   isPopupEndingSeen: 'true',
   isFullViewEndingSeen: 1,
+  importedSessionIds: 'a',
 };
 
 const ALL_SET = {
@@ -88,6 +90,7 @@ const ALL_SET = {
   saveAsPdfPresses: 2,
   isPopupEndingSeen: true,
   isFullViewEndingSeen: true,
+  importedSessionIds: Array.of('a', 'b'),
 } as const;
 
 const ONBOARDING_KEYS: string[] = Object.keys(ONBOARDING_DEFAULTS);
@@ -177,6 +180,16 @@ describe('the slice starts with guarded onboarding fields', () => {
     expect(initialState.isFullViewEndingSeen).toBe(false);
   });
 
+  // KAN-862. A list with a stray entry keeps the strings; a repeat adds nothing and writes nothing.
+  it('importedSessionIds keeps the strings of a mixed list', () => {
+    expect(
+      guardOnboarding(
+        { importedSessionIds: ['a', 1, null, 'b'] },
+        ONBOARDING_DEFAULTS
+      ).importedSessionIds
+    ).toEqual(['a', 'b']);
+  });
+
   it('settings saved before KAN-7 start as the defaults', async () => {
     localStorage.setItem('settingsData', JSON.stringify({ theme: 'Blue' }));
     const { initialState } = await freshSlice();
@@ -235,10 +248,31 @@ describe('the onboarding reducers persist what they set', () => {
       markEndingSeen('full'),
       { isPopupEndingSeen: false, isFullViewEndingSeen: true },
     ],
+    [
+      'noteImportedSessions',
+      noteImportedSessions(['a', 'b']),
+      { importedSessionIds: ['a', 'b'] },
+    ],
     ['setDefaultView', setDefaultView('full'), { defaultView: 'full' }],
   ] as const)('%s sets and saves', (_name, action, expected) => {
     expect(reduce([action])).toMatchObject(expected);
     expect(saved()).toMatchObject(expected);
+  });
+
+  it('noteImportedSessions skips ids it has and writes nothing for them', () => {
+    const once = reduce([noteImportedSessions(['a', 'b'])]);
+    const setItem = vi.spyOn(localStorage, 'setItem');
+    setItem.mockClear();
+    const again = settingsDataStateSlice.reducer(
+      once,
+      noteImportedSessions(['b', 'a'])
+    );
+    expect(setItem).not.toHaveBeenCalled();
+    expect(again.importedSessionIds).toEqual(['a', 'b']);
+    expect(
+      settingsDataStateSlice.reducer(once, noteImportedSessions(['c']))
+        .importedSessionIds
+    ).toEqual(['a', 'b', 'c']);
   });
 
   // Every full-view open dispatches it; a write each time would fire a

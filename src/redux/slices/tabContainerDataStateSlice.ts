@@ -2114,6 +2114,29 @@ export const tabContainerDataStateSlice = createSlice({
       } as PayloadAction<string>);
     },
 
+    // KAN-862. An import's sessions, the first newest. Each is stamped a millisecond apart: the list is
+    // ordered by that stamp, and equal ones fall back to the random ids, so the first could land anywhere.
+    saveImportedSessionsInternal: (
+      state,
+      action: PayloadAction<tabContainerData[]>
+    ) => {
+      const sessions = action.payload;
+      if (sessions.length === 0) return;
+      const base = Date.now();
+      sessions.forEach((session, index) => {
+        state.tabGroups.unshift(session);
+        touchContent(
+          state,
+          state.tabGroups[0],
+          base + (sessions.length - 1 - index)
+        );
+      });
+      state.lastModified = base + sessions.length;
+      tabContainerDataStateSlice.caseReducers.selectTabContainer(state, {
+        payload: sessions[0].tabGroupId,
+      } as PayloadAction<string>);
+    },
+
     // select tab group by tabGroupId
     //
     // Deliberately does NOT stamp `state.lastModified` (KAN-58). Selection is
@@ -4116,6 +4139,7 @@ function reconcileAssertedContainer(
 
 export const {
   saveToTabContainerInternal,
+  saveImportedSessionsInternal,
   selectTabContainer,
   addCurrWindowToTabGroupInternal,
   replaceSessionContentInternal,
