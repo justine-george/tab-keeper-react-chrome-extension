@@ -497,7 +497,7 @@ describe('the import step, Already keep tabs somewhere?', () => {
     within(dialog()).getByRole('button', { name });
   const LINE =
     'Turn bookmark folders into saved sessions. Your bookmarks stay as they are.';
-  const SMALL_PRINT = 'You can also import from Settings › Sync & backup.';
+  const SMALL_PRINT = 'You can also import from Settings › Import.';
   afterEach(() => history.replaceState(null, '', '?'));
 
   test('comes after the shortcut step and just before sync', async () => {

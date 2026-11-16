@@ -5,7 +5,7 @@ import { FULL_VIEW_PATH, openFullView, openPopup } from './fixtures/onboarding';
 import { stubToolbarPin } from './fixtures/toolbarPin';
 import { seedSettings } from './fixtures/seed';
 
-// KAN-862. Settings › Sync & backup › Import opens the bookmark import dialog. `bookmarks` is made required in the
+// KAN-862. Settings › Import › Bookmarks opens the bookmark import dialog. `bookmarks` is made required in the
 // scratch manifest, so the full view's ask resolves without a prompt. The real optional-grant prompt on a press is
 // checked by hand, not here.
 test.use({ grantBookmarks: true });
@@ -64,9 +64,9 @@ const storedSessions = (page: Page): Promise<StoredSession[]> =>
     return Array.isArray(groups) ? groups : [];
   });
 
-async function onSyncAndBackup(page: Page): Promise<void> {
+async function onImportPane(page: Page): Promise<void> {
   await page.locator('[aria-label="Settings"]').click();
-  await page.locator('button[aria-label="Sync & backup"]').click();
+  await page.locator('button[aria-label="Import"]').click();
 }
 
 const dialogOn = (page: Page) =>
@@ -83,7 +83,7 @@ test.describe('Import from bookmarks in Settings (KAN-862)', () => {
     extensionId,
   }) => {
     const page = await openFullView(context, extensionId);
-    await onSyncAndBackup(page);
+    await onImportPane(page);
     await page.getByRole('button', { name: 'Import from bookmarks' }).click();
 
     const dialog = dialogOn(page);
@@ -122,7 +122,7 @@ test.describe('Import from bookmarks in Settings (KAN-862)', () => {
     const bar = await barTitle(serviceWorker);
     expect(bar).not.toBe('');
     const page = await openFullView(context, extensionId);
-    await onSyncAndBackup(page);
+    await onImportPane(page);
     await page.getByRole('button', { name: 'Import from bookmarks' }).click();
 
     const dialog = dialogOn(page);
@@ -162,7 +162,7 @@ test.describe('Import from bookmarks in Settings (KAN-862)', () => {
   }) => {
     const bar = await barTitle(serviceWorker);
     const page = await openFullView(context, extensionId);
-    await onSyncAndBackup(page);
+    await onImportPane(page);
     await page.getByRole('button', { name: 'Import from bookmarks' }).click();
     const dialog = dialogOn(page);
     await dialog.getByRole('checkbox', { name: 'Alpha trip' }).check();
@@ -173,7 +173,7 @@ test.describe('Import from bookmarks in Settings (KAN-862)', () => {
       .toEqual(['Alpha trip']);
 
     await page.reload();
-    await onSyncAndBackup(page);
+    await onImportPane(page);
     await page.getByRole('button', { name: 'Import from bookmarks' }).click();
     await expect(
       dialog.getByRole('checkbox', { name: 'Beta research' })
@@ -199,7 +199,7 @@ test.describe('Import from bookmarks in Settings (KAN-862)', () => {
   }) => {
     const bar = await barTitle(serviceWorker);
     const page = await openFullView(context, extensionId);
-    await onSyncAndBackup(page);
+    await onImportPane(page);
     const importButton = page.getByRole('button', {
       name: 'Import from bookmarks',
     });
@@ -256,7 +256,7 @@ test.describe('Import from bookmarks in Settings (KAN-862)', () => {
     extensionId,
   }) => {
     const page = await openFullView(context, extensionId);
-    await onSyncAndBackup(page);
+    await onImportPane(page);
     await page.getByRole('button', { name: 'Import from bookmarks' }).click();
     const dialog = dialogOn(page);
     await dialog.getByRole('checkbox', { name: 'Alpha trip' }).check();
@@ -265,12 +265,12 @@ test.describe('Import from bookmarks in Settings (KAN-862)', () => {
     expect(await storedSessions(page)).toEqual([]);
   });
 
-  test('popup: the button opens a full view on Sync & backup with Import from bookmarks focused, and a press opens the dialog', async ({
+  test('popup: the button opens a full view on Settings › Import with Import from bookmarks focused, and a press opens the dialog', async ({
     context,
     extensionId,
   }) => {
     const popup = await openPopup(context, extensionId);
-    await onSyncAndBackup(popup);
+    await onImportPane(popup);
     await popup.getByRole('button', { name: 'Import from bookmarks' }).click();
 
     let full: Page | undefined;
@@ -283,6 +283,9 @@ test.describe('Import from bookmarks in Settings (KAN-862)', () => {
     if (full === undefined) throw new Error('no full view page');
     const button = full.getByRole('button', { name: 'Import from bookmarks' });
     await expect(button).toBeFocused();
+    // On Settings › Import: its one section, and nothing of Sync & backup.
+    await expect(full.getByText('Bookmarks', { exact: true })).toBeVisible();
+    await expect(full.getByRole('group', { name: 'Auto sync' })).toHaveCount(0);
     await expect(dialogOn(full)).toHaveCount(0);
 
     // A real press is the gesture the permission prompt needs.
@@ -312,7 +315,7 @@ async function onImportStep(page: Page): Promise<void> {
 
 const LINE =
   'Turn bookmark folders into saved sessions. Your bookmarks stay as they are.';
-const SMALL_PRINT = 'You can also import from Settings › Sync & backup.';
+const SMALL_PRINT = 'You can also import from Settings › Import.';
 // Setup's button shares its words with Settings' button and the import dialog's title.
 const importButtonIn = (setup: Locator, name = 'Import from bookmarks') =>
   setup.getByRole('button', { name, exact: true });

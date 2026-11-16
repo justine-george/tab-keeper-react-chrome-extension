@@ -46,6 +46,7 @@ const SETTINGS_CATEGORIES = [
   'Language',
   'Quick access',
   'Sync & backup',
+  'Import',
   'Sessions',
   'Recently deleted',
   'About',

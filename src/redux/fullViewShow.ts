@@ -74,10 +74,10 @@ export const showInFullView =
       dispatch(openPinGuide());
       return;
     }
-    // KAN-862. The permission prompt needs a user gesture, so show the button focused and let the press ask.
+    // KAN-862. The permission prompt needs a user gesture, so show Settings › Import's button focused and let the press ask.
     if (show === 'importBookmarks') {
       dispatch(requestImportButtonFocus());
-      void dispatch(openSettingsPage(SettingsCategory.SYNC));
+      void dispatch(openSettingsPage(SettingsCategory.IMPORT));
       return;
     }
     // KAN-579. On the pane its button sits on, so a picker Chrome refuses leaves the button to press.

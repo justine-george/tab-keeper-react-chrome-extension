@@ -31,7 +31,7 @@ const SAVE_TAB_GROUPS_HELP =
   'Saved sessions keep each tab group’s name and color, and the groups come back when you reopen the session.';
 
 describe('settings help lines (KAN-860)', () => {
-  test('Sync & Backup: Auto sync, Backup and Cloud data each describe their controls', async () => {
+  test('Sync & Backup: Auto sync, Backup and Cloud data each describe their controls; Import its button', async () => {
     await renderOn(SettingsCategory.SYNC);
 
     const autoSync = screen.getByRole('group', { name: 'Auto sync' });
@@ -47,14 +47,21 @@ describe('settings help lines (KAN-860)', () => {
       );
     }
 
-    // KAN-862.
-    expect(
-      screen.getByRole('button', { name: 'Import from bookmarks' })
-    ).toHaveAccessibleDescription(IMPORT_HELP);
-
     expect(
       screen.getByRole('button', { name: 'Delete cloud data' })
     ).toHaveAccessibleDescription(CLOUD_DATA_HELP);
+  });
+
+  // KAN-862.
+  test('Import: Import from bookmarks is described by its help line, in its section', async () => {
+    await renderOn(SettingsCategory.IMPORT);
+    const button = screen.getByRole('button', {
+      name: 'Import from bookmarks',
+    });
+    expect(button).toHaveAccessibleDescription(IMPORT_HELP);
+    expect(
+      screen.getByText(IMPORT_HELP).closest('[data-settings-section]')
+    ).toBe(button.closest('[data-settings-section]'));
   });
 
   test('each help line sits in its own setting’s section', async () => {
@@ -70,11 +77,6 @@ describe('settings help lines (KAN-860)', () => {
     expect(
       within(sectionOf(BACKUP_HELP)).getByRole('button', {
         name: 'Load sessions from a backup',
-      })
-    ).toBeTruthy();
-    expect(
-      within(sectionOf(IMPORT_HELP)).getByRole('button', {
-        name: 'Import from bookmarks',
       })
     ).toBeTruthy();
     expect(

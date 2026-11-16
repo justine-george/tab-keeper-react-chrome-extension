@@ -198,7 +198,7 @@ describe('importBookmarksFromSettings', () => {
     const { store } = await renderWithProviders(<SettingsDetailsContainer />, {
       seed: { bookmarkTree: barOf([link('2')]) },
       seedStore: (s) => {
-        s.dispatch(selectCategory(SettingsCategory.SYNC));
+        s.dispatch(selectCategory(SettingsCategory.IMPORT));
         s.dispatch(
           noteImportedBookmarks([
             { sessionId: 's', bookmarks: [{ id: '2', dateAdded: null }] },

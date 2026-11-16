@@ -435,7 +435,7 @@ export const SetupModal: React.FC = () => {
             importedInSetup={importedCount - importedAtOpen}
           />
           <p css={fineStyle}>
-            {t('You can also import from Settings › Sync & backup.')}
+            {t('You can also import from Settings › Import.')}
           </p>
         </>
       ),

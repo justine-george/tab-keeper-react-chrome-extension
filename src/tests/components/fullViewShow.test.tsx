@@ -182,7 +182,7 @@ describe('showInFullView: the backup file steps', () => {
 
 // KAN-862 (R11). The popup's Import from bookmarks: the full view shows the button; the press is the user's, since a permission prompt needs a gesture.
 describe('showInFullView: the import from bookmarks', () => {
-  test('importBookmarks: Settings on Sync & Backup, nothing asked, the dialog closed', async () => {
+  test('importBookmarks: Settings on Import, nothing asked, the dialog closed', async () => {
     history.replaceState(null, '', '?view=tab');
     setupChromeFake();
     const request = vi.spyOn(globalThis.chrome.permissions, 'request');
@@ -195,7 +195,7 @@ describe('showInFullView: the import from bookmarks', () => {
     );
     expect(
       store.getState().settingsCategoryState.find((c) => c.isSelected)?.name
-    ).toBe(SettingsCategory.SYNC);
+    ).toBe(SettingsCategory.IMPORT);
     expect(request).not.toHaveBeenCalled();
     expect(store.getState().globalState.isImportBookmarksOpen).toBe(false);
   });
@@ -235,7 +235,7 @@ describe('showInFullView: the import button, from another Settings category', ()
       store.dispatch(requestImportButtonFocus());
     });
     await act(async () => {
-      store.dispatch(selectCategory(SettingsCategory.SYNC));
+      store.dispatch(selectCategory(SettingsCategory.IMPORT));
     });
 
     await waitFor(() =>

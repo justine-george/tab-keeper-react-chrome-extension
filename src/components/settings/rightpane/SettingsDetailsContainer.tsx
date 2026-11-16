@@ -113,7 +113,7 @@ const SettingsDetailsContainer: React.FC = () => {
     (state: RootState) =>
       state.settingsCategoryState.find((c) => c.isSelected)?.name
   );
-  // KAN-862. One-shot: kept until the Sync pane has rendered the button to focus.
+  // KAN-862. One-shot: kept until the Import pane has rendered the button to focus.
   useEffect(() => {
     if (!isImportFocusRequested) return;
     const button = importButtonBox.current?.querySelector('button');
@@ -508,51 +508,6 @@ const SettingsDetailsContainer: React.FC = () => {
           </p>
         </div>
 
-        {/* Import. KAN-862: bookmark folders become saved sessions. The thunk
-            asks for the permission (or hands the popup's press to the full
-            view), so the button just starts it. */}
-        <div
-          data-settings-section
-          css={css`
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            ${sectionInsetCss()}
-            width: 100%;
-            margin-top: 32px;
-          `}
-        >
-          <div
-            css={css`
-              display: flex;
-              align-items: flex-start;
-              width: 100%;
-            `}
-          >
-            <NormalLabel
-              value={t('ImportSectionLabel')}
-              size={TYPE.BODY}
-              color={COLORS.LABEL_L1_COLOR}
-            />
-          </div>
-          <div
-            ref={importButtonBox}
-            css={css`
-              margin-top: 8px;
-            `}
-          >
-            <Button
-              text={t('Import from bookmarks')}
-              iconType="bookmarks"
-              onClick={() => void dispatch(importBookmarksFromSettings())}
-              ariaDescribedBy={importHelpId}
-            />
-          </div>
-          <p id={importHelpId} css={helpLineStyle}>
-            {t('ImportBookmarksHelp')}
-          </p>
-        </div>
-
         {/* Cloud data. KAN-254: the one way to make the Firestore document
             stop existing. Last on the pane, as destructive actions are; the
             dialog it opens says what else it does (auto sync off here) and
@@ -592,6 +547,63 @@ const SettingsDetailsContainer: React.FC = () => {
             {t(
               'Removes your sessions from the cloud and turns Auto sync off. Your sessions stay on this device and on your other devices.'
             )}
+          </p>
+        </div>
+      </div>
+    );
+  } else if (selectedSettingsCategory.name === SettingsCategory.IMPORT) {
+    // KAN-862. One section per place to import from; bookmarks is the only one so far.
+    settingsOptionsDiv = (
+      <div
+        css={css`
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-start;
+          align-items: center;
+        `}
+      >
+        {/* Bookmarks. KAN-862: bookmark folders become saved sessions. The
+            thunk asks for the permission (or hands the popup's press to the
+            full view), so the button just starts it. */}
+        <div
+          data-settings-section
+          css={css`
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            ${sectionInsetCss()}
+            width: 100%;
+            margin-top: 20px;
+          `}
+        >
+          <div
+            css={css`
+              display: flex;
+              align-items: flex-start;
+              width: 100%;
+            `}
+          >
+            <NormalLabel
+              value={t('Bookmarks')}
+              size={TYPE.BODY}
+              color={COLORS.LABEL_L1_COLOR}
+            />
+          </div>
+          <div
+            ref={importButtonBox}
+            css={css`
+              margin-top: 8px;
+            `}
+          >
+            <Button
+              text={t('Import from bookmarks')}
+              iconType="input"
+              onClick={() => void dispatch(importBookmarksFromSettings())}
+              ariaDescribedBy={importHelpId}
+            />
+          </div>
+          <p id={importHelpId} css={helpLineStyle}>
+            {t('ImportBookmarksHelp')}
           </p>
         </div>
       </div>
