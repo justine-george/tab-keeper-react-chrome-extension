@@ -16,12 +16,18 @@ export interface BookmarkFolder {
   title: string;
   // Importable links, at any depth.
   count: number;
+  // One of topFolders: its tick makes a session of its loose links and ticks its folders (11-16).
+  isTop: boolean;
   // Only on top folders whose folderType appears more than once: account sync or this device.
   where?: 'account' | 'device';
   children: BookmarkFolder[];
 }
 
 const isFolder = (node: BookmarkNode): boolean => node.url === undefined;
+
+// KAN-862. Chrome's own folders, the root's: Bookmarks Bar, Other Bookmarks, Mobile, managed, and their twins.
+export const topFolders = (root: BookmarkNode): BookmarkNode[] =>
+  (root.children ?? []).filter(isFolder);
 
 // KAN-862. A save leaves out Tab Keeper's own pages (isTabKeeperPage); bookmarklets and blanks have no page to open.
 export function isImportableUrl(
@@ -33,17 +39,21 @@ export function isImportableUrl(
   return !resolveTabUrl(url).startsWith(ownOrigin);
 }
 
-function toFolder(node: BookmarkNode, ownOrigin: string): BookmarkFolder {
+function toFolder(
+  node: BookmarkNode,
+  ownOrigin: string,
+  isTop: boolean
+): BookmarkFolder {
   const children: BookmarkFolder[] = [];
   let count = 0;
   for (const child of node.children ?? []) {
     if (isFolder(child)) {
-      const folder = toFolder(child, ownOrigin);
+      const folder = toFolder(child, ownOrigin, false);
       children.push(folder);
       count += folder.count;
     } else if (isImportableUrl(child.url, ownOrigin)) count += 1;
   }
-  return { id: node.id, title: node.title, count, children };
+  return { id: node.id, title: node.title, count, isTop, children };
 }
 
 // The root's folders, each with its subfolders; links only feed the counts.
@@ -51,13 +61,13 @@ export function folderTree(
   root: BookmarkNode,
   ownOrigin: string
 ): BookmarkFolder[] {
-  const tops = (root.children ?? []).filter(isFolder);
+  const tops = topFolders(root);
   const typeCounts = new Map<string, number>();
   for (const top of tops)
     if (top.folderType !== undefined)
       typeCounts.set(top.folderType, (typeCounts.get(top.folderType) ?? 0) + 1);
   return tops.map((top) => {
-    const folder = toFolder(top, ownOrigin);
+    const folder = toFolder(top, ownOrigin, true);
     const twinned =
       top.folderType !== undefined && (typeCounts.get(top.folderType) ?? 0) > 1;
     return twinned
@@ -168,17 +178,18 @@ export function sessionsFor(
         : session;
     if (result !== null && result.tabCount > 0) sessions.push(result);
   };
-  const visit = (node: BookmarkNode, isRoot: boolean): void => {
+  const visit = (node: BookmarkNode): void => {
     for (const child of node.children ?? []) {
       if (!isFolder(child)) continue;
-      if (!ticked.has(child.id)) visit(child, false);
-      else if (isRoot) {
-        add(looseLinksSession(child, opts.now, opts.ownOrigin, opts.untitled));
-        visit(child, false);
-      } else
+      if (ticked.has(child.id))
         add(folderToSession(child, opts.now, opts.ownOrigin, opts.untitled));
+      else visit(child);
     }
   };
-  visit(root, true);
+  for (const top of topFolders(root)) {
+    if (ticked.has(top.id))
+      add(looseLinksSession(top, opts.now, opts.ownOrigin, opts.untitled));
+    visit(top);
+  }
   return sessions;
 }

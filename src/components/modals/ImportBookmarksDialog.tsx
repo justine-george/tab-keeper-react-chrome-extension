@@ -24,6 +24,7 @@ import { endBookmarkImport } from '../../redux/startBookmarkImport';
 import {
   folderTree,
   sessionsFor,
+  topFolders,
   type BookmarkFolder,
 } from '../../utils/functions/bookmarkImport';
 import {
@@ -70,7 +71,7 @@ async function readBookmarkRoot(): Promise<BookmarkNode> {
 
 // Chrome's own Bookmarks Bar starts unfolded; folderType is Chrome 134+, and before it the bar comes first.
 function firstBarId(root: BookmarkNode): string | undefined {
-  const tops = (root.children ?? []).filter((n) => n.url === undefined);
+  const tops = topFolders(root);
   return (tops.find((n) => n.folderType === 'bookmarks-bar') ?? tops[0])?.id;
 }
 
@@ -121,9 +122,9 @@ function shownRows(
               ? 'becomesWindow'
               : 'joinsWindowAbove';
       rows.push({ folder, depth, slot, isOpen });
-      // A ticked top folder (depth 0) covers nothing: its folders tick on their own.
+      // A ticked top folder covers nothing: its folders tick on their own.
       const next =
-        covered !== 'no' ? 'deeper' : isOn && depth > 0 ? 'directly' : 'no';
+        covered !== 'no' ? 'deeper' : isOn && !folder.isTop ? 'directly' : 'no';
       if (isOpen) walk(folder.children, depth + 1, next);
     }
   };
@@ -135,11 +136,10 @@ function shownRows(
 function toggledTicks(
   prev: ReadonlySet<string>,
   id: string,
-  folder: BookmarkFolder | undefined,
-  isTop: boolean
+  folder: BookmarkFolder | undefined
 ): ReadonlySet<string> {
   const next = new Set(prev);
-  const direct = isTop ? (folder?.children ?? []) : [];
+  const direct = folder?.isTop === true ? folder.children : [];
   if (next.has(id)) {
     next.delete(id);
     for (const child of direct) next.delete(child.id);
@@ -409,15 +409,8 @@ export const ImportBookmarksDialog: React.FC = () => {
 
   const toggleTick = useCallback(
     (id: string) =>
-      setTicked((prev) =>
-        toggledTicks(
-          prev,
-          id,
-          foldersById.get(id),
-          folders.some((top) => top.id === id)
-        )
-      ),
-    [foldersById, folders]
+      setTicked((prev) => toggledTicks(prev, id, foldersById.get(id))),
+    [foldersById]
   );
   const setFold = useCallback(
     (id: string, open: boolean) =>

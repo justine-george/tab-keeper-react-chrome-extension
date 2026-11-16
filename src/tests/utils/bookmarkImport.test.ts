@@ -79,6 +79,11 @@ describe('folderTree', () => {
     const titles = bar.children.map((c) => c.title);
     expect(titles).toEqual(['Kitchen remodel', 'Old stuff', 'Recipes']);
     expect(bar.children[1].count).toBe(0);
+    expect([bar.isTop, other.isTop, bar.children[0].isTop]).toEqual([
+      true,
+      true,
+      false,
+    ]);
     expect(bar.children[0].children.map((c) => c.title)).toEqual([
       'Tiles',
       'Appliances',
