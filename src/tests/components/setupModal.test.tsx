@@ -558,7 +558,7 @@ describe('the import step, Already keep tabs somewhere?', () => {
     expect(stepHeading()).toHaveTextContent(IMPORT);
   });
 
-  // KAN-862 R23 F-setup. Toasts sit under setup's backdrop, so the card's own line says it, in its pressed ✓ look.
+  // KAN-862 R23. Toasts sit under setup's backdrop, so the card's own line says it, in its pressed ✓ look.
   test.each([
     [
       'everything imported',

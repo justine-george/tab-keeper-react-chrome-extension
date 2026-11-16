@@ -220,7 +220,7 @@ export interface SettingsData {
   importedBookmarks: ImportedBookmarks[];
 }
 
-// KAN-862. One imported session's bookmarks: a user folder itself, or a top folder's loose links (R22), each by id and dateAdded (G).
+// KAN-862. One imported session's bookmarks: a user folder itself, or a top folder's loose links (R22), each by id and dateAdded, as Chrome reuses deleted ids.
 export interface ImportedBookmarks {
   sessionId: string;
   bookmarks: BookmarkIdentity[];
@@ -291,7 +291,7 @@ export const asIds = (value: unknown): string[] =>
     ? value.filter((id): id is string => typeof id === 'string')
     : [];
 
-// KAN-862 G. A bookmark without a string id drops out; a dateAdded that is not a number reads as unknown.
+// KAN-862. A bookmark without a string id drops out; a dateAdded that is not a number reads as unknown.
 const asBookmarkIdentities = (value: unknown): BookmarkIdentity[] =>
   Array.isArray(value)
     ? value.flatMap((item: unknown): BookmarkIdentity[] =>

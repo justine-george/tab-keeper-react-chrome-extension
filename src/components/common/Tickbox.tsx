@@ -18,8 +18,7 @@ interface TickboxProps {
 /**
  * KAN-862. A checkbox for the import dialog's folder tree. A span, not an
  * <input>: the drawing is ours, and the ARIA checkbox pattern takes Space
- * only, which a <button> would widen to Enter. Every listed folder has
- * something to import (R19), so there is no disabled box.
+ * only, which a <button> would widen to Enter. It has no disabled state.
  */
 const Tickbox: React.FC<TickboxProps> = ({ state, label, onToggle }) => {
   const COLORS = useThemeColors();

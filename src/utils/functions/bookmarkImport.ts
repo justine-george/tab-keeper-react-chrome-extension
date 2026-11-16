@@ -25,7 +25,7 @@ export interface BookmarkFolder {
 
 const isFolder = (node: BookmarkNode): boolean => node.url === undefined;
 
-// KAN-862 G. Chrome gives a deleted bookmark's id to a new one after a restart, so an id alone can name two
+// KAN-862. Chrome gives a deleted bookmark's id to a new one after a restart, so an id alone can name two
 // bookmarks; id and dateAdded together name one. dateAdded is null where Chrome left it out.
 export interface BookmarkIdentity {
   id: string;

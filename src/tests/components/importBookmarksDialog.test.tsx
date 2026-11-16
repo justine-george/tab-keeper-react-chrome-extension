@@ -610,6 +610,17 @@ describe('the import dialog: bookmarks imported before', () => {
     expect(within(preview()).getByText('1 Window · 1 Tab')).toBeInTheDocument();
   });
 
+  // A second visit after the bar was imported: the first listed folder opens unfolded instead.
+  test('with the bar not listed, the first listed top folder starts unfolded', async () => {
+    await importedBefore(['b0', 'b1', 'b2', 'kitchen', 'recipes', 'work']);
+    expect(
+      await screen.findByRole('checkbox', { name: 'Reading list' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Collapse: Other Bookmarks' })
+    ).toHaveAttribute('aria-expanded', 'true');
+  });
+
   test('a top folder with nothing left is not listed', async () => {
     await importedBefore(['b0', 'b1', 'b2', 'kitchen', 'recipes', 'work']);
     await screen.findByRole('checkbox', { name: 'Other Bookmarks' });
@@ -825,7 +836,7 @@ describe('the import dialog: Select all', () => {
     expect(previewTitles()).not.toContain('Tiles');
   });
 
-  // KAN-862 H. The label follows what is left, not the ticks alone.
+  // KAN-862. The label follows what is left, not the ticks alone.
   test('a top folder with no loose links reads Deselect all once every folder in it is ticked by hand', async () => {
     await openDialog();
     await screen.findByRole('checkbox', { name: 'Work' });
@@ -866,7 +877,7 @@ describe('the import dialog: Select all', () => {
     expect(selectAllButton()).toHaveTextContent('Deselect all');
   });
 
-  // KAN-862 I. A refusal goes with the selection Deselect all clears.
+  // KAN-862. A refusal goes with the selection Deselect all clears.
   test('Select all under a refused size: the refusal shows; Deselect all clears it, and Select all measures afresh', async () => {
     vi.mocked(importSizeRefusal).mockResolvedValue({ used: '1.2', limit: '1' });
     await openDialog();

@@ -452,7 +452,7 @@ describe('with bookmarks imported before', () => {
     ).toEqual([['recipes']]);
   });
 
-  // KAN-862 G. Chrome gives a deleted bookmark's id to a new one after a restart; dateAdded tells them apart.
+  // KAN-862. Chrome gives a deleted bookmark's id to a new one after a restart; dateAdded tells them apart.
   it('a bookmark that reuses an imported id, added later, is new; the same id and dateAdded is not', () => {
     const root = folder('0', '', [
       folder('bar', 'Bar', [

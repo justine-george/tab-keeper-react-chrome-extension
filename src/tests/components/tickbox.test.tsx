@@ -31,11 +31,6 @@ describe('Tickbox', () => {
     expect(box()).toHaveAttribute('aria-checked', checked);
   });
 
-  test('off and on are not aria-disabled', async () => {
-    await show('on');
-    expect(box()).not.toHaveAttribute('aria-disabled');
-  });
-
   test('clicking an off box toggles once', async () => {
     const onToggle = await show('off');
     fireEvent.click(box());

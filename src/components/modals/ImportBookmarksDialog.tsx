@@ -70,9 +70,14 @@ const SIZE_CHECK_DEBOUNCE_MS = 300;
 type BookmarkNode = chrome.bookmarks.BookmarkTreeNode;
 type Refusal = { used: string; limit: string };
 
-// Chrome's own Bookmarks Bar starts unfolded; folderType is Chrome 134+, and before it the bar comes first.
-function firstBarId(root: BookmarkNode): string | undefined {
-  const tops = topFolders(root);
+// The listed top folder that starts unfolded: Chrome's own Bookmarks Bar, else the first listed one.
+// folderType is Chrome 134+, and before it the bar comes first.
+function firstBarId(
+  root: BookmarkNode,
+  folders: readonly BookmarkFolder[]
+): string | undefined {
+  const listed = new Set(folders.map((f) => f.id));
+  const tops = topFolders(root).filter((n) => listed.has(n.id));
   return (tops.find((n) => n.folderType === 'bookmarks-bar') ?? tops[0])?.id;
 }
 
@@ -154,7 +159,7 @@ function toggledTicks(
   return next;
 }
 
-// KAN-862 H. Whether the ticks already take everything left in `folder`: a ticked user folder takes all of it; otherwise
+// KAN-862. Whether the ticks already take everything left in `folder`: a ticked user folder takes all of it; otherwise
 // its own links need its own tick (a top folder's are its loose links), and each folder in it must be taken.
 function isTaken(folder: BookmarkFolder, ticked: ReadonlySet<string>): boolean {
   const isTicked = ticked.has(folder.id);
@@ -377,8 +382,6 @@ export const ImportBookmarksDialog: React.FC = () => {
       (read) => {
         if (!isLive) return;
         setRoot(read);
-        const bar = firstBarId(read);
-        setUnfolded(new Set(bar === undefined ? [] : [bar]));
       },
       () => {
         if (isLive) end(true);
@@ -395,6 +398,13 @@ export const ImportBookmarksDialog: React.FC = () => {
     () => (root === null ? [] : folderTree(root, ownOrigin, imported)),
     [root, ownOrigin, imported]
   );
+  // Once, from the first read: Import's fresh read leaves the folding as the user left it.
+  const [hasFirstFold, setHasFirstFold] = useState(false);
+  if (root !== null && !hasFirstFold) {
+    setHasFirstFold(true);
+    const bar = firstBarId(root, folders);
+    if (bar !== undefined) setUnfolded(new Set([bar]));
+  }
   const foldersById = useMemo(() => {
     const byId = new Map<string, BookmarkFolder>();
     forEachFolder(folders, (folder) => byId.set(folder.id, folder));

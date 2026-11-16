@@ -150,7 +150,7 @@ describe('importBookmarkSessions', () => {
     ]);
   });
 
-  // KAN-862 G. The keys the tree checks: id and dateAdded, and none from an undone import.
+  // KAN-862. The keys the tree checks: id and dateAdded, and none from an undone import.
   test('importedBookmarkKeys keys each live entry by id and dateAdded', () => {
     expect(
       [

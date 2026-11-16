@@ -380,7 +380,7 @@ test.describe('Import from bookmarks in setup (KAN-862)', () => {
     expect(await storedSessions(page)).toEqual([]);
   });
 
-  // KAN-862 R23 F-setup. Toasts sit under setup's backdrop, so with nothing left the card's own line says so.
+  // KAN-862 R23. Toasts sit under setup's backdrop, so with nothing left the card's own line says so.
   test('with everything imported, a press on the card opens no import: the card stays focused and pressed, its line says so', async ({
     context,
     extensionId,
