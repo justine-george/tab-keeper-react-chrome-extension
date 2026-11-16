@@ -64,10 +64,14 @@ export const startBookmarkImport =
       );
       return 'unreadable';
     }
+    const state = getState();
     const nothing = nothingToImport(
       root,
       chrome.runtime.getURL(''),
-      importedBookmarkKeys(getState().settingsDataState.importedBookmarks)
+      importedBookmarkKeys(
+        state.settingsDataState.importedBookmarks,
+        state.tabContainerDataState.tabGroups
+      )
     );
     if (nothing !== null) {
       await dispatch(endBookmarkImport());

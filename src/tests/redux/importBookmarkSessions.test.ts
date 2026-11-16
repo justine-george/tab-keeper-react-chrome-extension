@@ -29,6 +29,7 @@ import {
 } from '../../redux/bookmarkImport';
 import {
   deleteTabContainerInternal,
+  restoreDeletedSessionInternal,
   saveToTabContainer,
   type tabContainerData,
 } from '../../redux/slices/tabContainerDataStateSlice';
@@ -85,11 +86,15 @@ const fromFolders = (sessions: tabContainerData[]): SessionFromBookmarks[] =>
     session: s,
   }));
 
-// The bookmark ids the record holds now, sorted.
+// The bookmark ids that count as imported now (R25: only a saved session's), sorted. Fixtures carry no dateAdded.
 const recorded = (state: RootState) =>
-  selectImportedBookmarks(state)
-    .filter((e) => !e.isUndone)
-    .flatMap((e) => e.bookmarks.map((b) => b.id))
+  [
+    ...importedBookmarkKeys(
+      selectImportedBookmarks(state),
+      state.tabContainerDataState.tabGroups
+    ),
+  ]
+    .map((key) => key.replace(/@$/, ''))
     .sort();
 
 const idsOf = (state: RootState) =>
@@ -144,25 +149,24 @@ describe('importBookmarkSessions', () => {
     expect(recorded(store.getState())).toEqual(['kitchen', 'l1', 'l3', 'work']);
     const saved = JSON.parse(localStorage.getItem('settingsData') ?? '{}');
     expect(saved.importedBookmarks).toEqual([
-      { sessionId: 'a', bookmarks: marks(['l1', 'l3']), isUndone: false },
-      { sessionId: 'b', bookmarks: marks(['kitchen']), isUndone: false },
-      { sessionId: 'c', bookmarks: marks(['work']), isUndone: false },
+      { sessionId: 'a', bookmarks: marks(['l1', 'l3']) },
+      { sessionId: 'b', bookmarks: marks(['kitchen']) },
+      { sessionId: 'c', bookmarks: marks(['work']) },
     ]);
   });
 
-  // KAN-862. The keys the tree checks: id and dateAdded, and none from an undone import.
-  test('importedBookmarkKeys keys each live entry by id and dateAdded', () => {
+  // KAN-862 R25. The keys the tree checks: id and dateAdded, and only of entries whose session is saved.
+  test('importedBookmarkKeys keys each entry with a saved session by id and dateAdded', () => {
     expect(
       [
-        ...importedBookmarkKeys([
-          {
-            sessionId: 'a',
-            bookmarks: [{ id: '7', dateAdded: 1000 }],
-            isUndone: false,
-          },
-          { sessionId: 'b', bookmarks: marks(['8']), isUndone: false },
-          { sessionId: 'c', bookmarks: marks(['9']), isUndone: true },
-        ]),
+        ...importedBookmarkKeys(
+          [
+            { sessionId: 'a', bookmarks: [{ id: '7', dateAdded: 1000 }] },
+            { sessionId: 'b', bookmarks: marks(['8']) },
+            { sessionId: 'gone', bookmarks: marks(['9']) },
+          ],
+          [session('a'), session('b'), session('unrelated')]
+        ),
       ].sort()
     ).toEqual(
       [
@@ -175,23 +179,81 @@ describe('importBookmarkSessions', () => {
     );
   });
 
-  // KAN-862 R21. His permanent rule: a session deleted later frees nothing, nor does undoing or redoing that delete.
-  test('deleting an imported session later leaves its bookmarks recorded', () => {
+  test('importedBookmarkKeys: no saved sessions, nothing counts', () => {
+    expect(
+      importedBookmarkKeys([{ sessionId: 'a', bookmarks: marks(['7']) }], [])
+        .size
+    ).toBe(0);
+  });
+
+  // Re-imported after its first session was deleted: either live session keeps it imported.
+  test('importedBookmarkKeys: two entries for one bookmark count it while either session is saved', () => {
+    const entries = [
+      { sessionId: 'first', bookmarks: marks(['kitchen']) },
+      { sessionId: 'again', bookmarks: marks(['kitchen']) },
+    ];
+    const kitchen = identityKey({ id: 'kitchen', dateAdded: null });
+    expect([...importedBookmarkKeys(entries, [session('again')])]).toEqual([
+      kitchen,
+    ]);
+    expect([...importedBookmarkKeys(entries, [session('first')])]).toEqual([
+      kitchen,
+    ]);
+  });
+
+  // KAN-862 R25 (his pick 11-16 04:28). Deleting the session frees its bookmarks; restoring or undoing the delete takes them again.
+  test('deleting an imported session frees its bookmarks, and restoring it counts them again', () => {
     const { store } = makeTestStore();
     store.dispatch(
       importBookmarkSessions([
         { bookmarks: marks(['kitchen']), session: session('a') },
+        { bookmarks: marks(['work']), session: session('w') },
       ])
     );
+    expect(recorded(store.getState())).toEqual(['kitchen', 'work']);
+
+    const deleted = store
+      .getState()
+      .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === 'a');
+    if (deleted === undefined) throw new Error('no session a');
     store.dispatch(deleteTabContainerInternal('a'));
-    expect(idsOf(store.getState())).toEqual([]);
-    expect(recorded(store.getState())).toEqual(['kitchen']);
+    expect(idsOf(store.getState())).toEqual(['w']);
+    expect(recorded(store.getState())).toEqual(['work']);
+    // The entry stays: it is what makes a restore count again.
+    expect(
+      selectImportedBookmarks(store.getState()).map((e) => e.sessionId)
+    ).toEqual(['a', 'w']);
+
     store.dispatch(undo());
-    expect(idsOf(store.getState())).toEqual(['a']);
-    expect(recorded(store.getState())).toEqual(['kitchen']);
+    expect(idsOf(store.getState()).sort()).toEqual(['a', 'w']);
+    expect(recorded(store.getState())).toEqual(['kitchen', 'work']);
     store.dispatch(redo());
-    expect(idsOf(store.getState())).toEqual([]);
+    expect(idsOf(store.getState())).toEqual(['w']);
+    expect(recorded(store.getState())).toEqual(['work']);
+
+    store.dispatch(restoreDeletedSessionInternal(deleted));
+    expect(idsOf(store.getState()).sort()).toEqual(['a', 'w']);
+    expect(recorded(store.getState())).toEqual(['kitchen', 'work']);
+  });
+
+  // Re-imported while the old session sat in Recently deleted, then that one restored: two copies, both counted.
+  test('a re-import after a delete keeps it imported whichever session is deleted next', () => {
+    const { store } = makeTestStore();
+    store.dispatch(
+      importBookmarkSessions([
+        { bookmarks: marks(['kitchen']), session: session('first') },
+      ])
+    );
+    store.dispatch(deleteTabContainerInternal('first'));
+    expect(recorded(store.getState())).toEqual([]);
+    store.dispatch(
+      importBookmarkSessions([
+        { bookmarks: marks(['kitchen']), session: session('again') },
+      ])
+    );
     expect(recorded(store.getState())).toEqual(['kitchen']);
+    store.dispatch(deleteTabContainerInternal('again'));
+    expect(recorded(store.getState())).toEqual([]);
   });
 
   // KAN-862 R21. Undoing the import is as if it never happened; redo makes it happen again.
@@ -212,12 +274,13 @@ describe('importBookmarkSessions', () => {
     store.dispatch(undo());
     expect(idsOf(store.getState())).toEqual(['w']);
     expect(recorded(store.getState())).toEqual(['work']);
+    // Its entries stay, so the redo below counts them again.
     expect(
       JSON.parse(localStorage.getItem('settingsData') ?? '{}').importedBookmarks
     ).toEqual([
-      { sessionId: 'w', bookmarks: marks(['work']), isUndone: false },
-      { sessionId: 'a', bookmarks: marks(['l1']), isUndone: true },
-      { sessionId: 'b', bookmarks: marks(['kitchen']), isUndone: true },
+      { sessionId: 'w', bookmarks: marks(['work']) },
+      { sessionId: 'a', bookmarks: marks(['l1']) },
+      { sessionId: 'b', bookmarks: marks(['kitchen']) },
     ]);
 
     store.dispatch(redo());

@@ -80,12 +80,16 @@ export const selectImportedBookmarks = (
   state: RootState
 ): readonly ImportedBookmarks[] => state.settingsDataState.importedBookmarks;
 
-// KAN-862 (11-16). The bookmarks no import may take again, as identityKey values: every entry's but an undone import's.
+// KAN-862 R25. The bookmarks no import may take again, as identityKey values: those of entries whose session
+// is still in the saved list. Deleting it (here, by undo, or synced) frees them; restoring it takes them again.
 export const importedBookmarkKeys = (
-  entries: readonly ImportedBookmarks[]
-): ReadonlySet<string> =>
-  new Set(
+  entries: readonly ImportedBookmarks[],
+  savedSessions: readonly Pick<tabContainerData, 'tabGroupId'>[]
+): ReadonlySet<string> => {
+  const saved = new Set(savedSessions.map((s) => s.tabGroupId));
+  return new Set(
     entries
-      .filter((e) => !e.isUndone)
+      .filter((e) => saved.has(e.sessionId))
       .flatMap((e) => e.bookmarks.map(identityKey))
   );
+};

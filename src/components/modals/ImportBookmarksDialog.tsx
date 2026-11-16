@@ -332,9 +332,12 @@ export const ImportBookmarksDialog: React.FC = () => {
   const store = useStore<RootState>();
   const skipDuplicates = useSelector(selectSkipsDuplicateTabs);
   const importedEntries = useSelector(selectImportedBookmarks);
+  const savedSessions = useSelector(
+    (s: RootState) => s.tabContainerDataState.tabGroups
+  );
   const imported = useMemo(
-    () => importedBookmarkKeys(importedEntries),
-    [importedEntries]
+    () => importedBookmarkKeys(importedEntries, savedSessions),
+    [importedEntries, savedSessions]
   );
 
   const dialogRef = useRef<HTMLDialogElement>(null);

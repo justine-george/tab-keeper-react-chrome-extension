@@ -257,6 +257,64 @@ test.describe('Import from bookmarks in Settings (KAN-862)', () => {
       ]);
   });
 
+  // KAN-862 R25. A folder counts as imported only while its session is saved: deleting it frees the folder, restoring it takes it back.
+  test('full view: deleting an imported session puts its folder back in the tree; restoring it leaves nothing to import', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openFullView(context, extensionId);
+    await onImportPane(page);
+    const importButton = page.getByRole('button', {
+      name: 'Import from bookmarks',
+    });
+    const nothingLeft = page.getByText(
+      'Everything in your bookmarks is already imported.'
+    );
+    await importButton.click();
+    const dialog = dialogOn(page);
+    await dialog.getByRole('button', { name: 'Select all' }).click();
+    await dialog.getByRole('button', { name: 'Import 4 sessions' }).click();
+    await expect(dialog).toBeHidden();
+    // PREMISE: with everything imported, a press only says so.
+    await importButton.click();
+    await expect(nothingLeft).toBeVisible();
+    await expect(dialog).toHaveCount(0);
+
+    // Reloaded so that toast is gone; then Delete on the focused row, as recently-deleted.spec does.
+    await page.reload();
+    const alphaRow = page
+      .locator('[data-pane="sessions"]')
+      .getByRole('button', { name: 'Alpha trip', exact: true });
+    await alphaRow.focus();
+    await page.keyboard.press('Delete');
+    await expect(alphaRow).toHaveCount(0);
+
+    await onImportPane(page);
+    await importButton.click();
+    await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByRole('checkbox', { name: 'Alpha trip' })
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole('checkbox', { name: 'Beta research' })
+    ).toHaveCount(0);
+    await expect(nothingLeft).toHaveCount(0);
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog).toBeHidden();
+
+    await page
+      .getByRole('button', { name: 'Recently deleted', exact: true })
+      .click();
+    await page.getByRole('button', { name: 'Restore Alpha trip' }).click();
+    await expect
+      .poll(async () => (await storedSessions(page)).map((s) => s.title))
+      .toContain('Alpha trip');
+    await page.locator('button[aria-label="Import"]').click();
+    await importButton.click();
+    await expect(nothingLeft).toBeVisible();
+    await expect(dialog).toHaveCount(0);
+  });
+
   test('full view: Cancel closes the dialog and saves nothing', async ({
     context,
     extensionId,

@@ -18,7 +18,7 @@ import {
   releaseStrandedBookmarksPermission,
   startBookmarkImport,
 } from '../../redux/startBookmarkImport';
-import { noteImportedBookmarks } from '../../redux/slices/settingsDataStateSlice';
+import { recordImport } from '../fixtures/importedBookmarksFixture';
 import {
   SettingsCategory,
   selectCategory,
@@ -105,13 +105,10 @@ describe('startBookmarkImport with nothing left', () => {
     history.replaceState(null, '', '?view=tab');
     setupChromeFake({ bookmarkTree: tree });
     const { store } = makeTestStore();
-    store.dispatch(
-      noteImportedBookmarks([
-        {
-          sessionId: 's',
-          bookmarks: importedIds.map((id) => ({ id, dateAdded: null })),
-        },
-      ])
+    recordImport(
+      store,
+      's',
+      importedIds.map((id) => ({ id, dateAdded: null }))
     );
     const answer = await store.dispatch(startBookmarkImport());
     return { store, answer };
@@ -165,13 +162,10 @@ describe('importBookmarksFromSettings', () => {
     history.replaceState(null, '', '?view=tab');
     setupChromeFake({ bookmarkTree: tree });
     const { store } = makeTestStore();
-    store.dispatch(
-      noteImportedBookmarks([
-        {
-          sessionId: 's',
-          bookmarks: importedIds.map((id) => ({ id, dateAdded: null })),
-        },
-      ])
+    recordImport(
+      store,
+      's',
+      importedIds.map((id) => ({ id, dateAdded: null }))
     );
     await store.dispatch(importBookmarksFromSettings());
     return store;
@@ -199,11 +193,7 @@ describe('importBookmarksFromSettings', () => {
       seed: { bookmarkTree: barOf([link('2')]) },
       seedStore: (s) => {
         s.dispatch(selectCategory(SettingsCategory.IMPORT));
-        s.dispatch(
-          noteImportedBookmarks([
-            { sessionId: 's', bookmarks: [{ id: '2', dateAdded: null }] },
-          ])
-        );
+        recordImport(s, 's', [{ id: '2', dateAdded: null }]);
       },
     });
     const button = screen.getByRole('button', {

@@ -24,7 +24,6 @@ import {
   markHadImportedSession,
   noteImportedSessions,
   noteImportedBookmarks,
-  setImportsUndone,
   markPressedSaveAsPdf,
   SAVE_PDF_POINTER_PRESSES,
   markFullViewCalloutSeen,
@@ -101,8 +100,8 @@ const ALL_SET = {
   isFullViewEndingSeen: true,
   importedSessionIds: Array.of('a', 'b'),
   importedBookmarks: Array.of(
-    { sessionId: 's1', bookmarks: marks(['l1', 'l3']), isUndone: false },
-    { sessionId: 's2', bookmarks: marks(['kitchen']), isUndone: true }
+    { sessionId: 's1', bookmarks: marks(['l1', 'l3']) },
+    { sessionId: 's2', bookmarks: marks(['kitchen']) }
   ),
 } as const;
 
@@ -277,9 +276,7 @@ describe('the onboarding reducers persist what they set', () => {
         { sessionId: 's1', bookmarks: marks(['kitchen']) },
       ]),
       {
-        importedBookmarks: [
-          { sessionId: 's1', bookmarks: marks(['kitchen']), isUndone: false },
-        ],
+        importedBookmarks: [{ sessionId: 's1', bookmarks: marks(['kitchen']) }],
       },
     ],
     ['setDefaultView', setDefaultView('full'), { defaultView: 'full' }],
@@ -304,7 +301,7 @@ describe('the onboarding reducers persist what they set', () => {
     ).toEqual(['a', 'b', 'c']);
   });
 
-  // KAN-862 (11-16). Permanent per device: a folder's record stays whatever happens to its session.
+  // KAN-862 (11-16). A folder's record stays whatever happens to its session (R25 reads it against the saved list).
   it('noteImportedBookmarks skips a session it has and writes nothing for it', () => {
     const once = reduce([
       noteImportedBookmarks([
@@ -319,34 +316,6 @@ describe('the onboarding reducers persist what they set', () => {
     );
     expect(setItem).not.toHaveBeenCalled();
     expect(again.importedBookmarks).toEqual(once.importedBookmarks);
-  });
-
-  // KAN-862 R21. Undo and redo of an import flip its entries; a write only when one flips.
-  it('setImportsUndone flips only the named sessions, and writes only on a change', () => {
-    const noted = reduce([
-      noteImportedBookmarks([
-        { sessionId: 's1', bookmarks: marks(['a']) },
-        { sessionId: 's2', bookmarks: marks(['b']) },
-      ]),
-    ]);
-    const undone = settingsDataStateSlice.reducer(
-      noted,
-      setImportsUndone({ sessionIds: ['s2', 'nope'], isUndone: true })
-    );
-    expect(undone.importedBookmarks.map((e) => e.isUndone)).toEqual([
-      false,
-      true,
-    ]);
-    expect(saved()).toMatchObject({
-      importedBookmarks: [{ isUndone: false }, { isUndone: true }],
-    });
-    const setItem = vi.spyOn(localStorage, 'setItem');
-    setItem.mockClear();
-    settingsDataStateSlice.reducer(
-      undone,
-      setImportsUndone({ sessionIds: ['s2'], isUndone: true })
-    );
-    expect(setItem).not.toHaveBeenCalled();
   });
 
   it('importedBookmarks keeps well-formed entries and drops the rest', () => {
@@ -366,6 +335,8 @@ describe('the onboarding reducers persist what they set', () => {
               isUndone: 'yes',
             },
             { sessionId: 3, bookmarks: marks(['b']), isUndone: false },
+            // A dev profile from before R25: its isUndone is dropped, the entry kept.
+            { sessionId: 's2', bookmarks: marks(['e']), isUndone: true },
             null,
             'x',
           ],
@@ -380,8 +351,8 @@ describe('the onboarding reducers persist what they set', () => {
           { id: 'b', dateAdded: null },
           { id: 'd', dateAdded: null },
         ],
-        isUndone: false,
       },
+      { sessionId: 's2', bookmarks: marks(['e']) },
     ]);
   });
 

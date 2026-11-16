@@ -29,7 +29,6 @@ import { openSetup } from '../../redux/slices/globalStateSlice';
 import {
   initialState as settingsInitial,
   Language,
-  noteImportedBookmarks,
   noteImportedSessions,
   settingsDataStateSlice,
   Theme,
@@ -37,6 +36,7 @@ import {
 } from '../../redux/slices/settingsDataStateSlice';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { RUN_FINISHED_SETTINGS } from '../fixtures/firstRunFixture';
+import { recordImport } from '../fixtures/importedBookmarksFixture';
 import { classRulesFor } from '../setup/hoverRules';
 import { mirrorLanguageOnDocument } from '../../utils/functions/documentLanguage';
 import { asWritten } from '../setup/asWritten';
@@ -642,13 +642,10 @@ describe('the import step, Already keep tabs somewhere?', () => {
           ],
         });
       act(() => {
-        store.dispatch(
-          noteImportedBookmarks([
-            {
-              sessionId: 's',
-              bookmarks: importedIds.map((id) => ({ id, dateAdded: null })),
-            },
-          ])
+        recordImport(
+          store,
+          's',
+          importedIds.map((id) => ({ id, dateAdded: null }))
         );
       });
       await toStep(IMPORT);

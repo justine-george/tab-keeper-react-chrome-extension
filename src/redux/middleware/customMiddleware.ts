@@ -7,10 +7,7 @@ import {
 } from '../slices/undoRedoSlice';
 import { updateChromeTabGroupColor } from '../slices/tabContainerDataStateSlice';
 import type { ApplyUndoSnapshotPayload } from '../slices/tabContainerDataStateSlice';
-import {
-  cloudSyncAllowed,
-  setImportsUndone,
-} from '../slices/settingsDataStateSlice';
+import { cloudSyncAllowed } from '../slices/settingsDataStateSlice';
 import { debounce } from '../../utils/functions/local';
 import { DEBOUNCE_TIME_WINDOW } from '../../utils/constants/common';
 import {
@@ -349,20 +346,6 @@ export const customMiddleware: Middleware = (store) => {
         payload,
       });
       store.dispatch(setIsDirty());
-
-      // KAN-862 R21. The step's own new sessions: undoing an import frees what it recorded, redoing it takes it again.
-      // A delete adds none, so undoing or redoing one leaves the record alone.
-      const stepSessionIds =
-        action.type === UNDO_ACTION
-          ? withdrawTabGroupIds
-          : (presentState.addedTabGroupIds ?? []);
-      if (stepSessionIds.length > 0)
-        store.dispatch(
-          setImportsUndone({
-            sessionIds: stepSessionIds,
-            isUndone: action.type === UNDO_ACTION,
-          })
-        );
 
       // KAN-595. What the undo or redo brought back spends its entry; what it took away gets its entry back.
       const afterState = store.getState() as RootState;

@@ -16,9 +16,16 @@ vi.mock('../../redux/bookmarkImport', async (importOriginal) => ({
 import { ImportBookmarksDialog } from '../../components/modals/ImportBookmarksDialog';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { startBookmarkImport } from '../../redux/startBookmarkImport';
-import { noteImportedBookmarks } from '../../redux/slices/settingsDataStateSlice';
+import { recordImport } from '../fixtures/importedBookmarksFixture';
 import { undo } from '../../redux/slices/undoRedoSlice';
-import { selectImportedBookmarks } from '../../redux/bookmarkImport';
+import {
+  deleteTabContainerInternal,
+  restoreDeletedSessionInternal,
+} from '../../redux/slices/tabContainerDataStateSlice';
+import {
+  importedBookmarkKeys,
+  selectImportedBookmarks,
+} from '../../redux/bookmarkImport';
 import { importSizeRefusal } from '../../redux/bookmarkImport';
 import type { AppDispatch, RootState } from '../../redux/store';
 import { toastTexts } from '../setup/toasts';
@@ -133,11 +140,15 @@ const previewTitles = () =>
   );
 const sessionTitles = (state: RootState) =>
   state.tabContainerDataState.tabGroups.map((g) => g.title);
-// The bookmark ids no import may take again, sorted.
+// The bookmark ids no import may take again (R25: only a saved session's), sorted. Fixtures carry no dateAdded.
 const recorded = (state: RootState) =>
-  selectImportedBookmarks(state)
-    .filter((e) => !e.isUndone)
-    .flatMap((e) => e.bookmarks.map((b) => b.id))
+  [
+    ...importedBookmarkKeys(
+      selectImportedBookmarks(state),
+      state.tabContainerDataState.tabGroups
+    ),
+  ]
+    .map((key) => key.replace(/@$/, ''))
     .sort();
 const selectAllButton = () =>
   within(dialog()).getByRole('button', { name: /^(Select|Deselect) all$/ });
@@ -527,9 +538,7 @@ describe('the import dialog: bookmarks imported before', () => {
     getTree.mockResolvedValue(tree);
     return openDialog({
       seedStore: (s) => {
-        s.dispatch(
-          noteImportedBookmarks([{ sessionId: 'old', bookmarks: marks(ids) }])
-        );
+        recordImport(s, 'old', marks(ids));
       },
     });
   };
@@ -560,11 +569,7 @@ describe('the import dialog: bookmarks imported before', () => {
 
     // Its own links recorded too (another page's import): nothing in it is new.
     act(() => {
-      store.dispatch(
-        noteImportedBookmarks([
-          { sessionId: 'later', bookmarks: marks(['k0', 'k1', 'k2']) },
-        ])
-      );
+      recordImport(store, 'later', marks(['k0', 'k1', 'k2']));
     });
     expect(listedRow('kitchen')).toBeNull();
     expect(tagOf('bar')).toBe(`${3 + 23 + 9} Bookmarks`);
@@ -634,21 +639,10 @@ describe('the import dialog: bookmarks imported before', () => {
     tick('Work');
 
     act(() => {
-      store.dispatch(
-        noteImportedBookmarks([
-          {
-            sessionId: 'elsewhere',
-            bookmarks: marks([
-              'b0',
-              'b1',
-              'b2',
-              'kitchen',
-              'recipes',
-              'work',
-              'reading',
-            ]),
-          },
-        ])
+      recordImport(
+        store,
+        'elsewhere',
+        marks(['b0', 'b1', 'b2', 'kitchen', 'recipes', 'work', 'reading'])
       );
     });
 
@@ -730,6 +724,7 @@ describe('the import dialog: bookmarks imported before', () => {
       ['Bookmarks Bar', 3],
       ['Kitchen remodel', 8],
       ['Work', 9],
+      ['old', 1],
     ]);
     expect(recorded(store.getState())).toEqual(
       ['appl', 'b0', 'b1', 'b2', 'kitchen', 'work'].sort()
@@ -767,6 +762,29 @@ describe('the import dialog: bookmarks imported before', () => {
     expect(
       await screen.findByRole('checkbox', { name: 'Work' })
     ).toBeInTheDocument();
+  });
+
+  // KAN-862 R25. A delete while the dialog is open (another page's, or synced) frees the folder there and then.
+  test('deleting the imported session lists its folder again, and restoring it hides it', async () => {
+    const { store } = await importedBefore(['kitchen']);
+    await screen.findByRole('checkbox', { name: 'Recipes' });
+    expect(listedRow('kitchen')).toBeNull();
+    const old = store
+      .getState()
+      .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === 'old');
+    if (old === undefined) throw new Error('no seeded session');
+
+    act(() => {
+      store.dispatch(deleteTabContainerInternal('old'));
+    });
+    expect(
+      screen.getByRole('checkbox', { name: 'Kitchen remodel' })
+    ).toBeInTheDocument();
+
+    act(() => {
+      store.dispatch(restoreDeletedSessionInternal(old));
+    });
+    expect(listedRow('kitchen')).toBeNull();
   });
 });
 
@@ -905,11 +923,7 @@ describe('the import dialog: Select all', () => {
   test('Select all leaves out what was imported', async () => {
     await openDialog({
       seedStore: (s) => {
-        s.dispatch(
-          noteImportedBookmarks([
-            { sessionId: 'old', bookmarks: marks(['kitchen']) },
-          ])
-        );
+        recordImport(s, 'old', marks(['kitchen']));
       },
     });
     await screen.findByRole('checkbox', { name: 'Work' });
