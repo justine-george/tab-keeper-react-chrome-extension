@@ -535,7 +535,12 @@ describe('a save after an import', () => {
     sizes: number[]
   ) =>
     store.dispatch(
-      importBookmarkSessions(sizes.map((n, i) => session(`imp${i}`, n)))
+      importBookmarkSessions(
+        sizes.map((n, i) => ({
+          folderId: `f${i}`,
+          session: session(`imp${i}`, n),
+        }))
+      )
     );
 
   test('the first own save after an import asks "Your first session is saved"', async () => {

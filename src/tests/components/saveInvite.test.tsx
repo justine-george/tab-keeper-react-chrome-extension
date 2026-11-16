@@ -206,7 +206,11 @@ describe('the list after an import', () => {
   test('imported sessions alone keep the pop to come', async () => {
     const { store } = await renderWithProviders(<UserInputContainer />, {
       seedStore: (s) => {
-        s.dispatch(importBookmarkSessions([buildSession({ tabGroupId: 'i' })]));
+        s.dispatch(
+          importBookmarkSessions([
+            { folderId: 'f', session: buildSession({ tabGroupId: 'i' }) },
+          ])
+        );
       },
     });
     expect(store.getState().settingsDataState.hasHadSavedSession).toBe(true);
@@ -217,7 +221,9 @@ describe('the list after an import', () => {
     const imported = buildSession({ tabGroupId: 'i' });
     const { store } = await renderWithProviders(<UserInputContainer />, {
       seedStore: (s) => {
-        s.dispatch(importBookmarkSessions([imported]));
+        s.dispatch(
+          importBookmarkSessions([{ folderId: 'f', session: imported }])
+        );
       },
     });
     act(() => {

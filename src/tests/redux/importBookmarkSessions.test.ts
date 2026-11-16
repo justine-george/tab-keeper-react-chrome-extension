@@ -23,6 +23,7 @@ import { makeTestStore } from '../setup/makeStore';
 import {
   importBookmarkSessions,
   importSizeRefusal,
+  selectImportedBookmarkFolderIds,
   selectImportedSessionIds,
 } from '../../redux/bookmarkImport';
 import {
@@ -32,7 +33,10 @@ import {
 import type { RootState } from '../../redux/store';
 import { undo } from '../../redux/slices/undoRedoSlice';
 import { syncBytes } from '../../utils/functions/cloudDocument';
-import { sessionsFor } from '../../utils/functions/bookmarkImport';
+import {
+  sessionsFor,
+  type FolderSession,
+} from '../../utils/functions/bookmarkImport';
 import { FIRESTORE_MAX_DOCUMENT_BYTES } from '../../utils/functions/local';
 import { BOOKMARKS_IMPORTED_FRAME } from '../../utils/constants/common';
 
@@ -68,6 +72,10 @@ const session = (id: string, tabCount = 2): tabContainerData => ({
   ],
 });
 
+// Each session as if made from a folder of its own id's.
+const fromFolders = (sessions: tabContainerData[]): FolderSession[] =>
+  sessions.map((s) => ({ folderId: `folder-${s.tabGroupId}`, session: s }));
+
 const idsOf = (state: RootState) =>
   state.tabContainerDataState.tabGroups.map((g) => g.tabGroupId);
 
@@ -81,7 +89,9 @@ describe('importBookmarkSessions', () => {
   test('the first session ends on top and selected, the rest below it in order', () => {
     const { store } = makeTestStore();
     store.dispatch(
-      importBookmarkSessions([session('c'), session('b'), session('a')])
+      importBookmarkSessions(
+        fromFolders([session('c'), session('b'), session('a')])
+      )
     );
     const state = store.getState();
     expect(idsOf(state)).toEqual(['c', 'b', 'a']);
@@ -93,22 +103,64 @@ describe('importBookmarkSessions', () => {
 
   test('it notes the ids it added, and nothing else', () => {
     const { store } = makeTestStore();
-    store.dispatch(importBookmarkSessions([session('a'), session('b')]));
+    store.dispatch(
+      importBookmarkSessions(fromFolders([session('a'), session('b')]))
+    );
     expect(selectImportedSessionIds(store.getState())).toEqual(['a', 'b']);
-    store.dispatch(importBookmarkSessions([session('c')]));
+    store.dispatch(importBookmarkSessions(fromFolders([session('c')])));
     expect(selectImportedSessionIds(store.getState())).toEqual(['a', 'b', 'c']);
+  });
+
+  // KAN-862 (11-16). The folders it came from, so they can't be imported again on this device.
+  test('it records the folder each session came from, once each, and saves the record', () => {
+    const { store } = makeTestStore();
+    store.dispatch(
+      importBookmarkSessions([
+        { folderId: '1', session: session('a') },
+        { folderId: 'kitchen', session: session('b') },
+      ])
+    );
+    store.dispatch(
+      importBookmarkSessions([
+        { folderId: 'kitchen', session: session('c') },
+        { folderId: 'work', session: session('d') },
+      ])
+    );
+    expect(selectImportedBookmarkFolderIds(store.getState())).toEqual([
+      '1',
+      'kitchen',
+      'work',
+    ]);
+    expect(
+      JSON.parse(localStorage.getItem('settingsData') ?? '{}')
+        .importedBookmarkFolderIds
+    ).toEqual(['1', 'kitchen', 'work']);
+  });
+
+  test('deleting an imported session leaves its folder recorded', () => {
+    const { store } = makeTestStore();
+    store.dispatch(
+      importBookmarkSessions([{ folderId: 'kitchen', session: session('a') }])
+    );
+    store.dispatch(undo());
+    expect(idsOf(store.getState())).toEqual([]);
+    expect(selectImportedBookmarkFolderIds(store.getState())).toEqual([
+      'kitchen',
+    ]);
   });
 
   test('it makes hasHadSavedSession true', () => {
     const { store } = makeTestStore();
     expect(store.getState().settingsDataState.hasHadSavedSession).toBe(false);
-    store.dispatch(importBookmarkSessions([session('a')]));
+    store.dispatch(importBookmarkSessions(fromFolders([session('a')])));
     expect(store.getState().settingsDataState.hasHadSavedSession).toBe(true);
   });
 
   test('it is no save: no review moment, no first-save pop, no shutter', () => {
     const { store, actions } = makeTestStore();
-    store.dispatch(importBookmarkSessions([session('a'), session('b')]));
+    store.dispatch(
+      importBookmarkSessions(fromFolders([session('a'), session('b')]))
+    );
     const global = store.getState().globalState;
     expect(global.firstSavePops).toBe(0);
     expect(global.sessionSaves).toBe(0);
@@ -141,13 +193,17 @@ describe('importBookmarkSessions', () => {
 
     const { store } = makeTestStore();
     expect(store.getState().globalState.isDirty).toBe(false);
-    store.dispatch(importBookmarkSessions([session('a'), session('b')]));
+    store.dispatch(
+      importBookmarkSessions(fromFolders([session('a'), session('b')]))
+    );
     expect(store.getState().globalState.isDirty).toBe(true);
   });
 
   test('it writes the sessions to local storage', () => {
     const { store } = makeTestStore();
-    store.dispatch(importBookmarkSessions([session('a'), session('b')]));
+    store.dispatch(
+      importBookmarkSessions(fromFolders([session('a'), session('b')]))
+    );
     const stored: { tabGroups: { tabGroupId: string }[] } = JSON.parse(
       localStorage.getItem('tabContainerData') ?? '{}'
     );
@@ -156,7 +212,9 @@ describe('importBookmarkSessions', () => {
 
   test('one undo takes both sessions back', () => {
     const { store } = makeTestStore();
-    store.dispatch(importBookmarkSessions([session('a'), session('b')]));
+    store.dispatch(
+      importBookmarkSessions(fromFolders([session('a'), session('b')]))
+    );
     expect(idsOf(store.getState())).toEqual(['a', 'b']);
     store.dispatch(undo());
     expect(idsOf(store.getState())).toEqual([]);
@@ -164,7 +222,9 @@ describe('importBookmarkSessions', () => {
 
   test('one toast says how many came in', async () => {
     const { store } = makeTestStore();
-    store.dispatch(importBookmarkSessions([session('a'), session('b')]));
+    store.dispatch(
+      importBookmarkSessions(fromFolders([session('a'), session('b')]))
+    );
     await vi.waitFor(() =>
       expect(store.getState().globalState.toasts).toHaveLength(1)
     );
@@ -196,8 +256,9 @@ describe('importBookmarkSessions', () => {
       ownOrigin: 'chrome-extension://abc/',
       untitled: 'Untitled',
       skipDuplicates: true,
+      imported: new Set(),
     });
-    expect(made.map((s) => s.tabCount)).toEqual([1, 2]);
+    expect(made.map((m) => m.session.tabCount)).toEqual([1, 2]);
 
     const { store } = makeTestStore();
     store.dispatch(importBookmarkSessions(made));
@@ -217,7 +278,8 @@ describe('importSizeRefusal', () => {
     existing: tabContainerData[] = [session('old')]
   ): RootState => {
     const { store } = makeTestStore();
-    for (const s of existing) store.dispatch(importBookmarkSessions([s]));
+    for (const s of existing)
+      store.dispatch(importBookmarkSessions(fromFolders([s])));
     const state = store.getState();
     return {
       ...state,

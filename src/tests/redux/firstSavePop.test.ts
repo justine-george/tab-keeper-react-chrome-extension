@@ -132,7 +132,11 @@ describe('the first save on this device', () => {
 // KAN-862 R14. An import is no save: the user's own first save after one still pops.
 describe('the first save after an import', () => {
   const importOf = (store: Store, ...ids: string[]) =>
-    store.dispatch(importBookmarkSessions(ids.map((id) => session(id, 2))));
+    store.dispatch(
+      importBookmarkSessions(
+        ids.map((id) => ({ folderId: `f-${id}`, session: session(id, 2) }))
+      )
+    );
 
   test('an import, then the first own save, counts once', async () => {
     const { store } = makeTestStore();

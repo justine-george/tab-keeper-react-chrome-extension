@@ -23,6 +23,7 @@ import {
   markHadSavedSession,
   markHadImportedSession,
   noteImportedSessions,
+  noteImportedBookmarkFolders,
   markPressedSaveAsPdf,
   SAVE_PDF_POINTER_PRESSES,
   markFullViewCalloutSeen,
@@ -66,6 +67,7 @@ const GARBAGE = {
   isPopupEndingSeen: 'true',
   isFullViewEndingSeen: 1,
   importedSessionIds: 'a',
+  importedBookmarkFolderIds: { kitchen: true },
 };
 
 const ALL_SET = {
@@ -94,6 +96,7 @@ const ALL_SET = {
   isPopupEndingSeen: true,
   isFullViewEndingSeen: true,
   importedSessionIds: Array.of('a', 'b'),
+  importedBookmarkFolderIds: Array.of('1', 'kitchen'),
 } as const;
 
 const ONBOARDING_KEYS: string[] = Object.keys(ONBOARDING_DEFAULTS);
@@ -261,6 +264,11 @@ describe('the onboarding reducers persist what they set', () => {
       noteImportedSessions(['a', 'b']),
       { importedSessionIds: ['a', 'b'] },
     ],
+    [
+      'noteImportedBookmarkFolders',
+      noteImportedBookmarkFolders(['1', 'kitchen']),
+      { importedBookmarkFolderIds: ['1', 'kitchen'] },
+    ],
     ['setDefaultView', setDefaultView('full'), { defaultView: 'full' }],
   ] as const)('%s sets and saves', (_name, action, expected) => {
     expect(reduce([action])).toMatchObject(expected);
@@ -281,6 +289,25 @@ describe('the onboarding reducers persist what they set', () => {
       settingsDataStateSlice.reducer(once, noteImportedSessions(['c']))
         .importedSessionIds
     ).toEqual(['a', 'b', 'c']);
+  });
+
+  // KAN-862 (11-16). Permanent per device: a folder's record stays whatever happens to its session.
+  it('noteImportedBookmarkFolders skips ids it has and writes nothing for them', () => {
+    const once = reduce([noteImportedBookmarkFolders(['1', 'kitchen'])]);
+    const setItem = vi.spyOn(localStorage, 'setItem');
+    setItem.mockClear();
+    const again = settingsDataStateSlice.reducer(
+      once,
+      noteImportedBookmarkFolders(['kitchen'])
+    );
+    expect(setItem).not.toHaveBeenCalled();
+    expect(again.importedBookmarkFolderIds).toEqual(['1', 'kitchen']);
+    expect(
+      settingsDataStateSlice.reducer(
+        once,
+        noteImportedBookmarkFolders(['work'])
+      ).importedBookmarkFolderIds
+    ).toEqual(['1', 'kitchen', 'work']);
   });
 
   // KAN-862 R14. Only imports: the first-save pop is still to come. Any other session held ends that.

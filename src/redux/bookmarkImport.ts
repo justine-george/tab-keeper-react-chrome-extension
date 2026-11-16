@@ -5,12 +5,14 @@ import { showToast } from './slices/globalStateSlice';
 import {
   cloudSyncAllowed,
   markHadImportedSession,
+  noteImportedBookmarkFolders,
   noteImportedSessions,
 } from './slices/settingsDataStateSlice';
 import {
   saveImportedSessionsInternal,
   type tabContainerData,
 } from './slices/tabContainerDataStateSlice';
+import type { FolderSession } from '../utils/functions/bookmarkImport';
 import { syncBytes } from '../utils/functions/cloudDocument';
 import {
   bytesToMB,
@@ -23,13 +25,16 @@ type ImportThunk = ThunkAction<void, RootState, unknown, UnknownAction>;
 
 // KAN-862. Sessions land as a save's do (ids, times, dirty flag, sync push) but are no save: no review
 // moment, first-save pop or shutter, which saveToTabContainer adds. The first ends on top and selected.
+// The folders they came from are recorded, so none is imported twice (11-16).
 export const importBookmarkSessions =
-  (sessions: tabContainerData[]): ImportThunk =>
+  (made: readonly FolderSession[]): ImportThunk =>
   (dispatch) => {
-    if (sessions.length === 0) return;
+    if (made.length === 0) return;
+    const sessions = made.map((m) => m.session);
     dispatch(saveImportedSessionsInternal(sessions));
     dispatch(markHadImportedSession());
     dispatch(noteImportedSessions(sessions.map((s) => s.tabGroupId)));
+    dispatch(noteImportedBookmarkFolders(made.map((m) => m.folderId)));
     void dispatch(
       showToast({
         toastText: BOOKMARKS_IMPORTED_FRAME,
@@ -59,3 +64,7 @@ export async function importSizeRefusal(
 
 export const selectImportedSessionIds = (state: RootState): readonly string[] =>
   state.settingsDataState.importedSessionIds;
+
+export const selectImportedBookmarkFolderIds = (
+  state: RootState
+): readonly string[] => state.settingsDataState.importedBookmarkFolderIds;

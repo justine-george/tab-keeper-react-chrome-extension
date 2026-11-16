@@ -19,6 +19,7 @@ import type { tabContainerData } from '../../redux/slices/tabContainerDataStateS
 import {
   importBookmarkSessions,
   importSizeRefusal,
+  selectImportedBookmarkFolderIds,
 } from '../../redux/bookmarkImport';
 import { endBookmarkImport } from '../../redux/startBookmarkImport';
 import {
@@ -26,6 +27,7 @@ import {
   sessionsFor,
   topFolders,
   type BookmarkFolder,
+  type FolderSession,
 } from '../../utils/functions/bookmarkImport';
 import {
   formatActionOnItem,
@@ -316,6 +318,8 @@ export const ImportBookmarksDialog: React.FC = () => {
   const dispatch: AppDispatch = useDispatch();
   const store = useStore<RootState>();
   const skipDuplicates = useSelector(selectSkipsDuplicateTabs);
+  const importedIds = useSelector(selectImportedBookmarkFolderIds);
+  const imported = useMemo(() => new Set(importedIds), [importedIds]);
 
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [root, setRoot] = useState<BookmarkNode | null>(null);
@@ -377,8 +381,8 @@ export const ImportBookmarksDialog: React.FC = () => {
   const ownOrigin = useMemo(() => chrome.runtime.getURL(''), []);
   const untitled = t('Untitled folder');
   const folders = useMemo(
-    () => (root === null ? [] : folderTree(root, ownOrigin)),
-    [root, ownOrigin]
+    () => (root === null ? [] : folderTree(root, ownOrigin, imported)),
+    [root, ownOrigin, imported]
   );
   const foldersById = useMemo(() => {
     const byId = new Map<string, BookmarkFolder>();
@@ -387,7 +391,7 @@ export const ImportBookmarksDialog: React.FC = () => {
   }, [folders]);
 
   const build = useCallback(
-    (from: BookmarkNode, ticks: ReadonlySet<string>): tabContainerData[] =>
+    (from: BookmarkNode, ticks: ReadonlySet<string>): FolderSession[] =>
       ticks.size === 0
         ? []
         : sessionsFor(from, ticks, {
@@ -395,11 +399,13 @@ export const ImportBookmarksDialog: React.FC = () => {
             ownOrigin,
             untitled,
             skipDuplicates,
+            imported,
           }),
-    [ownOrigin, untitled, skipDuplicates]
+    [ownOrigin, untitled, skipDuplicates, imported]
   );
   const sessions = useMemo(
-    () => (root === null ? [] : build(root, ticked)),
+    () =>
+      root === null ? [] : build(root, ticked).map((made) => made.session),
     [root, ticked, build]
   );
   const rows = useMemo(
@@ -477,7 +483,7 @@ export const ImportBookmarksDialog: React.FC = () => {
       setIsImporting(false);
       return;
     }
-    const refused = await measure(made);
+    const refused = await measure(made.map((m) => m.session));
     // Closed while it read and measured (Esc, ✕, Cancel): that close was the answer.
     if (hasEnded.current) return;
     if (refused !== null) {
