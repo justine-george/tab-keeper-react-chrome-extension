@@ -25,6 +25,7 @@ import { firstOpenDialogs } from './redux/firstOpenDialogs';
 import { offerTabGroupsOnReturn } from './redux/tabGroupsOfferOnReturn';
 import { takeShowFromAddress } from './utils/functions/fullViewShow';
 import { fullViewShowEntry } from './redux/fullViewShow';
+import { releaseStrandedBookmarksPermission } from './redux/startBookmarkImport';
 import { openFirstDialog } from './utils/functions/dialogQueue';
 import { storedSessionCount } from './utils/functions/storedSessions';
 import {
@@ -127,6 +128,8 @@ function App() {
     });
     // KAN-7 §6. The full view mounting is what "opened the full view" means.
     if (isTabView()) dispatch(markFullViewOpened());
+    // KAN-862. Never from the popup: it would take the grant from an open full view's dialog.
+    if (isTabView()) void dispatch(releaseStrandedBookmarksPermission());
     // KAN-149. Stamped on every open that lacks one; the time ask needs it.
     if (!isValidDate(storedAtOpen.extensionInstalledTime ?? '')) {
       dispatch(setExtensionInstalledTime());

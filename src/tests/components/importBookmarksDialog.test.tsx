@@ -20,6 +20,8 @@ import { importSizeRefusal } from '../../redux/bookmarkImport';
 import type { RootState } from '../../redux/store';
 import { toastTexts } from '../setup/toasts';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
+import { testI18n } from '../setup/i18nForTests';
+import fr from '../../../public/locales/fr/translation.json';
 
 // KAN-862. The import dialog: a folder tree to tick, a preview of the sessions it makes.
 
@@ -121,9 +123,11 @@ beforeEach(() => {
   vi.mocked(importSizeRefusal).mockReset();
   vi.mocked(importSizeRefusal).mockResolvedValue(null);
 });
-afterEach(() => {
+afterEach(async () => {
   history.replaceState(null, '', '?');
   vi.useRealTimers();
+  // The shared instance: a leaked locale would run later tests in it.
+  await testI18n.changeLanguage('en');
 });
 
 describe('the import dialog: layout', () => {
@@ -149,6 +153,22 @@ describe('the import dialog: layout', () => {
       await screen.findByRole('checkbox', { name: 'Old stuff' })
     ).toHaveAttribute('aria-disabled', 'true');
     expect(within(dialog()).getByText('0 Bookmarks')).toBeInTheDocument();
+  });
+
+  // French CLDR "one" covers 0: a hard-coded "1" there said "1 favori" for an empty folder.
+  test('in French, an empty folder reads "0 favori"', async () => {
+    await openDialog();
+    await screen.findByRole('checkbox', { name: 'Old stuff' });
+    testI18n.addResourceBundle('fr', 'translation', fr, true, true);
+    await act(async () => {
+      await testI18n.changeLanguage('fr');
+    });
+    const old = screen
+      .getByRole('checkbox', { name: 'Old stuff' })
+      .closest('[data-folder-row]');
+    expect(old?.querySelector('[data-row-tag]')).toHaveTextContent(
+      /^0 favori$/
+    );
   });
 
   test('nothing ticked: Import reads "Import", is dimmed, and the preview says what shows there', async () => {
@@ -422,6 +442,70 @@ describe('the import dialog: closing', () => {
 });
 
 describe('the import dialog: the sync size check', () => {
+  test('a refusal goes with an emptied selection: the next tick does not bring it back', async () => {
+    vi.mocked(importSizeRefusal).mockResolvedValue({ used: '1.2', limit: '1' });
+    await openDialog();
+    await screen.findByRole('checkbox', { name: 'Work' });
+    tick('Work');
+    await within(dialog()).findByText(/Too large to sync/);
+    vi.mocked(importSizeRefusal).mockResolvedValue(null);
+
+    tick('Work');
+    tick('Kitchen remodel');
+
+    // Before the next check answers: no old refusal standing for the new pick.
+    expect(within(dialog()).queryByText(/Too large to sync/)).toBeNull();
+  });
+
+  test('after a refusal at Import, later checks measure the tree Import read', async () => {
+    await openDialog();
+    await screen.findByRole('checkbox', { name: 'Work' });
+    tick('Kitchen remodel');
+    await waitFor(() => expect(importSizeRefusal).toHaveBeenCalledTimes(1));
+    getTree.mockResolvedValue(library({ kitchenOwn: 4 }));
+    vi.mocked(importSizeRefusal).mockResolvedValueOnce({
+      used: '1.2',
+      limit: '1',
+    });
+    await act(async () => {
+      fireEvent.click(importButton());
+    });
+    await within(dialog()).findByText(/Too large to sync/);
+    vi.mocked(importSizeRefusal).mockClear();
+
+    tick('Work');
+
+    await waitFor(() => expect(importSizeRefusal).toHaveBeenCalled());
+    const measured = vi.mocked(importSizeRefusal).mock.lastCall?.[1] ?? [];
+    expect(measured.map((s) => [s.title, s.tabCount])).toEqual([
+      ['Kitchen remodel', 15],
+      ['Work', 9],
+    ]);
+  });
+
+  test('a size that cannot be measured lets the import through, with a warning', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.mocked(importSizeRefusal).mockRejectedValue(new Error('no compressor'));
+    const { store } = await openDialog();
+    await screen.findByRole('checkbox', { name: 'Work' });
+    tick('Work');
+    await waitFor(() => expect(importSizeRefusal).toHaveBeenCalledTimes(1));
+    expect(importButton()).not.toHaveAttribute('aria-disabled');
+
+    await act(async () => {
+      fireEvent.click(importButton());
+    });
+
+    await waitFor(() =>
+      expect(sessionTitles(store.getState())).toEqual(['Work'])
+    );
+    expect(warn).toHaveBeenCalledWith(
+      'Could not measure the import for sync:',
+      expect.any(Error)
+    );
+    warn.mockRestore();
+  });
+
   test('a refused size dims Import and says why', async () => {
     vi.mocked(importSizeRefusal).mockResolvedValue({ used: '1.2', limit: '1' });
     await openDialog();

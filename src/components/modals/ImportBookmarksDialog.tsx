@@ -373,10 +373,15 @@ export const ImportBookmarksDialog: React.FC = () => {
     return () => clearTimeout(timer);
   }, [sessions, measure]);
 
-  // A refusal stands through the next check's wait; with nothing ticked there is nothing to refuse.
-  const standingRefusal = sessions.length === 0 ? null : refusal;
-  const canImport =
-    sessions.length > 0 && standingRefusal === null && !isImporting;
+  // A refusal stands through the next check's wait, but goes once nothing is ticked, so a new pick starts clear.
+  // Set during render, as React's "adjusting state when a prop changes" does.
+  const isEmpty = sessions.length === 0;
+  const [wasEmpty, setWasEmpty] = useState(isEmpty);
+  if (isEmpty !== wasEmpty) {
+    setWasEmpty(isEmpty);
+    if (isEmpty) setRefusal(null);
+  }
+  const canImport = !isEmpty && refusal === null && !isImporting;
 
   // KAN-862 Review Focus 2. Built from a fresh read: a folder deleted since the dialog opened adds nothing.
   const handleImport = async () => {
@@ -389,10 +394,11 @@ export const ImportBookmarksDialog: React.FC = () => {
       end(true);
       return;
     }
+    // The tree, and every later check, now go by what Import read.
+    setRoot(fresh);
     const made = build(fresh, ticked);
     if (made.length === 0) {
-      // Everything ticked is gone: show the library as it is now.
-      setRoot(fresh);
+      // Everything ticked is gone: the tree shows the library as it is now.
       setIsImporting(false);
       return;
     }
@@ -655,9 +661,9 @@ export const ImportBookmarksDialog: React.FC = () => {
         >
           {t('Cancel')}
         </button>
-        {standingRefusal !== null && (
+        {refusal !== null && (
           <p css={refusalStyle} role="status">
-            {t('ImportTooLarge', standingRefusal)}
+            {t('ImportTooLarge', refusal)}
           </p>
         )}
         <button
