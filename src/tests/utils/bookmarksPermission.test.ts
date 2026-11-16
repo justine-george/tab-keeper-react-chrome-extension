@@ -9,7 +9,6 @@ import {
 } from 'vitest';
 
 import {
-  hasBookmarksPermission,
   removeBookmarksPermission,
   requestBookmarksPermission,
 } from '../../utils/functions/permissions';
@@ -21,15 +20,13 @@ describe('bookmarks permission', () => {
   // chrome.permissions' overloads (callback or promise) make vi.mocked pick
   // the callback form, so the promise form is typed here instead.
   type Call = (p: chrome.permissions.Permissions) => Promise<boolean>;
-  let contains: Mock<Call>;
   let request: Mock<Call>;
   let remove: Mock<Call>;
 
   beforeEach(() => {
-    contains = vi.fn<Call>();
     request = vi.fn<Call>();
     remove = vi.fn<Call>();
-    vi.stubGlobal('chrome', { permissions: { contains, request, remove } });
+    vi.stubGlobal('chrome', { permissions: { request, remove } });
   });
 
   afterEach(() => {
@@ -75,22 +72,8 @@ describe('bookmarks permission', () => {
     await expect(removeBookmarksPermission()).resolves.toBeUndefined();
   });
 
-  it('has reflects contains', async () => {
-    contains.mockResolvedValue(true);
-    await expect(hasBookmarksPermission()).resolves.toBe(true);
-    expect(contains).toHaveBeenCalledWith({
-      permissions: ['bookmarks'],
-    });
-  });
-
-  it('has is false when contains rejects', async () => {
-    contains.mockRejectedValue(new Error('x'));
-    await expect(hasBookmarksPermission()).resolves.toBe(false);
-  });
-
-  it('has is false when chrome.permissions is undefined', async () => {
+  it('request is false and remove a no-op when chrome.permissions is undefined', async () => {
     vi.stubGlobal('chrome', {});
-    await expect(hasBookmarksPermission()).resolves.toBe(false);
     await expect(requestBookmarksPermission()).resolves.toBe(false);
     await expect(removeBookmarksPermission()).resolves.toBeUndefined();
   });

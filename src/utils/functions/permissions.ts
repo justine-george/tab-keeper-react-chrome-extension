@@ -130,18 +130,9 @@ export function askForSessionsPermission(): Promise<boolean> {
 // KAN-862. Optional for the same reason as tabGroups: "bookmarks" is
 // warning-bearing ("Read and change your bookmarks"), so declaring it
 // required would disable the extension on update until each user accepted.
-// Asked for by the import dialog, which runs in the full view; the popup does
-// not survive the prompt (see requestTabGroupsPermission).
-export async function hasBookmarksPermission(): Promise<boolean> {
-  if (typeof chrome === 'undefined' || !chrome.permissions) return false;
-  try {
-    return await chrome.permissions.contains(BOOKMARKS);
-  } catch {
-    return false;
-  }
-}
-
-// Full view only. Resolves to the grant; false on a refusal or any error.
+// Asked for on a press of Import from bookmarks in the full view; the popup
+// does not survive the prompt (see requestTabGroupsPermission). Resolves to
+// the grant; false on a refusal or any error.
 export async function requestBookmarksPermission(): Promise<boolean> {
   if (typeof chrome === 'undefined' || !chrome.permissions) return false;
   try {
