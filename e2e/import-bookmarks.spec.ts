@@ -191,8 +191,8 @@ test.describe('Import from bookmarks in Settings (KAN-862)', () => {
       .toEqual([bar, 'Beta research', 'Gamma untouched', 'Alpha trip']);
   });
 
-  // KAN-862 R19, R20, R22. With everything imported the tree says so; a link added to the bar later brings the bar back.
-  test('full view: Select all imports everything; then the tree says so, and a link added to the bar later is importable', async ({
+  // KAN-862 R20, R22, R23. With everything imported a press only toasts; a link added to the bar later brings the bar back.
+  test('full view: Select all imports everything; a press then opens no dialog and a toast says so; a link added to the bar later is importable', async ({
     context,
     extensionId,
     serviceWorker,
@@ -212,16 +212,13 @@ test.describe('Import from bookmarks in Settings (KAN-862)', () => {
     await dialog.getByRole('button', { name: 'Import 4 sessions' }).click();
     await expect(dialog).toBeHidden();
 
+    // R23: nothing left, so the press opens no dialog; a toast says so, and focus stays on the button.
     await importButton.click();
     await expect(
-      dialog.getByText('Everything in your bookmarks is already imported.')
+      page.getByText('Everything in your bookmarks is already imported.')
     ).toBeVisible();
-    await expect(dialog.getByRole('checkbox')).toHaveCount(0);
-    await expect(
-      dialog.getByRole('button', { name: 'Select all' })
-    ).toHaveCount(0);
-    await dialog.getByRole('button', { name: 'Cancel' }).click();
-    await expect(dialog).toBeHidden();
+    await expect(dialog).toHaveCount(0);
+    await expect(importButton).toBeFocused();
 
     await serviceWorker.evaluate(async () => {
       const [root] = await chrome.bookmarks.getTree();
