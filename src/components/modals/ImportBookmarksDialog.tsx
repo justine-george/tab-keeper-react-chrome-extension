@@ -143,6 +143,7 @@ const FolderRow = React.memo(function FolderRow({
   const name = folder.title || untitled;
   const isEmpty = folder.count === 0;
   const hasChildren = folder.children.length > 0;
+  const isLocked = isEmpty || tick === 'included';
   const foldAction = isOpen ? t('Collapse') : t('Expand');
 
   const rowCss = css`
@@ -153,6 +154,15 @@ const FolderRow = React.memo(function FolderRow({
     padding: 0 8px 0 ${4 + depth * 28}px;
     ${corners(RADIUS.CONTROL)}
     background-color: ${tick === 'on' ? COLORS.SELECTION_COLOR : 'transparent'};
+  `;
+  const pickCss = css`
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    align-self: stretch;
+    cursor: ${isLocked ? 'default' : 'pointer'};
   `;
   const nameBlockCss = css`
     display: flex;
@@ -204,21 +214,27 @@ const FolderRow = React.memo(function FolderRow({
         label={name}
         onToggle={() => onTick(folder.id)}
       />
-      <Icon
-        type={isOpen ? 'folder_open' : 'folder'}
-        style={NON_INTERACTIVE_ICON_STYLE}
-      />
-      <span css={nameBlockCss}>
-        <span css={nameCss}>{name}</span>
-        {folder.where !== undefined && (
-          <span css={noteCss}>
-            {folder.where === 'account'
-              ? t('In your Google Account')
-              : t('Only on this device')}
-          </span>
-        )}
+      {/* A click past the box ticks too, as on a <label>; the keyboard has the box. */}
+      <span
+        css={pickCss}
+        onClick={isLocked ? undefined : () => onTick(folder.id)}
+      >
+        <Icon
+          type={isOpen ? 'folder_open' : 'folder'}
+          style={NON_INTERACTIVE_ICON_STYLE}
+        />
+        <span css={nameBlockCss}>
+          <span css={nameCss}>{name}</span>
+          {folder.where !== undefined && (
+            <span css={noteCss}>
+              {folder.where === 'account'
+                ? t('In your Google Account')
+                : t('Only on this device')}
+            </span>
+          )}
+        </span>
+        <RowTag value={t('BookmarkCount', { count: folder.count })} />
       </span>
-      <RowTag value={t('BookmarkCount', { count: folder.count })} />
     </div>
   );
 });

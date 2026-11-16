@@ -260,6 +260,46 @@ describe('the import dialog: ticking', () => {
     expect(importButton()).toHaveTextContent(/^Import$/);
   });
 
+  // A click on the name ticks, as a <label> would; the box alone was an 18px target.
+  const nameOf = (name: string) => {
+    const row = box(name).closest('[data-folder-row]');
+    if (!(row instanceof HTMLElement)) throw new Error(`no row for ${name}`);
+    return within(row).getByText(name);
+  };
+
+  test('a click on a folder name ticks it, and again unticks it', async () => {
+    await openDialog();
+    await screen.findByRole('checkbox', { name: 'Work' });
+    fireEvent.click(nameOf('Work'));
+    expect(box('Work')).toHaveAttribute('aria-checked', 'true');
+    expect(importButton()).toHaveTextContent('Import 1 session');
+    fireEvent.click(nameOf('Work'));
+    expect(box('Work')).toHaveAttribute('aria-checked', 'false');
+  });
+
+  test('a click on the name of a covered or an empty folder changes nothing', async () => {
+    await openDialog();
+    await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
+    unfold('Kitchen remodel');
+    tick('Kitchen remodel');
+    fireEvent.click(nameOf('Tiles'));
+    expect(box('Tiles')).toHaveAttribute('aria-checked', 'true');
+    expect(box('Kitchen remodel')).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(nameOf('Old stuff'));
+    expect(box('Old stuff')).toHaveAttribute('aria-checked', 'false');
+    expect(importButton()).toHaveTextContent('Import 1 session');
+  });
+
+  test('a click on the box ticks once; a click on the chevron only folds', async () => {
+    await openDialog();
+    await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
+    tick('Kitchen remodel');
+    expect(box('Kitchen remodel')).toHaveAttribute('aria-checked', 'true');
+    unfold('Kitchen remodel');
+    expect(box('Tiles')).toBeInTheDocument();
+    expect(box('Kitchen remodel')).toHaveAttribute('aria-checked', 'true');
+  });
+
   test('← folds and → unfolds the focused row', async () => {
     await openDialog();
     const kitchen = await screen.findByRole('checkbox', {
