@@ -499,6 +499,7 @@
   "ImportBookmarksLead": "勾选要导入的文件夹。每个文件夹会成为一个会话，其中的文件夹会成为它的窗口。",
   "ImportSessions_other": "导入 {{count}} 个会话",
   "Import": "导入",
+  "ImportBookmarksHelp": "将 Chrome 书签文件夹转换为已保存的会话。您的书签保持不变。",
   "ImportPreviewEmpty": "导入后生成的会话会显示在这里。",
   "BookmarkCount_other": "{{count}} 个书签",
   "In your Google Account": "在您的 Google 账号中",

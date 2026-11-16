@@ -40,6 +40,7 @@ import {
 } from '../../../utils/constants/common';
 import { SettingsCategoryContainer } from '../leftpane/SettingsCategoryContainer';
 import { loadBackupFile, saveBackupFile } from '../../../redux/backupFile';
+import { startBookmarkImport } from '../../../redux/startBookmarkImport';
 import { requestTabView } from '../../../utils/functions/popOut';
 import { isTabView } from '../../../utils/functions/viewMode';
 import {
@@ -91,6 +92,7 @@ const SettingsDetailsContainer: React.FC = () => {
   const openSavedWindowsHelpId = useId();
   const autoSyncHelpId = useId();
   const backupHelpId = useId();
+  const importHelpId = useId();
   const cloudDataHelpId = useId();
   const saveTabGroupsHelpId = useId();
   const skipDuplicateTabsHelpId = useId();
@@ -484,6 +486,50 @@ const SettingsDetailsContainer: React.FC = () => {
             {t(
               'Saves your sessions to a file. Settings aren’t included. Loading a backup asks whether to merge it with your sessions or replace them.'
             )}
+          </p>
+        </div>
+
+        {/* Import. KAN-862: bookmark folders become saved sessions. The thunk
+            asks for the permission (or hands the popup's press to the full
+            view), so the button just starts it. */}
+        <div
+          data-settings-section
+          css={css`
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            ${sectionInsetCss()}
+            width: 100%;
+            margin-top: 32px;
+          `}
+        >
+          <div
+            css={css`
+              display: flex;
+              align-items: flex-start;
+              width: 100%;
+            `}
+          >
+            <NormalLabel
+              value={t('Import')}
+              size={TYPE.BODY}
+              color={COLORS.LABEL_L1_COLOR}
+            />
+          </div>
+          <div
+            css={css`
+              margin-top: 8px;
+            `}
+          >
+            <Button
+              text={t('Import from bookmarks')}
+              iconType="bookmarks"
+              onClick={() => void dispatch(startBookmarkImport())}
+              ariaDescribedBy={importHelpId}
+            />
+          </div>
+          <p id={importHelpId} css={helpLineStyle}>
+            {t('ImportBookmarksHelp')}
           </p>
         </div>
 

@@ -518,6 +518,7 @@
   "ImportSessions_one": "Importera {{count}} session",
   "ImportSessions_other": "Importera {{count}} sessioner",
   "Import": "Importera",
+  "ImportBookmarksHelp": "Gör Chrome-bokmärkesmappar till sparade sessioner. Dina bokmärken förblir som de är.",
   "ImportPreviewEmpty": "Sessionerna som importen skapar visas här.",
   "BookmarkCount_one": "{{count}} bokmärke",
   "BookmarkCount_other": "{{count}} bokmärken",

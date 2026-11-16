@@ -537,6 +537,7 @@
   "ImportSessions_many": "Importa {{count}} sessioni",
   "ImportSessions_other": "Importa {{count}} sessioni",
   "Import": "Importa",
+  "ImportBookmarksHelp": "Trasforma le cartelle dei segnalibri di Chrome in sessioni salvate. I tuoi segnalibri restano come sono.",
   "ImportPreviewEmpty": "Qui compaiono le sessioni create dall’importazione.",
   "BookmarkCount_one": "{{count}} segnalibro",
   "BookmarkCount_many": "{{count}} segnalibri",

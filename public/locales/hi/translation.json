@@ -518,6 +518,7 @@
   "ImportSessions_one": "{{count}} सेशन इंपोर्ट करें",
   "ImportSessions_other": "{{count}} सेशन इंपोर्ट करें",
   "Import": "इंपोर्ट करें",
+  "ImportBookmarksHelp": "Chrome बुकमार्क फ़ोल्डर को सहेजे गए सेशन में बदलता है। आपके बुकमार्क जैसे हैं वैसे ही रहते हैं।",
   "ImportPreviewEmpty": "आपके इंपोर्ट से बनने वाले सेशन यहाँ दिखेंगे।",
   "BookmarkCount_one": "{{count}} बुकमार्क",
   "BookmarkCount_other": "{{count}} बुकमार्क",

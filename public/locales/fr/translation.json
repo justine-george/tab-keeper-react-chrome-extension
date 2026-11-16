@@ -537,6 +537,7 @@
   "ImportSessions_many": "Importer {{count}} sessions",
   "ImportSessions_other": "Importer {{count}} sessions",
   "Import": "Importer",
+  "ImportBookmarksHelp": "Transforme des dossiers de favoris Chrome en sessions enregistrées. Vos favoris restent tels quels.",
   "ImportPreviewEmpty": "Les sessions créées par votre import s’affichent ici.",
   "BookmarkCount_one": "{{count}} favori",
   "BookmarkCount_many": "{{count}} favoris",

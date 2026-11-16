@@ -23,6 +23,8 @@ const AUTO_SYNC_HELP =
   'Syncs your sessions across your Chrome devices. Settings stay separate on each device.';
 const BACKUP_HELP =
   'Saves your sessions to a file. Settings aren’t included. Loading a backup asks whether to merge it with your sessions or replace them.';
+const IMPORT_HELP =
+  'Turns Chrome bookmark folders into saved sessions. Your bookmarks stay as they are.';
 const CLOUD_DATA_HELP =
   'Removes your sessions from the cloud and turns Auto sync off. Your sessions stay on this device and on your other devices.';
 const SAVE_TAB_GROUPS_HELP =
@@ -45,6 +47,11 @@ describe('settings help lines (KAN-860)', () => {
       );
     }
 
+    // KAN-862.
+    expect(
+      screen.getByRole('button', { name: 'Import from bookmarks' })
+    ).toHaveAccessibleDescription(IMPORT_HELP);
+
     expect(
       screen.getByRole('button', { name: 'Delete cloud data' })
     ).toHaveAccessibleDescription(CLOUD_DATA_HELP);
@@ -63,6 +70,11 @@ describe('settings help lines (KAN-860)', () => {
     expect(
       within(sectionOf(BACKUP_HELP)).getByRole('button', {
         name: 'Load sessions from a backup',
+      })
+    ).toBeTruthy();
+    expect(
+      within(sectionOf(IMPORT_HELP)).getByRole('button', {
+        name: 'Import from bookmarks',
       })
     ).toBeTruthy();
     expect(

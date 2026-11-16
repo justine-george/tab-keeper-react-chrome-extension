@@ -518,6 +518,7 @@
   "ImportSessions_one": "Import {{count}} session",
   "ImportSessions_other": "Import {{count}} sessions",
   "Import": "Import",
+  "ImportBookmarksHelp": "Turns Chrome bookmark folders into saved sessions. Your bookmarks stay as they are.",
   "ImportPreviewEmpty": "The sessions your import makes show here.",
   "BookmarkCount_one": "{{count}} Bookmark",
   "BookmarkCount_other": "{{count}} Bookmarks",

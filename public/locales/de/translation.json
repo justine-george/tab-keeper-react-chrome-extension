@@ -518,6 +518,7 @@
   "ImportSessions_one": "{{count}} Sitzung importieren",
   "ImportSessions_other": "{{count}} Sitzungen importieren",
   "Import": "Importieren",
+  "ImportBookmarksHelp": "Macht aus Chrome-Lesezeichenordnern gespeicherte Sitzungen. Ihre Lesezeichen bleiben unverändert.",
   "ImportPreviewEmpty": "Hier erscheinen die Sitzungen, die Ihr Import anlegt.",
   "BookmarkCount_one": "{{count}} Lesezeichen",
   "BookmarkCount_other": "{{count}} Lesezeichen",

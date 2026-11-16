@@ -537,6 +537,7 @@
   "ImportSessions_many": "Importar {{count}} sessões",
   "ImportSessions_other": "Importar {{count}} sessões",
   "Import": "Importar",
+  "ImportBookmarksHelp": "Transforma pastas de favoritos do Chrome em sessões salvas. Seus favoritos permanecem como estão.",
   "ImportPreviewEmpty": "As sessões criadas pela importação aparecem aqui.",
   "BookmarkCount_one": "{{count}} favorito",
   "BookmarkCount_many": "{{count}} favoritos",

@@ -537,6 +537,7 @@
   "ImportSessions_many": "Importar {{count}} sesiones",
   "ImportSessions_other": "Importar {{count}} sesiones",
   "Import": "Importar",
+  "ImportBookmarksHelp": "Convierte carpetas de marcadores de Chrome en sesiones guardadas. Tus marcadores se quedan como están.",
   "ImportPreviewEmpty": "Aquí aparecerán las sesiones que cree tu importación.",
   "BookmarkCount_one": "{{count}} marcador",
   "BookmarkCount_many": "{{count}} marcadores",

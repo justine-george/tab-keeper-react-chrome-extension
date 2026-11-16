@@ -68,6 +68,20 @@ describe('the settings rail names what each pane holds (KAN-253)', () => {
     expect(screen.queryByRole('group', { name: 'Save tab groups' })).toBeNull();
   });
 
+  // KAN-862.
+  test('Sync & Backup orders Backup, then Import, then Cloud data', async () => {
+    await renderOn(SettingsCategory.SYNC);
+    const order = ['Backup', 'Import', 'Cloud data'].map((label) =>
+      screen.getByText(label, { selector: 'span, p, div, label' })
+    );
+    for (let i = 0; i < order.length - 1; i++) {
+      expect(
+        order[i].compareDocumentPosition(order[i + 1]) &
+          Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy();
+    }
+  });
+
   // KAN-652. Sessions held six settings, three of them about how Tab Keeper
   // itself opens, which nobody looks for under "Sessions".
   test('Sessions holds what a save does and what a copy pastes; Quick access holds how Tab Keeper opens', async () => {
@@ -103,7 +117,7 @@ describe('sections within a pane sit 32px apart, as About blocks do', () => {
     const margins = [
       ...container.querySelectorAll<HTMLElement>('[data-settings-section]'),
     ].map((el) => getComputedStyle(el).marginTop);
-    expect(margins).toEqual(['20px', '32px', '32px', '32px']);
+    expect(margins).toEqual(['20px', '32px', '32px', '32px', '32px']);
   });
 
   test('Sessions: first at 20px, every later row at 32px', async () => {

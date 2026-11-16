@@ -499,6 +499,7 @@
   "ImportBookmarksLead": "インポートするフォルダにチェックを入れてください。各フォルダが 1 つのセッションになり、その中のフォルダがウィンドウになります。",
   "ImportSessions_other": "{{count}} 件のセッションをインポート",
   "Import": "インポート",
+  "ImportBookmarksHelp": "Chrome のブックマークフォルダを保存済みセッションに変換します。ブックマークはそのまま残ります。",
   "ImportPreviewEmpty": "インポートで作成されるセッションがここに表示されます。",
   "BookmarkCount_other": "{{count}} 件のブックマーク",
   "In your Google Account": "Google アカウント内",
