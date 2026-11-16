@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'vitest';
-import { screen } from '@testing-library/react';
+import { afterEach, describe, expect, test } from 'vitest';
+import { act, screen } from '@testing-library/react';
 
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -9,6 +9,8 @@ import {
   SettingsCategory,
 } from '../../redux/slices/settingsCategoryStateSlice';
 import en from '../../../public/locales/en/translation.json';
+import de from '../../../public/locales/de/translation.json';
+import { testI18n } from '../setup/i18nForTests';
 
 // KAN-253. Two of the five categories did not name their contents: "Sync &
 // Privacy" held no privacy setting, and "Data Management" was a bucket for
@@ -28,6 +30,11 @@ const renderOn = (category: SettingsCategory) =>
       store.dispatch(selectCategory(category));
     },
   });
+
+// The shared instance: a leaked locale would run later tests in it.
+afterEach(async () => {
+  if (testI18n.isInitialized) await testI18n.changeLanguage('en');
+});
 
 describe('the settings rail names what each pane holds (KAN-253)', () => {
   test('the eight categories, in order, and none of the old names', () => {
@@ -76,6 +83,17 @@ describe('the settings rail names what each pane holds (KAN-253)', () => {
       'Import',
       'Cloud data',
     ]);
+  });
+
+  // KAN-862. The section is named with a noun; the dialog's button keeps the verb (Importieren).
+  test('in German the Import section reads "Import", not the verb', async () => {
+    const { container } = await renderOn(SettingsCategory.SYNC);
+    testI18n.addResourceBundle('de', 'translation', de, true, true);
+    await act(async () => {
+      await testI18n.changeLanguage('de');
+    });
+    expect(sectionLabels(container)).toContain('Import');
+    expect(sectionLabels(container)).not.toContain('Importieren');
   });
 
   // KAN-652. Sessions held six settings, three of them about how Tab Keeper

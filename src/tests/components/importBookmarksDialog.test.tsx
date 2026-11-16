@@ -22,6 +22,7 @@ import { toastTexts } from '../setup/toasts';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { testI18n } from '../setup/i18nForTests';
 import fr from '../../../public/locales/fr/translation.json';
+import de from '../../../public/locales/de/translation.json';
 
 // KAN-862. The import dialog: a folder tree to tick, a preview of the sessions it makes.
 
@@ -179,6 +180,20 @@ describe('the import dialog: layout', () => {
     expect(
       within(preview()).getByText('The sessions your import makes show here.')
     ).toBeInTheDocument();
+  });
+
+  // KAN-862. The button keeps the verb; Settings' section of the same name is a noun (settingsRail.test).
+  test('in German, Import with nothing ticked reads "Importieren"', async () => {
+    await openDialog();
+    await screen.findByRole('checkbox', { name: 'Work' });
+    testI18n.addResourceBundle('de', 'translation', de, true, true);
+    await act(async () => {
+      await testI18n.changeLanguage('de');
+    });
+    expect(screen.getByRole('button', { name: 'Importieren' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
   });
 
   test('below 720px wide the panes stack, the tree first', async () => {

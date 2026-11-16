@@ -696,7 +696,7 @@ export const ImportBookmarksDialog: React.FC = () => {
           onClick={() => void handleImport()}
         >
           {sessions.length === 0
-            ? t('Import')
+            ? t('ImportButton')
             : t('ImportSessions', { count: sessions.length })}
         </button>
       </div>

@@ -530,7 +530,7 @@ const SettingsDetailsContainer: React.FC = () => {
             `}
           >
             <NormalLabel
-              value={t('Import')}
+              value={t('ImportSectionLabel')}
               size={TYPE.BODY}
               color={COLORS.LABEL_L1_COLOR}
             />
