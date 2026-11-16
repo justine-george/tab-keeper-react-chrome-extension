@@ -31,7 +31,7 @@ const SAVE_TAB_GROUPS_HELP =
   'Saved sessions keep each tab group’s name and color, and the groups come back when you reopen the session.';
 
 describe('settings help lines (KAN-860)', () => {
-  test('Sync & Backup: Auto sync, Backup and Cloud data each describe their controls; Import its button', async () => {
+  test('Sync & Backup: Auto sync, Backup and Cloud data each describe their controls', async () => {
     await renderOn(SettingsCategory.SYNC);
 
     const autoSync = screen.getByRole('group', { name: 'Auto sync' });

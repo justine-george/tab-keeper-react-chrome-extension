@@ -8,8 +8,8 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { corners } from '../../styles/corners';
 import { ICON, RADIUS, TYPE } from '../../styles/scale';
 
-// A toggle button with a drawing above its name and a caption: the default view cards (KAN-7 §5, KAN-749) and
-// setup's import sources (KAN-862). Pressed, its label strip fills and carries a ✓ (D2).
+// A toggle button with a drawing above its name and a caption: the default view cards (KAN-7 §5, KAN-749).
+// Pressed, its label strip fills and carries a ✓ (D2).
 export function PictureCard({
   isPressed,
   label,

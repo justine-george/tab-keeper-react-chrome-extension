@@ -101,7 +101,10 @@ describe('the settings rail names what each pane holds (KAN-253)', () => {
     await act(async () => {
       await testI18n.changeLanguage('de');
     });
-    expect(testI18n.t(SettingsCategory.IMPORT)).toBe('Import');
+    // From de's own file: the fallback is the key, which reads Import too.
+    expect(
+      testI18n.getResource('de', 'translation', SettingsCategory.IMPORT)
+    ).toBe('Import');
     expect(sectionLabels(container)).toEqual(['Lesezeichen']);
   });
 
