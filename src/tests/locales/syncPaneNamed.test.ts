@@ -39,7 +39,7 @@ const SENTENCES = [
   'EnableSyncFine',
   'EnableSyncOnceFine',
   // KAN-862. Setup's import step.
-  'You can import any time from Settings › Sync & backup.',
+  'You can also import from Settings › Sync & backup.',
 ];
 
 describe('sentences that send the user to Sync & backup use its label (KAN-651)', () => {

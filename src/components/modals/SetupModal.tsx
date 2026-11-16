@@ -6,7 +6,7 @@ import { css } from '@emotion/react';
 import Icon from '../common/Icon';
 import ProgressLine from '../common/ProgressLine';
 import DefaultViewCards from '../common/DefaultViewCards';
-import ImportSourceCards from '../common/ImportSourceCards';
+import BookmarksImportSource from '../common/BookmarksImportSource';
 import SlidingPair from '../common/SlidingPair';
 import { SETTINGS_PAIR_METRICS } from '../common/slidingPairMetrics';
 import TabKeeperMark from '../common/TabKeeperMark';
@@ -88,7 +88,7 @@ export const SetupModal: React.FC = () => {
     (s: RootState) => s.globalState.hasTabGroupsPermission
   );
   const importedCount = useSelector(selectImportedSessionIds).length;
-  // KAN-862. The import card shows what came in while setup was open, not before.
+  // KAN-862. The import step shows what came in while setup was open, not before.
   const [importedAtOpen] = useState(importedCount);
   const popupShortcut = usePopupShortcut();
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -431,9 +431,11 @@ export const SetupModal: React.FC = () => {
       heading: t('Already keep tabs somewhere?'),
       body: (
         <>
-          <ImportSourceCards importedInSetup={importedCount - importedAtOpen} />
+          <BookmarksImportSource
+            importedInSetup={importedCount - importedAtOpen}
+          />
           <p css={fineStyle}>
-            {t('You can import any time from Settings › Sync & backup.')}
+            {t('You can also import from Settings › Sync & backup.')}
           </p>
         </>
       ),

@@ -1,4 +1,4 @@
-import type { Page, Worker } from '@playwright/test';
+import type { Locator, Page, Worker } from '@playwright/test';
 
 import { expect, grantedTest as test } from './fixtures/grantedExtension';
 import { FULL_VIEW_PATH, openFullView, openPopup } from './fixtures/onboarding';
@@ -310,6 +310,13 @@ async function onImportStep(page: Page): Promise<void> {
   );
 }
 
+const LINE =
+  'Turn bookmark folders into saved sessions. Your bookmarks stay as they are.';
+const SMALL_PRINT = 'You can also import from Settings › Sync & backup.';
+// Setup's button shares its words with Settings' button and the import dialog's title.
+const importButtonIn = (setup: Locator, name = 'Import from bookmarks') =>
+  setup.getByRole('button', { name, exact: true });
+
 test.describe('Import from bookmarks in setup (KAN-862)', () => {
   test.beforeEach(async ({ context, serviceWorker }) => {
     await stubToolbarPin(context, { pinned: true });
@@ -317,33 +324,36 @@ test.describe('Import from bookmarks in setup (KAN-862)', () => {
     await seedBookmarks(serviceWorker);
   });
 
-  test('the card opens the import over setup; after Import it is back on the same step, pressed, with the session behind', async ({
+  test('the button opens the import over setup; after Import it is back on the same step, Import more, with the session behind', async ({
     context,
     extensionId,
   }) => {
     const page = await openFullView(context, extensionId);
     await onImportStep(page);
     const setup = setupOn(page);
-    const card = setup.getByRole('button', { name: 'Chrome bookmarks' });
-    await expect(card).toHaveAttribute('aria-pressed', 'false');
+    const line = setup.getByText(LINE, { exact: true });
+    const lineHeight = (await line.boundingBox())?.height;
+    expect(lineHeight).toBeGreaterThan(0);
 
-    await card.click();
+    await importButtonIn(setup).click();
     const dialog = dialogOn(page);
     // A click on a dialog under setup's backdrop would fail: the import sits on top.
     await dialog.getByRole('checkbox', { name: 'Alpha trip' }).check();
     await dialog.getByRole('button', { name: 'Import 1 session' }).click();
     await expect(dialog).toBeHidden();
-    // Focus back on the card, not on <body>, where the next Tab reaches setup's ✕.
-    await expect(card).toBeFocused();
+    // Focus back on the button, not on <body>, where the next Tab reaches setup's ✕.
+    const more = importButtonIn(setup, 'Import more');
+    await expect(more).toBeFocused();
 
     await expect(setup).toBeVisible();
     await expect(setup.getByRole('heading', { level: 3 })).toHaveText(
       IMPORT_STEP
     );
-    await expect(card).toHaveAttribute('aria-pressed', 'true');
-    await expect(card).toHaveAccessibleDescription(
-      '1 session imported. Press to import more.'
-    );
+    const imported = setup.getByText('1 session imported.', { exact: true });
+    await expect(imported).toBeVisible();
+    await expect(more).toHaveAccessibleDescription('1 session imported.');
+    // The line keeps its height as its words change.
+    expect((await imported.boundingBox())?.height).toBe(lineHeight);
     await expect
       .poll(async () => (await storedSessions(page)).map((s) => s.title))
       .toEqual(['Alpha trip']);
@@ -357,14 +367,36 @@ test.describe('Import from bookmarks in setup (KAN-862)', () => {
     );
   });
 
-  test('Esc in the import closes only the import: setup stays on the step, nothing imported', async ({
+  // KAN-862 task 12. No card: the line, the button and the small print start where the step heading does.
+  test('the heading, the line, the button and the small print share one left edge', async ({
     context,
     extensionId,
   }) => {
     const page = await openFullView(context, extensionId);
     await onImportStep(page);
     const setup = setupOn(page);
-    await setup.getByRole('button', { name: 'Chrome bookmarks' }).click();
+    const left = async (locator: Locator) => {
+      const box = await locator.boundingBox();
+      if (box === null) throw new Error('not laid out');
+      return box.x;
+    };
+    const edge = await left(setup.getByRole('heading', { level: 3 }));
+    for (const part of [
+      setup.getByText(LINE, { exact: true }),
+      importButtonIn(setup),
+      setup.getByText(SMALL_PRINT, { exact: true }),
+    ])
+      expect(Math.abs((await left(part)) - edge)).toBeLessThanOrEqual(1);
+  });
+
+  test('Esc in the import closes only the import: setup stays on the step, focus on the button, nothing imported', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openFullView(context, extensionId);
+    await onImportStep(page);
+    const setup = setupOn(page);
+    await importButtonIn(setup).click();
     const dialog = dialogOn(page);
     await dialog.getByRole('checkbox', { name: 'Alpha trip' }).check();
     await page.keyboard.press('Escape');
@@ -374,34 +406,32 @@ test.describe('Import from bookmarks in setup (KAN-862)', () => {
     await expect(setup.getByRole('heading', { level: 3 })).toHaveText(
       IMPORT_STEP
     );
-    await expect(
-      setup.getByRole('button', { name: 'Chrome bookmarks' })
-    ).toHaveAttribute('aria-pressed', 'false');
+    await expect(importButtonIn(setup)).toBeFocused();
+    await expect(setup.getByText(LINE, { exact: true })).toBeVisible();
     expect(await storedSessions(page)).toEqual([]);
   });
 
-  // KAN-862 R23. Toasts sit under setup's backdrop, so with nothing left the card's own line says so.
-  test('with everything imported, a press on the card opens no import: the card stays focused and pressed, its line says so', async ({
+  // KAN-862 R23. Toasts sit under setup's backdrop, so with nothing left the block's line says so.
+  test('with everything imported, a press opens no import: the button stays focused, the line says so', async ({
     context,
     extensionId,
   }) => {
     const page = await openFullView(context, extensionId);
     await onImportStep(page);
     const setup = setupOn(page);
-    const card = setup.getByRole('button', { name: 'Chrome bookmarks' });
-    await card.click();
+    await importButtonIn(setup).click();
     const dialog = dialogOn(page);
     await dialog.getByRole('button', { name: 'Select all' }).click();
     await dialog.getByRole('button', { name: 'Import 4 sessions' }).click();
     await expect(dialog).toBeHidden();
 
-    await card.click();
+    const more = importButtonIn(setup, 'Import more');
+    await more.click();
 
-    await expect(card).toHaveAccessibleDescription(
-      'Everything in your bookmarks is already imported.'
-    );
-    await expect(card).toHaveAttribute('aria-pressed', 'true');
-    await expect(card).toBeFocused();
+    const nothingLeft = 'Everything in your bookmarks is already imported.';
+    await expect(setup.getByText(nothingLeft, { exact: true })).toBeVisible();
+    await expect(more).toHaveAccessibleDescription(nothingLeft);
+    await expect(more).toBeFocused();
     await expect(dialog).toHaveCount(0);
     await expect(setup.getByRole('heading', { level: 3 })).toHaveText(
       IMPORT_STEP

@@ -346,7 +346,7 @@ export const ImportBookmarksDialog: React.FC = () => {
   // The size check that may still set the refusal; an older answer landing late is dropped.
   const latestCheck = useRef(0);
   const hasEnded = useRef(false);
-  // The button or card that opened it: left on <body>, the next Tab over setup lands on its ✕.
+  // The button that opened it: left on <body>, the next Tab over setup lands on its ✕.
   const opener = useRef<HTMLElement | null>(null);
 
   const end = useCallback(

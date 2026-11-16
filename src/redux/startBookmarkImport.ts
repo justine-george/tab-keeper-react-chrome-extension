@@ -38,7 +38,7 @@ export const isNothingToImport = (
 ): start is NothingToImport =>
   start === 'allImported' || start === 'noBookmarks';
 
-// KAN-862 R23. What says there is nothing to import: a toast, or setup's card line.
+// KAN-862 R23. What says there is nothing to import: a toast, or the line in setup's import step.
 export const NOTHING_TO_IMPORT_TEXT: Record<NothingToImport, string> = {
   allImported: TOAST_MESSAGES.BOOKMARKS_ALL_IMPORTED,
   noBookmarks: TOAST_MESSAGES.NO_BOOKMARKS_TO_IMPORT,

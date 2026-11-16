@@ -113,14 +113,16 @@ describe('counts are whole phrases, plural-correct in every locale (KAN-286)', (
   });
 
   // KAN-862. A "one" form may cover 0 (fr, pt, hi) or 21 (ru): the count is never written in as "1".
-  test.each(['BookmarkCount', 'ImportSessions', 'BookmarksImported'])(
-    '%s says its own count in every locale',
-    async (key) => {
-      for (const [lng] of locales) {
-        const t = await tFor(lng);
-        for (const count of [0, 1, 2, 5, 21])
-          expect(t(key, { count }), `${lng} ${count}`).toContain(String(count));
-      }
+  test.each([
+    'BookmarkCount',
+    'ImportSessions',
+    'BookmarksImported',
+    'SessionsImportedInSetup',
+  ])('%s says its own count in every locale', async (key) => {
+    for (const [lng] of locales) {
+      const t = await tFor(lng);
+      for (const count of [0, 1, 2, 5, 21])
+        expect(t(key, { count }), `${lng} ${count}`).toContain(String(count));
     }
-  );
+  });
 });

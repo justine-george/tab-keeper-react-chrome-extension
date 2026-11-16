@@ -14,9 +14,11 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { useSelector } from 'react-redux';
 
 import App from '../../App';
+import { ImportBookmarksDialog } from '../../components/modals/ImportBookmarksDialog';
 import { SetupModal } from '../../components/modals/SetupModal';
 import { useDialogEscape } from '../../hooks/useDialogEscape';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -68,9 +70,10 @@ const GROUPED: ChromeSeed = {
 
 const render = (
   seed: ChromeSeed = BOUND,
-  settings: Partial<SettingsData> = {}
+  settings: Partial<SettingsData> = {},
+  ui: ReactElement = <Gate />
 ) =>
-  renderWithProviders(<Gate />, {
+  renderWithProviders(ui, {
     seed,
     seedStore: (store) => {
       store.dispatch(
@@ -489,8 +492,12 @@ describe('the import step, Already keep tabs somewhere?', () => {
     }
     return seen;
   };
-  const card = () =>
-    within(dialog()).getByRole('button', { name: 'Chrome bookmarks' });
+  const FIRST = 'Import from bookmarks';
+  const choose = (name = FIRST) =>
+    within(dialog()).getByRole('button', { name });
+  const LINE =
+    'Turn bookmark folders into saved sessions. Your bookmarks stay as they are.';
+  const SMALL_PRINT = 'You can also import from Settings › Sync & backup.';
   afterEach(() => history.replaceState(null, '', '?'));
 
   test('comes after the shortcut step and just before sync', async () => {
@@ -517,40 +524,46 @@ describe('the import step, Already keep tabs somewhere?', () => {
     ]);
   });
 
-  test('one unpressed card in the default view cards’ look, with its subline, and the Settings caption', async () => {
+  // KAN-862 task 12. One block per source: a line, then a real button, on the heading's left edge.
+  test('the bookmarks block: its line, then the button, then the small print; no card, no title, no drawing', async () => {
     await render();
-    await toStep('When you click Tab Keeper, open…');
-    const viewCard = (name: string) =>
-      within(dialog()).getByRole('button', { name });
-    const unpressedLook = viewCard('Full view').className;
-    const stripLook =
-      viewCard('Full view').querySelector('[data-card-label]')?.className;
+    await toStep('Open Tab Keeper from the keyboard');
+    const backLook = within(dialog())
+      .getByRole('button', { name: 'Back' })
+      .getAttribute('class');
     await toStep(IMPORT);
-    expect(card()).toHaveAttribute('aria-pressed', 'false');
-    expect(card().className).toBe(unpressedLook);
-    expect(card().querySelector('[data-card-label]')?.className).toBe(
-      stripLook
-    );
-    expect(card()).toHaveAccessibleDescription(
-      'Pick folders. Each becomes a saved session.'
-    );
-    expect(
-      card().querySelector('[data-card-label] .material-symbols-outlined')
-    ).toBeNull();
-    expect(card().querySelector('svg')?.getAttribute('viewBox')).toBe(
-      '0 0 440 120'
-    );
-    expect(dialog()).toHaveTextContent(
-      'You can import any time from Settings › Sync & backup.'
-    );
+    expect(within(dialog()).queryByText('Chrome bookmarks')).toBeNull();
+    expect(within(dialog()).getByText(LINE)).toBeInTheDocument();
+    expect(choose()).toHaveAttribute('type', 'button');
+    // The dialog's quiet button, as Back is.
+    expect(choose().getAttribute('class')).toBe(backLook);
+    expect(choose()).toHaveAccessibleDescription(LINE);
+    expect(dialog()).toHaveTextContent(SMALL_PRINT);
+    // The card's drawing is gone.
+    expect(dialog().querySelector('svg[viewBox="0 0 440 120"]')).toBeNull();
+    expect(dialog().querySelector('[aria-pressed]')).toBeNull();
   });
 
-  test('pressing the card asks for bookmarks and opens the import dialog over setup', async () => {
+  test('the line is not a button; the button is the step’s only control', async () => {
+    await render();
+    await toStep(IMPORT);
+    const lineEl = within(dialog()).getByText(LINE);
+    expect(lineEl.closest('button, [role="button"]')).toBeNull();
+    expect(lineEl.querySelector('button, [role="button"]')).toBeNull();
+    // The ✕ and the Skip setup link share a name; the rest is the footer.
+    expect(
+      within(dialog())
+        .getAllByRole('button')
+        .map((b) => b.getAttribute('aria-label') ?? b.textContent)
+    ).toEqual(['Skip setup', FIRST, 'Skip setup', 'Back', 'Next']);
+  });
+
+  test('pressing the button asks for bookmarks and opens the import dialog over setup', async () => {
     history.replaceState(null, '', '?view=tab');
     const { store } = await render();
     await toStep(IMPORT);
     const request = vi.spyOn(chrome.permissions, 'request');
-    fireEvent.click(card());
+    fireEvent.click(choose());
     await act(async () => {});
     expect(request.mock.calls).toEqual([[{ permissions: ['bookmarks'] }]]);
     expect(store.getState().globalState.isImportBookmarksOpen).toBe(true);
@@ -558,7 +571,7 @@ describe('the import step, Already keep tabs somewhere?', () => {
     expect(stepHeading()).toHaveTextContent(IMPORT);
   });
 
-  // KAN-862 R23. Toasts sit under setup's backdrop, so the card's own line says it, in its pressed ✓ look.
+  // KAN-862 R23. Toasts sit under setup's backdrop, so the block's own line says it.
   test.each([
     [
       'everything imported',
@@ -567,7 +580,7 @@ describe('the import step, Already keep tabs somewhere?', () => {
     ],
     ['nothing importable', [], 'There are no bookmarks to import.'],
   ])(
-    'pressing the card with %s opens no dialog; the card says so, pressed',
+    'pressing the button with %s opens no dialog; the line says so and focus stays on the button',
     async (_, importedIds, text) => {
       history.replaceState(null, '', '?view=tab');
       const { store } = await render();
@@ -600,50 +613,130 @@ describe('the import step, Already keep tabs somewhere?', () => {
         );
       });
       await toStep(IMPORT);
+      const button = choose();
 
-      fireEvent.click(card());
+      button.focus();
+      fireEvent.click(button);
       await act(async () => {});
 
       expect(store.getState().globalState.isImportBookmarksOpen).toBe(false);
       expect(
         await chrome.permissions.contains({ permissions: ['bookmarks'] })
       ).toBe(false);
-      expect(card()).toHaveAttribute('aria-pressed', 'true');
-      expect(card()).toHaveAccessibleDescription(text);
-      expect(
-        card().querySelector('[data-card-label] .material-symbols-outlined')
-          ?.textContent
-      ).toBe('check');
+      expect(within(dialog()).getByText(text)).toBeInTheDocument();
+      expect(within(dialog()).queryByText(LINE)).toBeNull();
+      expect(choose()).toBe(button);
+      expect(document.activeElement).toBe(button);
+      // Nothing came in, so no Import more.
+      expect(choose()).toHaveAccessibleName(FIRST);
       expect(store.getState().globalState.toasts).toEqual([]);
     }
   );
 
-  test('after an import the card is pressed, with a ✓, and says how many came in', async () => {
+  test('after an import the line says how many came in, and the button reads Import more', async () => {
     const { store } = await render();
     await toStep(IMPORT);
     act(() => {
       store.dispatch(noteImportedSessions(['a', 'b']));
     });
-    expect(card()).toHaveAttribute('aria-pressed', 'true');
-    expect(card()).toHaveAccessibleDescription(
-      '2 sessions imported. Press to import more.'
+    expect(within(dialog()).getByText('2 sessions imported.')).toBeVisible();
+    expect(within(dialog()).queryByText(LINE)).toBeNull();
+    expect(choose('Import more')).toHaveAccessibleDescription(
+      '2 sessions imported.'
     );
-    expect(
-      card().querySelector('[data-card-label] .material-symbols-outlined')
-        ?.textContent
-    ).toBe('check');
+    expect(within(dialog()).queryByRole('button', { name: FIRST })).toBeNull();
   });
 
   test('counts only what came in since setup opened', async () => {
     const { store } = await render(BOUND, { importedSessionIds: ['older'] });
     await toStep(IMPORT);
-    expect(card()).toHaveAttribute('aria-pressed', 'false');
+    expect(choose()).toBeInTheDocument();
+    expect(within(dialog()).getByText(LINE)).toBeVisible();
     act(() => {
       store.dispatch(noteImportedSessions(['a']));
     });
-    expect(card()).toHaveAccessibleDescription(
-      '1 session imported. Press to import more.'
+    expect(within(dialog()).getByText('1 session imported.')).toBeVisible();
+    expect(choose('Import more')).toBeInTheDocument();
+  });
+
+  // The import dialog mounted beside setup, as MainContainer mounts it.
+  const ImportHost = () => {
+    const isOpen = useSelector(
+      (s: RootState) => s.globalState.isImportBookmarksOpen
     );
+    return isOpen ? <ImportBookmarksDialog /> : null;
+  };
+  const importDialog = () =>
+    screen.getByRole('dialog', { name: 'Import from bookmarks' });
+  const openImport = async () => {
+    history.replaceState(null, '', '?view=tab');
+    const result = await render(
+      BOUND,
+      {},
+      <>
+        <Gate />
+        <ImportHost />
+      </>
+    );
+    await toStep(IMPORT);
+    const button = choose();
+    button.focus();
+    await act(async () => {
+      fireEvent.click(button);
+    });
+    await within(importDialog()).findByRole('checkbox', {
+      name: 'Bookmarks Bar',
+    });
+    expect(document.activeElement).toBe(importDialog());
+    return { ...result, button };
+  };
+
+  test.each([
+    [
+      'Cancel',
+      () =>
+        fireEvent.click(
+          within(importDialog()).getByRole('button', { name: 'Cancel' })
+        ),
+    ],
+    [
+      '✕',
+      () =>
+        fireEvent.click(
+          within(importDialog()).getByRole('button', { name: 'Close' })
+        ),
+    ],
+    [
+      'Esc',
+      () =>
+        fireEvent(importDialog(), new Event('cancel', { cancelable: true })),
+    ],
+  ])('%s in the import gives focus back to the button', async (_, close) => {
+    const { button } = await openImport();
+    await act(async () => {
+      close();
+    });
+    expect(
+      screen.queryByRole('dialog', { name: 'Import from bookmarks' })
+    ).toBeNull();
+    expect(document.activeElement).toBe(button);
+  });
+
+  test('Import gives focus back to the same button, now Import more', async () => {
+    const { store, button } = await openImport();
+    fireEvent.click(
+      within(importDialog()).getByRole('checkbox', { name: 'Bookmarks Bar' })
+    );
+    await act(async () => {
+      fireEvent.click(
+        within(importDialog()).getByRole('button', { name: 'Import 1 session' })
+      );
+    });
+    await waitFor(() =>
+      expect(store.getState().globalState.isImportBookmarksOpen).toBe(false)
+    );
+    expect(choose('Import more')).toBe(button);
+    expect(document.activeElement).toBe(button);
   });
 
   for (const imported of [false, true]) {

@@ -24,7 +24,7 @@ const AUTO_SYNC_HELP =
 const BACKUP_HELP =
   'Saves your sessions to a file. Settings aren’t included. Loading a backup asks whether to merge it with your sessions or replace them.';
 const IMPORT_HELP =
-  'Turns Chrome bookmark folders into saved sessions. Your bookmarks stay as they are.';
+  'Turns bookmark folders into saved sessions. Your bookmarks stay as they are.';
 const CLOUD_DATA_HELP =
   'Removes your sessions from the cloud and turns Auto sync off. Your sessions stay on this device and on your other devices.';
 const SAVE_TAB_GROUPS_HELP =
