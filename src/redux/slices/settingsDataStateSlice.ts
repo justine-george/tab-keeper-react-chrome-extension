@@ -282,9 +282,9 @@ export const asIds = (value: unknown): string[] =>
     ? value.filter((id): id is string => typeof id === 'string')
     : [];
 
-// KAN-862. Appends the ids `list` lacks; true when it added any.
+// KAN-862. Appends the ids `list` lacks, once each; true when it added any.
 function addNewIds(list: string[], ids: readonly string[]): boolean {
-  const fresh = ids.filter((id) => !list.includes(id));
+  const fresh = [...new Set(ids)].filter((id) => !list.includes(id));
   list.push(...fresh);
   return fresh.length > 0;
 }

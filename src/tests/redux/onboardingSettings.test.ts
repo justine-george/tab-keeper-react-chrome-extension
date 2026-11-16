@@ -305,7 +305,7 @@ describe('the onboarding reducers persist what they set', () => {
     expect(
       settingsDataStateSlice.reducer(
         once,
-        noteImportedBookmarkFolders(['work'])
+        noteImportedBookmarkFolders(['work', 'work'])
       ).importedBookmarkFolderIds
     ).toEqual(['1', 'kitchen', 'work']);
   });
