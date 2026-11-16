@@ -154,6 +154,51 @@ test.describe('Import from bookmarks in Settings (KAN-862)', () => {
     ]);
   });
 
+  // KAN-862 (11-16). A folder imported once can't be imported again on this device, even after a reload.
+  test('full view: after a reload an imported folder reads Already imported and can’t be ticked; the bar imports the rest, one copy each', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const bar = await barTitle(serviceWorker);
+    const page = await openFullView(context, extensionId);
+    await onSyncAndBackup(page);
+    await page.getByRole('button', { name: 'Import from bookmarks' }).click();
+    const dialog = dialogOn(page);
+    await dialog.getByRole('checkbox', { name: 'Alpha trip' }).check();
+    await dialog.getByRole('button', { name: 'Import 1 session' }).click();
+    await expect(dialog).toBeHidden();
+    await expect
+      .poll(async () => (await storedSessions(page)).map((s) => s.title))
+      .toEqual(['Alpha trip']);
+
+    await page.reload();
+    await onSyncAndBackup(page);
+    await page.getByRole('button', { name: 'Import from bookmarks' }).click();
+    const alpha = dialog.getByRole('checkbox', { name: 'Alpha trip' });
+    await expect(alpha).toHaveAttribute('aria-disabled', 'true');
+    // `has` is matched inside each row, so it starts from the page, not the dialog.
+    const alphaRow = dialog.locator('[data-folder-row]').filter({
+      has: page.getByRole('checkbox', { name: 'Alpha trip' }),
+    });
+    await expect(alphaRow.locator('[data-row-tag]')).toHaveText(
+      'Already imported'
+    );
+    // Playwright waits for an aria-disabled box to enable; force sends the click anyway.
+    await alpha.click({ force: true });
+    await alphaRow.getByText('Alpha trip', { exact: true }).click();
+    await expect(alpha).not.toBeChecked();
+
+    await dialog.getByRole('checkbox', { name: bar, exact: true }).check();
+    await expect(alpha).not.toBeChecked();
+    await dialog.getByRole('button', { name: 'Import 3 sessions' }).click();
+    await expect(dialog).toBeHidden();
+
+    await expect
+      .poll(async () => (await storedSessions(page)).map((s) => s.title))
+      .toEqual([bar, 'Beta research', 'Gamma untouched', 'Alpha trip']);
+  });
+
   test('full view: Cancel closes the dialog and saves nothing', async ({
     context,
     extensionId,
