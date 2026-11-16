@@ -2765,11 +2765,13 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           const later = moving instanceof Promise;
           // KAN-822. A join into a folded band moves the row though its landing delta is 0: it holds the rows too.
           // KAN-822 (KAN-959). So does a drop that closes a room held open, wherever its slot.
+          // KAN-956. And one that makes a new window, which has no slot to measure a delta to.
           if (
             l.shown !== null &&
             (l.shown.landingDelta !== 0 ||
               l.joinsFoldedBand ||
-              l.roomHeldOpen) &&
+              l.roomHeldOpen ||
+              makesNewWindow(l, drop.toWindowId)) &&
             !(later && foldedBack)
           ) {
             // KAN-822. The card is what the user let go: a tab takes its top, so the glide starts there.

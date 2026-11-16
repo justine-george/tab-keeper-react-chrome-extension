@@ -193,6 +193,19 @@ function jumps(frames: Tops[]): string[] {
   return out;
 }
 
+// KAN-956. Every top the first frame after the release draws away from where
+// the release showed it: a glide starts where things were, so a move there is
+// a jump made before any glide began. Not a block's end (its height changes).
+function movedBeforeGliding(frames: Tops[]): string[] {
+  const [release = {}, first = {}] = frames;
+  return Object.entries(first).flatMap(([key, top]) => {
+    const was = release[key];
+    return key.endsWith(' end') || was === undefined || Math.abs(top - was) <= 1
+      ? []
+      : [`${key}: ${was} -> ${top}`];
+  });
+}
+
 // Every frame where a window block starts above the end of the one before
 // it. Blocks drawn with no height (the New window block at rest) are skipped.
 function overlaps(frames: Tops[]): string[] {
@@ -400,6 +413,91 @@ test.describe('a saved list (KAN-835)', () => {
         .filter((id) => id !== 'S1')
     ).toEqual(['L0', 'L2', 'L3', 'L1']);
     expect(strays(frames)).toEqual([]);
+  });
+
+  // KAN-957. The dropped session glides from where it was let go into its
+  // slot, as a dropped tab does, and nothing else in the list moves.
+  test('the session list: the dropped session glides into its slot', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openSaved(context, extensionId, 'popup', {
+      sessions: [S1, ...sessions(4)],
+    });
+    const row = (id: string) =>
+      page.locator(`[data-pane="sessions"] [data-drag-row-id="${id}"]`);
+    await expectFits(row('L0'));
+    const { x } = await pickUp(page, row('L1'));
+    const below = await boxOf(row('L3'));
+    await moveTo(page, x, below.y + below.height - 6);
+    await recordFrames(
+      page,
+      '[data-pane="sessions"] [data-drag-row-id]',
+      'data-drag-row-id',
+      'pointerup'
+    );
+    await page.mouse.up();
+
+    const frames = await framesRecorded(page);
+    expectSettled(frames);
+    // PREMISE: let go off its slot.
+    expect(Math.abs(travel(frames, 'L1'))).toBeGreaterThan(8);
+    expect(eased(frames)).toEqual(['L1']);
+    expect(strays(frames)).toEqual([]);
+  });
+
+  // KAN-957 worst path: let go at the bottom edge while the list scrolls,
+  // where the follow (KAN-155) scrolls it on the next frame. Once that scroll
+  // is drawn, the dropped session only closes in on its slot, the others keep
+  // still, and it ends in full view.
+  test('the session list: let go at the bottom edge while it scrolls, it glides in and ends in full view', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openSaved(context, extensionId, 'popup', {
+      sessions: [S1, ...sessions(16)],
+    });
+    const row = (id: string) =>
+      page.locator(`[data-pane="sessions"] [data-drag-row-id="${id}"]`);
+    // PREMISE: the list scrolls.
+    expect(await scrollerOf(row('L0'))).toBeGreaterThan(100);
+    const pane = await boxOf(page.locator('[data-pane="sessions"]'));
+    const { x } = await pickUp(page, row('L2'));
+    await page.mouse.move(x, pane.y + pane.height - 4, { steps: 10 });
+    await page.waitForTimeout(500);
+    await recordFrames(
+      page,
+      '[data-pane="sessions"] [data-drag-row-id]',
+      'data-drag-row-id',
+      'pointerup'
+    );
+    await page.mouse.up();
+
+    const frames = await framesRecorded(page);
+    expectSettled(frames);
+    const end = frames[frames.length - 1] ?? {};
+    const others = Object.keys(end).filter((k) => k !== 'L2');
+    // From frame 2 on, the follow's scroll drawn: no other row moves.
+    const moving = frames
+      .slice(3)
+      .flatMap((tops, i) =>
+        others.filter(
+          (k) => Math.abs((tops[k] ?? 0) - (frames[i + 2]?.[k] ?? 0)) > 0.5
+        )
+      );
+    expect(moving).toEqual([]);
+    // The dropped one closes in on its slot, never past it.
+    const rest = end.L2 ?? NaN;
+    const track = frames.slice(2).map((f) => f.L2 ?? NaN);
+    expect(Math.abs(track[0] - rest)).toBeGreaterThan(4);
+    track.forEach((top, i) => {
+      if (i > 0)
+        expect(Math.abs(top - rest)).toBeLessThanOrEqual(
+          Math.abs(track[i - 1] - rest) + 0.5
+        );
+    });
+    const box = await boxOf(row('L2'));
+    expect(box.y + box.height).toBeLessThanOrEqual(pane.y + pane.height + 0.5);
   });
 });
 
@@ -699,6 +797,39 @@ const savedRowsIn = (ids: string[]) =>
     .join(', ');
 const openBlocks = '[data-pane="open-now"] [data-drop-window-id]';
 
+// KAN-958. From the next pointerup, the curve of every landing glide started
+// over the next few frames, one entry per glide.
+async function recordCurves(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    Reflect.set(window, '__curves', null);
+    window.addEventListener(
+      'pointerup',
+      () => {
+        const seen = new Map<Animation, string>();
+        let n = 0;
+        const tick = () => {
+          for (const a of document.getAnimations())
+            if (a.id === 'landing-slide')
+              seen.set(a, String(a.effect?.getComputedTiming().easing));
+          if (++n < 6) requestAnimationFrame(tick);
+          else Reflect.set(window, '__curves', [...seen.values()]);
+        };
+        requestAnimationFrame(tick);
+      },
+      { capture: true, once: true }
+    );
+  });
+}
+async function curvesRecorded(page: Page): Promise<string[]> {
+  await expect
+    .poll(() => page.evaluate(() => Reflect.get(window, '__curves') !== null))
+    .toBe(true);
+  return page.evaluate(() => {
+    const curves: unknown = Reflect.get(window, '__curves');
+    return Array.isArray(curves) ? curves.map(String) : [];
+  });
+}
+
 // Picks up `from`, releases at `y` (by default, at the top of w2's first
 // tab), recording frames.
 async function savedDrop(
@@ -818,6 +949,70 @@ test.describe('a drop into a lower window (KAN-836)', () => {
     expect(windows?.[3]).toEqual(['w1-t2']);
     expect(overlaps(frames)).toEqual([]);
     expect(jumps(frames)).toEqual([]);
+  });
+
+  // KAN-956. The session header's New window target makes a new FIRST window:
+  // it and every window below glide down together from where the drop showed
+  // them, rather than jumping by the new window's header and easing the rest.
+  test("saved, onto the header's New window: every window glides down together from where it was", async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openSaved(context, extensionId, 'popup', {
+      sessions: [S3],
+    });
+    await expectFits(savedTabIn(page, 'w3', 1));
+    const frames = await savedDrop(
+      page,
+      savedTabIn(page, 'w1', 0),
+      async () => {
+        const box = await boxOf(
+          page.locator('[data-pane="detail"] [data-new-window-target="first"]')
+        );
+        return box.y + box.height / 2;
+      }
+    );
+    // PREMISE: a new first window, holding the dropped tab.
+    const windows = await savedTabsByWindow(page);
+    expect(windows?.[0]).toEqual(['w1-t0']);
+    expect(windows?.length).toBe(4);
+    // PREMISE: the windows below moved down.
+    expect(travel(frames, 'window w2')).toBeGreaterThan(20);
+    // Not jumps(): a 72px ease-out covers more than half a row in its first frame.
+    expect(movedBeforeGliding(frames)).toEqual([]);
+    expect(overlaps(frames)).toEqual([]);
+    expect(strays(frames)).toEqual([]);
+    expect(eased(frames)).toEqual(
+      expect.arrayContaining(['w1-t0', 'w1-t1', 'window w2', 'window w3'])
+    );
+  });
+
+  // KAN-958. A drop into another window glides on the curve a drop within one
+  // does: the dropped row, and the windows the closed room moves, all of them.
+  test('saved, into a lower window: every glide takes the curve a drop within a window takes', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openSaved(context, extensionId, 'popup', {
+      sessions: [S3],
+    });
+    await expectFits(savedTabIn(page, 'w3', 1));
+    await recordCurves(page);
+    await dropIntoLowerSavedWindow(page);
+    const across = await curvesRecorded(page);
+    // PREMISE: the row and both windows below glided.
+    expect(across.length).toBeGreaterThanOrEqual(3);
+    // Then within w3: its last tab up to the top.
+    await recordCurves(page);
+    await savedDrop(
+      page,
+      savedTabIn(page, 'w3', 1),
+      async () => (await boxOf(savedTabIn(page, 'w3', 0))).y + 6
+    );
+    const within = await curvesRecorded(page);
+    // PREMISE: the dropped row glided, on one curve.
+    expect(within.length).toBe(1);
+    expect(new Set(across)).toEqual(new Set(within));
   });
 
   // A window the drag opened by resting on it (KAN-379) folds back when the

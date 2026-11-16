@@ -13,8 +13,6 @@ export const LANDING_SLIDE = 'landing-slide';
 
 const BLOCK = '[data-drop-window-id]';
 const BAND = '[data-band-id]';
-// KAN-836. How a window block glides when a closed source room moves it.
-const BLOCK_EASING = 'ease';
 
 // Where the drop showed things: each window block's top by its window id, and
 // the dropped row's. Measured from the list's own top, so a scroll while the
@@ -85,7 +83,7 @@ export function landingTops(
 
 // In the commit that drew the move, before it paints. With Reduce motion on, nothing glides.
 // KAN-822. A dropped row in a window glides from where it was let go, within its window too; the rows that made room stay put (KAN-835).
-// KAN-822 (KAN-959). A room held open closing: its window's bands and rows (`rows`, this list's) glide up too, and everything eases out.
+// KAN-822 (KAN-959). A room held open closing: its window's bands and rows (`rows`, this list's) glide up too.
 export function slideLanding(
   root: Element | null,
   before: LandingTops,
@@ -99,19 +97,24 @@ export function slideLanding(
     return;
   // Every top is read before any glide starts: a glide moves its block, and
   // the row inside it, from its first frame. A block the drop made (a new
-  // window) moves with the block above it, so the two never overlap.
+  // window) moves with the block above it, so the two never overlap; a new
+  // first window, with none above, with the block below it (KAN-956).
   const moved = new Map<Element, number>();
-  let above = 0;
-  root.querySelectorAll<HTMLElement>(BLOCK).forEach((el) => {
+  const blocks = [...root.querySelectorAll<HTMLElement>(BLOCK)].map((el) => {
     const was = before.blocks.get(el.dataset.dropWindowId ?? '');
-    const by = was === undefined ? above : was - topIn(root, el);
+    return { el, by: was === undefined ? undefined : was - topIn(root, el) };
+  });
+  const firstBy = blocks.find((b) => b.by !== undefined)?.by ?? 0;
+  let above = firstBy;
+  blocks.forEach(({ el, by: own }) => {
+    const by = own ?? above;
     above = by;
     if (Math.abs(by) >= 1) moved.set(el, by);
   });
   const closing = heldRoomGlides(root, before.heldRoom, row, rows);
   const block = row?.closest(BLOCK) ?? null;
-  // KAN-957. A session row keeps main's snap: gliding one flickered the list 11px for a frame, cause untraced.
-  if (moved.size === 0 && block === null && closing.size === 0) return;
+  // KAN-957. A row in no window block (a session) glides too: its follow reads it at its place (followIntoView).
+  if (moved.size === 0 && closing.size === 0 && row === undefined) return;
   const blockBy = block === null ? undefined : moved.get(block);
   const band = row?.closest(BAND) ?? null;
   const bandBy = band === null ? 0 : (closing.get(band) ?? 0);
@@ -119,12 +122,10 @@ export function slideLanding(
     row === undefined || before.row === null
       ? 0
       : before.row - topIn(root, row) - (blockBy ?? 0) - bandBy;
-  const blockEasing = before.heldRoom === null ? BLOCK_EASING : EASE.OUT;
-  moved.forEach((by, el) => glide(el, by, blockEasing));
-  closing.forEach((by, el) => glide(el, by, EASE.OUT));
-  // KAN-822. Ease-out to settle into its slot; in a gliding block, the block's easing, so the two add up without a wobble.
-  if (row !== undefined && Math.abs(rowBy) >= 1)
-    glide(row, rowBy, blockBy === undefined ? EASE.OUT : blockEasing);
+  // KAN-958. Everything eases out, as the dropped row settles into its slot: one curve, so a row in a gliding block adds up without a wobble.
+  moved.forEach((by, el) => glide(el, by));
+  closing.forEach((by, el) => glide(el, by));
+  if (row !== undefined && Math.abs(rowBy) >= 1) glide(row, rowBy);
 }
 
 // KAN-822 (KAN-959). Each band's and row's glide in a held room's window, all read first: a row by what its band does not carry.
@@ -159,11 +160,11 @@ function heldRoomGlides(
 
 // From `by` px off its place to its place, as rows step aside. jsdom has no
 // Web Animations: there the move is drawn at once.
-function glide(el: Element, by: number, easing: string): void {
+function glide(el: Element, by: number): void {
   if (typeof el.animate !== 'function') return;
   el.animate([{ transform: `translateY(${by}px)` }, { transform: 'none' }], {
     duration: parseInt(DURATION.MOVE, 10),
-    easing,
+    easing: EASE.OUT,
     id: LANDING_SLIDE,
   });
 }
