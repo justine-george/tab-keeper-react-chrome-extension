@@ -30,6 +30,7 @@ import {
   type tabContainerData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import type { RootState } from '../../redux/store';
+import { undo } from '../../redux/slices/undoRedoSlice';
 import { syncBytes } from '../../utils/functions/cloudDocument';
 import { sessionsFor } from '../../utils/functions/bookmarkImport';
 import { FIRESTORE_MAX_DOCUMENT_BYTES } from '../../utils/functions/local';
@@ -105,7 +106,7 @@ describe('importBookmarkSessions', () => {
     expect(store.getState().settingsDataState.hasHadSavedSession).toBe(true);
   });
 
-  test('it is no save: no review moment, no first-save pop, no shutter', async () => {
+  test('it is no save: no review moment, no first-save pop, no shutter', () => {
     const { store, actions } = makeTestStore();
     store.dispatch(importBookmarkSessions([session('a'), session('b')]));
     const global = store.getState().globalState;
@@ -128,6 +129,37 @@ describe('importBookmarkSessions', () => {
     expect(
       actions.filter((a) => a.type.endsWith('setPendingReviewAsk')).length
     ).toBeGreaterThan(0);
+  });
+
+  // A save's consequences from the middleware: the dirty flag that pushes to the cloud, and an undo step.
+  test('it leaves the container dirty, as a save does', async () => {
+    const saved = makeTestStore();
+    await saved.store.dispatch(
+      saveToTabContainer({ container: session('a'), scope: 'all-windows' })
+    );
+    expect(saved.store.getState().globalState.isDirty).toBe(true);
+
+    const { store } = makeTestStore();
+    expect(store.getState().globalState.isDirty).toBe(false);
+    store.dispatch(importBookmarkSessions([session('a'), session('b')]));
+    expect(store.getState().globalState.isDirty).toBe(true);
+  });
+
+  test('it writes the sessions to local storage', () => {
+    const { store } = makeTestStore();
+    store.dispatch(importBookmarkSessions([session('a'), session('b')]));
+    const stored: { tabGroups: { tabGroupId: string }[] } = JSON.parse(
+      localStorage.getItem('tabContainerData') ?? '{}'
+    );
+    expect(stored.tabGroups.map((g) => g.tabGroupId)).toEqual(['a', 'b']);
+  });
+
+  test('one undo takes both sessions back', () => {
+    const { store } = makeTestStore();
+    store.dispatch(importBookmarkSessions([session('a'), session('b')]));
+    expect(idsOf(store.getState())).toEqual(['a', 'b']);
+    store.dispatch(undo());
+    expect(idsOf(store.getState())).toEqual([]);
   });
 
   test('one toast says how many came in', async () => {

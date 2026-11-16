@@ -30,6 +30,8 @@ export const SELECT_TAB_CONTAINER_ACTION =
   'tabContainerDataState/selectTabContainer';
 export const SAVE_TAB_CONTAINER_ACTION =
   'tabContainerDataState/saveToTabContainerInternal';
+export const SAVE_IMPORTED_SESSIONS_ACTION =
+  'tabContainerDataState/saveImportedSessionsInternal';
 export const ADD_CURR_WINDOW_TO_TABGROUP_ACTION =
   'tabContainerDataState/addCurrWindowToTabGroupInternal';
 export const ADD_CURR_TAB_TO_WINDOW_ACTION =
