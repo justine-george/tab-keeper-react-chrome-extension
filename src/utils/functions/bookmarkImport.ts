@@ -92,27 +92,19 @@ function flatten(node: BookmarkNode, ownOrigin: string, into: tabData[]): void {
   }
 }
 
-// KAN-862. The folder's own links are one window named after it; each subfolder is a window, deeper ones folded into it. null when nothing is left.
-export function folderToSession(
-  node: BookmarkNode,
-  now: Date,
-  ownOrigin: string,
-  untitled: string
+function ownLinks(node: BookmarkNode, ownOrigin: string): tabData[] {
+  const tabs: tabData[] = [];
+  for (const child of node.children ?? [])
+    if (child.url !== undefined && isImportableUrl(child.url, ownOrigin))
+      tabs.push(toTab(child, child.url));
+  return tabs;
+}
+
+function toSession(
+  title: string,
+  windows: windowGroupData[],
+  now: Date
 ): tabContainerData | null {
-  const title = node.title || untitled;
-  const own: tabData[] = [];
-  const subfolders: BookmarkNode[] = [];
-  for (const child of node.children ?? []) {
-    if (isFolder(child)) subfolders.push(child);
-    else if (child.url !== undefined && isImportableUrl(child.url, ownOrigin))
-      own.push(toTab(child, child.url));
-  }
-  const windows = [toWindow(title, own)];
-  for (const sub of subfolders) {
-    const tabs: tabData[] = [];
-    flatten(sub, ownOrigin, tabs);
-    windows.push(toWindow(sub.title, tabs));
-  }
   const kept = windows.filter((w) => w.tabs.length > 0);
   if (kept.length === 0) return null;
   return {
@@ -128,7 +120,36 @@ export function folderToSession(
   };
 }
 
-// KAN-862. One session per ticked folder, in tree order. A folder under another ticked one is part of that one's session; unknown ids and empty folders add nothing.
+// KAN-862. The folder's own links are one window named after it; each subfolder is a window, deeper ones folded into it. null when nothing is left.
+export function folderToSession(
+  node: BookmarkNode,
+  now: Date,
+  ownOrigin: string,
+  untitled: string
+): tabContainerData | null {
+  const title = node.title || untitled;
+  const windows = [toWindow(title, ownLinks(node, ownOrigin))];
+  for (const sub of node.children ?? []) {
+    if (!isFolder(sub)) continue;
+    const tabs: tabData[] = [];
+    flatten(sub, ownOrigin, tabs);
+    windows.push(toWindow(sub.title, tabs));
+  }
+  return toSession(title, windows, now);
+}
+
+// KAN-862 (11-16). A ticked top folder's session: only its loose links, one window named after it. null when it has none.
+function looseLinksSession(
+  node: BookmarkNode,
+  now: Date,
+  ownOrigin: string,
+  untitled: string
+): tabContainerData | null {
+  const title = node.title || untitled;
+  return toSession(title, [toWindow(title, ownLinks(node, ownOrigin))], now);
+}
+
+// KAN-862. One session per ticked folder, in tree order. A folder under a ticked user folder is part of that one's session; a ticked top folder (the root's own) gives only its loose links, and its folders count by their own ticks. Unknown ids and empty folders add nothing.
 export function sessionsFor(
   root: BookmarkNode,
   ticked: ReadonlySet<string>,
@@ -140,24 +161,24 @@ export function sessionsFor(
   }
 ): tabContainerData[] {
   const sessions: tabContainerData[] = [];
-  const visit = (node: BookmarkNode): void => {
+  const add = (session: tabContainerData | null): void => {
+    const result =
+      session !== null && opts.skipDuplicates
+        ? withoutRepeats(session).container
+        : session;
+    if (result !== null && result.tabCount > 0) sessions.push(result);
+  };
+  const visit = (node: BookmarkNode, isRoot: boolean): void => {
     for (const child of node.children ?? []) {
       if (!isFolder(child)) continue;
-      if (ticked.has(child.id)) {
-        const session = folderToSession(
-          child,
-          opts.now,
-          opts.ownOrigin,
-          opts.untitled
-        );
-        const result =
-          session !== null && opts.skipDuplicates
-            ? withoutRepeats(session).container
-            : session;
-        if (result !== null && result.tabCount > 0) sessions.push(result);
-      } else visit(child);
+      if (!ticked.has(child.id)) visit(child, false);
+      else if (isRoot) {
+        add(looseLinksSession(child, opts.now, opts.ownOrigin, opts.untitled));
+        visit(child, false);
+      } else
+        add(folderToSession(child, opts.now, opts.ownOrigin, opts.untitled));
     }
   };
-  visit(root);
+  visit(root, true);
   return sessions;
 }

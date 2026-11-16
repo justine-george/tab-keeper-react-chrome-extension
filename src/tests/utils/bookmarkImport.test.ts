@@ -173,13 +173,92 @@ describe('sessionsFor', () => {
     );
     expect(out.map((s) => s.title)).toEqual(['Kitchen remodel', 'Recipes']);
   });
-  it('dedupes each session on its own when asked', () => {
-    const dup = folder('0', '', [
-      folder('p', 'P', [
+  // KAN-862 (11-16). Chrome's top folders: their loose links are one session; their folders tick on their own.
+  const shape = (out: ReturnType<typeof sessionsFor>) =>
+    out.map((s) => [s.title, s.windows.map((w) => [w.title, w.tabCount])]);
+
+  it('a ticked top folder makes a session of its loose links, then one per ticked folder in it, in tree order', () => {
+    const out = sessionsFor(
+      fixture(),
+      new Set(['recipes', '1', 'kitchen']),
+      opts
+    );
+    expect(shape(out)).toEqual([
+      ['Bookmarks bar', [['Bookmarks bar', 2]]],
+      [
+        'Kitchen remodel',
+        [
+          ['Kitchen remodel', 3],
+          ['Tiles', 5],
+          ['Appliances', 6],
+        ],
+      ],
+      ['Recipes', [['Recipes', 2]]],
+    ]);
+  });
+
+  it('a ticked top folder alone makes only its loose-links session', () => {
+    const out = sessionsFor(fixture(), new Set(['1']), opts);
+    expect(shape(out)).toEqual([['Bookmarks bar', [['Bookmarks bar', 2]]]]);
+  });
+
+  it('a folder unticked under a ticked top folder is left out; a tick deeper in it counts', () => {
+    const out = sessionsFor(
+      fixture(),
+      new Set(['1', 'recipes', 'tiles']),
+      opts
+    );
+    expect(out.map((s) => s.title)).toEqual([
+      'Bookmarks bar',
+      'Tiles',
+      'Recipes',
+    ]);
+  });
+
+  it('a ticked top folder with no loose links makes no session of its own', () => {
+    const root = folder('0', '', [
+      folder('bar', 'Bookmarks bar', [folder('w', 'Work', links('w', 2))]),
+    ]);
+    expect(
+      sessionsFor(root, new Set(['bar', 'w']), opts).map((s) => s.title)
+    ).toEqual(['Work']);
+    expect(sessionsFor(root, new Set(['bar']), opts)).toEqual([]);
+  });
+
+  it('a blank top folder is named untitled', () => {
+    const root = folder('0', '', [folder('bar', '', links('x', 1))]);
+    expect(shape(sessionsFor(root, new Set(['bar']), opts))).toEqual([
+      ['U', [['U', 1]]],
+    ]);
+  });
+
+  it('dedupes a top folder’s loose links when asked', () => {
+    const root = folder('0', '', [
+      folder('bar', 'Bar', [
         link('1', 'https://x.test/'),
         link('2', 'https://x.test/'),
+        folder('w', 'Work', links('w', 2)),
       ]),
-      folder('q', 'Q', [link('3', 'https://x.test/')]),
+    ]);
+    const on = sessionsFor(root, new Set(['bar']), {
+      ...opts,
+      skipDuplicates: true,
+    });
+    expect(on.map((s) => s.tabCount)).toEqual([1]);
+    expect(
+      sessionsFor(root, new Set(['bar']), opts).map((s) => s.tabCount)
+    ).toEqual([2]);
+  });
+
+  it('dedupes each session on its own when asked', () => {
+    const dup = folder('0', '', [
+      folder('bar', 'Bar', [
+        folder('p', 'P', [
+          link('1', 'https://x.test/'),
+          link('2', 'https://x.test/'),
+        ]),
+        folder('q', 'Q', [link('3', 'https://x.test/')]),
+      ]),
     ]);
     const on = sessionsFor(dup, new Set(['p', 'q']), {
       ...opts,
@@ -199,7 +278,8 @@ describe('sessionsFor', () => {
         )
       )
     );
-    const root = folder('0', '', tops);
+    // Under a top folder, so each ticked folder makes its whole session.
+    const root = folder('0', '', [folder('bar', 'Bar', tops)]);
     const start = performance.now();
     const tree = folderTree(root, OWN);
     const out = sessionsFor(root, new Set(tops.map((t) => t.id)), {
@@ -207,7 +287,7 @@ describe('sessionsFor', () => {
       skipDuplicates: true,
     });
     const ms = performance.now() - start;
-    expect(tree).toHaveLength(10);
+    expect(tree[0].children).toHaveLength(10);
     expect(out).toHaveLength(10);
     expect(out[0].tabCount).toBe(1000);
     expect(ms).toBeLessThan(200);
