@@ -239,6 +239,15 @@ describe('the import dialog: ticking', () => {
     expect(importButton()).not.toHaveAttribute('aria-disabled');
   });
 
+  test('an empty folder inside a ticked one reads unchecked, as it draws', async () => {
+    await openDialog();
+    await screen.findByRole('checkbox', { name: 'Old stuff' });
+    tick('Bookmarks Bar');
+    expect(box('Work')).toHaveAttribute('aria-checked', 'true');
+    expect(box('Old stuff')).toHaveAttribute('aria-checked', 'false');
+    expect(box('Old stuff')).toHaveAttribute('aria-disabled', 'true');
+  });
+
   test('unticking the parent frees what it covered', async () => {
     await openDialog();
     await screen.findByRole('checkbox', { name: 'Kitchen remodel' });

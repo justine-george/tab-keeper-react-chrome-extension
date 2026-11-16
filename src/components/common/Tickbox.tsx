@@ -12,7 +12,7 @@ export type TickState = 'off' | 'on' | 'included';
 
 interface TickboxProps {
   state: TickState;
-  // An empty folder: nothing to tick.
+  // An empty folder: nothing to tick, so it reads and draws unchecked whatever its state.
   disabled?: boolean;
   label: string;
   onToggle: () => void;
@@ -33,7 +33,7 @@ const Tickbox: React.FC<TickboxProps> = ({
 }) => {
   const COLORS = useThemeColors();
   const locked = disabled || state === 'included';
-  const ticked = state !== 'off';
+  const ticked = state !== 'off' && !disabled;
 
   const boxStyle = css`
     box-sizing: border-box;
@@ -47,7 +47,7 @@ const Tickbox: React.FC<TickboxProps> = ({
       ${disabled ? COLORS.PANEL_BORDER_COLOR : COLORS.TEXT_COLOR};
     border-radius: ${RADIUS.MARK};
     corner-shape: ${CORNER_SHAPE};
-    background: ${ticked && !disabled ? COLORS.TEXT_COLOR : 'transparent'};
+    background: ${ticked ? COLORS.TEXT_COLOR : 'transparent'};
     opacity: ${state === 'included' && !disabled ? 0.4 : 1};
     cursor: ${locked ? 'default' : 'pointer'};
     ${focusRingOutsideCss(COLORS)}
@@ -69,7 +69,7 @@ const Tickbox: React.FC<TickboxProps> = ({
         if (!locked) onToggle();
       }}
     >
-      {ticked && !disabled && (
+      {ticked && (
         <Icon
           type="check"
           size="14px"

@@ -67,6 +67,16 @@ describe('Tickbox', () => {
     expect(onToggle).not.toHaveBeenCalled();
   });
 
+  // An empty folder adds nothing, ticked or covered: it draws an empty box, so it says unchecked too.
+  test.each(['included', 'on'] as const)(
+    '%s and disabled reads and draws unchecked',
+    async (state) => {
+      await show(state, { disabled: true });
+      expect(box()).toHaveAttribute('aria-checked', 'false');
+      expect(box()).not.toHaveTextContent('check');
+    }
+  );
+
   test('stays in the tab order when inert', async () => {
     await show('included');
     expect(box()).toHaveAttribute('tabindex', '0');
