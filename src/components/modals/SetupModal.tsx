@@ -43,7 +43,6 @@ import {
 import { shouldAskTabGroupsInSetup } from '../../utils/functions/tabGroupsOffer';
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { ICON, RADIUS, TYPE } from '../../styles/scale';
-import { focusRingOutsideCss } from '../common/focusRing';
 import {
   dialogButtonStyles,
   flushLinkCss,
@@ -51,6 +50,7 @@ import {
   tallButtonCss,
 } from './dialogButtons';
 import { dialogTitleSize } from './dialogTitleSize';
+import { setupFinePrintCss } from './setupFinePrint';
 import { dialogRiseCss } from './dialogRise';
 import { useHasRisen } from '../../hooks/useHasRisen';
 import { corners } from '../../styles/corners';
@@ -236,17 +236,7 @@ export const SetupModal: React.FC = () => {
   `;
   const fineStyle = css`
     margin: 12px 0 0 0;
-    font-size: ${TYPE.SECONDARY};
-    line-height: 1.5;
-    color: ${COLORS.LABEL_L1_COLOR};
-    a {
-      color: ${COLORS.TEXT_COLOR};
-      ${focusRingOutsideCss(COLORS)}
-    }
-    /* Korean wraps mid-word otherwise; ja and zh have no spaces to break at. */
-    &:lang(ko) {
-      word-break: keep-all;
-    }
+    ${setupFinePrintCss(COLORS)}
   `;
   const pairRowStyle = css`
     display: flex;

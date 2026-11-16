@@ -498,6 +498,13 @@ describe('the import step, Already keep tabs somewhere?', () => {
   const LINE =
     'Turn bookmark folders into saved sessions. Your bookmarks stay as they are.';
   const SMALL_PRINT = 'You can also import from Settings › Import.';
+  // A text the line is not showing: laid unseen in the line's cell to hold its height, and never read.
+  const expectUnseen = (text: string) => {
+    const el = within(dialog()).getByText(text);
+    expect(el).not.toBeVisible();
+    expect(el).toHaveAttribute('aria-hidden', 'true');
+    expect(el).not.toHaveAttribute('aria-live');
+  };
   afterEach(() => history.replaceState(null, '', '?'));
 
   test('comes after the shortcut step and just before sync', async () => {
@@ -542,6 +549,38 @@ describe('the import step, Already keep tabs somewhere?', () => {
     // The card's drawing is gone.
     expect(dialog().querySelector('svg[viewBox="0 0 440 120"]')).toBeNull();
     expect(dialog().querySelector('[aria-pressed]')).toBeNull();
+  });
+
+  // KAN-862 task 12. The cell takes the tallest text's height, so the button never moves when the words change.
+  test('every text the line can show sits in its cell; only the shown one is visible, live and the button’s description', async () => {
+    const { store } = await render();
+    await toStep(IMPORT);
+    const NOTHING_LEFT = [
+      'Everything in your bookmarks is already imported.',
+      'There are no bookmarks to import.',
+    ];
+    const shown = within(dialog()).getByText(LINE);
+    expect(shown).toBeVisible();
+    expect(shown).toHaveAttribute('aria-live', 'polite');
+    expect(shown).not.toHaveAttribute('aria-hidden');
+    for (const text of ['0 sessions imported.', ...NOTHING_LEFT])
+      expectUnseen(text);
+    const cell = shown.parentElement;
+    expect(
+      [...(cell?.children ?? [])].map((child) => child.textContent)
+    ).toEqual([LINE, '0 sessions imported.', ...NOTHING_LEFT]);
+    expect(choose()).toHaveAccessibleDescription(LINE);
+
+    act(() => {
+      store.dispatch(noteImportedSessions(['a']));
+    });
+    // The same live element takes the new words, so they are announced once.
+    expect(within(dialog()).getByText('1 session imported.')).toBe(shown);
+    expectUnseen(LINE);
+    for (const text of NOTHING_LEFT) expectUnseen(text);
+    expect(choose('Import more')).toHaveAccessibleDescription(
+      '1 session imported.'
+    );
   });
 
   test('the line is not a button; the button is the step’s only control', async () => {
@@ -623,8 +662,8 @@ describe('the import step, Already keep tabs somewhere?', () => {
       expect(
         await chrome.permissions.contains({ permissions: ['bookmarks'] })
       ).toBe(false);
-      expect(within(dialog()).getByText(text)).toBeInTheDocument();
-      expect(within(dialog()).queryByText(LINE)).toBeNull();
+      expect(within(dialog()).getByText(text)).toBeVisible();
+      expectUnseen(LINE);
       expect(choose()).toBe(button);
       expect(document.activeElement).toBe(button);
       // Nothing came in, so no Import more.
@@ -640,7 +679,7 @@ describe('the import step, Already keep tabs somewhere?', () => {
       store.dispatch(noteImportedSessions(['a', 'b']));
     });
     expect(within(dialog()).getByText('2 sessions imported.')).toBeVisible();
-    expect(within(dialog()).queryByText(LINE)).toBeNull();
+    expectUnseen(LINE);
     expect(choose('Import more')).toHaveAccessibleDescription(
       '2 sessions imported.'
     );

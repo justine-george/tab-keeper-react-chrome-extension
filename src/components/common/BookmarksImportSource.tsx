@@ -25,17 +25,26 @@ export default function BookmarksImportSource({
   // What the last press found when it opened no dialog for want of anything to import.
   const [nothingLeft, setNothingLeft] = useState<NothingToImport | null>(null);
 
+  const before = t(
+    'Turn bookmark folders into saved sessions. Your bookmarks stay as they are.'
+  );
+  const imported = t('SessionsImportedInSetup', { count: importedInSetup });
+  const nothingLeftLines = Object.values(NOTHING_TO_IMPORT_TEXT).map((key) =>
+    t(key)
+  );
+  const line =
+    nothingLeft !== null
+      ? t(NOTHING_TO_IMPORT_TEXT[nothingLeft])
+      : hasImported
+        ? imported
+        : before;
+
   return (
     <ImportSourceBlock
-      line={
-        nothingLeft !== null
-          ? t(NOTHING_TO_IMPORT_TEXT[nothingLeft])
-          : hasImported
-            ? t('SessionsImportedInSetup', { count: importedInSetup })
-            : t(
-                'Turn bookmark folders into saved sessions. Your bookmarks stay as they are.'
-              )
-      }
+      line={line}
+      otherLines={[before, imported, ...nothingLeftLines].filter(
+        (other) => other !== line
+      )}
       buttonLabel={hasImported ? t('Import more') : t('Import from bookmarks')}
       onPress={() =>
         void dispatch(startBookmarkImport()).then((start) =>

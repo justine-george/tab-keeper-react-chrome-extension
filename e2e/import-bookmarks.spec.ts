@@ -1,9 +1,15 @@
 import type { Locator, Page, Worker } from '@playwright/test';
 
 import { expect, grantedTest as test } from './fixtures/grantedExtension';
-import { FULL_VIEW_PATH, openFullView, openPopup } from './fixtures/onboarding';
+import {
+  FULL,
+  FULL_VIEW_PATH,
+  openFullView,
+  openPopup,
+} from './fixtures/onboarding';
 import { stubToolbarPin } from './fixtures/toolbarPin';
 import { seedSettings } from './fixtures/seed';
+import { localeStrings } from './fixtures/locales';
 
 // KAN-862. Settings › Import › Bookmarks opens the bookmark import dialog. `bookmarks` is made required in the
 // scratch manifest, so the full view's ask resolves without a prompt. The real optional-grant prompt on a press is
@@ -334,10 +340,6 @@ test.describe('Import from bookmarks in setup (KAN-862)', () => {
     const page = await openFullView(context, extensionId);
     await onImportStep(page);
     const setup = setupOn(page);
-    const line = setup.getByText(LINE, { exact: true });
-    const lineHeight = (await line.boundingBox())?.height;
-    expect(lineHeight).toBeGreaterThan(0);
-
     await importButtonIn(setup).click();
     const dialog = dialogOn(page);
     // A click on a dialog under setup's backdrop would fail: the import sits on top.
@@ -355,8 +357,6 @@ test.describe('Import from bookmarks in setup (KAN-862)', () => {
     const imported = setup.getByText('1 session imported.', { exact: true });
     await expect(imported).toBeVisible();
     await expect(more).toHaveAccessibleDescription('1 session imported.');
-    // The line keeps its height as its words change.
-    expect((await imported.boundingBox())?.height).toBe(lineHeight);
     await expect
       .poll(async () => (await storedSessions(page)).map((s) => s.title))
       .toEqual(['Alpha trip']);
@@ -370,8 +370,9 @@ test.describe('Import from bookmarks in setup (KAN-862)', () => {
     );
   });
 
-  // KAN-862 task 12. No card: the line, the button and the small print start where the step heading does.
-  test('the heading, the line, the button and the small print share one left edge', async ({
+  // KAN-862 task 12. No card: the line, the button and the small print start where the step heading does,
+  // before an import and after it, when the line and the button have new words.
+  test('the heading, the line, the button and the small print share one left edge, before and after an import', async ({
     context,
     extensionId,
   }) => {
@@ -384,12 +385,98 @@ test.describe('Import from bookmarks in setup (KAN-862)', () => {
       return box.x;
     };
     const edge = await left(setup.getByRole('heading', { level: 3 }));
-    for (const part of [
-      setup.getByText(LINE, { exact: true }),
-      importButtonIn(setup),
-      setup.getByText(SMALL_PRINT, { exact: true }),
-    ])
-      expect(Math.abs((await left(part)) - edge)).toBeLessThanOrEqual(1);
+    const shareTheEdge = async (line: string, button: string) => {
+      for (const part of [
+        setup.getByText(line, { exact: true }),
+        importButtonIn(setup, button),
+        setup.getByText(SMALL_PRINT, { exact: true }),
+      ])
+        expect(Math.abs((await left(part)) - edge)).toBeLessThanOrEqual(1);
+    };
+    await shareTheEdge(LINE, 'Import from bookmarks');
+
+    await importButtonIn(setup).click();
+    const dialog = dialogOn(page);
+    await dialog.getByRole('checkbox', { name: 'Alpha trip' }).check();
+    await dialog.getByRole('button', { name: 'Import 1 session' }).click();
+    await expect(dialog).toBeHidden();
+    await expect(left(setup.getByRole('heading', { level: 3 }))).resolves.toBe(
+      edge
+    );
+    await shareTheEdge('1 session imported.', 'Import more');
+  });
+
+  // KAN-862 task 12. German's line before an import takes two lines at this width and its later lines take one,
+  // so the line has to hold the tallest one's room or the button just focused and the small print jump up.
+  test('in German the line, the button and the small print stay put through an import and a press with nothing left', async ({
+    context,
+    extensionId,
+  }) => {
+    const de = localeStrings('de');
+    await seedSettings(context, { setupState: 'pending', language: 'de' });
+    // openFullView waits for an English label.
+    const page = await context.newPage();
+    await page.setViewportSize(FULL);
+    await page.goto(`chrome-extension://${extensionId}/${FULL_VIEW_PATH}`);
+    const setup = page.getByRole('dialog', {
+      name: de['Make Tab Keeper yours'],
+      exact: true,
+    });
+    for (let n = 0; n < 4; n++)
+      await setup.getByRole('button', { name: de.Next, exact: true }).click();
+    await expect(setup.getByRole('heading', { level: 3 })).toHaveText(
+      de[IMPORT_STEP]
+    );
+    const top = async (locator: Locator) => {
+      await expect(locator).toBeVisible();
+      const box = await locator.boundingBox();
+      if (box === null) throw new Error('not laid out');
+      return box.y;
+    };
+    const smallPrint = setup.getByText(de[SMALL_PRINT], { exact: true });
+    const tops = async (line: string, button: string) => [
+      await top(setup.getByText(line, { exact: true })),
+      await top(importButtonIn(setup, button)),
+      await top(smallPrint),
+    ];
+    const lineBefore = setup.getByText(de[LINE], { exact: true });
+    // CONTROL: the line wraps here, so a line that shrinks after an import would move what is under it.
+    const lineCount = await lineBefore.evaluate((el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      return new Set([...range.getClientRects()].map((r) => Math.round(r.top)))
+        .size;
+    });
+    expect(lineCount).toBe(2);
+    const before = await tops(de[LINE], de['Import from bookmarks']);
+
+    await importButtonIn(setup, de['Import from bookmarks']).click();
+    const dialog = page.getByRole('dialog', {
+      name: de['Import from bookmarks'],
+    });
+    await dialog.getByRole('button', { name: de['Select all'] }).click();
+    await dialog
+      .getByRole('button', {
+        name: de.ImportSessions_other.replace('{{count}}', '4'),
+      })
+      .click();
+    await expect(dialog).toBeHidden();
+    const more = importButtonIn(setup, de['Import more']);
+    await expect(more).toBeFocused();
+    expect(
+      await tops(
+        de.SessionsImportedInSetup_other.replace('{{count}}', '4'),
+        de['Import more']
+      )
+    ).toEqual(before);
+
+    await more.click();
+    expect(
+      await tops(
+        de['Everything in your bookmarks is already imported.'],
+        de['Import more']
+      )
+    ).toEqual(before);
   });
 
   test('Esc in the import closes only the import: setup stays on the step, focus on the button, nothing imported', async ({
