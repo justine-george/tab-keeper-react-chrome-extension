@@ -17,7 +17,7 @@ import { STUB_PATH, TAB_VIEW_PATH, tabKeeperPageOf } from './pinnedTabKeeper';
 export const OPEN_IN_TAB_MESSAGE = 'openInTab';
 
 // What the full view is asked to show as it opens or is focused: a dialog, (KAN-579) a backup file step,
-// (KAN-862) the import from bookmarks, which asks for its permission there, or (KAN-624) the run.
+// (KAN-862) the Import from bookmarks button, focused so the user's own press asks for the permission, or (KAN-624) the run.
 export type FullViewShow =
   | 'setup'
   | 'pinGuide'
