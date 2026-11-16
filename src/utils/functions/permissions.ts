@@ -23,6 +23,10 @@ const SESSIONS: chrome.permissions.Permissions = {
   permissions: ['sessions'],
 };
 
+const BOOKMARKS: chrome.permissions.Permissions = {
+  permissions: ['bookmarks'],
+};
+
 // Whether the profile holds the grant right now.
 //
 // This is the ONLY source of truth. No stored boolean mirrors it: Chrome holds
@@ -121,4 +125,38 @@ export function askForSessionsPermission(): Promise<boolean> {
     wait = setTimeout(() => resolve(false), SESSIONS_ANSWER_WAIT_MS);
   });
   return Promise.race([answer, unanswered]).finally(() => clearTimeout(wait));
+}
+
+// KAN-862. Optional for the same reason as tabGroups: "bookmarks" is
+// warning-bearing ("Read and change your bookmarks"), so declaring it
+// required would disable the extension on update until each user accepted.
+// Asked for by the import dialog, which runs in the full view; the popup does
+// not survive the prompt (see requestTabGroupsPermission).
+export async function hasBookmarksPermission(): Promise<boolean> {
+  if (typeof chrome === 'undefined' || !chrome.permissions) return false;
+  try {
+    return await chrome.permissions.contains(BOOKMARKS);
+  } catch {
+    return false;
+  }
+}
+
+// Full view only. Resolves to the grant; false on a refusal or any error.
+export async function requestBookmarksPermission(): Promise<boolean> {
+  if (typeof chrome === 'undefined' || !chrome.permissions) return false;
+  try {
+    return await chrome.permissions.request(BOOKMARKS);
+  } catch {
+    return false;
+  }
+}
+
+// Swallows errors: a grant Chrome holds as required (e2e) can't be removed.
+export async function removeBookmarksPermission(): Promise<void> {
+  if (typeof chrome === 'undefined' || !chrome.permissions) return;
+  try {
+    await chrome.permissions.remove(BOOKMARKS);
+  } catch {
+    // Nothing to undo.
+  }
 }
