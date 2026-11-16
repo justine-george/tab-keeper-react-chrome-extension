@@ -87,7 +87,11 @@ function forEachFolder(
   }
 }
 
-// KAN-862 (11-16). The tickbox slot: a tickbox, or under a ticked user folder what the folder becomes; 'nothing' is an empty one there.
+// KAN-862 (11-16). Nothing an import could take: empty, imported before, or inside an imported folder.
+const isUnpickable = (folder: BookmarkFolder): boolean =>
+  folder.count === 0 || folder.importState !== 'notImported';
+
+// KAN-862 (11-16). The tickbox slot: a tickbox, or under a ticked user folder what the folder becomes; 'nothing' is an unpickable one there.
 type RowSlot = TickState | 'becomesWindow' | 'joinsWindowAbove' | 'nothing';
 
 interface ShownRow {
@@ -118,7 +122,7 @@ function shownRows(
           ? isOn
             ? 'on'
             : 'off'
-          : folder.count === 0
+          : isUnpickable(folder)
             ? 'nothing'
             : covered === 'directly'
               ? 'becomesWindow'
@@ -177,10 +181,10 @@ const FolderRow = React.memo(function FolderRow({
   const COLORS = useThemeColors();
   const { t } = useTranslation();
   const name = folder.title || untitled;
-  const isEmpty = folder.count === 0;
+  const isDisabled = isUnpickable(folder);
   const hasChildren = folder.children.length > 0;
   const hasTickbox = slot === 'on' || slot === 'off';
-  const isLocked = isEmpty || !hasTickbox;
+  const isLocked = isDisabled || !hasTickbox;
   const foldAction = isOpen ? t('Collapse') : t('Expand');
 
   const rowCss = css`
@@ -207,7 +211,7 @@ const FolderRow = React.memo(function FolderRow({
     min-width: 0;
   `;
   const nameCss = css`
-    color: ${isEmpty ? COLORS.LABEL_L2_COLOR : COLORS.TEXT_COLOR};
+    color: ${isDisabled ? COLORS.LABEL_L2_COLOR : COLORS.TEXT_COLOR};
     overflow-wrap: anywhere;
   `;
   // The tickbox's 18px, so marked rows line up with ticked ones.
@@ -258,7 +262,7 @@ const FolderRow = React.memo(function FolderRow({
       {hasTickbox ? (
         <Tickbox
           state={slot}
-          disabled={isEmpty}
+          disabled={isDisabled}
           label={name}
           onToggle={() => onTick(folder.id)}
         />
@@ -299,7 +303,13 @@ const FolderRow = React.memo(function FolderRow({
             </span>
           )}
         </span>
-        <RowTag value={t('BookmarkCount', { count: folder.count })} />
+        <RowTag
+          value={
+            folder.importState === 'imported'
+              ? t('Already imported')
+              : t('BookmarkCount', { count: folder.count })
+          }
+        />
       </span>
     </div>
   );

@@ -576,5 +576,6 @@
   "ImportedInSetup_other": "Импортировано {{count}} сессии. Нажмите, чтобы импортировать ещё.",
   "You can import any time from Settings › Sync & backup.": "Импортировать можно в любой момент в разделе «Настройки › Синхро & копия».",
   "Becomes a window": "Станет окном",
-  "Goes into the window above": "Попадёт в окно выше"
+  "Goes into the window above": "Попадёт в окно выше",
+  "Already imported": "Уже импортирована"
 }

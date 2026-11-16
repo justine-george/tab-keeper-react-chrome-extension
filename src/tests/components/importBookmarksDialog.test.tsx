@@ -16,6 +16,7 @@ vi.mock('../../redux/bookmarkImport', async (importOriginal) => ({
 import { ImportBookmarksDialog } from '../../components/modals/ImportBookmarksDialog';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { startBookmarkImport } from '../../redux/startBookmarkImport';
+import { noteImportedBookmarkFolders } from '../../redux/slices/settingsDataStateSlice';
 import { importSizeRefusal } from '../../redux/bookmarkImport';
 import type { AppDispatch, RootState } from '../../redux/store';
 import { toastTexts } from '../setup/toasts';
@@ -537,6 +538,138 @@ describe('the import dialog: importing', () => {
       TOAST_MESSAGES.BOOKMARKS_UNREADABLE
     );
     expect(remove).toHaveBeenCalledTimes(1);
+  });
+});
+
+// KAN-862 (11-16). A folder imported once can't be imported again on this device.
+describe('the import dialog: folders imported before', () => {
+  const importedBefore = (...ids: string[]) =>
+    openDialog({
+      seedStore: (s) => {
+        s.dispatch(noteImportedBookmarkFolders(ids));
+      },
+    });
+  const tagOf = (id: string) =>
+    row(id).querySelector('[data-row-tag]')?.textContent;
+  const nameIn = (id: string, name: string) => within(row(id)).getByText(name);
+
+  test('an imported folder reads "Already imported", its box is disabled, and a click on it does nothing', async () => {
+    await importedBefore('kitchen');
+    await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
+
+    expect(tagOf('kitchen')).toBe('Already imported');
+    expect(box('Kitchen remodel')).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(nameIn('kitchen', 'Kitchen remodel'));
+    tick('Kitchen remodel');
+
+    expect(box('Kitchen remodel')).toHaveAttribute('aria-checked', 'false');
+    expect(background('kitchen')).toBe(background('other'));
+    expect(previewTitles()).toEqual([]);
+    expect(importButton()).toHaveTextContent(/^Import$/);
+  });
+
+  test('the folders in an imported one keep their counts but cannot be ticked', async () => {
+    await importedBefore('kitchen');
+    await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
+    unfold('Kitchen remodel');
+
+    expect(tagOf('tiles')).toBe('5 Bookmarks');
+    expect(box('Tiles')).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(nameIn('tiles', 'Tiles'));
+    tick('Tiles');
+    expect(box('Tiles')).toHaveAttribute('aria-checked', 'false');
+    expect(importButton()).toHaveTextContent(/^Import$/);
+  });
+
+  test('ticking Bookmarks Bar after Kitchen remodel was imported gives the remaining sessions only', async () => {
+    await importedBefore('kitchen');
+    await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
+    expect(tagOf('bar')).toBe(`${3 + 23 + 9} Bookmarks`);
+
+    tick('Bookmarks Bar');
+
+    expect(box('Kitchen remodel')).toHaveAttribute('aria-checked', 'false');
+    expect(previewTitles()).toEqual(['Bookmarks Bar', 'Recipes', 'Work']);
+    expect(importButton()).toHaveTextContent('Import 3 sessions');
+  });
+
+  test('a top folder whose loose links were imported ticks only its folders', async () => {
+    await importedBefore('bar');
+    await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
+    expect(tagOf('bar')).toBe(`${14 + 23 + 9} Bookmarks`);
+
+    tick('Bookmarks Bar');
+
+    expect(previewTitles()).toEqual(['Kitchen remodel', 'Recipes', 'Work']);
+    expect(importButton()).toHaveTextContent('Import 3 sessions');
+  });
+
+  test('a top folder with nothing left is disabled and reads "Already imported"', async () => {
+    await importedBefore('bar', 'kitchen', 'recipes', 'work');
+    await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
+
+    expect(tagOf('bar')).toBe('Already imported');
+    expect(box('Bookmarks Bar')).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(nameIn('bar', 'Bookmarks Bar'));
+    tick('Bookmarks Bar');
+    expect(box('Bookmarks Bar')).toHaveAttribute('aria-checked', 'false');
+    expect(importButton()).toHaveTextContent(/^Import$/);
+  });
+
+  test('under a ticked folder, an imported folder shows no mark and leaves the session', async () => {
+    await importedBefore('appl');
+    await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
+    expect(tagOf('kitchen')).toBe(`${3 + 5} Bookmarks`);
+    unfold('Kitchen remodel');
+    unfold('Appliances');
+
+    tick('Kitchen remodel');
+
+    expect(row('tiles')).toHaveTextContent('Becomes a window');
+    for (const id of ['appl', 'fridges'])
+      expect(row(id)).not.toHaveTextContent(
+        /Becomes a window|Goes into the window above|web_asset/
+      );
+    const windows = preview().querySelectorAll('[data-preview-window]');
+    expect(
+      [...windows].map(
+        (w) => w.querySelector('[data-preview-window-name]')?.textContent
+      )
+    ).toEqual(['Kitchen remodel', 'Tiles']);
+  });
+
+  test('Import records the folders; reopened, the dialog reads them "Already imported"', async () => {
+    const { store } = await importedBefore('appl');
+    await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
+    tick('Kitchen remodel');
+    tick('Work');
+
+    await act(async () => {
+      fireEvent.click(importButton());
+    });
+    await waitFor(() =>
+      expect(store.getState().globalState.isImportBookmarksOpen).toBe(false)
+    );
+    // The fresh read at Import leaves the imported folder out too.
+    expect(
+      store
+        .getState()
+        .tabContainerDataState.tabGroups.map((g) => [g.title, g.tabCount])
+    ).toEqual([
+      ['Kitchen remodel', 8],
+      ['Work', 9],
+    ]);
+    expect(
+      store.getState().settingsDataState.importedBookmarkFolderIds
+    ).toEqual(['appl', 'kitchen', 'work']);
+
+    await act(async () => {
+      await store.dispatch(startBookmarkImport());
+    });
+    await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
+    for (const id of ['kitchen', 'work'])
+      expect(tagOf(id)).toBe('Already imported');
+    expect(box('Work')).toHaveAttribute('aria-disabled', 'true');
   });
 });
 

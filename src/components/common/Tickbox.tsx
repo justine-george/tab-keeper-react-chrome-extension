@@ -11,7 +11,7 @@ export type TickState = 'off' | 'on';
 
 interface TickboxProps {
   state: TickState;
-  // An empty folder: nothing to tick, so it reads and draws unchecked whatever its state.
+  // A folder with nothing to import (empty, or imported before): it reads and draws unchecked whatever its state.
   disabled?: boolean;
   label: string;
   onToggle: () => void;

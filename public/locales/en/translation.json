@@ -534,5 +534,6 @@
   "ImportedInSetup_other": "{{count}} sessions imported. Press to import more.",
   "You can import any time from Settings › Sync & backup.": "You can import any time from Settings › Sync & backup.",
   "Becomes a window": "Becomes a window",
-  "Goes into the window above": "Goes into the window above"
+  "Goes into the window above": "Goes into the window above",
+  "Already imported": "Already imported"
 }

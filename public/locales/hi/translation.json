@@ -534,5 +534,6 @@
   "ImportedInSetup_other": "{{count}} सेशन इंपोर्ट किए गए। और इंपोर्ट करने के लिए दबाएँ।",
   "You can import any time from Settings › Sync & backup.": "आप कभी भी सेटिंग्स › सिंक और बैकअप से इंपोर्ट कर सकते हैं।",
   "Becomes a window": "एक विंडो बनता है",
-  "Goes into the window above": "ऊपर वाली विंडो में जाता है"
+  "Goes into the window above": "ऊपर वाली विंडो में जाता है",
+  "Already imported": "पहले ही इंपोर्ट हो चुका"
 }

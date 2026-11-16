@@ -555,5 +555,6 @@
   "ImportedInSetup_other": "{{count}} sesiones importadas. Pulsa para importar más.",
   "You can import any time from Settings › Sync & backup.": "Puedes importar cuando quieras desde Configuración › Sincro y copia.",
   "Becomes a window": "Se convierte en una ventana",
-  "Goes into the window above": "Va a la ventana de arriba"
+  "Goes into the window above": "Va a la ventana de arriba",
+  "Already imported": "Ya importada"
 }

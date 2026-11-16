@@ -513,5 +513,6 @@
   "ImportedInSetup_other": "已导入 {{count}} 个会话。按下可导入更多。",
   "You can import any time from Settings › Sync & backup.": "您随时可以在 设置 › 同步与备份 中导入。",
   "Becomes a window": "成为一个窗口",
-  "Goes into the window above": "并入上方的窗口"
+  "Goes into the window above": "并入上方的窗口",
+  "Already imported": "已导入"
 }
