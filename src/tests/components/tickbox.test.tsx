@@ -26,7 +26,6 @@ describe('Tickbox', () => {
   test.each([
     ['off', 'false'],
     ['on', 'true'],
-    ['included', 'true'],
   ] as const)('%s is aria-checked=%s', async (state, checked) => {
     await show(state);
     expect(box()).toHaveAttribute('aria-checked', checked);
@@ -56,7 +55,6 @@ describe('Tickbox', () => {
   });
 
   test.each([
-    ['included', {}],
     ['off', { disabled: true }],
     ['on', { disabled: true }],
   ] as const)('%s %j is aria-disabled and inert', async (state, extra) => {
@@ -67,18 +65,15 @@ describe('Tickbox', () => {
     expect(onToggle).not.toHaveBeenCalled();
   });
 
-  // An empty folder adds nothing, ticked or covered: it draws an empty box, so it says unchecked too.
-  test.each(['included', 'on'] as const)(
-    '%s and disabled reads and draws unchecked',
-    async (state) => {
-      await show(state, { disabled: true });
-      expect(box()).toHaveAttribute('aria-checked', 'false');
-      expect(box()).not.toHaveTextContent('check');
-    }
-  );
+  // An empty folder adds nothing, even ticked: it draws an empty box, so it says unchecked too.
+  test('on and disabled reads and draws unchecked', async () => {
+    await show('on', { disabled: true });
+    expect(box()).toHaveAttribute('aria-checked', 'false');
+    expect(box()).not.toHaveTextContent('check');
+  });
 
   test('stays in the tab order when inert', async () => {
-    await show('included');
+    await show('off', { disabled: true });
     expect(box()).toHaveAttribute('tabindex', '0');
   });
 

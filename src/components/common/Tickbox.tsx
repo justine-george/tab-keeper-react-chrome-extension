@@ -7,8 +7,7 @@ import { RADIUS, CORNER_SHAPE } from '../../styles/scale';
 import { focusRingOutsideCss } from './focusRing';
 import Icon from './Icon';
 
-// `included` is a folder inside a ticked one: shown ticked, faint, and locked.
-export type TickState = 'off' | 'on' | 'included';
+export type TickState = 'off' | 'on';
 
 interface TickboxProps {
   state: TickState;
@@ -21,9 +20,9 @@ interface TickboxProps {
 /**
  * KAN-862. A checkbox for the import dialog's folder tree. A span, not an
  * <input>: the drawing is ours, and the ARIA checkbox pattern takes Space
- * only, which a <button> would widen to Enter. A box that cannot change
- * (`included`, `disabled`) says aria-disabled and stays in the tab order,
- * like the app's other unavailable controls.
+ * only, which a <button> would widen to Enter. A disabled box says
+ * aria-disabled and stays in the tab order, like the app's other
+ * unavailable controls.
  */
 const Tickbox: React.FC<TickboxProps> = ({
   state,
@@ -32,8 +31,7 @@ const Tickbox: React.FC<TickboxProps> = ({
   onToggle,
 }) => {
   const COLORS = useThemeColors();
-  const locked = disabled || state === 'included';
-  const ticked = state !== 'off' && !disabled;
+  const ticked = state === 'on' && !disabled;
 
   const boxStyle = css`
     box-sizing: border-box;
@@ -48,8 +46,7 @@ const Tickbox: React.FC<TickboxProps> = ({
     border-radius: ${RADIUS.MARK};
     corner-shape: ${CORNER_SHAPE};
     background: ${ticked ? COLORS.TEXT_COLOR : 'transparent'};
-    opacity: ${state === 'included' && !disabled ? 0.4 : 1};
-    cursor: ${locked ? 'default' : 'pointer'};
+    cursor: ${disabled ? 'default' : 'pointer'};
     ${focusRingOutsideCss(COLORS)}
   `;
 
@@ -58,15 +55,15 @@ const Tickbox: React.FC<TickboxProps> = ({
       role="checkbox"
       tabIndex={0}
       aria-checked={ticked}
-      aria-disabled={locked ? true : undefined}
+      aria-disabled={disabled ? true : undefined}
       aria-label={label}
       css={boxStyle}
-      onClick={locked ? undefined : onToggle}
+      onClick={disabled ? undefined : onToggle}
       onKeyDown={(e) => {
         if (e.key !== ' ') return;
         // Space would scroll the dialog's list.
         e.preventDefault();
-        if (!locked) onToggle();
+        if (!disabled) onToggle();
       }}
     >
       {ticked && (
