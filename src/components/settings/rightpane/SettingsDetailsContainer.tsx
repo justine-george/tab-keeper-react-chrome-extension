@@ -1,4 +1,4 @@
-import { Fragment, useId, useState } from 'react';
+import { Fragment, useEffect, useId, useRef, useState } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -20,7 +20,10 @@ import { NormalLabel } from '../../common/Label';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
 import { chooseLanguage } from '../../../redux/languageChoice';
-import { openCloudConsentModal } from '../../../redux/slices/globalStateSlice';
+import {
+  importButtonFocused,
+  openCloudConsentModal,
+} from '../../../redux/slices/globalStateSlice';
 import {
   setCopyLinksLayout,
   setOpenSavedWindowsIn,
@@ -102,6 +105,16 @@ const SettingsDetailsContainer: React.FC = () => {
   const { t } = useTranslation();
 
   const dispatch: AppDispatch = useDispatch();
+  const importButtonBox = useRef<HTMLDivElement>(null);
+  const isImportFocusRequested = useSelector(
+    (state: RootState) => state.globalState.isImportButtonFocusRequested
+  );
+  // KAN-862. One-shot: focus once the pane has rendered the button.
+  useEffect(() => {
+    if (!isImportFocusRequested) return;
+    importButtonBox.current?.querySelector('button')?.focus();
+    dispatch(importButtonFocused());
+  }, [isImportFocusRequested, dispatch]);
 
   // Chrome's language doesn't change while the page is open.
   const [languageCells] = useState(chromeLanguageOrder);
@@ -517,6 +530,7 @@ const SettingsDetailsContainer: React.FC = () => {
             />
           </div>
           <div
+            ref={importButtonBox}
             css={css`
               margin-top: 8px;
             `}

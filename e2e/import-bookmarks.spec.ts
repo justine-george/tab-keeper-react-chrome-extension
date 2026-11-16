@@ -1,4 +1,4 @@
-import type { BrowserContext, Page, Worker } from '@playwright/test';
+import type { Page, Worker } from '@playwright/test';
 
 import { expect, grantedTest as test } from './fixtures/grantedExtension';
 import { FULL_VIEW_PATH, openFullView, openPopup } from './fixtures/onboarding';
@@ -117,7 +117,7 @@ test.describe('Import from bookmarks in Settings (KAN-862)', () => {
     expect(await storedSessions(page)).toEqual([]);
   });
 
-  test('popup: the button opens a full view that shows the dialog', async ({
+  test('popup: the button opens a full view on Sync & backup with Import from bookmarks focused, and a press opens the dialog', async ({
     context,
     extensionId,
   }) => {
@@ -128,13 +128,17 @@ test.describe('Import from bookmarks in Settings (KAN-862)', () => {
     let full: Page | undefined;
     await expect
       .poll(() => {
-        full = (context as BrowserContext)
-          .pages()
-          .find((p) => p.url().endsWith(FULL_VIEW_PATH));
+        full = context.pages().find((p) => p.url().endsWith(FULL_VIEW_PATH));
         return full !== undefined;
       })
       .toBe(true);
     if (full === undefined) throw new Error('no full view page');
+    const button = full.getByRole('button', { name: 'Import from bookmarks' });
+    await expect(button).toBeFocused();
+    await expect(dialogOn(full)).toHaveCount(0);
+
+    // A real press is the gesture the permission prompt needs.
+    await button.click();
     await expect(dialogOn(full)).toBeVisible();
     await expect(
       dialogOn(full).getByRole('checkbox', { name: 'Alpha trip' })

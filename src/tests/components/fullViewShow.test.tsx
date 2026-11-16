@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { act, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 
 vi.mock('../../config/firebase', () => ({
   observeAuthState: () => {},
@@ -175,28 +175,27 @@ describe('showInFullView: the backup file steps', () => {
   });
 });
 
-// KAN-862. The popup's Import from bookmarks: the full view asks for the permission there.
+// KAN-862 (R11). The popup's Import from bookmarks: the full view shows the button; the press is the user's, since a permission prompt needs a gesture.
 describe('showInFullView: the import from bookmarks', () => {
-  test('importBookmarks: Settings on Sync & Backup, the permission asked, and the dialog open', async () => {
+  test('importBookmarks: Settings on Sync & Backup, nothing asked, the dialog closed', async () => {
     history.replaceState(null, '', '?view=tab');
     setupChromeFake();
+    const request = vi.spyOn(globalThis.chrome.permissions, 'request');
     const { store } = makeTestStore();
 
     store.dispatch(showInFullView('importBookmarks'));
 
     await waitFor(() =>
-      expect(store.getState().globalState.isImportBookmarksOpen).toBe(true)
+      expect(store.getState().globalState.isSettingsPage).toBe(true)
     );
-    expect(store.getState().globalState.isSettingsPage).toBe(true);
     expect(
       store.getState().settingsCategoryState.find((c) => c.isSelected)?.name
     ).toBe(SettingsCategory.SYNC);
-    expect(
-      await chrome.permissions.contains({ permissions: ['bookmarks'] })
-    ).toBe(true);
+    expect(request).not.toHaveBeenCalled();
+    expect(store.getState().globalState.isImportBookmarksOpen).toBe(false);
   });
 
-  test('a new full view opened with show=importBookmarks opens the dialog', async () => {
+  test('a new full view opened with show=importBookmarks focuses the Import from bookmarks button and opens no dialog', async () => {
     history.replaceState(null, '', '?view=tab&show=importBookmarks');
 
     const { store } = await renderWithProviders(<App />, {
@@ -205,8 +204,11 @@ describe('showInFullView: the import from bookmarks', () => {
     });
 
     await waitFor(() =>
-      expect(store.getState().globalState.isImportBookmarksOpen).toBe(true)
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'Import from bookmarks' })
+      )
     );
+    expect(store.getState().globalState.isImportBookmarksOpen).toBe(false);
     expect(window.location.search).toBe('?view=tab');
   });
 });

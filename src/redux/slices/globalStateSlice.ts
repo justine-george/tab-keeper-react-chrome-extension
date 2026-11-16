@@ -169,6 +169,8 @@ export interface Global {
   pendingImport: PendingImport | null;
   // KAN-862. The import from bookmarks dialog; open only with the bookmarks permission granted.
   isImportBookmarksOpen: boolean;
+  // KAN-862. The popup's hand-off: the Import button takes focus when its pane shows.
+  isImportButtonFocusRequested: boolean;
   // KAN-259. The cloud dialog: 'welcome' greets a new install and asks nothing; 'existing' and 'enable' ask.
   isCloudConsentModalOpen: boolean;
   cloudConsentVariant: CloudConsentVariant;
@@ -366,6 +368,7 @@ export const initialState: Global = {
   isCloudDeletedNoticeOpen: false,
   pendingImport: null,
   isImportBookmarksOpen: false,
+  isImportButtonFocusRequested: false,
   isCloudConsentModalOpen: false,
   cloudConsentVariant: 'welcome',
   cloudConsentThen: null,
@@ -1327,6 +1330,14 @@ export const globalStateSlice = createSlice({
       state.isImportBookmarksOpen = true;
     },
 
+    requestImportButtonFocus: (state) => {
+      state.isImportButtonFocusRequested = true;
+    },
+
+    importButtonFocused: (state) => {
+      state.isImportButtonFocusRequested = false;
+    },
+
     closeImportBookmarks: (state) => {
       state.isImportBookmarksOpen = false;
     },
@@ -1801,6 +1812,8 @@ export const {
   closeDeleteCloudDataModal,
   openImportBookmarks,
   closeImportBookmarks,
+  requestImportButtonFocus,
+  importButtonFocused,
   openCloudDeletedNotice,
   closeCloudDeletedNotice,
   askToReplaceSessions,

@@ -8,13 +8,13 @@ import {
   closeSetup,
   openPinGuide,
   openSettingsPage,
+  requestImportButtonFocus,
   openSetup,
   setEndingCard,
   setSearchInputText,
 } from './slices/globalStateSlice';
 import { SettingsCategory } from './slices/settingsCategoryStateSlice';
 import { loadBackupFile, saveBackupFile } from './backupFile';
-import { startBookmarkImport } from './startBookmarkImport';
 import { restartSetup } from './slices/settingsDataStateSlice';
 import type { FullViewShow } from '../utils/functions/popOut';
 import type { DialogEntry } from '../utils/functions/dialogQueue';
@@ -74,10 +74,10 @@ export const showInFullView =
       dispatch(openPinGuide());
       return;
     }
-    // KAN-862. Over the pane its button sits on, so a declined prompt leaves the button to press.
+    // KAN-862. The permission prompt needs a user gesture, so show the button focused and let the press ask.
     if (show === 'importBookmarks') {
+      dispatch(requestImportButtonFocus());
       void dispatch(openSettingsPage(SettingsCategory.SYNC));
-      void dispatch(startBookmarkImport());
       return;
     }
     // KAN-579. On the pane its button sits on, so a picker Chrome refuses leaves the button to press.
