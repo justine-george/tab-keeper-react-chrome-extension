@@ -379,4 +379,32 @@ test.describe('Import from bookmarks in setup (KAN-862)', () => {
     ).toHaveAttribute('aria-pressed', 'false');
     expect(await storedSessions(page)).toEqual([]);
   });
+
+  // KAN-862 R23 F-setup. Toasts sit under setup's backdrop, so with nothing left the card's own line says so.
+  test('with everything imported, a press on the card opens no import: the card stays focused and pressed, its line says so', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openFullView(context, extensionId);
+    await onImportStep(page);
+    const setup = setupOn(page);
+    const card = setup.getByRole('button', { name: 'Chrome bookmarks' });
+    await card.click();
+    const dialog = dialogOn(page);
+    await dialog.getByRole('button', { name: 'Select all' }).click();
+    await dialog.getByRole('button', { name: 'Import 4 sessions' }).click();
+    await expect(dialog).toBeHidden();
+
+    await card.click();
+
+    await expect(card).toHaveAccessibleDescription(
+      'Everything in your bookmarks is already imported.'
+    );
+    await expect(card).toHaveAttribute('aria-pressed', 'true');
+    await expect(card).toBeFocused();
+    await expect(dialog).toHaveCount(0);
+    await expect(setup.getByRole('heading', { level: 3 })).toHaveText(
+      IMPORT_STEP
+    );
+  });
 });
