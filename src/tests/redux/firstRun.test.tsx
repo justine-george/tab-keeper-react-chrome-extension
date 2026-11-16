@@ -5,6 +5,7 @@ import { rootReducer } from '../../redux/storeConfig';
 import {
   beginSetup,
   finishSetup,
+  noteImportedSessions,
   recordFirstRun,
   setFirstRunSession,
   setFirstRunStep,
@@ -268,6 +269,26 @@ describe('the save step’s card (R10, Q3)', () => {
     store.dispatch(replaceState(buildContainer([OWN])));
     await store.dispatch(beginSaveStep());
     expect(store.getState().globalState.runSaveCard).toBe('sessions');
+  });
+
+  test('KAN-862: imported sessions are no example and no "all here" card; the card waits for the user\'s own save', async () => {
+    history.replaceState(null, '', '?view=tab');
+    const store = withSessions(OWN, OLDER);
+    store.dispatch(noteImportedSessions(['own', 'older']));
+    await store.dispatch(startRun(newRun('full', 3)));
+    await store.dispatch(beginSaveStep());
+    expect(store.getState().globalState.runSaveCard).toBe('save');
+    expect(runOf(store)?.sessionId).toBeNull();
+  });
+
+  test("KAN-862: a session of the user's own still wins over imported ones (CONTROL)", async () => {
+    history.replaceState(null, '', '?view=tab');
+    const store = withSessions(OWN, OLDER);
+    store.dispatch(noteImportedSessions(['own']));
+    await store.dispatch(startRun(newRun('full', 3)));
+    await store.dispatch(beginSaveStep());
+    expect(store.getState().globalState.runSaveCard).toBe('sessions');
+    expect(runOf(store)?.sessionId).toBe('older');
   });
 
   test('a card once decided stays for the page’s run (A5)', async () => {

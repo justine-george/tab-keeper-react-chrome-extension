@@ -429,6 +429,14 @@ export function latestSession(
   );
 }
 
+// KAN-862. The run's sessions are the user's own: an import is never its example or its "all here".
+export function sessionsForRun(
+  groups: readonly tabContainerData[],
+  importedIds: readonly string[]
+): tabContainerData[] {
+  return groups.filter((g) => !importedIds.includes(g.tabGroupId));
+}
+
 // Loaded, or nothing on disk to load: a fresh install never loads.
 export function isSessionListSettled(
   holdsPlaceholder: boolean,
