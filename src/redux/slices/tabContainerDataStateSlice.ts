@@ -2140,8 +2140,9 @@ export const tabContainerDataStateSlice = createSlice({
       });
       state.lastModified = base + sessions.length;
       tabContainerDataStateSlice.caseReducers.selectTabContainer(state, {
+        type: selectTabContainer.type,
         payload: sessions[0].tabGroupId,
-      } as PayloadAction<string>);
+      });
     },
 
     // select tab group by tabGroupId
