@@ -148,6 +148,8 @@ export const grantedTest = base.extend<
           keepWindowBounds,
           showScrollbars,
           refuseSessions,
+          // KAN-862. A browser launched without the bookmarks grant has no chrome.bookmarks to reuse.
+          grantBookmarks,
           headless,
           // The runner hands each of these to every launch, so each is a launch option.
           runner: {
