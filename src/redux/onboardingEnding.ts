@@ -4,9 +4,10 @@ import type { RootState } from './store';
 import { setEndingCard } from './slices/globalStateSlice';
 import { markEndingSeen } from './slices/settingsDataStateSlice';
 import { hasPageCover } from './pageCovers';
+import { selectImportedSessionIds } from './bookmarkImport';
 import { isSearchActive } from '../utils/functions/local';
 import { isTabView } from '../utils/functions/viewMode';
-import type { RunView } from '../utils/functions/firstRun';
+import { sessionsForRun, type RunView } from '../utils/functions/firstRun';
 import {
   endingTarget,
   type EndingTarget,
@@ -36,7 +37,10 @@ export const selectIsEndingShown = (state: RootState): boolean =>
 export const selectEndingTarget = (state: RootState): EndingTarget =>
   endingTarget(
     state.settingsDataState.firstRun,
-    state.tabContainerDataState.tabGroups
+    sessionsForRun(
+      state.tabContainerDataState.tabGroups,
+      selectImportedSessionIds(state)
+    )
   );
 
 // Not once this view has shown it, nor while one is waiting or on screen.
