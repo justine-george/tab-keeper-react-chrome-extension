@@ -34,7 +34,13 @@ const LOCALES: Record<string, Record<string, string>> = {
 };
 
 const PANE = 'Sync & Backup';
-const SENTENCES = ['ExistingSyncOff', 'EnableSyncFine', 'EnableSyncOnceFine'];
+const SENTENCES = [
+  'ExistingSyncOff',
+  'EnableSyncFine',
+  'EnableSyncOnceFine',
+  // KAN-862. Setup's import step.
+  'You can import any time from Settings › Sync & backup.',
+];
 
 describe('sentences that send the user to Sync & backup use its label (KAN-651)', () => {
   test.each(Object.keys(LOCALES))('%s', (locale) => {
