@@ -4,6 +4,7 @@ import {
   isValidTabMasterContainer,
   loadFromLocalStorage,
   saveJsonToLocalStorage,
+  withoutSettings,
 } from './local';
 import { mergeTabContainers } from './mergeTabData';
 
@@ -18,6 +19,14 @@ import { mergeTabContainers } from './mergeTabData';
  * storage behind the page yields the page.
  */
 export function readLocalSessions(page: TabMasterContainer): unknown {
+  const read = readStoredOrPage(page);
+  // KAN-961. An older version can store a backup's settings field here; it never comes back into the page.
+  return isValidTabMasterContainer(read)
+    ? withoutSettings(read).container
+    : read;
+}
+
+function readStoredOrPage(page: TabMasterContainer): unknown {
   const stored = loadFromLocalStorage('tabContainerData');
   if (!isStoredBehindPage('tabContainerData')) return stored;
   if (!isValidTabMasterContainer(stored)) return page;

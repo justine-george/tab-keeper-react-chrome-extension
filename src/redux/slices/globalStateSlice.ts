@@ -79,6 +79,7 @@ import {
 } from './settingsDataStateSlice';
 import { noteReviewMoment } from '../reviewAsk';
 import type { ShownRelease } from '../../utils/functions/whatsNew';
+import type { BackupSettings } from '../../utils/functions/backupSettings';
 
 export type SyncStatus = 'idle' | 'loading' | 'success' | 'error';
 
@@ -344,6 +345,8 @@ export interface FocusRequest {
 export interface PendingImport {
   container: TabMasterContainer;
   fileName: string;
+  // KAN-961. The file's checked settings; null in an older backup or when none are valid.
+  settings: BackupSettings | null;
 }
 
 export const initialState: Global = {

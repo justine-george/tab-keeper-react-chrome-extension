@@ -800,6 +800,14 @@ export class TranslatableError extends Error {
 // JSON.parse's own SyntaxError is English with no full stop, so it goes to the
 // console and the user reads IMPORT_NOT_JSON (KAN-618).
 export function readImportedContainer(content: string): TabMasterContainer {
+  return readImportedFile(content).container;
+}
+
+// KAN-961. The container without its `settings` field, and that field unread: the settings module is page-only.
+export function readImportedFile(content: string): {
+  container: TabMasterContainer;
+  rawSettings: unknown;
+} {
   let parsed: unknown;
   try {
     parsed = JSON.parse(content);
@@ -812,14 +820,28 @@ export function readImportedContainer(content: string): TabMasterContainer {
     throw new TranslatableError(IMPORT_INVALID_STRUCTURE);
   }
 
+  const { container, settings: rawSettings } = withoutSettings(parsed);
   // KAN-91. Older versions refuse a session without it, and an import syncs.
   return {
-    ...parsed,
-    tabGroups: parsed.tabGroups.map((session) => ({
-      isAutoSave: false,
-      ...session,
-    })),
+    container: {
+      ...container,
+      tabGroups: container.tabGroups.map((session) => ({
+        isAutoSave: false,
+        ...session,
+      })),
+    },
+    rawSettings,
   };
+}
+
+// KAN-961. A container with any top-level `settings` field split off, so a backup's settings never ride into saved sessions or the cloud.
+export function withoutSettings(container: TabMasterContainer): {
+  container: TabMasterContainer;
+  settings: unknown;
+} {
+  if (!('settings' in container)) return { container, settings: undefined };
+  const { settings, ...rest } = container;
+  return { container: rest, settings };
 }
 
 // validate import JSON structure - tabContainerData
