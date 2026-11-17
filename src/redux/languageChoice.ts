@@ -8,13 +8,14 @@ interface Translator {
   changeLanguage: (language: string) => Promise<unknown>;
 }
 
-// KAN-7. The one way a language is picked, in Settings and in the setup.
+// KAN-7. The one way a language is picked, in Settings and in the setup. KAN-961: settles once i18n has switched.
 export const chooseLanguage =
   (
     language: Language,
     i18n: Translator
-  ): ThunkAction<void, RootState, unknown, UnknownAction> =>
-  (dispatch) => {
-    void i18n.changeLanguage(language);
+  ): ThunkAction<Promise<void>, RootState, unknown, UnknownAction> =>
+  async (dispatch) => {
+    const switched = i18n.changeLanguage(language);
     dispatch(setLanguage(language));
+    await switched;
   };

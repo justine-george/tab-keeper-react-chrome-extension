@@ -73,7 +73,7 @@ export const LoadBackupModal: React.FC = () => {
   };
 
   const handleReplace = () => {
-    void dispatch(replaceSessionsFromBackup(pending.container));
+    void dispatch(replaceSessionsFromBackup(pending));
   };
 
   const handleMerge = () => {

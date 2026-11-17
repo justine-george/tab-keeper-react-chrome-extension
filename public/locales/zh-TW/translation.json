@@ -138,6 +138,7 @@
   "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "無法同步：無法讀取你的雲端資料。這部裝置上的工作階段不受影響。",
   "Synced changes from another device.": "已同步其他裝置上的變更。",
   "Tabs restored.": "分頁已還原。",
+  "Sessions and settings restored.": "已復原工作階段和設定。",
   "Unnamed group": "未命名的群組",
   "New Tab Group": "新分頁群組",
   "Empty": "空白",

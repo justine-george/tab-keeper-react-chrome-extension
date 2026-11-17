@@ -147,6 +147,7 @@
   "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "Синхронизация недоступна: не удалось прочитать данные в облаке. Сессии на этом устройстве в сохранности.",
   "Synced changes from another device.": "Изменения с другого устройства синхронизированы.",
   "Tabs restored.": "Вкладки восстановлены.",
+  "Sessions and settings restored.": "Сессии и настройки восстановлены.",
   "Unnamed group": "Группа без имени",
   "New Tab Group": "Новая группа вкладок",
   "Empty": "Пусто",

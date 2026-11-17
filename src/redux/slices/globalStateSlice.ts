@@ -80,6 +80,7 @@ import {
 import { noteReviewMoment } from '../reviewAsk';
 import type { ShownRelease } from '../../utils/functions/whatsNew';
 import type { BackupSettings } from '../../utils/functions/backupSettings';
+import { applyBackupSettings } from '../backupSettingsApply';
 
 export type SyncStatus = 'idle' | 'loading' | 'success' | 'error';
 
@@ -1037,9 +1038,14 @@ async function isCloudDeletedElsewhere(
 
 async function finishBackupLoad(
   thunkAPI: Pick<GetThunkAPI<AsyncThunkConfig>, 'dispatch' | 'getState'>,
-  changed: boolean
+  changed: boolean,
+  settings: BackupSettings | null
 ): Promise<void> {
   thunkAPI.dispatch(cancelReplaceSessions());
+  // KAN-961. Before the sync and the toast, so the toast is in the backup's language.
+  if (settings !== null) {
+    await (thunkAPI.dispatch as AppDispatch)(applyBackupSettings(settings));
+  }
   let syncFailed = false;
   if (changed) {
     thunkAPI.dispatch(setIsDirty());
@@ -1064,7 +1070,9 @@ async function finishBackupLoad(
     showToast({
       toastText: syncFailed
         ? TOAST_MESSAGES.IMPORT_SYNC_FAILED
-        : TOAST_MESSAGES.IMPORT_SUCCESS,
+        : settings !== null
+          ? TOAST_MESSAGES.IMPORT_SETTINGS_SUCCESS
+          : TOAST_MESSAGES.IMPORT_SUCCESS,
     })
   );
 }
@@ -1079,13 +1087,16 @@ async function finishBackupLoad(
  * the one that delete pushed up. Replacing blind lets the next merge re-apply
  * the delete, so the import appears to work and then silently drops it.
  */
+// KAN-961. What Replace loads: the file's sessions, and its checked settings or null.
+export type BackupLoad = Pick<PendingImport, 'container' | 'settings'>;
+
 export const replaceSessionsFromBackup = createAsyncThunk(
   'global/replaceSessionsFromBackup',
-  async (container: TabMasterContainer, thunkAPI) => {
+  async ({ container, settings }: BackupLoad, thunkAPI) => {
     thunkAPI.dispatch(
       restoreContainer({ ...container, lastModified: Date.now() })
     );
-    await finishBackupLoad(thunkAPI, true);
+    await finishBackupLoad(thunkAPI, true, settings);
   }
 );
 
@@ -1107,7 +1118,7 @@ export const loadSessionsFromBackup = createAsyncThunk(
     const { tabGroups } = (thunkAPI.getState() as RootState)
       .tabContainerDataState;
     if (tabGroups.length === 0) {
-      await thunkAPI.dispatch(replaceSessionsFromBackup(pending.container));
+      await thunkAPI.dispatch(replaceSessionsFromBackup(pending));
     } else {
       thunkAPI.dispatch(askToReplaceSessions(pending));
     }
@@ -1125,7 +1136,8 @@ export const mergeSessionsFromBackup = createAsyncThunk(
     const before = (thunkAPI.getState() as RootState).tabContainerDataState;
     thunkAPI.dispatch(mergeSessionsFromBackupInternal(container));
     const after = (thunkAPI.getState() as RootState).tabContainerDataState;
-    await finishBackupLoad(thunkAPI, after !== before);
+    // KAN-961. Merge keeps this computer's settings.
+    await finishBackupLoad(thunkAPI, after !== before, null);
   }
 );
 

@@ -138,6 +138,7 @@
   "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "同期を利用できません: クラウドのデータを読み取れませんでした。このデバイスのセッションは安全です。",
   "Synced changes from another device.": "別のデバイスからの変更を同期しました。",
   "Tabs restored.": "タブを復元しました。",
+  "Sessions and settings restored.": "セッションと設定を復元しました。",
   "Unnamed group": "名前のないグループ",
   "New Tab Group": "新しいタブグループ",
   "Empty": "空です",

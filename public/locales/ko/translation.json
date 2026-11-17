@@ -138,6 +138,7 @@
   "Sync unavailable: your cloud data could not be read. Sessions on this device are safe.": "동기화 사용 불가: 클라우드 데이터를 읽을 수 없습니다. 이 기기의 세션은 안전합니다.",
   "Synced changes from another device.": "다른 기기의 변경사항을 동기화했습니다.",
   "Tabs restored.": "탭을 복원했습니다.",
+  "Sessions and settings restored.": "세션과 설정을 복원했습니다.",
   "Unnamed group": "이름 없는 그룹",
   "New Tab Group": "새 탭 그룹",
   "Empty": "비어 있음",
