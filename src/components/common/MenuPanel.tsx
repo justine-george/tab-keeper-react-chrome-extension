@@ -102,6 +102,10 @@ function ColorRow({
         padding: 10px 12px;
         margin-bottom: 4px;
         border-bottom: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+        /* KAN-964. The Open · Rename row's 4px margin already sits above, so the dots stay 10px from each line. */
+        [data-menu-action-row] + & {
+          padding-top: 6px;
+        }
       `}
     >
       <GroupColorSwatches
