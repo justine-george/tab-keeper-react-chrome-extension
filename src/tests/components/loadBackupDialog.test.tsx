@@ -294,3 +294,72 @@ describe('the load-backup dialog (KAN-252, KAN-261)', () => {
     );
   });
 });
+
+// KAN-961. A backup with settings says so before Replace; Merge's sentence and an older backup's stay as they were.
+describe('the load-backup dialog with settings (KAN-961)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.mocked(saveToFirestore).mockReset();
+  });
+
+  const WITH_SETTINGS = JSON.stringify({
+    ...buildContainer([
+      buildSession({ tabGroupId: 'f1', title: 'From the file' }),
+    ]),
+    settings: { theme: 'Charcoal' },
+  });
+
+  test('Replace names the settings when the file has them', async () => {
+    const inputs = captureFileInput();
+    await render();
+    const dialog = await pickBackup(inputs, 'backup.json', WITH_SETTINGS);
+    expect(dialog).toHaveTextContent(
+      'Replace deletes the 3 sessions on this device and on every device that syncs with it, then loads the backup and its settings. This can’t be undone.'
+    );
+    expect(dialog).toHaveTextContent(
+      'Merge keeps the 3 sessions on this device and adds any sessions from the backup that aren’t already here.'
+    );
+  });
+
+  test('one session here: the One sentence names the settings too', async () => {
+    const inputs = captureFileInput();
+    await render(buildContainer([buildSession({ title: 'Only one' })]));
+    const dialog = await pickBackup(inputs, 'backup.json', WITH_SETTINGS);
+    expect(dialog).toHaveTextContent(
+      'Replace deletes the session on this device and on every device that syncs with it, then loads the backup and its settings. This can’t be undone.'
+    );
+  });
+
+  test('an older backup keeps today’s Replace sentence', async () => {
+    const inputs = captureFileInput();
+    await render();
+    const dialog = await pickBackup(inputs);
+    expect(dialog).toHaveTextContent(
+      'Replace deletes the 3 sessions on this device and on every device that syncs with it, then loads the backup. This can’t be undone.'
+    );
+  });
+
+  test('Replace from the dialog applies the settings and says so', async () => {
+    const inputs = captureFileInput();
+    const r = await render();
+    const dialog = await pickBackup(inputs, 'backup.json', WITH_SETTINGS);
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: 'Replace' })
+    );
+    await waitFor(() => {
+      expect(newestToast(r.store.getState())?.text).toBe(
+        TOAST_MESSAGES.IMPORT_SETTINGS_SUCCESS
+      );
+    });
+    expect(r.store.getState().settingsDataState.theme).toBe('Charcoal');
+  });
+
+  test('the help line says settings', async () => {
+    await render();
+    expect(
+      await screen.findByText(
+        'A backup is a file with your saved sessions and settings. When you load a backup, you choose to merge its sessions with yours, or replace yours with its sessions and settings.'
+      )
+    ).toBeTruthy();
+  });
+});

@@ -170,6 +170,7 @@ const CASES: Case[] = [
             buildSession({ tabGroupId: 'f1', title: 'From the file' }),
           ]),
           fileName: 'backup.json',
+          settings: null,
         })
       );
     },
