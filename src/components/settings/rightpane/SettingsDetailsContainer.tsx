@@ -502,7 +502,7 @@ const SettingsDetailsContainer: React.FC = () => {
           </div>
           <p id={backupHelpId} css={helpLineStyle}>
             {t(
-              'A backup is a file with your saved sessions. When you load a backup, you choose to merge it with your sessions or replace them.'
+              'A backup is a file with your saved sessions and settings. When you load a backup, you choose to merge its sessions with yours, or replace yours with its sessions and settings.'
             )}
           </p>
         </div>

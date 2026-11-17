@@ -12,7 +12,7 @@ import { localeStrings } from './fixtures/locales';
 const AUTO_SYNC =
   'Syncs your sessions across your Chrome devices. Settings stay separate on each device.';
 const BACKUP =
-  'A backup is a file with your saved sessions. When you load a backup, you choose to merge it with your sessions or replace them.';
+  'A backup is a file with your saved sessions and settings. When you load a backup, you choose to merge its sessions with yours, or replace yours with its sessions and settings.';
 const CLOUD_DATA =
   'Removes your sessions from the cloud and turns Auto sync off. Your sessions stay on this device and on your other devices.';
 const SAVE_TAB_GROUPS =

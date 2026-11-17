@@ -493,7 +493,8 @@ if (hasRetiredKeys || isThemeMoveDue) {
   saveToLocalStorage('settingsData', settingsDataLocal);
 }
 
-const defaultSettings: SettingsData = {
+// KAN-961. Exported: a backup compares against these.
+export const defaultSettings: SettingsData = {
   language: Language.EN, // overridden by startupLanguage in initialState
   theme: defaultTheme(), // KAN-731
   exportLayout: 'compact',
