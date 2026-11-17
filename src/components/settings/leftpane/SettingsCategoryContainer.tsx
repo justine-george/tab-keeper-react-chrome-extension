@@ -143,9 +143,10 @@ const SettingsCategoryContainer: React.FC = () => {
       isSelected ? COLORS.SELECTION_COLOR : COLORS.PRIMARY_COLOR
     };
     /* KAN-517. The label starts where the header's "Back" does: its inset, less this box's 1px border.
-       KAN-754. The right padding only stops a long label; at 10px the longest word (sv "säkerhetskopia") fits the popup's rail at 24px text. */
-    padding: 15px calc(10px - ${ROW_GUTTER_END}) 15px
-      calc(${BACK_LABEL_INSET} - 1px - ${ROW_GUTTER_PX}px);
+       KAN-754. The right padding only stops a long label; at 10px the longest word (sv "säkerhetskopia") fits the popup's rail at 24px text.
+       KAN-862: one more category; rows shrink as text grows (15px at 16, 13 at 20, 11 at 24) so the popup's list fits at Large text. */
+    padding: calc(23px - 0.5rem) calc(10px - ${ROW_GUTTER_END})
+      calc(23px - 0.5rem) calc(${BACK_LABEL_INSET} - 1px - ${ROW_GUTTER_PX}px);
   `;
 
   return (
