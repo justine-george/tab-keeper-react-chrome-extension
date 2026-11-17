@@ -22,7 +22,7 @@ const renderOn = (category: SettingsCategory) =>
 const AUTO_SYNC_HELP =
   'Syncs your sessions across your Chrome devices. Settings stay separate on each device.';
 const BACKUP_HELP =
-  'A backup is a file with your saved sessions. When you load a backup, you choose to merge it with your sessions or replace them.';
+  'A backup is a file with your saved sessions and settings. When you load a backup, you choose to merge its sessions with yours, or replace yours with its sessions and settings.';
 const IMPORT_HELP =
   'Turns bookmark folders into saved sessions. Your bookmarks stay as they are.';
 const CLOUD_DATA_HELP =

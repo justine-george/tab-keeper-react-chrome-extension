@@ -43,6 +43,16 @@ const BODY_ID = 'load-backup-body';
  * does on Delete cloud data; Merge does not -- it deletes nothing. Neither is
  * "primary": the dialog opens unlit and no answer is pre-chosen.
  */
+// KAN-961. The Replace sentence names the settings only when the file has some.
+const replaceKey = (savedHere: number, hasSettings: boolean): string => {
+  if (hasSettings) {
+    return savedHere === 1
+      ? 'ReplaceDeletesOneWithSettings'
+      : 'ReplaceDeletesOtherWithSettings';
+  }
+  return savedHere === 1 ? 'ReplaceDeletesOne' : 'ReplaceDeletesOther';
+};
+
 export const LoadBackupModal: React.FC = () => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -176,7 +186,7 @@ export const LoadBackupModal: React.FC = () => {
           })}
         </p>
         <p css={bodyStyle}>
-          {t(savedHere === 1 ? 'ReplaceDeletesOne' : 'ReplaceDeletesOther', {
+          {t(replaceKey(savedHere, pending.settings !== null), {
             count: savedHere,
           })}
         </p>
