@@ -112,6 +112,23 @@ describe('counts are whole phrases, plural-correct in every locale (KAN-286)', (
     );
   });
 
+  // KAN-966. en splits these by One/Other key, so only ru needs plural forms: 21 lands on Other.
+  test.each([
+    ['LoadBackupTitleOther', 'Загрузить', ' из этой резервной копии?'],
+    ['MergeKeepsOther', '«Объединить» сохраняет', ' на этом устройстве'],
+    ['ReplaceDeletesOther', '«Заменить» удаляет', ' на этом устройстве'],
+    [
+      'ReplaceDeletesOtherWithSettings',
+      '«Заменить» удаляет',
+      ' на этом устройстве',
+    ],
+  ])('ru %s: 21 сессию, 2 сессии, 5 сессий', async (key, before, after) => {
+    const ru = await tFor('ru');
+    expect(ru(key, { count: 21 })).toContain(`${before} 21 сессию${after}`);
+    expect(ru(key, { count: 2 })).toContain(`${before} 2 сессии${after}`);
+    expect(ru(key, { count: 5 })).toContain(`${before} 5 сессий${after}`);
+  });
+
   // KAN-862. A "one" form may cover 0 (fr, pt, hi) or 21 (ru): the count is never written in as "1".
   test.each([
     'BookmarkCount',
