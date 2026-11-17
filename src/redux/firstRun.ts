@@ -54,6 +54,7 @@ import {
   pinCardFor,
   previousRunStep,
   runStepKind,
+  sessionsForRun,
   stepKindOf,
   type FirstRun,
   type RunPinCard,
@@ -69,6 +70,7 @@ import {
   selectVisibleTabGroups,
 } from '../utils/functions/local';
 import { storedSessionCount } from '../utils/functions/storedSessions';
+import { selectImportedSessionIds } from './bookmarkImport';
 import { hasTabsToSave } from '../utils/functions/capture';
 import { isTabView } from '../utils/functions/viewMode';
 import { requestTabView } from '../utils/functions/popOut';
@@ -324,7 +326,12 @@ const decideSaveCard =
     }
     const latest =
       run.view === 'full'
-        ? latestSession(state.tabContainerDataState.tabGroups)
+        ? latestSession(
+            sessionsForRun(
+              state.tabContainerDataState.tabGroups,
+              selectImportedSessionIds(state)
+            )
+          )
         : undefined;
     if (latest !== undefined) {
       dispatch(setFirstRunSession(latest.tabGroupId));

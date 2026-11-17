@@ -40,25 +40,29 @@ export function sessionDateLabel(
   t: TFunction,
   today: Date
 ): string {
-  const { showCreated, instant } = datedInstant(group, basis);
+  const { word, instant } = datedInstant(group, basis);
   const date = sessionWhen(instant, locale, timeFormat, today);
 
   // One phrase with the date inside it, not a word glued in front (KAN-286):
   // ja and hi put the date first.
-  return showCreated ? t('CreatedOn', { date }) : t('EditedOn', { date });
+  return t(PHRASE[word], { date });
 }
 
 /**
  * The full timestamp behind the label, for its hover (KAN-347): the year the
- * label leaves out, of the same instant.
+ * label leaves out, of the same instant. An imported session's says where it
+ * came from too (KAN-862), since the row may cut its label.
  */
 export function sessionDateTitle(
   group: tabContainerData,
   basis: SessionDateBasis,
   locale: string,
-  timeFormat: TimeFormat
+  timeFormat: TimeFormat,
+  t: TFunction
 ): string {
-  return getTooltipDate(datedInstant(group, basis).instant, locale, timeFormat);
+  const { word, instant } = datedInstant(group, basis);
+  const date = getTooltipDate(instant, locale, timeFormat);
+  return word === 'imported' ? t(PHRASE.imported, { date }) : date;
 }
 
 /**
@@ -73,25 +77,36 @@ export function sessionDateStamp(
   timeFormat: TimeFormat,
   t: TFunction
 ): string {
-  const { showCreated, instant } = datedInstant(group, basis);
+  const { word, instant } = datedInstant(group, basis);
   const date = getPrettyDate(instant, locale, timeFormat);
-  return showCreated ? t('CreatedOn', { date }) : t('EditedOn', { date });
+  return t(PHRASE[word], { date });
 }
 
-// Which instant a session shows, and whether the word is "Created".
+type DateWord = 'created' | 'edited' | 'imported';
+
+const PHRASE: Record<DateWord, string> = {
+  created: 'CreatedOn',
+  edited: 'EditedOn',
+  imported: 'ImportedOn',
+};
+
+// Which instant a session shows, and the word that says which it is.
 function datedInstant(
   group: tabContainerData,
   basis: SessionDateBasis
-): { showCreated: boolean; instant: number } {
+): { word: DateWord; instant: number } {
   // A session with no contentModified has never been edited, so "Edited" would
   // be a false statement about it whatever the basis says. contentInstant
   // already falls back to the creation instant for these; this makes the WORD
   // fall back with it rather than letting the two disagree.
   const neverEdited = group.contentModified === undefined;
-  const showCreated = basis === 'created' || neverEdited;
+  if (basis === 'edited' && !neverEdited) {
+    return { word: 'edited', instant: contentInstant(group) };
+  }
+  // KAN-862. Where an imported session would say Created, it says where it came from.
   return {
-    showCreated,
-    instant: showCreated ? createdInstant(group) : contentInstant(group),
+    word: group.importedFrom === 'bookmarks' ? 'imported' : 'created',
+    instant: createdInstant(group),
   };
 }
 

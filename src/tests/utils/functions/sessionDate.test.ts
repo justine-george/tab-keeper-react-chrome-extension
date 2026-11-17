@@ -121,6 +121,109 @@ describe('sessionDateLabel', () => {
   });
 });
 
+// KAN-862. A session an import made says where it came from wherever it would say Created.
+describe('imported from bookmarks (KAN-862)', () => {
+  const imported = (overrides: Partial<tabContainerData> = {}) =>
+    build({ importedFrom: 'bookmarks', ...overrides });
+
+  test('never edited: the imported line, on either basis', () => {
+    const line = `Imported from bookmarks · ${sessionWhen(CREATED, 'en', 'h12', TODAY)}`;
+    expect(sessionDateLabel(imported(), 'edited', 'en', 'h12', t, TODAY)).toBe(
+      line
+    );
+    expect(sessionDateLabel(imported(), 'created', 'en', 'h12', t, TODAY)).toBe(
+      line
+    );
+  });
+
+  test('edited, on the edited basis: Edited like any session', () => {
+    expect(
+      sessionDateLabel(
+        imported({ contentModified: EDITED }),
+        'edited',
+        'en',
+        'h12',
+        t,
+        TODAY
+      )
+    ).toBe(`Edited ${sessionWhen(EDITED, 'en', 'h12', TODAY)}`);
+  });
+
+  test('edited, on the created basis: the imported line, with the created date', () => {
+    expect(
+      sessionDateLabel(
+        imported({ contentModified: EDITED }),
+        'created',
+        'en',
+        'h12',
+        t,
+        TODAY
+      )
+    ).toBe(
+      `Imported from bookmarks · ${sessionWhen(CREATED, 'en', 'h12', TODAY)}`
+    );
+  });
+
+  test('the hover is the imported line with the full date; edited, it is the date alone', () => {
+    expect(sessionDateTitle(imported(), 'edited', 'en', 'h12', t)).toBe(
+      `Imported from bookmarks · ${getTooltipDate(CREATED, 'en', 'h12')}`
+    );
+    expect(
+      sessionDateTitle(
+        imported({ contentModified: EDITED }),
+        'edited',
+        'en',
+        'h12',
+        t
+      )
+    ).toBe(getTooltipDate(EDITED, 'en', 'h12'));
+  });
+
+  test('an exported file stamps the imported line with the full date', () => {
+    expect(sessionDateStamp(imported(), 'edited', 'en', 'h12', t)).toBe(
+      `Imported from bookmarks · ${getPrettyDate(CREATED, 'en', 'h12')}`
+    );
+    expect(
+      sessionDateStamp(
+        imported({ contentModified: EDITED }),
+        'edited',
+        'en',
+        'h12',
+        t
+      )
+    ).toBe(`Edited ${getPrettyDate(EDITED, 'en', 'h12')}`);
+  });
+
+  test('an ordinary session is unchanged in all three', () => {
+    for (const group of [build(), build({ contentModified: EDITED })]) {
+      for (const basis of ['edited', 'created'] as const) {
+        expect(
+          sessionDateLabel(group, basis, 'en', 'h12', t, TODAY)
+        ).not.toContain('Imported');
+        expect(sessionDateTitle(group, basis, 'en', 'h12', t)).toBe(
+          getTooltipDate(
+            basis === 'created' || group.contentModified === undefined
+              ? CREATED
+              : EDITED,
+            'en',
+            'h12'
+          )
+        );
+        expect(sessionDateStamp(group, basis, 'en', 'h12', t)).not.toContain(
+          'Imported'
+        );
+      }
+    }
+  });
+
+  test('de reads its own words', async () => {
+    const de = await tFor('de');
+    expect(sessionDateLabel(imported(), 'edited', 'de', 'h23', de, TODAY)).toBe(
+      `Aus Lesezeichen importiert · ${sessionWhen(CREATED, 'de', 'h23', TODAY)}`
+    );
+  });
+});
+
 describe('sessionWhen (KAN-347)', () => {
   test('earlier this year: date and time, no seconds, no year', () => {
     expect(
@@ -174,13 +277,13 @@ describe('sessionDateTitle (KAN-347)', () => {
   // The hover holds what the label trimmed away, for the same instant.
   test('the full timestamp of the same instant the label shows', () => {
     const group = build({ contentModified: EDITED });
-    expect(sessionDateTitle(group, 'edited', 'en', 'h12')).toBe(
+    expect(sessionDateTitle(group, 'edited', 'en', 'h12', t)).toBe(
       getTooltipDate(EDITED, 'en', 'h12')
     );
-    expect(sessionDateTitle(group, 'created', 'en', 'h12')).toBe(
+    expect(sessionDateTitle(group, 'created', 'en', 'h12', t)).toBe(
       getTooltipDate(CREATED, 'en', 'h12')
     );
-    expect(sessionDateTitle(build(), 'edited', 'en', 'h12')).toBe(
+    expect(sessionDateTitle(build(), 'edited', 'en', 'h12', t)).toBe(
       getTooltipDate(CREATED, 'en', 'h12')
     );
   });

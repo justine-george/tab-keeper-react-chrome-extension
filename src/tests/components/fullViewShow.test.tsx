@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { act, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 
 vi.mock('../../config/firebase', () => ({
   observeAuthState: () => {},
@@ -8,8 +8,10 @@ vi.mock('../../config/firebase', () => ({
 }));
 
 import App from '../../App';
+import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { makeTestStore } from '../setup/makeStore';
+import { setupChromeFake } from '../setup/chrome.fake';
 import { takeShowFromAddress } from '../../utils/functions/fullViewShow';
 import { showInFullView } from '../../redux/fullViewShow';
 import { SHOW_IN_FULL_VIEW_MESSAGE } from '../../utils/functions/popOut';
@@ -19,6 +21,7 @@ import {
   openSettingsPage,
   openSetup,
   setSearchInputText,
+  requestImportButtonFocus,
 } from '../../redux/slices/globalStateSlice';
 import { selectRunHere } from '../../redux/firstRun';
 import { RUN_LOCK, holdTourLock } from '../../utils/functions/tourLock';
@@ -29,7 +32,10 @@ import {
   settingsDataStateSlice,
 } from '../../redux/slices/settingsDataStateSlice';
 import { RUN_FINISHED_SETTINGS } from '../fixtures/firstRunFixture';
-import { SettingsCategory } from '../../redux/slices/settingsCategoryStateSlice';
+import {
+  SettingsCategory,
+  selectCategory,
+} from '../../redux/slices/settingsCategoryStateSlice';
 
 // KAN-7, in the full view: asked on the address or by the worker's message.
 
@@ -171,6 +177,72 @@ describe('showInFullView: the backup file steps', () => {
 
     await waitFor(() => expect(picked).toHaveBeenCalledTimes(1));
     expect(window.location.search).toBe('?view=tab');
+  });
+});
+
+// KAN-862 (R11). The popup's Import from bookmarks: the full view shows the button; the press is the user's, since a permission prompt needs a gesture.
+describe('showInFullView: the import from bookmarks', () => {
+  test('importBookmarks: Settings on Import, nothing asked, the dialog closed', async () => {
+    history.replaceState(null, '', '?view=tab');
+    setupChromeFake();
+    const request = vi.spyOn(globalThis.chrome.permissions, 'request');
+    const { store } = makeTestStore();
+
+    store.dispatch(showInFullView('importBookmarks'));
+
+    await waitFor(() =>
+      expect(store.getState().globalState.isSettingsPage).toBe(true)
+    );
+    expect(
+      store.getState().settingsCategoryState.find((c) => c.isSelected)?.name
+    ).toBe(SettingsCategory.IMPORT);
+    expect(request).not.toHaveBeenCalled();
+    expect(store.getState().globalState.isImportBookmarksOpen).toBe(false);
+  });
+
+  test('a new full view opened with show=importBookmarks focuses the Import from bookmarks button and opens no dialog', async () => {
+    history.replaceState(null, '', '?view=tab&show=importBookmarks');
+
+    const { store } = await renderWithProviders(<App />, {
+      seed: { tabs: [{ id: 5, windowId: 1 }], currentTabId: 5 },
+      seedStore: granted,
+    });
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'Import from bookmarks' })
+      )
+    );
+    expect(store.getState().globalState.isImportBookmarksOpen).toBe(false);
+    expect(window.location.search).toBe('?view=tab');
+  });
+});
+
+describe('showInFullView: the import button, from another Settings category', () => {
+  test('a full view already on About ends with the Import from bookmarks button focused', async () => {
+    history.replaceState(null, '', '?view=tab');
+    const { store } = await renderWithProviders(<SettingsDetailsContainer />, {
+      seedStore: (s) => {
+        s.dispatch(selectCategory(SettingsCategory.ABOUT));
+      },
+    });
+    expect(
+      screen.queryByRole('button', { name: 'Import from bookmarks' })
+    ).toBeNull();
+
+    // The category lands after the request has rendered, as an async thunk's does.
+    await act(async () => {
+      store.dispatch(requestImportButtonFocus());
+    });
+    await act(async () => {
+      store.dispatch(selectCategory(SettingsCategory.IMPORT));
+    });
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'Import from bookmarks' })
+      )
+    );
   });
 });
 

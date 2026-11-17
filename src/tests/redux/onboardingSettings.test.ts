@@ -21,6 +21,9 @@ import {
   markClosesThisTabCardAnswered,
   markEndingSeen,
   markHadSavedSession,
+  markHadImportedSession,
+  noteImportedSessions,
+  noteImportedBookmarks,
   markPressedSaveAsPdf,
   SAVE_PDF_POINTER_PRESSES,
   markFullViewCalloutSeen,
@@ -37,6 +40,9 @@ import {
 import { asDefaultView } from '../../utils/functions/defaultView';
 import { newRun } from '../../utils/functions/firstRun';
 import { makeTestStore } from '../setup/makeStore';
+
+// Bookmarks the record names, made with no dateAdded as the fixtures are.
+const marks = (ids: string[]) => ids.map((id) => ({ id, dateAdded: null }));
 
 // KAN-7. Six per-machine answers in settingsData, each guarded on both read
 // paths: this page's startup and another page's write (KAN-279 D9).
@@ -59,9 +65,12 @@ const GARBAGE = {
   isWhatsNew2Seen: 'yes',
   isClosesThisTabCardAnswered: 'true',
   hasHadSavedSession: 1,
+  hasHadOnlyImportedSessions: 'true',
   saveAsPdfPresses: 'yes',
   isPopupEndingSeen: 'true',
   isFullViewEndingSeen: 1,
+  importedSessionIds: 'a',
+  importedBookmarks: { kitchen: true },
 };
 
 const ALL_SET = {
@@ -85,9 +94,15 @@ const ALL_SET = {
   isWhatsNew2Seen: true,
   isClosesThisTabCardAnswered: true,
   hasHadSavedSession: true,
+  hasHadOnlyImportedSessions: true,
   saveAsPdfPresses: 2,
   isPopupEndingSeen: true,
   isFullViewEndingSeen: true,
+  importedSessionIds: Array.of('a', 'b'),
+  importedBookmarks: Array.of(
+    { sessionId: 's1', bookmarks: marks(['l1', 'l3']) },
+    { sessionId: 's2', bookmarks: marks(['kitchen']) }
+  ),
 } as const;
 
 const ONBOARDING_KEYS: string[] = Object.keys(ONBOARDING_DEFAULTS);
@@ -177,6 +192,16 @@ describe('the slice starts with guarded onboarding fields', () => {
     expect(initialState.isFullViewEndingSeen).toBe(false);
   });
 
+  // KAN-862. A list with a stray entry keeps the strings; a repeat adds nothing and writes nothing.
+  it('importedSessionIds keeps the strings of a mixed list', () => {
+    expect(
+      guardOnboarding(
+        { importedSessionIds: ['a', 1, null, 'b'] },
+        ONBOARDING_DEFAULTS
+      ).importedSessionIds
+    ).toEqual(['a', 'b']);
+  });
+
   it('settings saved before KAN-7 start as the defaults', async () => {
     localStorage.setItem('settingsData', JSON.stringify({ theme: 'Blue' }));
     const { initialState } = await freshSlice();
@@ -222,7 +247,12 @@ describe('the onboarding reducers persist what they set', () => {
     [
       'markHadSavedSession',
       markHadSavedSession(),
-      { hasHadSavedSession: true },
+      { hasHadSavedSession: true, hasHadOnlyImportedSessions: false },
+    ],
+    [
+      'markHadImportedSession',
+      markHadImportedSession(),
+      { hasHadSavedSession: true, hasHadOnlyImportedSessions: true },
     ],
     ['markPressedSaveAsPdf', markPressedSaveAsPdf(), { saveAsPdfPresses: 1 }],
     [
@@ -235,10 +265,109 @@ describe('the onboarding reducers persist what they set', () => {
       markEndingSeen('full'),
       { isPopupEndingSeen: false, isFullViewEndingSeen: true },
     ],
+    [
+      'noteImportedSessions',
+      noteImportedSessions(['a', 'b']),
+      { importedSessionIds: ['a', 'b'] },
+    ],
+    [
+      'noteImportedBookmarks',
+      noteImportedBookmarks([
+        { sessionId: 's1', bookmarks: marks(['kitchen']) },
+      ]),
+      {
+        importedBookmarks: [{ sessionId: 's1', bookmarks: marks(['kitchen']) }],
+      },
+    ],
     ['setDefaultView', setDefaultView('full'), { defaultView: 'full' }],
   ] as const)('%s sets and saves', (_name, action, expected) => {
     expect(reduce([action])).toMatchObject(expected);
     expect(saved()).toMatchObject(expected);
+  });
+
+  it('noteImportedSessions skips ids it has and writes nothing for them', () => {
+    const once = reduce([noteImportedSessions(['a', 'b'])]);
+    const setItem = vi.spyOn(localStorage, 'setItem');
+    setItem.mockClear();
+    const again = settingsDataStateSlice.reducer(
+      once,
+      noteImportedSessions(['b', 'a'])
+    );
+    expect(setItem).not.toHaveBeenCalled();
+    expect(again.importedSessionIds).toEqual(['a', 'b']);
+    expect(
+      settingsDataStateSlice.reducer(once, noteImportedSessions(['c']))
+        .importedSessionIds
+    ).toEqual(['a', 'b', 'c']);
+  });
+
+  // KAN-862 (11-16). A folder's record stays whatever happens to its session (R25 reads it against the saved list).
+  it('noteImportedBookmarks skips a session it has and writes nothing for it', () => {
+    const once = reduce([
+      noteImportedBookmarks([
+        { sessionId: 's1', bookmarks: marks(['kitchen']) },
+      ]),
+    ]);
+    const setItem = vi.spyOn(localStorage, 'setItem');
+    setItem.mockClear();
+    const again = settingsDataStateSlice.reducer(
+      once,
+      noteImportedBookmarks([{ sessionId: 's1', bookmarks: marks(['other']) }])
+    );
+    expect(setItem).not.toHaveBeenCalled();
+    expect(again.importedBookmarks).toEqual(once.importedBookmarks);
+  });
+
+  it('importedBookmarks keeps well-formed entries and drops the rest', () => {
+    expect(
+      guardOnboarding(
+        {
+          importedBookmarks: [
+            {
+              sessionId: 's1',
+              bookmarks: [
+                { id: 'a', dateAdded: 1000 },
+                { id: 'b' },
+                { id: 2, dateAdded: 1000 },
+                'c',
+                { id: 'd', dateAdded: 'soon' },
+              ],
+              isUndone: 'yes',
+            },
+            { sessionId: 3, bookmarks: marks(['b']), isUndone: false },
+            // A dev profile from before R25: its isUndone is dropped, the entry kept.
+            { sessionId: 's2', bookmarks: marks(['e']), isUndone: true },
+            null,
+            'x',
+          ],
+        },
+        ONBOARDING_DEFAULTS
+      ).importedBookmarks
+    ).toEqual([
+      {
+        sessionId: 's1',
+        bookmarks: [
+          { id: 'a', dateAdded: 1000 },
+          { id: 'b', dateAdded: null },
+          { id: 'd', dateAdded: null },
+        ],
+      },
+      { sessionId: 's2', bookmarks: marks(['e']) },
+    ]);
+  });
+
+  // KAN-862 R14. Only imports: the first-save pop is still to come. Any other session held ends that.
+  it.each([
+    [[markHadImportedSession(), markHadSavedSession()], false],
+    [[markHadSavedSession(), markHadImportedSession()], false],
+    [[markHadImportedSession(), markHadImportedSession()], true],
+  ])('%j leaves hasHadOnlyImportedSessions %p', (actions, onlyImports) => {
+    const state = reduce(actions);
+    expect(state.hasHadSavedSession).toBe(true);
+    expect(state.hasHadOnlyImportedSessions).toBe(onlyImports);
+    expect(saved()).toMatchObject({
+      hasHadOnlyImportedSessions: onlyImports,
+    });
   });
 
   // Every full-view open dispatches it; a write each time would fire a
@@ -247,6 +376,8 @@ describe('the onboarding reducers persist what they set', () => {
     ['markFullViewOpened', markFullViewOpened()],
     ['markFullViewCalloutSeen', markFullViewCalloutSeen()],
     ['markClosesThisTabCardAnswered', markClosesThisTabCardAnswered()],
+    ['markHadSavedSession', markHadSavedSession()],
+    ['markHadImportedSession', markHadImportedSession()],
     ['markEndingSeen popup', markEndingSeen('popup')],
     ['markEndingSeen full', markEndingSeen('full')],
   ] as const)('%s writes only the first time', (_name, action) => {

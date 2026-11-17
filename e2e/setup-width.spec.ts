@@ -48,7 +48,7 @@ async function openSetup(
   const dialog = page.locator('dialog[open][aria-labelledby="setup-title"]');
   await expect(dialog.getByRole('progressbar')).toHaveAttribute(
     'aria-valuemax',
-    '6'
+    '7'
   );
   return { page, dialog };
 }
@@ -83,7 +83,7 @@ for (const root of [16, 20]) {
       const button = (key: string) =>
         dialog.getByRole('button', { name: say(key), exact: true });
 
-      for (let step = 1; step <= 6; step++) {
+      for (let step = 1; step <= 7; step++) {
         await expect(dialog.getByRole('progressbar')).toHaveAttribute(
           'aria-valuenow',
           String(step)
@@ -93,12 +93,12 @@ for (const root of [16, 20]) {
         expect(await linesOf(skip), label).toBe(1);
         if (step > 1) {
           const back = await boxWidth(button('Back'));
-          const end = await boxWidth(button(step < 6 ? 'Next' : 'Done'));
+          const end = await boxWidth(button(step < 7 ? 'Next' : 'Done'));
           // CONTROL: Back is drawn, so a zero width cannot pass for a match.
           expect(back, label).toBeGreaterThan(20);
           expect(Math.abs(end - 1.5 * back), label).toBeLessThanOrEqual(1);
         }
-        if (step < 6) await button('Next').click();
+        if (step < 7) await button('Next').click();
       }
     });
   }

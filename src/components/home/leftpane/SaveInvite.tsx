@@ -74,19 +74,33 @@ export function useSaveInvite(): boolean {
   const dispatch = useDispatch();
   const isEmpty = useIsSavedListEmpty();
   const isRunHere = useSelector(selectRunHere) !== null;
-  const holdsUsersSession = useSelector((state: RootState) =>
+  // KAN-862. An import marks the list itself (markHadImportedSession); this is any other session of the user's.
+  const holdsSessionNotImported = useSelector((state: RootState) =>
     state.tabContainerDataState.tabGroups.some(
-      (g) => !isSampleSession(g.tabGroupId)
+      (g) =>
+        !isSampleSession(g.tabGroupId) &&
+        !state.settingsDataState.importedSessionIds.includes(g.tabGroupId)
     )
   );
   const hasHadSavedSession = useSelector(
     (state: RootState) => state.settingsDataState.hasHadSavedSession
   );
+  const hasHadOnlyImportedSessions = useSelector(
+    (state: RootState) => state.settingsDataState.hasHadOnlyImportedSessions
+  );
   useEffect(() => {
-    if (holdsUsersSession && !hasHadSavedSession) {
+    if (
+      holdsSessionNotImported &&
+      (!hasHadSavedSession || hasHadOnlyImportedSessions)
+    ) {
       dispatch(markHadSavedSession());
     }
-  }, [dispatch, holdsUsersSession, hasHadSavedSession]);
+  }, [
+    dispatch,
+    holdsSessionNotImported,
+    hasHadSavedSession,
+    hasHadOnlyImportedSessions,
+  ]);
   return isEmpty && !isRunHere && !hasHadSavedSession;
 }
 

@@ -1359,7 +1359,7 @@ test.describe('round 6 picks, with scrollbars drawn', () => {
     });
     const nav = page.locator('[data-panel=settings-nav]');
     await expect(nav).toBeVisible();
-    // Main fit this with no bar; a bar takes 10px from every label (ko wrapped on CI).
+    // ko at 24px fits with the gap (15px spare since KAN-862's rows shrink); a bar takes 10px from every label (ko wrapped on CI).
     expect(
       await nav.evaluate((e) =>
         e instanceof HTMLElement

@@ -30,7 +30,7 @@ const iconContainerOf = (container: HTMLElement): HTMLElement => {
 describe('Button icon spacing', () => {
   test('separates the icon from its label', async () => {
     const { container } = await renderWithProviders(
-      <Button text="Save sessions to a file" iconType="download" />
+      <Button text="Save a backup" iconType="output" />
     );
 
     const style = getComputedStyle(iconContainerOf(container));
@@ -39,7 +39,7 @@ describe('Button icon spacing', () => {
 
   test('separates the icon from an adjacent image', async () => {
     const { container } = await renderWithProviders(
-      <Button imageSrc="https://example.com/i.png" iconType="download" />
+      <Button imageSrc="https://example.com/i.png" iconType="output" />
     );
 
     const style = getComputedStyle(iconContainerOf(container));
@@ -70,7 +70,7 @@ describe('Button icon spacing', () => {
 describe('Button icon centring', () => {
   test('keeps its own padding on both sides with nothing beside it', async () => {
     const { container } = await renderWithProviders(
-      <Button iconType="download" />
+      <Button iconType="output" />
     );
     const style = getComputedStyle(iconContainerOf(container));
     expect([style.paddingLeft, style.paddingRight]).toEqual(['4px', '4px']);

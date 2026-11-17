@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import {
+  isFullViewShow,
   isOpenInTabRequest,
   isShowInFullViewMessage,
   OPEN_IN_TAB_MESSAGE,
@@ -121,6 +122,18 @@ function makeTabApi(
 function request(windowId: number | undefined): OpenInTabRequest {
   return { type: OPEN_IN_TAB_MESSAGE, windowId };
 }
+
+// KAN-862. The import from bookmarks asks for its permission in the full view.
+test('importBookmarks is a request the full view takes', () => {
+  expect(isFullViewShow('importBookmarks')).toBe(true);
+  expect(
+    isOpenInTabRequest({
+      type: OPEN_IN_TAB_MESSAGE,
+      windowId: 5,
+      show: 'importBookmarks',
+    })
+  ).toBe(true);
+});
 
 describe('isOpenInTabRequest', () => {
   test('accepts the open-in-tab request, windowId included', () => {

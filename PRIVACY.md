@@ -63,7 +63,7 @@ Tab Keeper then stores your sessions in Google Cloud Firestore, linked to the an
 
 ### Backup files
 
-If you choose **Save sessions to a file**, Tab Keeper writes your sessions and their associated metadata to a file on your computer. You choose where that file is stored. Backup files do not include your Tab Keeper settings.
+If you choose **Save a backup**, Tab Keeper writes your sessions and their associated metadata to a file on your computer. You choose where that file is stored. Backup files do not include your Tab Keeper settings.
 
 ### Tab icons
 
@@ -121,7 +121,7 @@ Local extension storage and exported backup files are not separately encrypted b
 
 You can:
 
-- Export a copy of your sessions with **Save sessions to a file**
+- Export a copy of your sessions with **Save a backup**
 - Delete individual sessions from Tab Keeper
 - Turn off Auto sync to stop automatic cloud updates from that device
 - Delete your cloud session data through **Delete cloud data**

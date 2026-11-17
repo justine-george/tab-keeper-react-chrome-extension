@@ -26,6 +26,7 @@ import {
   noteStoredSettingsSeen,
   saveLocalSettings,
 } from '../../utils/functions/localSettings';
+import type { BookmarkIdentity } from '../../utils/functions/bookmarkImport';
 import type { CaptureScope } from '../../utils/functions/capture';
 import type { CopyLinksLayout } from '../../utils/functions/copySessionLinks';
 // `import type`, so nothing is emitted: the generator imports this slice's
@@ -127,7 +128,7 @@ export interface SettingsData {
    * derived in KAN-130 and KAN-136 rather than stored.
    *
    * The consequence is accepted and documented: the ORDER syncs, through ranks,
-   * and this does not. Sort by date saved here, open on another device, and
+   * and this does not. Sort by date created here, open on another device, and
    * that device shows edited dates in created order until its own menu is
    * touched. Cosmetic, confined to the multi-device-plus-explicit-sort corner,
    * and cheaper than a container field with its own last-writer-wins rule.
@@ -203,6 +204,8 @@ export interface SettingsData {
   isClosesThisTabCardAnswered: boolean;
   // KAN-828. This device's saved list has held a session of the user's: the save invite is done here.
   hasHadSavedSession: boolean;
+  // KAN-862. hasHadSavedSession is true, and only imports made it so: the first-save pop is still to come.
+  hasHadOnlyImportedSessions: boolean;
   // KAN-826, KAN-911. Save as PDF… presses on this device, counted up to
   // SAVE_PDF_POINTER_PRESSES: the export page's pointer shows until then.
   saveAsPdfPresses: number;
@@ -211,6 +214,16 @@ export interface SettingsData {
   // KAN-879. The onboarding ending has shown in this view on this device.
   isPopupEndingSeen: boolean;
   isFullViewEndingSeen: boolean;
+  // KAN-862. The sessions an import from bookmarks made on this device, so the tour can skip them.
+  importedSessionIds: string[];
+  // KAN-862 (11-16). What each of those sessions covers. It counts as imported only while its session is saved (R25); entries outlive a delete so a restore counts again.
+  importedBookmarks: ImportedBookmarks[];
+}
+
+// KAN-862. One imported session's bookmarks: a user folder itself, or a top folder's loose links (R22), each by id and dateAdded, as Chrome reuses deleted ids.
+export interface ImportedBookmarks {
+  sessionId: string;
+  bookmarks: BookmarkIdentity[];
 }
 
 /**
@@ -238,9 +251,12 @@ export type OnboardingSettings = Pick<
   | 'isWhatsNew2Seen'
   | 'isClosesThisTabCardAnswered'
   | 'hasHadSavedSession'
+  | 'hasHadOnlyImportedSessions'
   | 'saveAsPdfPresses'
   | 'isPopupEndingSeen'
   | 'isFullViewEndingSeen'
+  | 'importedSessionIds'
+  | 'importedBookmarks'
 >;
 
 export const ONBOARDING_DEFAULTS: OnboardingSettings = {
@@ -253,9 +269,12 @@ export const ONBOARDING_DEFAULTS: OnboardingSettings = {
   isWhatsNew2Seen: false,
   isClosesThisTabCardAnswered: false,
   hasHadSavedSession: false,
+  hasHadOnlyImportedSessions: false,
   saveAsPdfPresses: 0,
   isPopupEndingSeen: false,
   isFullViewEndingSeen: false,
+  importedSessionIds: [],
+  importedBookmarks: [],
 };
 
 export function asSetupState(value: unknown): SetupState {
@@ -263,6 +282,53 @@ export function asSetupState(value: unknown): SetupState {
 }
 
 const asFlag = (value: unknown): boolean => value === true;
+
+// KAN-862. Anything that is not a list of strings reads as none; a stray non-string drops out.
+export const asIds = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value.filter((id): id is string => typeof id === 'string')
+    : [];
+
+// KAN-862. A bookmark without a string id drops out; a dateAdded that is not a number reads as unknown.
+const asBookmarkIdentities = (value: unknown): BookmarkIdentity[] =>
+  Array.isArray(value)
+    ? value.flatMap((item: unknown): BookmarkIdentity[] =>
+        typeof item === 'object' &&
+        item !== null &&
+        'id' in item &&
+        typeof item.id === 'string'
+          ? [
+              {
+                id: item.id,
+                dateAdded:
+                  'dateAdded' in item && typeof item.dateAdded === 'number'
+                    ? item.dateAdded
+                    : null,
+              },
+            ]
+          : []
+      )
+    : [];
+
+// KAN-862. Entries of the wrong shape drop out; a stray bookmark inside one drops out alone. Other fields (R21's old isUndone) are dropped.
+export const asImportedBookmarks = (value: unknown): ImportedBookmarks[] =>
+  Array.isArray(value)
+    ? value.flatMap((entry: unknown): ImportedBookmarks[] =>
+        typeof entry === 'object' &&
+        entry !== null &&
+        'sessionId' in entry &&
+        typeof entry.sessionId === 'string'
+          ? [
+              {
+                sessionId: entry.sessionId,
+                bookmarks: asBookmarkIdentities(
+                  Reflect.get(entry, 'bookmarks')
+                ),
+              },
+            ]
+          : []
+      )
+    : [];
 
 /** KAN-911. Presses after which the Save as PDF… pointer is done. */
 export const SAVE_PDF_POINTER_PRESSES = 2;
@@ -308,6 +374,7 @@ export function guardOnboarding(
     isWhatsNew2Seen: read('isWhatsNew2Seen', asFlag),
     isClosesThisTabCardAnswered: read('isClosesThisTabCardAnswered', asFlag),
     hasHadSavedSession: read('hasHadSavedSession', asFlag),
+    hasHadOnlyImportedSessions: read('hasHadOnlyImportedSessions', asFlag),
     // KAN-911. A device that pressed before the count kept only a flag: one press.
     saveAsPdfPresses:
       isStoredObject &&
@@ -319,6 +386,8 @@ export function guardOnboarding(
         : read('saveAsPdfPresses', asPresses),
     isPopupEndingSeen: read('isPopupEndingSeen', asFlag),
     isFullViewEndingSeen: read('isFullViewEndingSeen', asFlag),
+    importedSessionIds: read('importedSessionIds', asIds),
+    importedBookmarks: read('importedBookmarks', asImportedBookmarks),
   };
 }
 
@@ -788,10 +857,43 @@ export const settingsDataStateSlice = createSlice({
       saveLocalSettings(state);
     },
 
-    // Dispatched while the list holds a session of the user's; only the first writes.
+    // Dispatched while the list holds a session of the user's that no import made; only the first writes.
     markHadSavedSession: (state) => {
+      if (state.hasHadSavedSession && !state.hasHadOnlyImportedSessions) return;
+      state.hasHadSavedSession = true;
+      state.hasHadOnlyImportedSessions = false;
+      saveLocalSettings(state);
+    },
+
+    // KAN-862. An import fills the list too, but leaves the first-save pop for the user's own save (R14).
+    markHadImportedSession: (state) => {
       if (state.hasHadSavedSession) return;
       state.hasHadSavedSession = true;
+      state.hasHadOnlyImportedSessions = true;
+      saveLocalSettings(state);
+    },
+
+    // KAN-862. An import's new sessions, kept so the tour can leave them out.
+    noteImportedSessions: (state, action: PayloadAction<string[]>) => {
+      const fresh = action.payload.filter(
+        (id) => !state.importedSessionIds.includes(id)
+      );
+      if (fresh.length === 0) return;
+      state.importedSessionIds.push(...fresh);
+      saveLocalSettings(state);
+    },
+
+    // KAN-862 (11-16). What an import's sessions cover: none of it can be imported again here while they are saved (R25).
+    noteImportedBookmarks: (
+      state,
+      action: PayloadAction<
+        { sessionId: string; bookmarks: BookmarkIdentity[] }[]
+      >
+    ) => {
+      const known = new Set(state.importedBookmarks.map((e) => e.sessionId));
+      const fresh = action.payload.filter((e) => !known.has(e.sessionId));
+      if (fresh.length === 0) return;
+      state.importedBookmarks.push(...fresh);
       saveLocalSettings(state);
     },
 
@@ -941,6 +1043,9 @@ export const {
   markEndingSeen,
   markClosesThisTabCardAnswered,
   markHadSavedSession,
+  markHadImportedSession,
+  noteImportedSessions,
+  noteImportedBookmarks,
   markPressedSaveAsPdf,
   setDefaultView,
   setToolbarIcon,

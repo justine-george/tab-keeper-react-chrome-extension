@@ -61,9 +61,7 @@ for (const [view, path, size] of [
     await page.locator('[aria-label="Settings"]').click();
     await page.locator('button[aria-label="Sync & backup"]').click();
     const chooser = page.waitForEvent('filechooser');
-    await page
-      .getByRole('button', { name: 'Load sessions from a backup' })
-      .click();
+    await page.getByRole('button', { name: 'Load a backup' }).click();
     await (
       await chooser
     ).setFiles({

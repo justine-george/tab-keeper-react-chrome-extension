@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'vitest';
-import { screen } from '@testing-library/react';
+import { afterEach, describe, expect, test } from 'vitest';
+import { act, screen } from '@testing-library/react';
 
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -9,6 +9,8 @@ import {
   SettingsCategory,
 } from '../../redux/slices/settingsCategoryStateSlice';
 import en from '../../../public/locales/en/translation.json';
+import de from '../../../public/locales/de/translation.json';
+import { testI18n } from '../setup/i18nForTests';
 
 // KAN-253. Two of the five categories did not name their contents: "Sync &
 // Privacy" held no privacy setting, and "Data Management" was a bucket for
@@ -29,18 +31,25 @@ const renderOn = (category: SettingsCategory) =>
     },
   });
 
+// The shared instance: a leaked locale would run later tests in it.
+afterEach(async () => {
+  if (testI18n.isInitialized) await testI18n.changeLanguage('en');
+});
+
 describe('the settings rail names what each pane holds (KAN-253)', () => {
-  test('the eight categories, in order, and none of the old names', () => {
+  test('the nine categories, in order, and none of the old names', () => {
     // Two pairs, then About and Help: how it looks (Display, Language), then
     // what it does with your data (Sync & Backup, then Sessions -- the
     // consequential one first). Display stays the landing pane. Recently
     // deleted follows Sessions (KAN-595). Quick access follows Language
     // (KAN-652): how Tab Keeper itself opens, before anything about data.
+    // Import follows Sync & Backup (KAN-862): another way sessions come in.
     expect(initialState.map((c) => c.name)).toEqual([
       'Display',
       'Language',
       'Quick access',
       'Sync & Backup',
+      'Import',
       'Sessions',
       'Recently deleted',
       'About',
@@ -58,14 +67,45 @@ describe('the settings rail names what each pane holds (KAN-253)', () => {
     expect(screen.getByRole('group', { name: 'Auto sync' })).toBeTruthy();
     expect(screen.getByTestId('sync-status')).toBeTruthy();
     expect(screen.getByText('Backup')).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: 'Save sessions to a file' })
-    ).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: 'Load sessions from a backup' })
-    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save a backup' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Load a backup' })).toBeTruthy();
     // And not the capture setting.
     expect(screen.queryByRole('group', { name: 'Save tab groups' })).toBeNull();
+  });
+
+  // KAN-862. Import has its own pane now: Backup is followed by Cloud data.
+  test('Sync & Backup holds no import: Backup, then Cloud data', async () => {
+    const { container } = await renderOn(SettingsCategory.SYNC);
+    expect(sectionLabels(container).slice(-2)).toEqual([
+      'Backup',
+      'Cloud data',
+    ]);
+    expect(
+      screen.queryByRole('button', { name: 'Import from bookmarks' })
+    ).toBeNull();
+  });
+
+  // KAN-862. One section per place to import from; bookmarks is the only one so far.
+  test('Import holds one section, Bookmarks, with Import from bookmarks', async () => {
+    const { container } = await renderOn(SettingsCategory.IMPORT);
+    expect(sectionLabels(container)).toEqual(['Bookmarks']);
+    expect(
+      screen.getByRole('button', { name: 'Import from bookmarks' })
+    ).toBeTruthy();
+  });
+
+  // KAN-862. The rail names the pane with a noun; the dialog's button keeps the verb (Importieren).
+  test('in German the Import pane and its section are named, not the verb', async () => {
+    const { container } = await renderOn(SettingsCategory.IMPORT);
+    testI18n.addResourceBundle('de', 'translation', de, true, true);
+    await act(async () => {
+      await testI18n.changeLanguage('de');
+    });
+    // From de's own file: the fallback is the key, which reads Import too.
+    expect(
+      testI18n.getResource('de', 'translation', SettingsCategory.IMPORT)
+    ).toBe('Import');
+    expect(sectionLabels(container)).toEqual(['Lesezeichen']);
   });
 
   // KAN-652. Sessions held six settings, three of them about how Tab Keeper
@@ -104,6 +144,14 @@ describe('sections within a pane sit 32px apart, as About blocks do', () => {
       ...container.querySelectorAll<HTMLElement>('[data-settings-section]'),
     ].map((el) => getComputedStyle(el).marginTop);
     expect(margins).toEqual(['20px', '32px', '32px', '32px']);
+  });
+
+  test('Import: its one section at 20px from the top', async () => {
+    const { container } = await renderOn(SettingsCategory.IMPORT);
+    const margins = [
+      ...container.querySelectorAll<HTMLElement>('[data-settings-section]'),
+    ].map((el) => getComputedStyle(el).marginTop);
+    expect(margins).toEqual(['20px']);
   });
 
   test('Sessions: first at 20px, every later row at 32px', async () => {

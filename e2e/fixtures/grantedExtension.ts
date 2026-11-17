@@ -38,6 +38,7 @@ export const grantedTest = base.extend<
     keepWindowBounds: boolean;
     showScrollbars: boolean;
     refuseSessions: boolean;
+    grantBookmarks: boolean;
   },
   { reused: ReusedBrowser }
 >({
@@ -70,6 +71,12 @@ export const grantedTest = base.extend<
   // `grantedTest.use({ refuseSessions: true })`.
   refuseSessions: [false, { option: true }],
 
+  // KAN-862. `bookmarks` is optional in the shipped manifest, and an optional
+  // permission cannot be pre-granted in a Playwright profile. With this on,
+  // the copy's manifest requires it, so the import's ask resolves at once.
+  // Opt in with `grantedTest.use({ grantBookmarks: true })`.
+  grantBookmarks: [false, { option: true }],
+
   // `headless` is Playwright's own option, true unless the run passes
   // --headed: a spec that needs a real window manager can then be run headed
   // on purpose (open-now-close.spec.ts test 2).
@@ -78,6 +85,7 @@ export const grantedTest = base.extend<
       keepWindowBounds,
       showScrollbars,
       refuseSessions,
+      grantBookmarks,
       headless,
       reused,
       deviceScaleFactor,
@@ -102,11 +110,18 @@ export const grantedTest = base.extend<
       const manifest = JSON.parse(
         readFileSync(manifestPath, 'utf8')
       ) as Manifest;
-      manifest.permissions = [...(manifest.permissions ?? []), 'tabGroups'];
+      manifest.permissions = [
+        ...(manifest.permissions ?? []),
+        'tabGroups',
+        ...(grantBookmarks ? ['bookmarks'] : []),
+      ];
       manifest.optional_permissions = (
         manifest.optional_permissions ?? []
       ).filter(
-        (p) => p !== 'tabGroups' && !(refuseSessions && p === 'sessions')
+        (p) =>
+          p !== 'tabGroups' &&
+          !(refuseSessions && p === 'sessions') &&
+          !(grantBookmarks && p === 'bookmarks')
       );
       writeFileSync(manifestPath, JSON.stringify(manifest));
 
@@ -133,6 +148,8 @@ export const grantedTest = base.extend<
           keepWindowBounds,
           showScrollbars,
           refuseSessions,
+          // KAN-862. A browser launched without the bookmarks grant has no chrome.bookmarks to reuse.
+          grantBookmarks,
           headless,
           // The runner hands each of these to every launch, so each is a launch option.
           runner: {

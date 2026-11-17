@@ -1,4 +1,4 @@
-import { Fragment, useId, useState } from 'react';
+import { Fragment, useEffect, useId, useRef, useState } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -20,7 +20,10 @@ import { NormalLabel } from '../../common/Label';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
 import { chooseLanguage } from '../../../redux/languageChoice';
-import { openCloudConsentModal } from '../../../redux/slices/globalStateSlice';
+import {
+  importButtonFocused,
+  openCloudConsentModal,
+} from '../../../redux/slices/globalStateSlice';
 import {
   setCopyLinksLayout,
   setOpenSavedWindowsIn,
@@ -40,6 +43,7 @@ import {
 } from '../../../utils/constants/common';
 import { SettingsCategoryContainer } from '../leftpane/SettingsCategoryContainer';
 import { loadBackupFile, saveBackupFile } from '../../../redux/backupFile';
+import { importBookmarksFromSettings } from '../../../redux/startBookmarkImport';
 import { requestTabView } from '../../../utils/functions/popOut';
 import { isTabView } from '../../../utils/functions/viewMode';
 import {
@@ -91,6 +95,7 @@ const SettingsDetailsContainer: React.FC = () => {
   const openSavedWindowsHelpId = useId();
   const autoSyncHelpId = useId();
   const backupHelpId = useId();
+  const importHelpId = useId();
   const cloudDataHelpId = useId();
   const saveTabGroupsHelpId = useId();
   const skipDuplicateTabsHelpId = useId();
@@ -100,6 +105,22 @@ const SettingsDetailsContainer: React.FC = () => {
   const { t } = useTranslation();
 
   const dispatch: AppDispatch = useDispatch();
+  const importButtonBox = useRef<HTMLDivElement>(null);
+  const isImportFocusRequested = useSelector(
+    (state: RootState) => state.globalState.isImportButtonFocusRequested
+  );
+  const selectedCategory = useSelector(
+    (state: RootState) =>
+      state.settingsCategoryState.find((c) => c.isSelected)?.name
+  );
+  // KAN-862. One-shot: kept until the Import pane has rendered the button to focus.
+  useEffect(() => {
+    if (!isImportFocusRequested) return;
+    const button = importButtonBox.current?.querySelector('button');
+    if (!button) return;
+    button.focus();
+    dispatch(importButtonFocused());
+  }, [isImportFocusRequested, selectedCategory, dispatch]);
 
   // Chrome's language doesn't change while the page is open.
   const [languageCells] = useState(chromeLanguageOrder);
@@ -424,8 +445,7 @@ const SettingsDetailsContainer: React.FC = () => {
         {/* Backup. KAN-251: the buttons name what they do to SESSIONS --
             "Restore" is this app's verb for opening a saved session, and
             "App Data" promised settings the file does not carry -- and the
-            icons point the way the browser's do: save is a download, replace
-            an upload. "Replace" because that is what loading a backup does to
+            icons are output (save) and input (load), KAN-962. "Replace" because that is what loading a backup does to
             what is there (KAN-252 holds the question of whether it should). */}
         <div
           data-settings-section
@@ -466,15 +486,15 @@ const SettingsDetailsContainer: React.FC = () => {
             `}
           >
             <Button
-              text={t('Save sessions to a file')}
-              iconType="download"
+              text={t('Save a backup')}
+              iconType="output"
               onClick={handleExportJSON}
               style="width: 100%; justify-content: center;"
               ariaDescribedBy={backupHelpId}
             />
             <Button
-              text={t('Load sessions from a backup')}
-              iconType="upload"
+              text={t('Load a backup')}
+              iconType="input"
               onClick={handleImportJSON}
               style="width: 100%; justify-content: center;"
               ariaDescribedBy={backupHelpId}
@@ -482,7 +502,7 @@ const SettingsDetailsContainer: React.FC = () => {
           </div>
           <p id={backupHelpId} css={helpLineStyle}>
             {t(
-              'Saves your sessions to a file. Settings aren’t included. Loading a backup asks whether to merge it with your sessions or replace them.'
+              'A backup is a file with your saved sessions. When you load a backup, you choose to merge it with your sessions or replace them.'
             )}
           </p>
         </div>
@@ -526,6 +546,63 @@ const SettingsDetailsContainer: React.FC = () => {
             {t(
               'Removes your sessions from the cloud and turns Auto sync off. Your sessions stay on this device and on your other devices.'
             )}
+          </p>
+        </div>
+      </div>
+    );
+  } else if (selectedSettingsCategory.name === SettingsCategory.IMPORT) {
+    // KAN-862. One section per place to import from; bookmarks is the only one so far.
+    settingsOptionsDiv = (
+      <div
+        css={css`
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-start;
+          align-items: center;
+        `}
+      >
+        {/* Bookmarks. KAN-862: bookmark folders become saved sessions. The
+            thunk asks for the permission (or hands the popup's press to the
+            full view), so the button just starts it. */}
+        <div
+          data-settings-section
+          css={css`
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            ${sectionInsetCss()}
+            width: 100%;
+            margin-top: 20px;
+          `}
+        >
+          <div
+            css={css`
+              display: flex;
+              align-items: flex-start;
+              width: 100%;
+            `}
+          >
+            <NormalLabel
+              value={t('Bookmarks')}
+              size={TYPE.BODY}
+              color={COLORS.LABEL_L1_COLOR}
+            />
+          </div>
+          <div
+            ref={importButtonBox}
+            css={css`
+              margin-top: 8px;
+            `}
+          >
+            <Button
+              text={t('Import from bookmarks')}
+              iconType="input"
+              onClick={() => void dispatch(importBookmarksFromSettings())}
+              ariaDescribedBy={importHelpId}
+            />
+          </div>
+          <p id={importHelpId} css={helpLineStyle}>
+            {t('ImportBookmarksHelp')}
           </p>
         </div>
       </div>

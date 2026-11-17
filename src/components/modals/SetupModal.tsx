@@ -6,6 +6,7 @@ import { css } from '@emotion/react';
 import Icon from '../common/Icon';
 import ProgressLine from '../common/ProgressLine';
 import DefaultViewCards from '../common/DefaultViewCards';
+import BookmarksImportSource from '../common/BookmarksImportSource';
 import SlidingPair from '../common/SlidingPair';
 import { SETTINGS_PAIR_METRICS } from '../common/slidingPairMetrics';
 import TabKeeperMark from '../common/TabKeeperMark';
@@ -23,6 +24,7 @@ import {
 } from '../../hooks/usePopupShortcut';
 import type { AppDispatch, RootState } from '../../redux/store';
 import { leaveSetup } from '../../redux/firstOpenFollowUps';
+import { selectImportedSessionIds } from '../../redux/bookmarkImport';
 import { openCloudConsentModal } from '../../redux/slices/globalStateSlice';
 import {
   cloudSyncAllowed,
@@ -41,7 +43,6 @@ import {
 import { shouldAskTabGroupsInSetup } from '../../utils/functions/tabGroupsOffer';
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { ICON, RADIUS, TYPE } from '../../styles/scale';
-import { focusRingOutsideCss } from '../common/focusRing';
 import {
   dialogButtonStyles,
   flushLinkCss,
@@ -49,6 +50,7 @@ import {
   tallButtonCss,
 } from './dialogButtons';
 import { dialogTitleSize } from './dialogTitleSize';
+import { setupFinePrintCss } from './setupFinePrint';
 import { dialogRiseCss } from './dialogRise';
 import { useHasRisen } from '../../hooks/useHasRisen';
 import { corners } from '../../styles/corners';
@@ -56,7 +58,13 @@ import { dialogFitsWindow } from './dialogFit';
 
 const TITLE_ID = 'setup-title';
 type Step =
-  'theme' | 'language' | 'defaultView' | 'shortcut' | 'tabGroups' | 'sync';
+  | 'theme'
+  | 'language'
+  | 'defaultView'
+  | 'shortcut'
+  | 'tabGroups'
+  | 'import'
+  | 'sync';
 const FIRST_STEPS: readonly Step[] = [
   'theme',
   'language',
@@ -79,6 +87,9 @@ export const SetupModal: React.FC = () => {
   const hasTabGroups = useSelector(
     (s: RootState) => s.globalState.hasTabGroupsPermission
   );
+  const importedCount = useSelector(selectImportedSessionIds).length;
+  // KAN-862. The import step shows what came in while setup was open, not before.
+  const [importedAtOpen] = useState(importedCount);
   const popupShortcut = usePopupShortcut();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -100,6 +111,8 @@ export const SetupModal: React.FC = () => {
   const steps: readonly Step[] = [
     ...FIRST_STEPS,
     ...(asksTabGroups === true ? (['tabGroups'] as const) : []),
+    // KAN-862. Before sync, so what comes in is there when sync is offered.
+    'import',
     'sync',
   ];
   const step: Step = steps[Math.min(stepIndex, steps.length - 1)];
@@ -223,17 +236,7 @@ export const SetupModal: React.FC = () => {
   `;
   const fineStyle = css`
     margin: 12px 0 0 0;
-    font-size: ${TYPE.SECONDARY};
-    line-height: 1.5;
-    color: ${COLORS.LABEL_L1_COLOR};
-    a {
-      color: ${COLORS.TEXT_COLOR};
-      ${focusRingOutsideCss(COLORS)}
-    }
-    /* Korean wraps mid-word otherwise; ja and zh have no spaces to break at. */
-    &:lang(ko) {
-      word-break: keep-all;
-    }
+    ${setupFinePrintCss(COLORS)}
   `;
   const pairRowStyle = css`
     display: flex;
@@ -410,6 +413,19 @@ export const SetupModal: React.FC = () => {
           </p>
           <p css={fineStyle}>
             {t('You can change this any time in Settings.')}
+          </p>
+        </>
+      ),
+    },
+    import: {
+      heading: t('Already keep tabs somewhere?'),
+      body: (
+        <>
+          <BookmarksImportSource
+            importedInSetup={importedCount - importedAtOpen}
+          />
+          <p css={fineStyle}>
+            {t('You can also import from Settings › Import.')}
           </p>
         </>
       ),

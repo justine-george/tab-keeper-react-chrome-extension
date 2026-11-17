@@ -86,7 +86,7 @@ async function fullViewOnSyncAndBackup(context: BrowserContext): Promise<Page> {
     .toBe(true);
   if (found === undefined) throw new Error('no full view page');
   await expect(
-    found.getByRole('button', { name: 'Load sessions from a backup' })
+    found.getByRole('button', { name: 'Load a backup' })
   ).toBeVisible();
   return found;
 }
@@ -100,9 +100,7 @@ test.describe('the popup hands the backup file step to the full view (KAN-579)',
     const steps = await recordFileSteps(context);
     const popup = await popupOnSyncAndBackup(context, extensionId);
 
-    await popup
-      .getByRole('button', { name: 'Save sessions to a file' })
-      .click();
+    await popup.getByRole('button', { name: 'Save a backup' }).click();
 
     const full = await fullViewOnSyncAndBackup(context);
     await expect
@@ -110,7 +108,7 @@ test.describe('the popup hands the backup file step to the full view (KAN-579)',
       .toEqual([[true, 'download']]);
     expect(steps[0].name).toMatch(/^tabkeeper_backup_.*\.json$/);
     await expect(
-      full.getByRole('button', { name: 'Save sessions to a file' })
+      full.getByRole('button', { name: 'Save a backup' })
     ).toBeVisible();
   });
 
@@ -122,9 +120,7 @@ test.describe('the popup hands the backup file step to the full view (KAN-579)',
     const steps = await recordFileSteps(context);
     const popup = await popupOnSyncAndBackup(context, extensionId);
 
-    await popup
-      .getByRole('button', { name: 'Load sessions from a backup' })
-      .click();
+    await popup.getByRole('button', { name: 'Load a backup' }).click();
 
     const full = await fullViewOnSyncAndBackup(context);
     await expect
@@ -144,9 +140,7 @@ test.describe('the popup hands the backup file step to the full view (KAN-579)',
     const steps = await recordFileSteps(context);
     const popup = await popupOnSyncAndBackup(context, extensionId);
 
-    await popup
-      .getByRole('button', { name: 'Load sessions from a backup' })
-      .click();
+    await popup.getByRole('button', { name: 'Load a backup' }).click();
 
     await expect
       .poll(() => steps.map((s) => [s.page === full, s.kind]))
@@ -155,7 +149,7 @@ test.describe('the popup hands the backup file step to the full view (KAN-579)',
       full.getByRole('dialog', { name: 'Load 1 session from this backup?' })
     ).toBeVisible();
     await expect(
-      full.getByRole('button', { name: 'Load sessions from a backup' })
+      full.getByRole('button', { name: 'Load a backup' })
     ).toBeVisible();
   });
 });
@@ -168,9 +162,7 @@ test.describe('a recorder that attaches late still sees the file step (KAN-619)'
     const steps = await recordFileSteps(context, { lateBy: 1500 });
     const popup = await popupOnSyncAndBackup(context, extensionId);
 
-    await popup
-      .getByRole('button', { name: 'Save sessions to a file' })
-      .click();
+    await popup.getByRole('button', { name: 'Save a backup' }).click();
 
     await fullViewOnSyncAndBackup(context);
     await expect
@@ -183,9 +175,7 @@ test.describe('a recorder that attaches late still sees the file step (KAN-619)'
     const steps = await recordFileSteps(context, { lateBy: 1500 });
     const popup = await popupOnSyncAndBackup(context, extensionId);
 
-    await popup
-      .getByRole('button', { name: 'Load sessions from a backup' })
-      .click();
+    await popup.getByRole('button', { name: 'Load a backup' }).click();
 
     const full = await fullViewOnSyncAndBackup(context);
     await expect

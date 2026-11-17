@@ -25,6 +25,10 @@ import {
   setUserRatedAndReviewed,
 } from '../../redux/slices/settingsDataStateSlice';
 import { REVIEW_ASK_GAP_MS } from '../../utils/functions/reviewAsk';
+import { importBookmarkSessions } from '../../redux/bookmarkImport';
+
+// Bookmarks the record names, made with no dateAdded as the fixtures are.
+const marks = (ids: string[]) => ids.map((id) => ({ id, dateAdded: null }));
 
 // KAN-149, KAN-653. What counts as the extension having visibly paid off, and
 // which card each payoff asks with.
@@ -524,5 +528,59 @@ describe('showing the card', () => {
     b.dispatch(showReviewCard({ kind: 'time' }));
 
     expect(localStorage.getItem('settingsData')).toBe(afterA);
+  });
+});
+
+// KAN-862 R14. An import is no save: the user's own saves after one are measured as if it never happened.
+describe('a save after an import', () => {
+  const importSizes = (
+    store: ReturnType<typeof makeTestStore>['store'],
+    sizes: number[]
+  ) =>
+    store.dispatch(
+      importBookmarkSessions(
+        sizes.map((n, i) => ({
+          bookmarks: marks([`f${i}`]),
+          session: session(`imp${i}`, n),
+        }))
+      )
+    );
+
+  test('the first own save after an import asks "Your first session is saved"', async () => {
+    const { store } = makeTestStore();
+    importSizes(store, [3, 4]);
+
+    await store.dispatch(
+      saveToTabContainer({ container: session('own', 1), scope: 'all-windows' })
+    );
+
+    expect(momentOf(store)).toBe('firstSave');
+  });
+
+  test('save, import, save: the second own save is no first save', async () => {
+    const { store } = makeTestStore();
+    seedSizes(store, [3]);
+    importSizes(store, [2]);
+    localStorage.clear();
+
+    await store.dispatch(
+      saveToTabContainer({ container: session('two', 1), scope: 'all-windows' })
+    );
+
+    expect(momentOf(store)).toBeNull();
+  });
+
+  // Against [2, 50, 50, 50] the median is 50 and nothing asks; against the user's own [2], five tabs is big.
+  test('imported sessions do not count toward the median', async () => {
+    const { store } = makeTestStore();
+    seedSizes(store, [2]);
+    importSizes(store, [50, 50, 50]);
+    localStorage.clear();
+
+    await store.dispatch(
+      saveToTabContainer({ container: session('big', 5), scope: 'all-windows' })
+    );
+
+    expect(momentOf(store)).toBe('bigSave');
   });
 });

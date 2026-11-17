@@ -9,6 +9,7 @@ vi.hoisted(() => {
 
 import {
   TOAST_MESSAGES,
+  BOOKMARKS_IMPORTED_FRAME,
   GROUP_CLOSED_FRAME,
   WINDOW_CLOSED_FRAME,
 } from '../../utils/constants/common';
@@ -56,6 +57,7 @@ describe('toast full stops (KAN-604, KAN-618)', () => {
         ...Object.values(TOAST_MESSAGES),
         WINDOW_CLOSED_FRAME,
         GROUP_CLOSED_FRAME,
+        BOOKMARKS_IMPORTED_FRAME,
       ])
     ).toEqual([]);
   });
@@ -66,6 +68,7 @@ describe('toast full stops (KAN-604, KAN-618)', () => {
         IMPORT_INVALID_STRUCTURE,
         IMPORT_SIZE_REFUSAL,
         IMPORT_NOT_JSON,
+        'ImportTooLarge',
       ])
     ).toEqual([]);
   });

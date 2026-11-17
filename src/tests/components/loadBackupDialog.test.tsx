@@ -20,7 +20,7 @@ import { saveToFirestore } from '../../utils/functions/external';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 
-// KAN-252 / KAN-261. "Load sessions from a backup" reads the file, then asks
+// KAN-252 / KAN-261. "Load a backup" reads the file, then asks
 // -- one dialog, two answers that change something. Replace throws away what
 // is saved here first and cannot be undone (KAN-252 put the question in front
 // of it). Merge keeps everything here and adds the file's sessions that are
@@ -90,7 +90,7 @@ const pickBackup = async (
   name = 'backup.json',
   text = FROM_FILE
 ) => {
-  await userEvent.click(await screen.findByText('Load sessions from a backup'));
+  await userEvent.click(await screen.findByText('Load a backup'));
   dropFile(inputs[0], text, name);
   return screen.findByRole('dialog', { name: /^Load .* from this backup\?$/ });
 };
@@ -232,9 +232,7 @@ describe('the load-backup dialog (KAN-252, KAN-261)', () => {
     const inputs = captureFileInput();
     const r = await render(buildContainer([]));
 
-    await userEvent.click(
-      await screen.findByText('Load sessions from a backup')
-    );
+    await userEvent.click(await screen.findByText('Load a backup'));
     dropFile(inputs[0], FROM_FILE, 'backup.json');
 
     await waitFor(() => {
@@ -253,9 +251,7 @@ describe('the load-backup dialog (KAN-252, KAN-261)', () => {
     const inputs = captureFileInput();
     const r = await render(buildContainer([]));
 
-    await userEvent.click(
-      await screen.findByText('Load sessions from a backup')
-    );
+    await userEvent.click(await screen.findByText('Load a backup'));
     // The sync lands while the picker is open.
     act(() => {
       r.store.dispatch(replaceState(HERE));

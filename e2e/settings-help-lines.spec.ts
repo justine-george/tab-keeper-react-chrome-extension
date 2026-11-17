@@ -12,7 +12,7 @@ import { localeStrings } from './fixtures/locales';
 const AUTO_SYNC =
   'Syncs your sessions across your Chrome devices. Settings stay separate on each device.';
 const BACKUP =
-  'Saves your sessions to a file. Settings aren’t included. Loading a backup asks whether to merge it with your sessions or replace them.';
+  'A backup is a file with your saved sessions. When you load a backup, you choose to merge it with your sessions or replace them.';
 const CLOUD_DATA =
   'Removes your sessions from the cloud and turns Auto sync off. Your sessions stay on this device and on your other devices.';
 const SAVE_TAB_GROUPS =
@@ -97,10 +97,7 @@ for (const view of ['popup', 'tab'] as const)
           page.getByRole('group', { name: strings['Auto Sync'] }),
           say(AUTO_SYNC)
         );
-        for (const button of [
-          'Save sessions to a file',
-          'Load sessions from a backup',
-        ])
+        for (const button of ['Save a backup', 'Load a backup'])
           await expectHelpLine(
             page.getByRole('button', { name: strings[button], exact: true }),
             say(BACKUP)

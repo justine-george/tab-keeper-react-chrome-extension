@@ -34,7 +34,7 @@ import {
 import { makeTestStore } from '../setup/makeStore';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 
-// KAN-262. Replace ("Load sessions from a backup" → Replace sessions) dropped
+// KAN-262. Replace ("Load a backup" → Replace sessions) dropped
 // every session here that the file did not carry, but wrote no tombstone for
 // them. The sync merge unions by id and treats absence as no signal -- only a
 // tombstone deletes -- so on any device with Auto Sync on the next sync

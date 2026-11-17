@@ -9,7 +9,7 @@ import {
 } from './fixtures/seed';
 import { FULL_VIEW_PATH } from './fixtures/onboarding';
 
-// KAN-252 / KAN-261. "Load sessions from a backup" reads the file, then asks:
+// KAN-252 / KAN-261. "Load a backup" reads the file, then asks:
 // Merge (keep everything here, add the file's) or Replace (throw away what is
 // here first). The unit tests drive the handler with a synthetic file event;
 // what a real browser adds is the file chooser itself, the dialog in the top
@@ -39,7 +39,7 @@ async function openSyncAndBackup(
   await page.locator('[aria-label="Settings"]').click();
   await page.locator('button[aria-label="Sync & backup"]').click();
   await expect(
-    page.getByRole('button', { name: 'Load sessions from a backup' })
+    page.getByRole('button', { name: 'Load a backup' })
   ).toBeVisible();
   return page;
 }
@@ -47,9 +47,7 @@ async function openSyncAndBackup(
 // Click the button and answer the OS file chooser with a backup file.
 async function pickBackup(page: Page, name: string): Promise<void> {
   const chooser = page.waitForEvent('filechooser');
-  await page
-    .getByRole('button', { name: 'Load sessions from a backup' })
-    .click();
+  await page.getByRole('button', { name: 'Load a backup' }).click();
   await (
     await chooser
   ).setFiles({
@@ -78,7 +76,7 @@ const graveIdsHere = (page: Page) =>
 const dialogOf = (page: Page) =>
   page.getByRole('dialog', { name: 'Load 1 session from this backup?' });
 
-test.describe('Load sessions from a backup asks first (KAN-252, KAN-261)', () => {
+test.describe('Load a backup asks first (KAN-252, KAN-261)', () => {
   test('a picked file opens a modal, unlit, with Cancel, Merge and Replace; Cancel changes nothing', async ({
     context,
     extensionId,

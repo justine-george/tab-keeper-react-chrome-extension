@@ -167,6 +167,10 @@ export interface Global {
   // the "Replace your saved sessions?" dialog is open exactly while this is
   // set. Session-only, like the other dialog flags.
   pendingImport: PendingImport | null;
+  // KAN-862. The import from bookmarks dialog; open only with the bookmarks permission granted.
+  isImportBookmarksOpen: boolean;
+  // KAN-862. The popup's hand-off: the Import button takes focus when its pane shows.
+  isImportButtonFocusRequested: boolean;
   // KAN-259. The cloud dialog: 'welcome' greets a new install and asks nothing; 'existing' and 'enable' ask.
   isCloudConsentModalOpen: boolean;
   cloudConsentVariant: CloudConsentVariant;
@@ -363,6 +367,8 @@ export const initialState: Global = {
   isDeleteCloudDataModalOpen: false,
   isCloudDeletedNoticeOpen: false,
   pendingImport: null,
+  isImportBookmarksOpen: false,
+  isImportButtonFocusRequested: false,
   isCloudConsentModalOpen: false,
   cloudConsentVariant: 'welcome',
   cloudConsentThen: null,
@@ -998,7 +1004,7 @@ export const deleteCloudData = createAsyncThunk<
 );
 
 /**
- * The tail every answer to "Load sessions from a backup" shares (KAN-252,
+ * The tail every answer to "Load a backup" shares (KAN-252,
  * KAN-261): mark dirty, write to the cloud only with Auto Sync on and consent
  * given (KAN-257, KAN-415 -- otherwise the container stays dirty and the next
  * allowed sync carries it, like any edit), and say how it went. The local change is done and persisted
@@ -1135,6 +1141,7 @@ export const ERROR_TOASTS: ReadonlySet<string> = new Set([
   TOAST_MESSAGES.IMPORT_SYNC_FAILED,
   TOAST_MESSAGES.REOPEN_FAILED,
   TOAST_MESSAGES.STORAGE_FULL,
+  TOAST_MESSAGES.BOOKMARKS_UNREADABLE,
   IMPORT_ERROR_FRAME,
   SYNC_SIZE_REFUSAL,
 ]);
@@ -1317,6 +1324,22 @@ export const globalStateSlice = createSlice({
 
     closeDeleteCloudDataModal: (state) => {
       state.isDeleteCloudDataModalOpen = false;
+    },
+
+    openImportBookmarks: (state) => {
+      state.isImportBookmarksOpen = true;
+    },
+
+    requestImportButtonFocus: (state) => {
+      state.isImportButtonFocusRequested = true;
+    },
+
+    importButtonFocused: (state) => {
+      state.isImportButtonFocusRequested = false;
+    },
+
+    closeImportBookmarks: (state) => {
+      state.isImportBookmarksOpen = false;
     },
 
     openCloudDeletedNotice: (state) => {
@@ -1787,6 +1810,10 @@ export const {
   closeFocusModal,
   openDeleteCloudDataModal,
   closeDeleteCloudDataModal,
+  openImportBookmarks,
+  closeImportBookmarks,
+  requestImportButtonFocus,
+  importButtonFocused,
   openCloudDeletedNotice,
   closeCloudDeletedNotice,
   askToReplaceSessions,

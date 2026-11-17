@@ -215,6 +215,8 @@ export interface tabContainerData {
   // is no stored sort mode: a container-level field would need its own merge
   // rule, and this merge has none for one.
   rank?: number;
+  // KAN-862. Set only by an import; absent on every session a save makes.
+  importedFrom?: 'bookmarks';
 }
 
 // A deleted session has to leave a trace. Merging by tabGroupId alone would
@@ -1015,8 +1017,13 @@ export const saveToTabContainer = createAsyncThunk(
   'global/saveToTabContainer',
   async (params: saveToTabContainerParams, thunkAPI) => {
     const before = thunkAPI.getState() as RootState;
-    const existing = before.tabContainerDataState.tabGroups;
-    const hadSaved = before.settingsDataState.hasHadSavedSession;
+    // KAN-862 R14. An import is no save: its sessions are left out of every first and substantial check.
+    const imported = before.settingsDataState.importedSessionIds;
+    const existing = before.tabContainerDataState.tabGroups.filter(
+      (g) => !imported.includes(g.tabGroupId)
+    );
+    const { hasHadSavedSession, hasHadOnlyImportedSessions } =
+      before.settingsDataState;
 
     // KAN-906. A new session keeps one copy of each address.
     const { container, leftOut } = selectSkipsDuplicateTabs(before)
@@ -1048,8 +1055,10 @@ export const saveToTabContainer = createAsyncThunk(
       thunkAPI.dispatch(noteReviewMoment({ kind: 'bigSave' }));
     }
 
-    // KAN-875. The pop is for the save itself: hasHadSavedSession also turns true when synced sessions land.
-    if (!isSample && isFirst && !hadSaved) {
+    // KAN-875. The pop is for the save itself: synced sessions held end it as a save does, imports alone don't (R14).
+    const hadSessionNotImported =
+      hasHadSavedSession && !hasHadOnlyImportedSessions;
+    if (!isSample && isFirst && !hadSessionNotImported) {
       thunkAPI.dispatch(noteFirstSave());
     }
     // KAN-388. The header mark's shutter, for every session the user saves.
@@ -1485,8 +1494,8 @@ export const deleteChromeTabGroup = createAsyncThunk<
 // its own; keeping selection out of `touch` only ever confined that to legacy
 // data rather than preventing it.
 //
-// `at` is for the one reducer that stamps two sessions in a set order
-// (moveToSessionInternal); every other caller stamps now.
+// `at` is for the reducers that stamp sessions in a set order
+// (moveToSessionInternal, saveImportedSessionsInternal); every other caller stamps now.
 function touch(group: tabContainerData, at: number = Date.now()): void {
   group.lastModified = at;
 }
@@ -1501,7 +1510,8 @@ function touch(group: tabContainerData, at: number = Date.now()): void {
 //   this        adding or removing a window, a tab or a Chrome group; renaming
 //               the session, a window or a group; recolouring or ungrouping;
 //               and dragging tabs within a window or windows within a session
-//   plain touch moveSessionInternal, sortSessionsInternal, clearSessionOrder
+//   plain touch moveSessionInternal, sortSessionsInternal, clearSessionOrder,
+//               and an import's new sessions (KAN-862: created, not edited)
 //
 // Dragging a tab or a window rearranges what the session HOLDS, so it counts.
 // Dragging the session rearranges the LIST, so it does not -- and it must not,
@@ -1520,7 +1530,7 @@ function touch(group: tabContainerData, at: number = Date.now()): void {
 //
 // The cost is accepted and real: an edit resurfaces its session, so renaming
 // one moves it to the top of the list. That is what every recently-edited list
-// does, and it is what asking for "date modified" means.
+// does, and it is what asking for "date edited" means.
 //
 // An undo restores contentModified from its snapshot rather than setting it to
 // now, which is why applyUndoSnapshot must NOT use this.
@@ -1776,8 +1786,8 @@ function sameChromeTabGroups(
 // session HOLDS, and re-stamping them made the left pane resurface a session
 // you had just added tabs to. That is "recently changed first" ordering,
 // implemented by overwriting the creation date because until KAN-136 there was
-// no other way to ask for recency. KAN-136 shipped a Date modified sort on
-// KAN-138's `contentModified`, so the impersonation is redundant -- and it was
+// no other way to ask for recency. KAN-136 shipped a sort by edit date (now "Date edited")
+// on KAN-138's `contentModified`, so the impersonation is redundant -- and it was
 // actively lying: a session saved in July claimed today's date because one tab
 // was deleted from it.
 //
@@ -2112,6 +2122,33 @@ export const tabContainerDataStateSlice = createSlice({
       tabContainerDataStateSlice.caseReducers.selectTabContainer(state, {
         payload: newTabGroupId,
       } as PayloadAction<string>);
+    },
+
+    // KAN-862. An import's sessions, the first newest. Each is stamped a millisecond apart: the list is
+    // ordered by that stamp, and equal ones fall back to the random ids, so the first could land anywhere.
+    // The stamp is their creation, not an edit: their date line says Imported from bookmarks until one (11-16).
+    saveImportedSessionsInternal: (
+      state,
+      action: PayloadAction<tabContainerData[]>
+    ) => {
+      const sessions = action.payload;
+      if (sessions.length === 0) return;
+      const base = Date.now();
+      sessions.forEach((session, index) => {
+        const at = base + (sessions.length - 1 - index);
+        state.tabGroups.unshift({
+          ...session,
+          createdTime: getStringDate(new Date(at)),
+          createdAt: at,
+        });
+        touch(state.tabGroups[0], at);
+      });
+      resortSessions(state);
+      state.lastModified = base + sessions.length;
+      tabContainerDataStateSlice.caseReducers.selectTabContainer(state, {
+        type: selectTabContainer.type,
+        payload: sessions[0].tabGroupId,
+      });
     },
 
     // select tab group by tabGroupId
@@ -3057,7 +3094,7 @@ export const tabContainerDataStateSlice = createSlice({
     //
     // Unlike a drag, this necessarily touches EVERY session: an explicit order
     // needs an explicit rank on each one. That is the cost of the operation,
-    // not an oversight -- and it is why "sort by date saved" is a separate
+    // not an oversight -- and it is why "sort by date created" is a separate
     // reducer that removes ranks instead.
     sortSessionsInternal: (
       state,
@@ -3748,7 +3785,7 @@ export const tabContainerDataStateSlice = createSlice({
       withASelection(action.payload),
 
     // Replace the container with a backup file the user is explicitly
-    // asserting ("Load sessions from a backup" → Replace sessions). Kept
+    // asserting ("Load a backup" → Replace sessions). Kept
     // separate from replaceState, which the sync uses for merged results and
     // must not touch timestamps. Undo no longer comes through here
     // (applyUndoSnapshot).
@@ -3799,7 +3836,7 @@ export const tabContainerDataStateSlice = createSlice({
       return restored;
     },
 
-    // Merge, the additive answer to "Load sessions from a backup" (KAN-261).
+    // Merge, the additive answer to "Load a backup" (KAN-261).
     // The promise is "nothing here changes": every session saved here stays
     // exactly as it is -- same object, same timestamp -- and the file's
     // sessions that are not here yet go on top, where a freshly saved one
@@ -4116,6 +4153,7 @@ function reconcileAssertedContainer(
 
 export const {
   saveToTabContainerInternal,
+  saveImportedSessionsInternal,
   selectTabContainer,
   addCurrWindowToTabGroupInternal,
   replaceSessionContentInternal,

@@ -3,6 +3,7 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 export enum SettingsCategory {
   DISPLAY = 'Display',
   SYNC = 'Sync & Backup',
+  IMPORT = 'Import',
   SESSIONS = 'Sessions',
   QUICK_ACCESS = 'Quick access',
   RECENTLY_DELETED = 'Recently deleted',
@@ -37,6 +38,11 @@ export const initialState: SettingsCategoryContainer[] = [
   },
   {
     name: SettingsCategory.SYNC,
+    isSelected: false,
+  },
+  // KAN-862. After Sync & Backup: another way sessions come in.
+  {
+    name: SettingsCategory.IMPORT,
     isSelected: false,
   },
   {

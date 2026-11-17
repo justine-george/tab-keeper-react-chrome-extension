@@ -154,6 +154,52 @@ const LANGS = [
   'zh-TW',
 ];
 
+// KAN-862. Import made nine categories; the rows shrink as the text grows, so
+// the popup's list still fits at Chrome's Large text (a 20px root).
+for (const lang of LANGS) {
+  test(`popup, ${lang}: the category list does not scroll at a 20px root`, async ({
+    context,
+    extensionId,
+  }) => {
+    const L = localeStrings(lang);
+    const names = labelsIn(lang);
+    await seedSessions(context, buildContainer());
+    await seedSettings(context, lang === 'en' ? {} : { language: lang });
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 790, height: 550 });
+    await page.goto(`chrome-extension://${extensionId}/index.html`);
+    await page
+      .locator(`[aria-label="${L['Settings'] ?? 'Settings'}"]`)
+      .first()
+      .click();
+    await page.locator(`button[aria-label="${names[0]}"]`).click();
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '20px';
+    });
+    // CONTROL: every category is in the list, Import included.
+    expect(names).toContain(L['Import'] ?? 'Import');
+    await expect
+      .poll(async () => (await categories(page, names[0], names)).scrolls)
+      .toBe(false);
+  });
+}
+
+test('popup: a category row is 48px tall at a 16px root, as before Import', async ({
+  context,
+  extensionId,
+}) => {
+  await seedSessions(context, buildContainer());
+  const page = await openPage(context, extensionId, 'index.html', {
+    width: 790,
+    height: 550,
+  });
+  await settings(page, 'Display');
+  const heights = await page
+    .locator('[data-panel=settings-nav] > button')
+    .evaluateAll((rows) => rows.map((r) => r.getBoundingClientRect().height));
+  expect(heights).toEqual(Array(9).fill(48));
+});
+
 for (const view of [
   // The popup is a fixed 550px tall: its list scrolls only at 24px.
   { name: 'popup', path: 'index.html', width: 790, roots: [24] },

@@ -85,7 +85,7 @@ async function openDialog(
     await settingsPane('Sync & Backup');
     const chooser = page.waitForEvent('filechooser');
     await page
-      .getByRole('button', { name: t(language, 'Load sessions from a backup') })
+      .getByRole('button', { name: t(language, 'Load a backup') })
       .click();
     await (
       await chooser

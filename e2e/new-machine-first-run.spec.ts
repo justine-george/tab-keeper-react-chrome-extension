@@ -338,7 +338,7 @@ test.describe("a new machine's first run picks up the other machine's sessions (
       expect(await titles(full)).toEqual([]);
       expect(b.cloud).toEqual([]);
 
-      for (let n = 0; n < 4; n++) {
+      for (let n = 0; n < 5; n++) {
         await setup(full)
           .getByRole('button', { name: 'Next', exact: true })
           .click();

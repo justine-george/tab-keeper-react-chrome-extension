@@ -151,9 +151,7 @@ test('full view at 24px: a toast on Settings is capped by the wider column, not 
     document.documentElement.style.fontSize = '24px';
   });
   const chooser = page.waitForEvent('filechooser');
-  await page
-    .getByRole('button', { name: 'Load sessions from a backup' })
-    .click();
+  await page.getByRole('button', { name: 'Load a backup' }).click();
   await (
     await chooser
   ).setFiles({

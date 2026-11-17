@@ -36,7 +36,7 @@ import { undo } from '../../redux/slices/undoRedoSlice';
 import { makeTestStore } from '../setup/makeStore';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 
-// KAN-261. Merge, the additive answer to "Load sessions from a backup". Its
+// KAN-261. Merge, the additive answer to "Load a backup". Its
 // promise is "nothing here changes": every session saved here stays as it
 // is, and the file's sessions that are not here yet are added on top. The
 // three rules that make that promise hold are the three tests below that are

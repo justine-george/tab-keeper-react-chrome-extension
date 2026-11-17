@@ -52,6 +52,7 @@ import { FocusConfirmModal } from './modals/FocusConfirmModal';
 import { CloudDeletedNoticeModal } from './modals/CloudDeletedNoticeModal';
 import { DeleteCloudDataModal } from './modals/DeleteCloudDataModal';
 import { LoadBackupModal } from './modals/LoadBackupModal';
+import { ImportBookmarksDialog } from './modals/ImportBookmarksDialog';
 import { CloudConsentModal } from './modals/CloudConsentModal';
 import { PinGuideModal } from './modals/PinGuideModal';
 import { SetupModal } from './modals/SetupModal';
@@ -101,6 +102,9 @@ export default function MainContainer() {
   );
   const isCloudDeletedNoticeOpen = useSelector(
     (state: RootState) => state.globalState.isCloudDeletedNoticeOpen
+  );
+  const isImportBookmarksOpen = useSelector(
+    (state: RootState) => state.globalState.isImportBookmarksOpen
   );
   const pendingImport = useSelector(
     (state: RootState) => state.globalState.pendingImport
@@ -547,6 +551,7 @@ export default function MainContainer() {
       {isDeleteCloudDataModalOpen && <DeleteCloudDataModal />}
       {isCloudDeletedNoticeOpen && <CloudDeletedNoticeModal />}
       {pendingImport !== null && <LoadBackupModal />}
+      {isImportBookmarksOpen && <ImportBookmarksDialog />}
       {isCloudConsentModalOpen && <CloudConsentModal />}
       {isPinGuideOpen && <PinGuideModal />}
       {isSetupOpen && <SetupModal />}

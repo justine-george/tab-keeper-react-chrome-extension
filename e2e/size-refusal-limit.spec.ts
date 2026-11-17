@@ -58,9 +58,7 @@ test('the import refusal names the limit as the bar beside it does', async ({
   await expect(bar).toContainText('of the 1 MB sync limit.');
 
   const chooser = page.waitForEvent('filechooser');
-  await page
-    .getByRole('button', { name: 'Load sessions from a backup' })
-    .click();
+  await page.getByRole('button', { name: 'Load a backup' }).click();
   await (
     await chooser
   ).setFiles({

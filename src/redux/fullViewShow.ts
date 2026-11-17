@@ -9,6 +9,7 @@ import {
   openPinGuide,
   openSettingsPage,
   openSetup,
+  requestImportButtonFocus,
   setEndingCard,
   setSearchInputText,
 } from './slices/globalStateSlice';
@@ -71,6 +72,12 @@ export const showInFullView =
     }
     if (show === 'pinGuide') {
       dispatch(openPinGuide());
+      return;
+    }
+    // KAN-862. The permission prompt needs a user gesture, so show Settings › Import's button focused and let the press ask.
+    if (show === 'importBookmarks') {
+      dispatch(requestImportButtonFocus());
+      void dispatch(openSettingsPage(SettingsCategory.IMPORT));
       return;
     }
     // KAN-579. On the pane its button sits on, so a picker Chrome refuses leaves the button to press.

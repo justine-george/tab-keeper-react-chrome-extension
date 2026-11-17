@@ -25,6 +25,7 @@ describe('the settings pane insets its content evenly', () => {
   const sectionsUnderTest = [
     ['Display', SettingsCategory.DISPLAY],
     ['Sync & Backup', SettingsCategory.SYNC],
+    ['Import', SettingsCategory.IMPORT],
     ['Sessions', SettingsCategory.SESSIONS],
     ['Quick access', SettingsCategory.QUICK_ACCESS],
     ['Language', SettingsCategory.LANGUAGE],

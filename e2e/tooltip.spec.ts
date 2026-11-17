@@ -1057,10 +1057,10 @@ test.describe('no native tooltip', () => {
       name: 'Make Tab Keeper yours',
       exact: true,
     });
-    for (let step = 1; step <= 5; step++) {
+    for (let step = 1; step <= 6; step++) {
       await expect(dialog).toBeVisible();
       await expectNoTitles(page, `setup: step ${step}`);
-      if (step < 5)
+      if (step < 6)
         await dialog.getByRole('button', { name: 'Next', exact: true }).click();
     }
   });

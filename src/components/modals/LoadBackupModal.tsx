@@ -27,7 +27,7 @@ const TITLE_ID = 'load-backup-title';
 const BODY_ID = 'load-backup-body';
 
 /**
- * The question after "Load sessions from a backup" has read the file (KAN-252,
+ * The question after "Load a backup" has read the file (KAN-252,
  * KAN-261): Merge keeps everything saved here and adds the file's sessions
  * that are not here yet; Replace throws away what is here first and cannot be
  * undone. The same <dialog> contract as DeleteCloudDataModal, opened UNLIT as

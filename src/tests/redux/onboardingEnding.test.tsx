@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { makeTestStore } from '../setup/makeStore';
 import { installFakeLocks, type FakeLocks } from '../setup/fakeLocks';
 import { setupChromeFake } from '../setup/chrome.fake';
+import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
+import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { leaveSetup } from '../../redux/firstOpenFollowUps';
 import { showInFullView } from '../../redux/fullViewShow';
 import {
@@ -14,12 +16,14 @@ import {
 import {
   closeEnding,
   requestEnding,
+  selectEndingTarget,
   showEnding,
 } from '../../redux/onboardingEnding';
 import { openSetup, setEndingCard } from '../../redux/slices/globalStateSlice';
 import {
   beginSetup,
   markEndingSeen,
+  noteImportedSessions,
   recordFirstRun,
 } from '../../redux/slices/settingsDataStateSlice';
 import {
@@ -279,5 +283,27 @@ describe('once per view', () => {
     store.dispatch(markEndingSeen('full'));
     store.dispatch(showEnding());
     expect(endingOf(store)).toBeNull();
+  });
+});
+
+describe('KAN-862: the ending never points at an imported session', () => {
+  const MINE = buildSession({ tabGroupId: 'mine', createdAt: 1000 });
+  const IMPORTED = buildSession({ tabGroupId: 'imp', createdAt: 2000 });
+
+  test('only imported sessions: the target is the save button', () => {
+    const { store } = makeTestStore();
+    store.dispatch(replaceState(buildContainer([IMPORTED])));
+    store.dispatch(noteImportedSessions(['imp']));
+    expect(selectEndingTarget(store.getState())).toEqual({ kind: 'save' });
+  });
+
+  test("a session of the user's own is still picked over a newer import (CONTROL)", () => {
+    const { store } = makeTestStore();
+    store.dispatch(replaceState(buildContainer([MINE, IMPORTED])));
+    store.dispatch(noteImportedSessions(['imp']));
+    expect(selectEndingTarget(store.getState())).toMatchObject({
+      kind: 'session',
+      sessionId: 'mine',
+    });
   });
 });

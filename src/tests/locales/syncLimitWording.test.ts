@@ -27,7 +27,7 @@ const spaces = (s: string) => s.replace(/[\u00a0\u202f]/g, ' ');
 // 1.4 MB, so the used figure cannot itself end in "1 MB" and pass for the limit.
 const USED = 1.4 * FIRESTORE_MAX_DOCUMENT_BYTES;
 
-describe.each(['SyncSizeRefusal', 'ImportSizeRefusal'])(
+describe.each(['SyncSizeRefusal', 'ImportSizeRefusal', 'ImportTooLarge'])(
   '%s names the limit as the bar does',
   (key) => {
     test('in every locale', () => {

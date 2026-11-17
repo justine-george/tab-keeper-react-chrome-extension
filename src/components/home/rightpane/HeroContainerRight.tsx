@@ -555,7 +555,8 @@ export default function HeroContainerRight() {
               selectedTabGroup,
               sessionDateBasis,
               i18n.language,
-              timeFormat
+              timeFormat,
+              t
             )}
             size={TYPE.META}
             color={COLORS.LABEL_L2_COLOR}

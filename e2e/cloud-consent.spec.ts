@@ -343,9 +343,7 @@ test.describe('loading a backup asks consent before uploading (KAN-415)', () => 
       expect(firestore()).toBe(0);
 
       const chooser = page.waitForEvent('filechooser');
-      await page
-        .getByRole('button', { name: 'Load sessions from a backup' })
-        .click();
+      await page.getByRole('button', { name: 'Load a backup' }).click();
       await (
         await chooser
       ).setFiles({
