@@ -188,6 +188,29 @@ test.describe('a saved group', () => {
       expect(first!.y).toBe(last!.y);
     });
   }
+
+  // KAN-964. Under Open · Rename, the dots sit as far from the line above as from the line below.
+  test('right-click: the swatches are centered between the two lines', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await context.newPage();
+    await openTrip(page, extensionId);
+    const header = await groupHeader(page).boundingBox();
+    await page.mouse.click(header!.x + header!.width - 4, header!.y + 6, {
+      button: 'right',
+    });
+    const menu = page.locator('[role="menu"]').filter({ has: colorRow(page) });
+    const [actionRow, row, dot] = await Promise.all([
+      menu.locator('[data-menu-action-row]').boundingBox(),
+      colorRow(page).boundingBox(),
+      swatch(page, 'Gray').boundingBox(),
+    ]);
+    // Each line is its row's 1px bottom border.
+    const above = dot!.y - (actionRow!.y + actionRow!.height);
+    const below = row!.y + row!.height - 1 - (dot!.y + dot!.height);
+    expect(above).toBeCloseTo(below, 0);
+  });
 });
 
 async function liveGroup(serviceWorker: Worker) {
