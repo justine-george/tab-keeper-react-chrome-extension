@@ -324,3 +324,46 @@ test.describe('a backup brings its settings (KAN-961)', () => {
     expect(file.tabGroups.map((g) => g.title)).toEqual(HERE_TITLES);
   });
 });
+
+// KAN-966. ru counts take plural forms: 21 in the file says "сессию", 5 here says "сессий".
+test('ru: the dialog says each count in its own plural form', async ({
+  context,
+  extensionId,
+}) => {
+  const RU = localeStrings('ru');
+  const sessions = (n: number, prefix: string) =>
+    buildContainer(
+      Array.from({ length: n }, (_, i) =>
+        buildSession({ tabGroupId: `${prefix}${i}`, title: `${prefix} ${i}` })
+      )
+    );
+  await seedSettings(context, { isAutoSync: false, language: 'ru' });
+  await seedSessions(context, sessions(5, 'h'));
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 790, height: 550 });
+  await page.goto(`chrome-extension://${extensionId}/${FULL_VIEW_PATH}`);
+  await page.locator(`[aria-label="${RU['Settings']}"]`).click();
+  await page.locator(`button[aria-label="${RU['Sync & Backup']}"]`).click();
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: RU['Load a backup'] }).click();
+  await (
+    await chooser
+  ).setFiles({
+    name: 'monday.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(
+      JSON.stringify({ ...sessions(21, 'f'), settings: { theme: 'Charcoal' } })
+    ),
+  });
+
+  const dialog = page.getByRole('dialog', {
+    name: 'Загрузить 21 сессию из этой резервной копии?',
+  });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText(
+    '«Объединить» сохраняет 5 сессий на этом устройстве'
+  );
+  await expect(dialog).toContainText(
+    '«Заменить» удаляет 5 сессий на этом устройстве и на всех устройствах, синхронизированных с ним, затем загружает копию и её настройки.'
+  );
+});
