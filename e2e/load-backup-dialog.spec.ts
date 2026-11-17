@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import type { Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
@@ -7,7 +8,9 @@ import {
   seedSessions,
   seedSettings,
 } from './fixtures/seed';
-import { FULL_VIEW_PATH } from './fixtures/onboarding';
+import { FULL_VIEW_PATH, pageGround } from './fixtures/onboarding';
+import { localeStrings } from './fixtures/locales';
+import { CHALK_THEME, CHARCOAL_THEME } from '../src/hooks/useThemeColors';
 
 // KAN-252 / KAN-261. "Load a backup" reads the file, then asks:
 // Merge (keep everything here, add the file's) or Replace (throw away what is
@@ -30,9 +33,10 @@ const HERE_TITLES = ['Here one', 'Here two', 'Here three'];
 
 async function openSyncAndBackup(
   context: Parameters<typeof seedSessions>[0],
-  extensionId: string
+  extensionId: string,
+  here = HERE
 ): Promise<Page> {
-  await seedSessions(context, HERE);
+  await seedSessions(context, here);
   const page = await context.newPage();
   await page.setViewportSize({ width: 790, height: 550 });
   await page.goto(`chrome-extension://${extensionId}/${FULL_VIEW_PATH}`);
@@ -45,7 +49,11 @@ async function openSyncAndBackup(
 }
 
 // Click the button and answer the OS file chooser with a backup file.
-async function pickBackup(page: Page, name: string): Promise<void> {
+async function pickBackup(
+  page: Page,
+  name: string,
+  file: object = FROM_FILE
+): Promise<void> {
   const chooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: 'Load a backup' }).click();
   await (
@@ -53,7 +61,7 @@ async function pickBackup(page: Page, name: string): Promise<void> {
   ).setFiles({
     name,
     mimeType: 'application/json',
-    buffer: Buffer.from(JSON.stringify(FROM_FILE)),
+    buffer: Buffer.from(JSON.stringify(file)),
   });
 }
 
@@ -181,5 +189,138 @@ test.describe('Load a backup asks first (KAN-252, KAN-261)', () => {
 
     await expect(dialog).toHaveCount(0);
     expect(await titlesHere(page)).toEqual(HERE_TITLES);
+  });
+});
+
+// KAN-961. A backup carries the settings changed from a new install; Replace and an empty Tab Keeper take them, Merge doesn't.
+test.describe('a backup brings its settings (KAN-961)', () => {
+  const WITH_SETTINGS = {
+    ...FROM_FILE,
+    settings: { theme: 'Charcoal', language: 'de' },
+  };
+  const DE = localeStrings('de');
+
+  const storedSettings = (page: Page) =>
+    page.evaluate(
+      () =>
+        JSON.parse(localStorage.getItem('settingsData') ?? '{}') as Record<
+          string,
+          unknown
+        >
+    );
+
+  test.beforeEach(async ({ context }) => {
+    // Auto Sync off, so no cloud write turns the toast into the sync-failed one.
+    await seedSettings(context, {
+      isAutoSync: false,
+      theme: 'Chalk',
+      language: 'en',
+    });
+  });
+
+  test('Replace switches the theme and language and says settings came across', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openSyncAndBackup(context, extensionId);
+    expect(await pageGround(page)).toBe(
+      CHALK_THEME.PRIMARY_COLOR.toUpperCase()
+    );
+    await pickBackup(page, 'monday.json', WITH_SETTINGS);
+    const dialog = dialogOf(page);
+    await expect(dialog).toContainText(
+      'Replace deletes the 3 sessions on this device and on every device that syncs with it, then loads the backup and its settings. This can’t be undone.'
+    );
+
+    await dialog.getByRole('button', { name: 'Replace' }).click();
+
+    await expect(page.locator('[role="status"] [data-toast]')).toHaveText(
+      DE['Sessions and settings restored.']
+    );
+    await expect
+      .poll(() => pageGround(page))
+      .toBe(CHARCOAL_THEME.PRIMARY_COLOR.toUpperCase());
+    await expect(
+      page.getByRole('button', { name: DE['Sync & Backup'] })
+    ).toBeVisible();
+    expect(await storedSettings(page)).toMatchObject({
+      theme: 'Charcoal',
+      language: 'de',
+      timeFormat: 'h23',
+    });
+    expect(await titlesHere(page)).toEqual(['From the file']);
+  });
+
+  test('Merge leaves the theme and language alone', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openSyncAndBackup(context, extensionId);
+    await pickBackup(page, 'monday.json', WITH_SETTINGS);
+    const dialog = dialogOf(page);
+    await expect(dialog).toContainText(
+      'Replace deletes the 3 sessions on this device and on every device that syncs with it, then loads the backup and its settings. This can’t be undone.'
+    );
+
+    await dialog.getByRole('button', { name: 'Merge' }).click();
+
+    await expect(page.locator('[role="status"] [data-toast]')).toHaveText(
+      'Tabs restored.'
+    );
+    expect(await pageGround(page)).toBe(
+      CHALK_THEME.PRIMARY_COLOR.toUpperCase()
+    );
+    await expect(
+      page.getByRole('button', { name: 'Sync & backup' })
+    ).toBeVisible();
+    expect(await storedSettings(page)).toMatchObject({
+      theme: 'Chalk',
+      language: 'en',
+    });
+  });
+
+  test('an empty Tab Keeper takes them with no question', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openSyncAndBackup(
+      context,
+      extensionId,
+      buildContainer([])
+    );
+    await pickBackup(page, 'monday.json', WITH_SETTINGS);
+
+    await expect(page.locator('[role="status"] [data-toast]')).toHaveText(
+      DE['Sessions and settings restored.']
+    );
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(await storedSettings(page)).toMatchObject({
+      theme: 'Charcoal',
+      language: 'de',
+    });
+    expect(await titlesHere(page)).toEqual(['From the file']);
+  });
+
+  test('Save a backup writes only the settings changed from a new install', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSettings(context, {
+      isAutoSync: false,
+      theme: 'Chalk',
+      language: 'en',
+      timeFormat: 'h12',
+      skipDuplicateTabs: true,
+    });
+    const page = await openSyncAndBackup(context, extensionId);
+    const download = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Save a backup' }).click();
+    const path = await (await download).path();
+    const file = JSON.parse(readFileSync(path, 'utf8')) as {
+      settings?: unknown;
+      tabGroups: { title: string }[];
+    };
+    expect(file.settings).toEqual({ skipDuplicateTabs: true });
+    expect(file.tabGroups.map((g) => g.title)).toEqual(HERE_TITLES);
   });
 });
