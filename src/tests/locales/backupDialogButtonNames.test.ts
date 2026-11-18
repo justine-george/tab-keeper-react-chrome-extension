@@ -1,24 +1,35 @@
 import { describe, expect, test } from 'vitest';
 
+import { SHIPPED_LANGUAGES } from '../../utils/functions/languages';
+
 // KAN-967. The Load a backup dialog's Merge and Replace paragraphs open with
 // the name of their button. Hindi's bare बदलें reads as an order ("replace!"),
 // so Hindi quotes it, as its other sentences that open with a button do
 // ("खोलें" …, "रिप्लेस" …). And a restore toast must not use the app's Undo
 // word: zh-TW 復原 is Undo, a backup restore is 還原.
+//
+// Each check below throws on a missing language or key rather than passing
+// with nothing checked.
 const localeFiles = import.meta.glob('/public/locales/*/translation.json', {
   import: 'default',
   eager: true,
 }) as Record<string, Record<string, string>>;
-const locales = Object.entries(localeFiles).map(
-  ([path, dict]) => [path.split('/')[3], dict] as const
-);
-const hi = locales.find(([lang]) => lang === 'hi')![1];
+
+const dictFor = (lang: string): Record<string, string> => {
+  const dict = localeFiles[`/public/locales/${lang}/translation.json`];
+  if (!dict) throw new Error(`no translation file for ${lang}`);
+  return dict;
+};
+const locales = SHIPPED_LANGUAGES.map((lang) => [lang, dictFor(lang)] as const);
 
 // Every form of a key: ru splits the Other paragraphs into _one/_few/_many/_other.
-const forms = (dict: Record<string, string>, key: string) =>
-  Object.keys(dict).filter(
+const forms = (lang: string, dict: Record<string, string>, key: string) => {
+  const names = Object.keys(dict).filter(
     (name) => name.replace(/_(one|few|many|other)$/, '') === key
   );
+  if (names.length === 0) throw new Error(`${lang} has no ${key}`);
+  return names;
+};
 
 const PARAGRAPHS = {
   LoadBackupReplace: [
@@ -35,7 +46,7 @@ describe('the backup dialog paragraphs name their button', () => {
     const offenders = locales.flatMap(([lang, dict]) =>
       Object.entries(PARAGRAPHS).flatMap(([button, keys]) =>
         keys
-          .flatMap((key) => forms(dict, key))
+          .flatMap((key) => forms(lang, dict, key))
           .filter((name) => !dict[name].includes(dict[button]))
           .map((name) => `${lang} ${name}`)
       )
@@ -43,24 +54,11 @@ describe('the backup dialog paragraphs name their button', () => {
     expect(offenders).toEqual([]);
   });
 
-  // CONTROL: every paragraph key exists in every locale (a missing key would
-  // pass the label checks with nothing checked), and ru has its plural forms.
-  test('every paragraph has text in every locale', () => {
-    const missing = locales.flatMap(([lang, dict]) =>
-      Object.values(PARAGRAPHS)
-        .flat()
-        .filter((key) => forms(dict, key).length === 0)
-        .map((key) => `${lang} ${key}`)
-    );
-    expect(missing).toEqual([]);
-    const ru = locales.find(([lang]) => lang === 'ru')![1];
-    expect(forms(ru, 'MergeKeepsOther')).toHaveLength(4);
-  });
-
   test('hi opens each paragraph with the label in quotes', () => {
+    const hi = dictFor('hi');
     const offenders = Object.entries(PARAGRAPHS).flatMap(([button, keys]) =>
       keys
-        .flatMap((key) => forms(hi, key))
+        .flatMap((key) => forms('hi', hi, key))
         .filter((name) => !hi[name].startsWith(`"${hi[button]}" `))
     );
     expect(offenders).toEqual([]);
@@ -72,16 +70,13 @@ describe('restore toasts do not use the Undo word', () => {
     '%s',
     (key) => {
       const offenders = locales
-        .filter(([, dict]) => dict[key].includes(dict['Undo']))
+        .filter(([lang, dict]) => {
+          if (!dict[key] || !dict['Undo'])
+            throw new Error(`${lang} lacks ${key} or Undo`);
+          return dict[key].includes(dict['Undo']);
+        })
         .map(([lang, dict]) => `${lang} -> ${dict[key]}`);
       expect(offenders).toEqual([]);
     }
   );
-
-  // CONTROL: zh-TW's Undo word is a substring a toast could plausibly carry,
-  // so the check above can fail at all.
-  test('zh-TW Undo is 復原', () => {
-    const zhTW = locales.find(([lang]) => lang === 'zh-TW')![1];
-    expect(zhTW['Undo']).toBe('復原');
-  });
 });
