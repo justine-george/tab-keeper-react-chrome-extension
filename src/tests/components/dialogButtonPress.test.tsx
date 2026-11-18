@@ -233,3 +233,31 @@ describe('the danger confirm (KAN-725)', () => {
     expect(ring?.toLowerCase()).not.toContain(COLORS.TEXT_COLOR.toLowerCase());
   });
 });
+
+// KAN-960. A text link answers with its underline, never a fill: a pulled link's fill hung past the text edge.
+describe('the text link (KAN-960)', () => {
+  const renderLink = async () => {
+    const { container } = await renderWithProviders(
+      <button css={dialogButtonStyles(LIGHT_THEME).link}>Skip setup</button>
+    );
+    const button = container.querySelector('button');
+    if (button === null) throw new Error('no button');
+    return button;
+  };
+
+  test('hover thickens the underline to 2px and paints no fill', async () => {
+    const hover = hoverRulesFor(await renderLink());
+    expect(hover).toMatch(/text-decoration-thickness:\s*2px/);
+    expect(hover).not.toMatch(/background/);
+  });
+
+  test('press paints no fill either', async () => {
+    expect(activeRulesFor(await renderLink())).not.toMatch(/background/);
+  });
+
+  test('at rest it is underlined text on no ground', async () => {
+    const style = getComputedStyle(await renderLink());
+    expect(style.textDecoration).toMatch(/underline/);
+    expect(style.backgroundColor).toBe('rgba(0, 0, 0, 0)');
+  });
+});
