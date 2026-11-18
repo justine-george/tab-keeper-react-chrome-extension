@@ -49,10 +49,16 @@ const FRAMES = 40;
 
 type Tops = Record<string, number>;
 
+// The frames, and when each was read, in ms on the document timeline: the
+// clock every glide (a Web Animation) runs on.
+type Frames = Tops[] & { at: number[] };
+
 declare global {
   interface Window {
     __dropFrames?: Tops[] | null;
+    __dropTimes?: number[];
     __dropTops?: () => Tops;
+    __dropNow?: () => number;
   }
 }
 
@@ -102,15 +108,25 @@ async function recordFrames(
               })
             )),
       });
+      const now = () => {
+        const t = document.timeline.currentTime;
+        return typeof t === 'number' ? t : performance.now();
+      };
       window.__dropTops = read;
+      window.__dropNow = now;
       window.addEventListener(
         trigger,
         () => {
           const out = [read()];
+          const at = [now()];
           const tick = () => {
             out.push(read());
+            at.push(now());
             if (out.length <= frames) requestAnimationFrame(tick);
-            else window.__dropFrames = out;
+            else {
+              window.__dropTimes = at;
+              window.__dropFrames = out;
+            }
           };
           requestAnimationFrame(tick);
         },
@@ -123,17 +139,18 @@ async function recordFrames(
 
 // The frames, then the list once more, past the 1s a held drop can wait for
 // its move (RowDragArea's SETTLE_TIMEOUT_MS).
-async function framesRecorded(page: Page): Promise<Tops[]> {
+async function framesRecorded(page: Page): Promise<Frames> {
   await expect
     .poll(() => page.evaluate(() => window.__dropFrames != null), {
       message: 'no frames were recorded',
     })
     .toBe(true);
   await page.waitForTimeout(1200);
-  return page.evaluate(() => [
-    ...(window.__dropFrames ?? []),
-    window.__dropTops?.() ?? {},
-  ]);
+  const { tops, at } = await page.evaluate(() => ({
+    tops: [...(window.__dropFrames ?? []), window.__dropTops?.() ?? {}],
+    at: [...(window.__dropTimes ?? []), window.__dropNow?.() ?? NaN],
+  }));
+  return Object.assign(tops, { at });
 }
 
 // Every frame where a row is outside [its top at release, its settled top],
@@ -177,16 +194,30 @@ function eased(frames: Tops[]): string[] {
   });
 }
 
+// The most two reads a frame apart can be apart, at 60Hz.
+const ONE_FRAME_MS = 1.5 * (1000 / 60);
+
 // KAN-836. Every top that steps more than half a row between two frames: an
 // ease over DURATION.MOVE steps a few pixels a frame, a snap a whole row. Not
 // a block's end, which moves at once when the block gains or loses a row.
-function jumps(frames: Tops[]): string[] {
+// KAN-972. Two reads more than a frame apart (a frame the browser never drew)
+// see an ease cover more than one frame's step; such a step is a jump only if
+// it lands where the top settles, as a snap does, not on its way there.
+function jumps(frames: Frames): string[] {
   const out: string[] = [];
+  const last = frames[frames.length - 1] ?? {};
   frames.slice(1).forEach((tops, i) => {
+    const oneFrame =
+      (frames.at[i + 1] ?? NaN) - (frames.at[i] ?? NaN) <= ONE_FRAME_MS;
     for (const [key, top] of Object.entries(tops)) {
       if (key.endsWith(' end')) continue;
       const was = frames[i]?.[key];
-      if (was !== undefined && Math.abs(top - was) > 16)
+      const settled = Math.abs(top - (last[key] ?? NaN)) <= 1;
+      if (
+        was !== undefined &&
+        Math.abs(top - was) > 16 &&
+        (oneFrame || settled)
+      )
         out.push(`${key} frame ${i + 1}: ${was} -> ${top}`);
     }
   });
@@ -836,7 +867,7 @@ async function savedDrop(
   page: Page,
   from: Locator,
   y?: () => Promise<number>
-): Promise<Tops[]> {
+): Promise<Frames> {
   const { x } = await pickUp(page, from);
   await moveTo(
     page,
