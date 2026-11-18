@@ -215,6 +215,31 @@ test('load: Cancel is a flush link at the left, then quiet Replace and a filled 
   expect(m.focusedIsDialog).toBe(true);
 });
 
+// KAN-960. A fill on the flush Cancel hung 17px past the text edge; hover now thickens the underline instead.
+test('load: hovering Cancel thickens its underline and paints no fill', async ({
+  context,
+  serviceWorker,
+  extensionId,
+}) => {
+  const page = await openDialog(context, serviceWorker, extensionId, 'load');
+  const cancel = page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Cancel' });
+  const look = () =>
+    cancel.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return { fill: s.backgroundColor, thickness: s.textDecorationThickness };
+    });
+  expect((await look()).thickness).not.toBe('2px');
+  await cancel.hover();
+  await expect
+    .poll(look)
+    .toEqual({ fill: 'rgba(0, 0, 0, 0)', thickness: '2px' });
+  await page.mouse.down();
+  expect((await look()).fill).toBe('rgba(0, 0, 0, 0)');
+  await page.mouse.up();
+});
+
 // Past Chrome's Very large (a custom font size), the row can't hold all three.
 test('load: too narrow for one row, Cancel drops below the pair and no label wraps', async ({
   context,

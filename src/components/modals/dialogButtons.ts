@@ -52,7 +52,7 @@ export function dialogButtonStyles(COLORS: ThemeColors) {
         background-color: ${COLORS.ICON_ACTIVE_COLOR};
       }
     `,
-    // KAN-7. A dismissal that reads as text: no frame, the same rungs.
+    // KAN-7. A dismissal that reads as text: no frame. KAN-960: hover thickens the underline, never a fill.
     link: css`
       ${base}
       border-color: transparent;
@@ -60,10 +60,7 @@ export function dialogButtonStyles(COLORS: ThemeColors) {
       text-decoration: underline;
       text-underline-offset: 3px;
       &:hover {
-        background-color: ${COLORS.ICON_HOVER_COLOR};
-      }
-      &:active {
-        background-color: ${COLORS.ICON_ACTIVE_COLOR};
+        text-decoration-thickness: 2px;
       }
     `,
     // The run's way forward: TEXT_COLOR ground, PRIMARY_COLOR letters; rungs are a mix, never opacity.
