@@ -318,6 +318,29 @@ describe('the export preview page (KAN-190)', () => {
     expect(await screen.findByTitle('Weekend in Kyoto')).toBe(frame());
   });
 
+  // KAN-961. An older version can store a backup's settings field with the sessions.
+  test('leaves a stored settings field out of its store', async () => {
+    localStorage.setItem(
+      'tabContainerData',
+      JSON.stringify({
+        ...buildContainer([SESSION]),
+        settings: { theme: 'Charcoal' },
+      })
+    );
+
+    const { store } = await renderWithProviders(
+      <ExportPage
+        source={{ kind: 'saved', tabGroupId: 'session-kyoto' }}
+        from="full"
+      />
+    );
+
+    expect(await screen.findByTitle('Weekend in Kyoto')).toBe(frame());
+    expect(store.getState().tabContainerDataState).not.toHaveProperty(
+      'settings'
+    );
+  });
+
   // Storage is not a contract: it can hold something older, or truncated.
   test('unreadable storage says not found rather than crashing', async () => {
     localStorage.setItem('tabContainerData', '{"tabGroups":"not an array"}');

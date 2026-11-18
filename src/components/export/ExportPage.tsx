@@ -46,6 +46,7 @@ import { captureOpenWindows } from '../../utils/functions/capture';
 import {
   isValidTabMasterContainer,
   loadFromLocalStorage,
+  withoutSettings,
 } from '../../utils/functions/local';
 import { EXPORT_STORE_URL, TOAST_MESSAGES } from '../../utils/constants/common';
 import { showToast } from '../../redux/slices/globalStateSlice';
@@ -176,7 +177,8 @@ export default function ExportPage({
     if (source.kind !== 'saved') return;
     const candidate = loadFromLocalStorage('tabContainerData');
     if (isValidTabMasterContainer(candidate)) {
-      dispatch(replaceState(candidate));
+      // KAN-961. An older version can store a backup's settings field here; replaceState would write it back.
+      dispatch(replaceState(withoutSettings(candidate).container));
     } else if (candidate !== undefined) {
       console.warn('Ignoring unreadable tabContainerData in localStorage.');
     }

@@ -42,6 +42,8 @@ import { makeTestStore } from '../setup/makeStore';
 import { newestToast } from '../setup/toasts';
 import { setupChromeFake } from '../setup/chrome.fake';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
+import { incompressible } from '../fixtures/incompressible';
+import { IMPORT_SIZE_REFUSAL } from '../../utils/functions/local';
 
 // KAN-961. A backup's settings apply into an empty Tab Keeper and on Replace, never on Merge.
 
@@ -299,5 +301,28 @@ describe('a file that never loads', () => {
     await vi.waitFor(() => expect(newestToast(store.getState())).toBeDefined());
     expect(store.getState().settingsDataState).toEqual(before);
     expect(store.getState().globalState.pendingImport).toBeNull();
+  });
+
+  test('a file too big to sync applies nothing', async () => {
+    const { store } = storeWith(null);
+    const before = store.getState().settingsDataState;
+    const drop = pickFile(
+      JSON.stringify({
+        ...buildContainer([
+          buildSession({ tabGroupId: 'big', title: incompressible(1_600_000) }),
+        ]),
+        settings: { theme: Theme.CHARCOAL },
+      })
+    );
+    store.dispatch(
+      loadBackupFile({ language: 'en', t: ((key: string) => key) as never })
+    );
+    drop();
+    await vi.waitFor(() => expect(newestToast(store.getState())).toBeDefined());
+    const state = store.getState();
+    expect(newestToast(state)?.params?.detail).toBe(IMPORT_SIZE_REFUSAL);
+    expect(state.settingsDataState).toEqual(before);
+    expect(state.tabContainerDataState.tabGroups).toEqual([]);
+    expect(state.globalState.pendingImport).toBeNull();
   });
 });
