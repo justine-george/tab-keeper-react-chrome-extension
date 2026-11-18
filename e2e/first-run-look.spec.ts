@@ -349,17 +349,42 @@ test.describe('the primary is half as wide again as its secondary', () => {
   }
 });
 
-test.describe('the tour card’s Skip tutorial sits under Back and Next', () => {
-  for (const view of ['popup', 'full'] as const) {
-    test(view, async ({ context, extensionId }) => {
+// KAN-970. As in the dialogs: the way out at the left, its words on the text edge. The full view's card
+// holds it on Back and Next's row; the popup's narrower card drops it under them.
+test.describe('the tour card’s Skip tutorial starts at the text edge', () => {
+  for (const [view, place] of [
+    ['popup', 'under'],
+    ['full', 'beside'],
+  ] as const) {
+    test(`${view}: ${place} Back and Next`, async ({
+      context,
+      extensionId,
+    }) => {
       const page = await openTourStep2(context, extensionId, view);
       const skip = await box(button(card(page), 'Skip tutorial'));
-      const next = await box(button(card(page), 'Next'));
-      const mark = await box(card(page));
-      expect(skip.y).toBeGreaterThanOrEqual(next.y + next.height);
-      expect(
-        Math.abs(skip.x + skip.width / 2 - (mark.x + mark.width / 2))
-      ).toBeLessThanOrEqual(1);
+      const back = await box(button(card(page), 'Back'));
+      const words = await button(card(page), 'Skip tutorial').evaluate((el) => {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        return range.getBoundingClientRect().left;
+      });
+      const edge = await card(page)
+        .locator('p')
+        .first()
+        .evaluate((el) => {
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          return range.getBoundingClientRect().left;
+        });
+      expect(Math.abs(words - edge)).toBeLessThanOrEqual(0.5);
+      if (place === 'beside') {
+        expect(
+          Math.abs(skip.y + skip.height / 2 - (back.y + back.height / 2))
+        ).toBeLessThan(1);
+        expect(skip.x + skip.width).toBeLessThan(back.x);
+      } else {
+        expect(skip.y).toBeGreaterThanOrEqual(back.y + back.height);
+      }
     });
   }
 });
@@ -412,9 +437,10 @@ test.describe('the full view is a size up; the popup is as it was', () => {
   }
 
   for (const [view, width, padding] of [
-    ['popup', 290, '18px 16px 12px'],
+    // KAN-970: 20px all round, as setup and the hello dialog.
+    ['popup', 290, '20px'],
     // Round 6: the full view's card is wider, not roomier; one padding in both views.
-    ['full', 360, '18px 16px 12px'],
+    ['full', 360, '20px'],
   ] as const) {
     test(`${view}: the tour card is ${width}px wide`, async ({
       context,
