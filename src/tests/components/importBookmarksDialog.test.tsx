@@ -199,7 +199,7 @@ describe('the import dialog: layout', () => {
     expect(importButton()).toHaveTextContent(/^Import$/);
     expect(importButton()).toHaveAttribute('aria-disabled', 'true');
     expect(
-      within(preview()).getByText('The sessions your import makes show here.')
+      within(preview()).getByText('Sessions created by your import appear here.')
     ).toBeInTheDocument();
   });
 
