@@ -525,7 +525,7 @@
   "Bookmarks": "Bookmarks",
   "ImportButton": "Import",
   "ImportBookmarksHelp": "Turns bookmark folders into saved sessions. Your bookmarks stay as they are.",
-  "ImportPreviewEmpty": "The sessions your import makes show here.",
+  "ImportPreviewEmpty": "Sessions created by your import appear here.",
   "BookmarkCount_one": "{{count}} Bookmark",
   "BookmarkCount_other": "{{count}} Bookmarks",
   "In your Google Account": "In your Google Account",
