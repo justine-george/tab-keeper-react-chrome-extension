@@ -218,7 +218,8 @@ async function expectFits(root: Locator, label: string) {
 const press = (root: Locator, name: string) =>
   root.getByRole('button', { name, exact: true }).click();
 
-// KAN-457: Back and Pin this tab share a row. KAN-654: Not now sits wholly under it.
+// KAN-457: Back and Pin this tab share a row. KAN-970: Not now is at the row's left, or under it when the
+// row is full, its words on the text edge either way.
 async function expectPinRow(
   page: Page,
   say: (key: string) => string,
@@ -227,16 +228,38 @@ async function expectPinRow(
   const top = (name: string) =>
     cardButton(page, say(name)).evaluate((el) => {
       const r = el.getBoundingClientRect();
-      return { top: r.top, bottom: r.bottom };
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      return {
+        top: r.top,
+        bottom: r.bottom,
+        left: r.left,
+        right: r.right,
+        words: range.getBoundingClientRect().left,
+      };
     });
   const [notNow, back, pin] = await Promise.all(
     ['Not now', 'Back', 'Pin this tab'].map(top)
   );
+  const edge = await card(page)
+    .locator('p')
+    .first()
+    .evaluate((el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      return range.getBoundingClientRect().left;
+    });
   expect(Math.abs(back.top - pin.top), `${lang} Back + Pin`).toBeLessThan(1);
+  // The link is shorter than the buttons: on one row their centres line up, not their tops.
+  const mid = (r: { top: number; bottom: number }) => (r.top + r.bottom) / 2;
+  const beside =
+    Math.abs(mid(notNow) - mid(back)) < 1 && notNow.right < back.left;
+  const under = notNow.top >= Math.max(back.bottom, pin.bottom);
+  expect(beside || under, `${lang} Not now beside or under`).toBe(true);
   expect(
-    notNow.top >= Math.max(back.bottom, pin.bottom),
-    `${lang} Not now under`
-  ).toBe(true);
+    Math.abs(notNow.words - edge),
+    `${lang} Not now on the text edge`
+  ).toBeLessThanOrEqual(0.5);
 }
 
 // The words of a {{icon}} sentence before its glyph, enough to know which card shows.

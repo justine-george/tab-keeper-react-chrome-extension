@@ -14,6 +14,7 @@ import { COACH_LAYER } from './coachLayers';
 
 import {
   dialogButtonStyles,
+  flushLinkCss,
   pairCss,
   tallButtonCss,
 } from '../modals/dialogButtons';
@@ -226,7 +227,7 @@ export default function CoachMark({
     width: ${width};
     max-width: calc(100vw - ${2 * COACH.GUTTER}px);
     margin: 0;
-    padding: 18px 16px 12px;
+    padding: 20px;
     background-color: ${COLORS.PRIMARY_COLOR};
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     ${corners(RADIUS.DIALOG)}
@@ -269,19 +270,24 @@ export default function CoachMark({
     line-height: 1.45;
     color: ${COLORS.LABEL_L1_COLOR};
   `;
-  // KAN-654: the way on first, at the right; the way out under it, centred.
+  // KAN-970: the way out at the row's left, its words on the text edge, as in the dialogs; the way on at the right.
+  // wrap-reverse: when one row can't hold both, the way out drops under the buttons, not above them.
   const footStyle = css`
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap-reverse;
     align-items: center;
-    gap: 6px;
+    gap: 6px 8px;
+    margin-top: 6px;
   `;
   const endStyle = css`
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-end;
     gap: 8px;
-    align-self: flex-end;
+    margin-inline-start: auto;
+  `;
+  const wayOutCss = css`
+    order: -1;
   `;
   const tall = tallButtonCss(20);
 
@@ -403,14 +409,18 @@ export default function CoachMark({
           {secondary ? (
             <button
               type="button"
-              css={buttons.link}
+              css={[buttons.link, flushLinkCss, wayOutCss]}
               onClick={secondary.onPress}
             >
               {secondary.label}
             </button>
           ) : (
             onSkip && (
-              <button type="button" css={buttons.link} onClick={onSkip}>
+              <button
+                type="button"
+                css={[buttons.link, flushLinkCss, wayOutCss]}
+                onClick={onSkip}
+              >
                 {t('Skip tutorial')}
               </button>
             )

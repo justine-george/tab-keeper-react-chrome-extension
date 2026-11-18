@@ -235,10 +235,10 @@ for (const how of ['Skip setup', 'Done'] as const) {
 }
 
 // KAN-457: step 9's buttons are one row at the default size.
-// KAN-654: Not now sits under them, centred, as Skip tutorial does on the other cards.
+// KAN-970: Not now sits on their row, at its left, its words on the text edge, as Skip tutorial does.
 // KAN-755: no notch, on any platform; step 8, the anchored card before it, has its one.
 for (const os of ['mac', 'win'] as const) {
-  test(`step 9 (${os}): Back and Pin this tab one row, Not now centred under them; no notch`, async ({
+  test(`step 9 (${os}): Not now, Back and Pin this tab one row, Not now on the text edge; no notch`, async ({
     context,
     extensionId,
   }) => {
@@ -262,21 +262,36 @@ for (const os of ['mac', 'win'] as const) {
           ) ?? null
         );
       const card = box(el);
+      const wordsLeft = (e: Element | null) => {
+        if (e === null) throw new Error('missing');
+        const range = document.createRange();
+        range.selectNodeContents(e);
+        return range.getBoundingClientRect().left;
+      };
+      const notNow =
+        [...el.querySelectorAll('button')].find(
+          (b) => b.textContent === 'Not now'
+        ) ?? null;
       return {
         width: card.width,
-        tops: ['Not now', 'Back', 'Pin this tab'].map((n) => button(n).top),
-        pinBottom: button('Pin this tab').bottom,
-        notNowCentre: button('Not now').left + button('Not now').width / 2,
-        cardCentre: card.left + card.width / 2,
+        // The link is shorter than the buttons: on one row their centres line up, not their tops.
+        mids: ['Not now', 'Back', 'Pin this tab'].map(
+          (n) => (button(n).top + button(n).bottom) / 2
+        ),
+        notNowRight: button('Not now').right,
+        backLeft: button('Back').left,
+        notNowWords: wordsLeft(notNow),
+        textEdge: wordsLeft(el.querySelector('p')),
       };
     });
     expect(geometry.width).toBe(400);
-    const [notNow, back, pin] = geometry.tops;
+    const [notNow, back, pin] = geometry.mids;
     expect(Math.abs(back - pin)).toBeLessThan(1);
-    expect(notNow).toBeGreaterThanOrEqual(geometry.pinBottom);
-    expect(Math.abs(geometry.notNowCentre - geometry.cardCentre)).toBeLessThan(
-      1
-    );
+    expect(Math.abs(notNow - back)).toBeLessThan(1);
+    expect(geometry.notNowRight).toBeLessThan(geometry.backLeft);
+    expect(
+      Math.abs(geometry.notNowWords - geometry.textEdge)
+    ).toBeLessThanOrEqual(0.5);
     // CONTROL: Back to step 8, anchored, and its notch is drawn.
     await cardButton(page, 'Back').click();
     await landedAt(page, 8);
