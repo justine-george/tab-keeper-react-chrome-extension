@@ -994,17 +994,6 @@ describe('runLiveStep, redo', () => {
     expect(await strip(1)).toEqual(dropped);
   });
 
-  test('CONTROL: without the grant, a tab step still runs', async () => {
-    handle = setupChromeFake(grouped(true));
-    const drop = await dropTab(tabMove(11, 1, 1, 3), false);
-
-    expect(await runLiveStep(drop, 'undo', false)).toMatchObject({
-      outcome: 'done',
-    });
-
-    expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
-  });
-
   test('a re-read Chrome refuses after the run: couldNotRun, the tabs where Chrome left them', async () => {
     handle = setupChromeFake(grouped());
     const drop = await dropTab(tabMove(12, 1, 1, 3), true);

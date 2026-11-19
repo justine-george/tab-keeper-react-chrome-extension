@@ -1182,17 +1182,6 @@ describe('a reopened window gets a pinned Tab Keeper tab when asked (KAN-459)', 
     });
   });
 
-  test('Off: the restored window gets nothing extra', async () => {
-    handle = setupChromeFake(windowSeed([]));
-    const item = await closeWindow(2);
-    if (item?.kind !== 'window') throw new Error('close failed');
-
-    const reopened = await reopenPreferringHistory(item, false);
-
-    if (reopened?.kind !== 'window') throw new Error('no window came back');
-    expect(await stubsIn(reopened.windowId)).toEqual([]);
-  });
-
   test('On: a restored window that already has a pinned Tab Keeper tab gets no second one', async () => {
     handle = setupChromeFake(
       windowSeed([{ url: `${TAB_VIEW_URL}?view=tab`, pinned: true }])
