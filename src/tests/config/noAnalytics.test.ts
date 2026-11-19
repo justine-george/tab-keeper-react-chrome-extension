@@ -24,12 +24,10 @@ const sources = import.meta.glob('/src/**/*.{ts,tsx}', {
 const shipped = Object.entries(sources).filter(
   ([path]) => !path.startsWith('/src/tests/')
 );
+// The glob reads the source tree, so an empty one cannot pass for clean.
+if (shipped.length < 50) throw new Error(`read ${shipped.length} source files`);
 
 describe('no analytics (PRIVACY.md)', () => {
-  test('reads the source tree, not an empty glob', () => {
-    expect(shipped.length).toBeGreaterThan(50);
-  });
-
   test('no source file carries a Google Analytics measurement id', () => {
     const offenders = shipped
       .filter(([, text]) => /measurementId|MEASUREMENT_ID/.test(text))

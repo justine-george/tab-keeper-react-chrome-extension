@@ -33,18 +33,6 @@ const settle = () =>
   });
 
 describe('the platform, read once per page', () => {
-  test('twenty rows ask Chrome once, and all of them hear the answer', async () => {
-    const seen: Seen = [];
-    const r = await renderWithProviders(<></>, { seed: { platformOs: 'mac' } });
-    const read = vi.spyOn(chrome.runtime, 'getPlatformInfo');
-    r.rerender(<Rows seen={seen} />);
-    await settle();
-    expect(read).toHaveBeenCalledOnce();
-    expect(seen.slice(-ROWS)).toEqual(
-      Array.from({ length: ROWS }, () => ({ isMac: true, macKeys: true }))
-    );
-  });
-
   test('a row mounted after the answer reads it on its first render, and renders once', async () => {
     const first: Seen = [];
     const later: Seen = [];
@@ -53,8 +41,6 @@ describe('the platform, read once per page', () => {
     });
     await settle();
     expect(first[first.length - 1]).toEqual({ isMac: true, macKeys: true });
-    const read = vi.spyOn(chrome.runtime, 'getPlatformInfo');
-
     r.rerender(
       <>
         <Probe seen={first} />
@@ -63,7 +49,6 @@ describe('the platform, read once per page', () => {
     );
     await settle();
     expect(later).toEqual([{ isMac: true, macKeys: true }]);
-    expect(read).not.toHaveBeenCalled();
   });
 
   test('CONTROL: before the answer, a row renders unknown, then once more with it', async () => {

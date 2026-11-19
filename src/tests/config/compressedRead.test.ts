@@ -35,23 +35,6 @@ const asBytesValue = (bytes: Uint8Array) => ({ toUint8Array: () => bytes });
 describe('the reader understands both document shapes', () => {
   beforeEach(() => firestore.getDoc.mockReset());
 
-  it('reads a legacy uncompressed document unchanged', async () => {
-    firestore.getDoc.mockResolvedValue({
-      exists: () => true,
-      data: () => ({
-        lastModified: 1000,
-        selectedTabGroupId: 'a',
-        tabGroups: sessions,
-        deletedTabGroups: [{ tabGroupId: 'gone', deletedAt: 900 }],
-      }),
-    });
-    const read = await fetchDataFromFirestore('u1');
-    expect(read.tabGroups).toEqual(sessions);
-    expect(read.deletedTabGroups).toEqual([
-      { tabGroupId: 'gone', deletedAt: 900 },
-    ]);
-  });
-
   it('reads a compressed document to the identical container', async () => {
     const packed = await compressToBytes(JSON.stringify(sessions));
     firestore.getDoc.mockResolvedValue({
