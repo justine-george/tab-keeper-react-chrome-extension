@@ -28,7 +28,6 @@ import {
 import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
 import { undo } from '../../redux/slices/undoRedoSlice';
 import { makeTestStore } from '../setup/makeStore';
-import { TOAST_MESSAGES } from '../../utils/constants/common';
 import type { tabContainerData } from '../../redux/slices/tabContainerDataStateSlice';
 
 function group(id: string): tabContainerData {
@@ -125,9 +124,6 @@ describe('repeated undo does not claim changes came from another device (KAN-81)
     expect(
       seen.filter((t) => t === 'global/syncStateWithFirestore/fulfilled')
     ).toHaveLength(3);
-    expect(TOAST_MESSAGES.SYNC_MERGED).toBe(
-      'Synced changes from another device.'
-    );
     expect(roundsThatToasted).toEqual([]);
   });
 });

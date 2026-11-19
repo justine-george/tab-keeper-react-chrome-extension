@@ -35,16 +35,11 @@ function readyStore() {
 }
 
 describe('hasStartedSync', () => {
-  it('starts false', () => {
-    expect(makeTestStore().store.getState().globalState.hasStartedSync).toBe(
-      false
-    );
-  });
-
   it.each([SYNC_PENDING, SAVE_PENDING])(
     'turns true on the first %s and stays',
     (type) => {
       const { store } = makeTestStore();
+      expect(store.getState().globalState.hasStartedSync).toBe(false);
       store.dispatch({ type });
       expect(store.getState().globalState.hasStartedSync).toBe(true);
       store.dispatch({ type: type.replace('pending', 'fulfilled') });

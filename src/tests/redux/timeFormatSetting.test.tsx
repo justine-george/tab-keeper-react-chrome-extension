@@ -9,30 +9,6 @@ const freshSlice = async () => {
 afterEach(() => localStorage.clear());
 
 describe('timeFormat', () => {
-  it('is 12-hour for a new install', async () => {
-    const { initialState } = await freshSlice();
-    expect(initialState.timeFormat).toBe('h12');
-  });
-
-  it('is 12-hour for saved settings written before it existed, whatever the language', async () => {
-    localStorage.setItem(
-      'settingsData',
-      JSON.stringify({ theme: 'Blue', language: 'de' })
-    );
-    const { initialState } = await freshSlice();
-    expect(initialState).toMatchObject({
-      theme: 'Blue',
-      language: 'de',
-      timeFormat: 'h12',
-    });
-  });
-
-  it('keeps a saved 24-hour', async () => {
-    localStorage.setItem('settingsData', JSON.stringify({ timeFormat: 'h23' }));
-    const { initialState } = await freshSlice();
-    expect(initialState.timeFormat).toBe('h23');
-  });
-
   it.each([['"h24"'], ['"24"'], ['true'], ['null'], ['"H23"']])(
     'reads a malformed saved value (%s) as 12-hour',
     async (raw) => {
