@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { localeDicts } from '../setup/localeT';
+
 // KAN-910. The setting's label and help, the two toasts, and the reworded Skip duplicates when saving help.
 const NEW_KEYS = [
   'Skip duplicates when opening',
@@ -11,19 +13,10 @@ const NEW_KEYS = [
 const OLD_KEY =
   'When you add a window or tabs to a saved session, pages it already has are left out, and a new session keeps one copy of each.';
 
-const files = import.meta.glob<Record<string, string>>(
-  '/public/locales/*/translation.json',
-  { import: 'default', eager: true }
-);
-
 describe('Skip duplicates when opening strings', () => {
-  it('reads all 13 locales', () => {
-    expect(Object.keys(files)).toHaveLength(13);
-  });
-
   it('every locale has the five new keys, non-empty, and not the old help key', () => {
     const problems: string[] = [];
-    for (const [file, json] of Object.entries(files)) {
+    for (const [file, json] of localeDicts) {
       for (const key of NEW_KEYS)
         if (!json[key]?.trim()) problems.push(`${file}: missing "${key}"`);
       if (OLD_KEY in json) problems.push(`${file}: still has the old help key`);

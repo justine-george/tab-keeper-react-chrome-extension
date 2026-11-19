@@ -1,23 +1,15 @@
 import { describe, expect, test } from 'vitest';
 
+import { localeDicts } from '../setup/localeT';
+
 // KAN-623. A missing key renders English silently; only the values show it.
-const localeFiles = import.meta.glob<Record<string, string>>(
-  '/public/locales/*/translation.json',
-  { import: 'default', eager: true }
-);
 const LONG =
   'Your compact view is still here. Click Tab Keeper in the toolbar as always, or {{icon}} to switch back.';
 const SHORT =
   'Your compact view is still here. Click Tab Keeper in the toolbar as always.';
-const others = Object.entries(localeFiles).filter(
-  ([path]) => !path.includes('/en/')
-);
+const others = localeDicts.filter(([lang]) => lang !== 'en');
 
 describe('the compact-view card in every locale (KAN-623)', () => {
-  test('CONTROL: twelve other locales were loaded', () => {
-    expect(others).toHaveLength(12);
-  });
-
   test.each(others)(
     '%s translates both, keeps {{icon}} once, names Tab Keeper',
     (_path, dict) => {

@@ -44,11 +44,8 @@ const REGISTERS = [
 describe.each(REGISTERS)('$locale keeps the formal register', (r) => {
   const values = Object.values(dictFor(r.locale));
 
-  test('no line addresses the user informally', () => {
-    expect(values.filter((v) => r.informal.test(v))).toEqual([]);
-  });
-
-  test('CONTROL: the formal forms are found', () => {
+  test('addresses the user formally, never informally', () => {
     expect(values.some((v) => r.formal.test(v))).toBe(true);
+    expect(values.filter((v) => r.informal.test(v))).toEqual([]);
   });
 });

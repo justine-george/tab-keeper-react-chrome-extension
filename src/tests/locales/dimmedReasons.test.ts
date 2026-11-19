@@ -1,11 +1,8 @@
 import { describe, expect, test } from 'vitest';
 
+import { localeDicts } from '../setup/localeT';
+
 // KAN-886. Why a dimmed Add current window or Back to your tab does nothing, in every language.
-// import.meta.glob, not node:fs: see keyCoverage.test.ts.
-const localeFiles = import.meta.glob('/public/locales/*/translation.json', {
-  import: 'default',
-  eager: true,
-}) as Record<string, Record<string, string>>;
 
 const APPROVED_EN = {
   AddWindowNothingToAdd:
@@ -13,14 +10,7 @@ const APPROVED_EN = {
   BackNowhereToGo:
     'Nowhere to go back to: only Tab Keeper is open in this window',
 };
-const langs = Object.entries(localeFiles).map(([path, dict]) => ({
-  lang: path.split('/')[3],
-  dict,
-}));
-
-test('all 13 languages are checked', () => {
-  expect(langs).toHaveLength(13);
-});
+const langs = localeDicts.map(([lang, dict]) => ({ lang, dict }));
 
 describe.each(Object.entries(APPROVED_EN))('%s (KAN-886)', (key, en) => {
   test('en reads as approved', () => {

@@ -85,6 +85,10 @@ describe('counts are whole phrases, plural-correct in every locale (KAN-286)', (
   // "5 Tabs". Measured, not assumed. Hence exactly the categories
   // Intl.PluralRules names for that language -- no more, no fewer.
   test('every locale defines exactly its own plural categories', () => {
+    // en declares the window and tab counts as plural.
+    expect(pluralBases).toEqual(
+      expect.arrayContaining(['WindowCount', 'TabCount'])
+    );
     const drift: string[] = [];
     for (const [lang, dict] of locales) {
       const wanted = new Intl.PluralRules(lang)
@@ -102,14 +106,6 @@ describe('counts are whole phrases, plural-correct in every locale (KAN-286)', (
       }
     }
     expect(drift).toEqual([]);
-  });
-
-  // CONTROL for the test above: it has plural keys to check, so an empty
-  // drift list is a result rather than an empty loop.
-  test('CONTROL: en declares the window and tab counts as plural', () => {
-    expect(pluralBases).toEqual(
-      expect.arrayContaining(['WindowCount', 'TabCount'])
-    );
   });
 
   // KAN-966. en splits these by One/Other key, so only ru needs plural forms: 21 lands on Other.

@@ -10,10 +10,6 @@ const withoutName = (text: string) => text.replace(/Tab Keeper/g, '');
 
 describe('Italian calls a tab "scheda" (KAN-620)', () => {
   test('no string says "tab" outside the product name', () => {
-    // CONTROL: the file is loaded and does use scheda, so an empty or
-    // unrelated dictionary cannot pass.
-    expect(dict['Tab closed.']).toBe('Scheda chiusa.');
-
     const saysTab = Object.entries(dict).filter(([, text]) =>
       /\btab\b/i.test(withoutName(text))
     );

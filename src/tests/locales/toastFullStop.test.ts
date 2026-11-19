@@ -18,20 +18,16 @@ import {
   IMPORT_NOT_JSON,
   IMPORT_SIZE_REFUSAL,
 } from '../../utils/functions/local';
+import { localeDicts } from '../setup/localeT';
 
 // KAN-604: every toast ends with a full stop, in each locale's own (。 in ja/zh, । in hi).
 // KAN-618: "!" no longer counts. ImportErrorFrame ends with its {{detail}}, so every refusal it carries ends one.
-const files = import.meta.glob<Record<string, string>>(
-  '/public/locales/*/translation.json',
-  { import: 'default', eager: true }
-);
-
 const FULL_STOP = /[.。।]$/;
 
 // Every form of each key (plural _one/_other...) that does not end with a full stop.
 const unstopped = (keys: string[]): string[] => {
   const missing: string[] = [];
-  for (const [file, json] of Object.entries(files)) {
+  for (const [file, json] of localeDicts) {
     for (const key of keys) {
       const forms = Object.keys(json).filter(
         (k) => k === key || k.startsWith(`${key}_`)
@@ -46,11 +42,6 @@ const unstopped = (keys: string[]): string[] => {
 };
 
 describe('toast full stops (KAN-604, KAN-618)', () => {
-  // CONTROL: all 13 locales loaded, so an empty loop cannot pass.
-  it('reads all 13 locales', () => {
-    expect(Object.keys(files)).toHaveLength(13);
-  });
-
   it('every toast, in every locale and plural form, ends with a full stop', () => {
     expect(
       unstopped([

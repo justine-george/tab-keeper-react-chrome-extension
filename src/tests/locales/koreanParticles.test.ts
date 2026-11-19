@@ -12,20 +12,17 @@ const FALLBACK_PARTICLE = /\((?:으|을|를|이|가|은|는|과|와)\)/;
 
 describe('the Korean strings print no fallback particle', () => {
   test('no value carries a parenthesised particle', () => {
-    const offenders = Object.entries(ko as Record<string, string>)
-      .filter(([, value]) => FALLBACK_PARTICLE.test(value))
-      .map(([key, value]) => `${key} -> ${value}`);
-
-    expect(offenders).toEqual([]);
-  });
-
-  // CONTROL: the pattern matches both shapes the drafts used, so an empty
-  // result above means the file is clean, not that the pattern is blind.
-  test('the pattern catches both fallback shapes', () => {
+    // The pattern catches both shapes the drafts used.
     expect(FALLBACK_PARTICLE.test('"{{title}}"(으)로 전환할까요?')).toBe(true);
     expect(FALLBACK_PARTICLE.test('{{keys}}을(를) 누르면')).toBe(true);
     expect(FALLBACK_PARTICLE.test('"{{title}}" 세션으로 전환할까요?')).toBe(
       false
     );
+
+    const offenders = Object.entries(ko as Record<string, string>)
+      .filter(([, value]) => FALLBACK_PARTICLE.test(value))
+      .map(([key, value]) => `${key} -> ${value}`);
+
+    expect(offenders).toEqual([]);
   });
 });

@@ -39,31 +39,27 @@ const SAVE_OPERATIONS = [
 ];
 
 const strings = en as Record<string, string>;
+// Throws on a key missing from en, so no check below passes on nothing.
+const value = (key: string): string => {
+  const text = strings[key];
+  if (text === undefined) throw new Error(`en has no ${key}`);
+  return text;
+};
 
 describe('Save and Add are different verbs', () => {
   test('no add-operation string calls itself a save', () => {
     const offenders = ADD_OPERATIONS.filter((key) =>
-      strings[key]?.toLowerCase().includes('save')
-    ).map((key) => `${key} -> ${strings[key]}`);
+      value(key).toLowerCase().includes('save')
+    ).map((key) => `${key} -> ${value(key)}`);
 
     expect(offenders).toEqual([]);
   });
 
-  // The control. Without it the test above passes trivially if the save
-  // strings are also stripped of the word, or if a key is simply missing.
   test('every save-operation string does say save', () => {
     const offenders = SAVE_OPERATIONS.filter(
-      (key) => !strings[key]?.toLowerCase().includes('save')
-    ).map((key) => `${key} -> ${strings[key]}`);
+      (key) => !value(key).toLowerCase().includes('save')
+    ).map((key) => `${key} -> ${value(key)}`);
 
     expect(offenders).toEqual([]);
-  });
-
-  test('every key checked here exists in the en locale', () => {
-    const missing = [...ADD_OPERATIONS, ...SAVE_OPERATIONS].filter(
-      (key) => typeof strings[key] !== 'string'
-    );
-
-    expect(missing).toEqual([]);
   });
 });
