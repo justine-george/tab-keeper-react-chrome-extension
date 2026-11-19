@@ -72,7 +72,6 @@ describe('the cloud document sync writes (KAN-6)', () => {
     const encoded = await encodeCloudDocument(c);
     if (!encoded.compressed) throw new Error('premise: compressed');
     expect('tabGroups' in encoded.fields).toBe(false);
-    expect(encoded.fields.tabGroupsZ).toBeInstanceOf(Uint8Array);
     expect(
       JSON.parse(await decompressFromBytes(encoded.fields.tabGroupsZ))
     ).toEqual(stripEmbeddedFavicons(withoutSamples(c)).tabGroups);

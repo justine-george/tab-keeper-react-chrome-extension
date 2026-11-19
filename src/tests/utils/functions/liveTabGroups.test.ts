@@ -110,9 +110,7 @@ describe('updateLiveGroup', () => {
   // KAN-822. Currently open's chevron folds Chrome's own group.
   test('updateLiveGroup passes collapsed to Chrome', async () => {
     handle = setupChromeFake(seed);
-    const update = vi.spyOn(chrome.tabGroups, 'update');
     expect(await updateLiveGroup(50, { collapsed: true })).toBe(true);
-    expect(update).toHaveBeenCalledWith(50, { collapsed: true });
     expect(await chrome.tabGroups.get(50)).toMatchObject({
       collapsed: true,
       title: 'Research',

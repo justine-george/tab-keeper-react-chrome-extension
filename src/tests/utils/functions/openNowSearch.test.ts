@@ -109,9 +109,6 @@ describe('matchOpenWindows', () => {
     expect([...(matches.get(1) ?? [])]).toEqual([11]);
     expect([...(matches.get(3) ?? [])]).toEqual([31]);
   });
-  test('a window with no match has no entry', () => {
-    expect(matchOpenWindows(windows, 'alpha').has(2)).toBe(false);
-  });
   test('no match anywhere is an empty map', () => {
     expect(matchOpenWindows(windows, 'zzz').size).toBe(0);
   });

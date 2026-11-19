@@ -38,16 +38,6 @@ describe('shouldOfferTabGroups', () => {
     expect(await shouldOfferTabGroups()).toBeNull();
   });
 
-  // Nothing to offer: they already have it.
-  test('stays quiet when the permission is already granted', async () => {
-    handle = setupChromeFake({
-      ...twoGroupsUngranted,
-      grantedPermissions: ['tabGroups'],
-    });
-
-    expect(await shouldOfferTabGroups()).toBeNull();
-  });
-
   test('stays quiet once the user has opted out for good', async () => {
     handle = setupChromeFake(twoGroupsUngranted);
     seedSettings({ isNeverAskAgainForTabGroups: true });

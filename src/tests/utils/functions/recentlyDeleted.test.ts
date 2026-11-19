@@ -5,7 +5,6 @@ import { setupChromeFake } from '../../setup/chrome.fake';
 import { TOMBSTONE_TTL_MS } from '../../../utils/functions/mergeTabData';
 import {
   RECENTLY_DELETED_KEY,
-  RECENTLY_DELETED_MAX,
   deletedSessionsFrom,
   emptyDeleted,
   readDeleted,
@@ -51,14 +50,14 @@ describe('withDeleted', () => {
   });
 
   it('keeps at most 100, dropping the oldest', () => {
-    const many = Array.from({ length: RECENTLY_DELETED_MAX }, (_, i) => ({
+    const many = Array.from({ length: 100 }, (_, i) => ({
       session: s(`o${i}`),
       deletedAt: NOW - 1000 - i,
     }));
     const list = withDeleted(many, [s('new')], NOW);
-    expect(list).toHaveLength(RECENTLY_DELETED_MAX);
+    expect(list).toHaveLength(100);
     expect(list[0].session.tabGroupId).toBe('new');
-    expect(ids(list)).not.toContain(`o${RECENTLY_DELETED_MAX - 1}`);
+    expect(ids(list)).not.toContain('o99');
   });
 
   it('stores the session unselected', () => {
