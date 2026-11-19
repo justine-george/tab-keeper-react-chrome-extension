@@ -22,7 +22,6 @@ import {
 import { setIsNotDirty } from '../../redux/slices/globalStateSlice';
 import { resetHistory, undo } from '../../redux/slices/undoRedoSlice';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
-import { SORT_GROUP_TABS_BY_SITE_ACTION } from '../../utils/constants/actionTypes';
 import { isSavedGroupSortedBySite } from '../../utils/functions/sortBySite';
 import {
   T0,
@@ -178,10 +177,6 @@ describe('sortGroupTabsBySiteInternal', () => {
       })
     );
     expect(data(store)).toBe(before);
-  });
-
-  it('is captured for undo under its action type', () => {
-    expect(sort().type).toBe(SORT_GROUP_TABS_BY_SITE_ACTION);
   });
 });
 

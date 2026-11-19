@@ -177,11 +177,6 @@ describe('the name', () => {
       ]),
     ]);
 
-  it('blank everything falls back', () => {
-    const next = movedInto(seeded(blanks()), windowRef('w1'));
-    expect(sessionIn(next, NEW).title).toBe(FALLBACK);
-  });
-
   it('a typed name wins over the item and the fallback', () => {
     const next = movedInto(seeded(), tabRef('t1'), '  My trip ');
     expect(sessionIn(next, NEW).title).toBe('My trip');

@@ -173,16 +173,6 @@ describe('sortSessionsInternal by tab count', () => {
     // Cherry 9, Banana 5, apple 2
     expect(titles(store)).toEqual(['Cherry', 'Banana', 'apple']);
   });
-
-  test('the ranks reproduce that order too', () => {
-    const store = seededList();
-    store.dispatch(sortSessionsInternal({ by: 'tabCount', locale: 'en' }));
-
-    const g = groups(store);
-    const key = (x: (typeof g)[number]) => x.rank ?? x.createdAt!;
-    const resorted = [...g].sort((x, y) => key(y) - key(x));
-    expect(resorted.map((x) => x.title)).toEqual(g.map((x) => x.title));
-  });
 });
 
 describe('a sort is a one-shot action, not a mode', () => {

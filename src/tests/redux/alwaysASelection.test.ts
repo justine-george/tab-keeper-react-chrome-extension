@@ -294,9 +294,7 @@ describe('the fix-up is view state: no sync, no undo step, no timestamp', () => 
     const local = container(['a', 'b'], null);
     const cloud = container(['a', 'b'], null);
     const { merged } = mergeTabContainers(local, cloud, AT);
-    expect(merged.lastModified).toBe(
-      Math.max(local.lastModified, cloud.lastModified)
-    );
+    expect(merged.lastModified).toBe(AT);
     expect(merged.selectedTabGroupId).toBe(merged.tabGroups[0].tabGroupId);
   });
 

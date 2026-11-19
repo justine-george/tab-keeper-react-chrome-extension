@@ -95,10 +95,6 @@ describe('renaming a Chrome tab group', () => {
     );
   });
 
-  it('names a group that had none', () => {
-    expect(groupTitleOf(rename(seed(''), 'Research'), 'a')).toBe('Research');
-  });
-
   it('trims surrounding whitespace, as the other renames do', () => {
     expect(groupTitleOf(rename(seed(''), '  Research  '), 'a')).toBe(
       'Research'

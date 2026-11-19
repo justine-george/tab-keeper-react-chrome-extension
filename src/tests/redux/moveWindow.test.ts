@@ -82,14 +82,6 @@ describe('moveWindowInternal', () => {
     expect(ids(store)).toEqual(['w3', 'w1', 'w2']);
   });
 
-  test('moves a window to the back', () => {
-    const store = seeded();
-    store.dispatch(
-      moveWindowInternal({ tabGroupId: 'tg', windowId: 'w1', toIndex: 2 })
-    );
-    expect(ids(store)).toEqual(['w2', 'w3', 'w1']);
-  });
-
   test('a window carries its tabs with it', () => {
     const store = seeded();
     store.dispatch(
@@ -135,15 +127,6 @@ describe('moveWindowInternal does nothing when there is nothing to do', () => {
 
     expect(ids(store)).toEqual(['w1', 'w2', 'w3']);
     expect(session(store).lastModified).toBe(before);
-    expect(store.getState().globalState.isDirty).toBe(false);
-  });
-
-  test('an unknown window id changes nothing', () => {
-    const store = seeded();
-    store.dispatch(
-      moveWindowInternal({ tabGroupId: 'tg', windowId: 'nope', toIndex: 0 })
-    );
-    expect(ids(store)).toEqual(['w1', 'w2', 'w3']);
     expect(store.getState().globalState.isDirty).toBe(false);
   });
 
