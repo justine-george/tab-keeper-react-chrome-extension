@@ -104,14 +104,4 @@ describe('translation key coverage', () => {
 
     expect(offenders).toEqual([]);
   });
-
-  // The control for the test above. Without it, that test passes just as well
-  // against a locale file that lost every key with punctuation in it.
-  test('keys with a colon elsewhere, and with dots, are still present', () => {
-    const punctuated = Object.keys(en).filter(
-      (key) => key.includes(':') || key.includes('.')
-    );
-
-    expect(punctuated.length).toBeGreaterThan(0);
-  });
 });

@@ -57,9 +57,14 @@ function reachableConstantNames(): Set<string> {
 
 describe('toast translation coverage', () => {
   test('every reachable toast message has an en translation', () => {
+    const reached = reachableConstantNames();
+    // The scan finds usages, known ones included: keyCoverage's scan misses them.
+    expect(reached.size).toBeGreaterThan(5);
+    expect(reached).toContain('SYNC_MERGED');
+    expect(reached).toContain('UNREADABLE_CLOUD_DOCUMENT');
     const missing: string[] = [];
 
-    for (const name of reachableConstantNames()) {
+    for (const name of reached) {
       const text = (TOAST_MESSAGES as Record<string, string>)[name];
       // A name that resolves to nothing is a typo at the usage site, which is
       // its own bug: `t(undefined)` renders nothing at all.
@@ -73,17 +78,6 @@ describe('toast translation coverage', () => {
     }
 
     expect(missing).toEqual([]);
-  });
-
-  // CONTROL. Without it the test above passes just as well against a broken
-  // scan that finds no usages at all -- which is precisely how keyCoverage
-  // misses these, so it is not a hypothetical failure mode here.
-  test('control: the scan actually finds toast usages, including known ones', () => {
-    const reached = reachableConstantNames();
-
-    expect(reached.size).toBeGreaterThan(5);
-    expect(reached).toContain('SYNC_MERGED');
-    expect(reached).toContain('UNREADABLE_CLOUD_DOCUMENT');
   });
 
   // Every defined message must also be REACHED. The scan above only proves that

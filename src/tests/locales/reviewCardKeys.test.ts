@@ -1,16 +1,11 @@
 import { describe, expect, test } from 'vitest';
 
+import { dictFor, localeDicts } from '../setup/localeT';
+
 // KAN-653. The review card's words, in every locale, and the retired
 // dialog's words in none.
 
-const localeFiles = import.meta.glob('/public/locales/*/translation.json', {
-  import: 'default',
-  eager: true,
-}) as Record<string, Record<string, string>>;
-
-const locales = Object.entries(localeFiles).map(
-  ([path, dict]) => [path.split('/')[3], dict] as const
-);
+const locales = localeDicts;
 
 const EN: Record<string, string> = {
   'Thanks for using Tab Keeper': 'Thanks for using Tab Keeper',
@@ -62,12 +57,8 @@ const STEERING = [
   'five star',
 ];
 
-test('CONTROL: all thirteen locales were loaded', () => {
-  expect(locales).toHaveLength(13);
-});
-
 test('en says exactly what was decided', () => {
-  const en = localeFiles['/public/locales/en/translation.json'];
+  const en = dictFor('en');
   for (const [key, value] of Object.entries(EN)) {
     expect(en[key], key).toBe(value);
   }

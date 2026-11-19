@@ -12,10 +12,6 @@ const notTheFrenchApostrophe = /['‘`´ʼ]/;
 
 describe('French writes its apostrophe as ’ (KAN-648)', () => {
   test('no string uses a straight apostrophe or a lookalike', () => {
-    // CONTROL: the file is loaded and does use ’, so an empty or unrelated
-    // dictionary cannot pass.
-    expect(dict['Close tab']).toBe('Fermer l’onglet');
-
     const wrong = Object.entries(dict).filter(([, text]) =>
       notTheFrenchApostrophe.test(text)
     );

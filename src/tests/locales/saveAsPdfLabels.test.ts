@@ -1,14 +1,11 @@
 import { describe, expect, test } from 'vitest';
 
+import { dictFor, localeDicts } from '../setup/localeT';
+
 // KAN-742. Export is offered as Save as PDF; KAN-226/208: the ellipsis says a further step follows.
 // U+2026, not "...": some voices read three dots as "dot dot dot".
-const localeFiles = import.meta.glob<Record<string, string>>(
-  '/public/locales/*/translation.json',
-  { import: 'default', eager: true }
-);
-
-const entries = Object.entries(localeFiles);
-const nonEnglish = entries.filter(([file]) => !file.includes('/en/'));
+const entries = localeDicts;
+const nonEnglish = entries.filter(([lang]) => lang !== 'en');
 
 const EN: Record<string, string> = {
   'Save session as PDF': 'Save as PDF…',
@@ -19,10 +16,6 @@ const TOUR =
   "Copy all links, save as PDF, or delete this session from this menu. Deleting doesn't close your open windows.";
 
 describe('Save as PDF in every locale (KAN-742)', () => {
-  test('CONTROL: all 13 locales are read', () => {
-    expect(entries).toHaveLength(13);
-  });
-
   test.each(Object.keys(EN))(
     'every locale ends "%s" with a single ellipsis character',
     (key) => {
@@ -33,7 +26,7 @@ describe('Save as PDF in every locale (KAN-742)', () => {
   );
 
   test.each(Object.entries(EN))('en reads %s as %s', (key, value) => {
-    expect(localeFiles['/public/locales/en/translation.json'][key]).toBe(value);
+    expect(dictFor('en')[key]).toBe(value);
   });
 
   test('every other locale translates them and the tour line', () => {
@@ -46,7 +39,7 @@ describe('Save as PDF in every locale (KAN-742)', () => {
   });
 
   test('en defines the tour line', () => {
-    expect(localeFiles['/public/locales/en/translation.json'][TOUR]).toBe(TOUR);
+    expect(dictFor('en')[TOUR]).toBe(TOUR);
   });
 
   // His word (2026-10-22): Save as HTML is gone for good.

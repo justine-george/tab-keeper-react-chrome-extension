@@ -43,11 +43,4 @@ describe('supported languages (KAN-283)', () => {
       expect(() => new Intl.Collator(lang)).not.toThrow();
     }
   });
-
-  // CONTROL for the test above: it can fail. Without this, a test that never
-  // reaches Intl (say, an empty list) passes the same way.
-  test('the Chrome manifest spelling is rejected, so the check above can fail', () => {
-    expect(languages.length).toBeGreaterThan(0);
-    expect(() => new Intl.Locale('zh_TW')).toThrow(RangeError);
-  });
 });

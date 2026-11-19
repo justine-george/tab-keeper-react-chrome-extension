@@ -52,17 +52,13 @@ const deleteKeys = Object.entries(en as Dict)
 describe.each(DELETE_VERB)('$locale says delete with one verb', (l) => {
   const dict = l.dict as Dict;
 
-  test(`no delete string uses ${l.never}`, () => {
+  test(`delete strings use ${l.uses}, none ${l.never}`, () => {
+    expect(
+      deleteKeys.filter((key) => (dict[key] ?? '').includes(l.uses)).length
+    ).toBeGreaterThan(5);
     const offenders = deleteKeys
       .filter((key) => l.never.test(dict[key] ?? ''))
       .map((key) => `${key} -> ${dict[key]}`);
     expect(offenders).toEqual([]);
-  });
-
-  // CONTROL: without it, the test above passes on a dict that failed to load.
-  test(`CONTROL: delete strings do use ${l.uses}`, () => {
-    expect(
-      deleteKeys.filter((key) => (dict[key] ?? '').includes(l.uses)).length
-    ).toBeGreaterThan(5);
   });
 });

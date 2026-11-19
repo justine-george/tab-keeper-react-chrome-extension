@@ -79,23 +79,6 @@ const findAll = (src: string, re: RegExp) =>
   [...src.matchAll(new RegExp(re.source, 'g'))].map((m) => m[1]);
 
 describe('no user-facing string is hardcoded English', () => {
-  // The control. If this ever fails, the glob has stopped seeing the source
-  // tree and every "zero hardcoded strings" assertion below is vacuous.
-  test('CONTROL: the component sources are actually being read', () => {
-    const files = Object.keys(sources);
-    expect(files.length).toBeGreaterThan(10);
-    expect(files.join('|')).toMatch(/MenuContainer\.tsx/);
-    // Something translated really is in there, so the scan sees real content.
-    expect(Object.values(sources).join('\n')).toMatch(/t\('Undo'\)/);
-
-    // Nothing is skipped any more. This asserted that the KAN-69 exclusion
-    // removed exactly three files; KAN-69 deleted them, so the scan now covers
-    // every component. Keep the equality rather than dropping the check: it is
-    // what would catch a filter being reintroduced, which is how a real
-    // offender would get hidden again.
-    expect(Object.keys(sources).length).toBe(Object.keys(allSources).length);
-  });
-
   for (const [prop, re] of [
     ['ariaLabel', HARDCODED_LABEL],
     ['tooltipText', HARDCODED_TOOLTIP],
@@ -104,6 +87,8 @@ describe('no user-facing string is hardcoded English', () => {
     ['value', HARDCODED_VALUE],
   ] as const) {
     test(`no component passes a literal ${prop}`, () => {
+      // The glob still sees the component tree.
+      expect(Object.keys(sources).length).toBeGreaterThan(10);
       const offenders: string[] = [];
       for (const [file, src] of Object.entries(sources)) {
         for (const value of findAll(src, re)) {

@@ -51,27 +51,32 @@ const WINDOW_ONE: Record<string, string> = {
 
 const LOCALES = localeDicts.map(([lng]) => lng);
 
-describe('composed names use the locale punctuation', () => {
-  test('the tables cover every shipped locale', () => {
-    expect(Object.keys(COLON).sort()).toEqual([...LOCALES].sort());
-  });
+// Throws on a locale missing from a table, so no case passes on undefined.
+const row = (table: Record<string, string>, lng: string): string => {
+  const value = table[lng];
+  if (value === undefined) throw new Error(`no entry for ${lng}`);
+  return value;
+};
 
+describe('composed names use the locale punctuation', () => {
   test.each(LOCALES)('%s joins an action and its item', async (lng) => {
     const t = await tFor(lng);
 
-    expect(formatActionOnItem('Act', 'Docs', t)).toBe(`Act${COLON[lng]}Docs`);
+    expect(formatActionOnItem('Act', 'Docs', t)).toBe(
+      `Act${row(COLON, lng)}Docs`
+    );
   });
 
   test.each(LOCALES)('%s joins a name and its count', async (lng) => {
     const t = await tFor(lng);
 
-    expect(formatNameWithCount('Name', '5', t)).toBe(`Name${COMMA[lng]}5`);
+    expect(formatNameWithCount('Name', '5', t)).toBe(`Name${row(COMMA, lng)}5`);
   });
 
   test.each(LOCALES)('%s numbers an unnamed window', async (lng) => {
     const t = await tFor(lng);
 
-    expect(t('WindowNumbered', { number: 1 })).toBe(WINDOW_ONE[lng]);
+    expect(t('WindowNumbered', { number: 1 })).toBe(row(WINDOW_ONE, lng));
   });
 
   test.each(['ja', 'zh', 'zh-TW'])(
@@ -122,13 +127,11 @@ describe('no component glues a name by hand', () => {
   }) as Record<string, string>;
   const GLUED = /': ' \+|`[^`]*\}[:,] \$\{/;
 
-  test('the scan sees a glued name', () => {
+  test('none is left', () => {
+    // The scan sees a glued name.
     expect(GLUED.test("t('Close tab') + ': ' + tab.title")).toBe(true);
     expect(GLUED.test("`${t('Hide')}: ${name}`")).toBe(true);
     expect(GLUED.test("`${t('Open now')}, ${count}`")).toBe(true);
-  });
-
-  test('none is left', () => {
     const glued = Object.entries(sources)
       .filter(([, source]) => source.split('\n').some((l) => GLUED.test(l)))
       .map(([file]) => file);

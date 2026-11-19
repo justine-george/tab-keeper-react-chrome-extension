@@ -1,17 +1,11 @@
 import { describe, expect, test } from 'vitest';
 
 import { WHATS_NEW } from '../../utils/constants/whatsNew';
+import { localeDicts } from '../setup/localeT';
 
 // KAN-861. What's new's words in every locale; each body names the labels on screen.
 
-const localeFiles = import.meta.glob('/public/locales/*/translation.json', {
-  import: 'default',
-  eager: true,
-}) as Record<string, Record<string, string>>;
-
-const locales = Object.entries(localeFiles).map(
-  ([path, dict]) => [path.split('/')[3], dict] as const
-);
+const locales = localeDicts;
 
 const VERSION_TITLE = "What's new in Tab Keeper {{version}}";
 const KEYS = [
@@ -22,10 +16,6 @@ const KEYS = [
     r.entries.flatMap((e) => [e.titleKey, e.bodyKey])
   ),
 ];
-
-test('13 locales are read', () => {
-  expect(locales).toHaveLength(13);
-});
 
 describe.each(locales)('%s', (_, dict) => {
   test.each(KEYS)('has %s, non-empty', (key) => {

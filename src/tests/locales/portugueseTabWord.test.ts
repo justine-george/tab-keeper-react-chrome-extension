@@ -12,16 +12,15 @@ function strayGuia(value: string): boolean {
 
 describe('the Portuguese strings use one word for a tab', () => {
   test('no value says "guia" outside "grupo de guias"', () => {
+    // The check catches a stray "guia" and spares the feature name.
+    expect(strayGuia('de qualquer guia.')).toBe(true);
+    expect(strayGuia('Salvar grupos de guias')).toBe(false);
+    expect(strayGuia('de qualquer aba.')).toBe(false);
+
     const offenders = Object.entries(pt as Record<string, string>)
       .filter(([, value]) => strayGuia(value))
       .map(([key, value]) => `${key} -> ${value}`);
 
     expect(offenders).toEqual([]);
-  });
-
-  test('CONTROL: the check catches a stray "guia" and spares the feature name', () => {
-    expect(strayGuia('de qualquer guia.')).toBe(true);
-    expect(strayGuia('Salvar grupos de guias')).toBe(false);
-    expect(strayGuia('de qualquer aba.')).toBe(false);
   });
 });

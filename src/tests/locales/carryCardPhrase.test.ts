@@ -16,8 +16,4 @@ describe('the carry card phrase in every locale', () => {
       );
     }
   });
-
-  test('all 13 locales are here', () => {
-    expect(localeDicts).toHaveLength(13);
-  });
 });

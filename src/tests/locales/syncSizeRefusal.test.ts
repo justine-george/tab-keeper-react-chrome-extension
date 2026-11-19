@@ -24,8 +24,10 @@ const hasCase = (ch: string) => ch.toUpperCase() !== ch.toLowerCase();
 
 describe('the sync size refusal is a whole sentence', () => {
   test('in every cased script it starts with a capital', () => {
-    const offenders = locales
-      .filter(([, value]) => hasCase(value[0]))
+    const cased = locales.filter(([, value]) => hasCase(value[0]));
+    // The Latin and Cyrillic files are reached.
+    expect(cased.length).toBeGreaterThanOrEqual(8);
+    const offenders = cased
       .filter(([, value]) => value[0] !== value[0].toUpperCase())
       .map(([lang, value]) => `${lang} -> ${value.slice(0, 40)}`);
 
@@ -34,12 +36,5 @@ describe('the sync size refusal is a whole sentence', () => {
 
   test('en names what is too large', () => {
     expect(en.SyncSizeRefusal).toMatch(/^Your sessions are too large to sync/);
-  });
-
-  // CONTROL: enough locales are in a cased script for the first test to mean
-  // something, so an empty offender list is a result, not an empty loop.
-  test('CONTROL: the cased-script check reaches the Latin and Cyrillic files', () => {
-    const cased = locales.filter(([, value]) => hasCase(value[0]));
-    expect(cased.length).toBeGreaterThanOrEqual(8);
   });
 });

@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
+import { localeDicts } from '../setup/localeT';
+
 // KAN-148. The product has ONE name in every locale, and it is the name on the
 // Chrome Web Store listing the user installed from.
 //
@@ -8,18 +10,7 @@ import { describe, expect, test } from 'vitest';
 // 选项卡管理器 on the About screen, and ru called it Хранитель Вкладок in the
 // header and Tab Keeper everywhere else. So the same product had two names on
 // two screens, neither of which matched the listing.
-//
-// Read through import.meta.glob rather than node:fs for the reason
-// keyCoverage.test.ts sets out at length: tsconfig's `types` array is
-// deliberately without "node".
-const localeFiles = import.meta.glob('/public/locales/*/translation.json', {
-  import: 'default',
-  eager: true,
-}) as Record<string, Record<string, string>>;
-
-const locales = Object.entries(localeFiles).map(
-  ([path, dict]) => [path.split('/')[3], dict] as const
-);
+const locales = localeDicts;
 
 const BRAND = 'Tab Keeper';
 
@@ -59,27 +50,6 @@ const TRANSLATED_FORMS = [
 ];
 
 describe('the product is named the same way everywhere', () => {
-  // The control for the sweep below: if this ever fails, the glob is broken and
-  // a green sweep would mean nothing rather than meaning the locales are clean.
-  test('CONTROL: all thirteen locales were loaded', () => {
-    expect(locales).toHaveLength(13);
-    expect(locales.map(([name]) => name).sort()).toEqual([
-      'de',
-      'en',
-      'es',
-      'fr',
-      'hi',
-      'it',
-      'ja',
-      'ko',
-      'pt',
-      'ru',
-      'sv',
-      'zh',
-      'zh-TW',
-    ]);
-  });
-
   test.each(locales)('%s spells the product name in full', (_name, dict) => {
     for (const key of KEYS_THAT_NAME_THE_PRODUCT) {
       expect(dict[key], `${key} is missing`).toBeDefined();
