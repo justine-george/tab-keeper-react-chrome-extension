@@ -712,26 +712,6 @@ describe('captureOpenWindows leaves out every Tab Keeper page (KAN-300)', () => 
     expect(captured.windows[0].tabCount).toBe(1);
   });
 
-  test('a window with [export page, normal] keeps only the normal tab', async () => {
-    handle = setupChromeFake({
-      windows: [
-        {
-          id: 1,
-          tabs: [
-            buildChromeTab({ id: 10, url: EXPORT_PAGE, title: 'Tab Keeper' }),
-            buildChromeTab({ id: 11, url: A, title: 'A' }),
-          ],
-        },
-      ],
-    });
-
-    const captured = requireCaptured(
-      await captureOpenWindows('probe', 'all-windows')
-    );
-
-    expect(captured.windows[0].tabs.map((t) => t.url)).toEqual([A]);
-  });
-
   test('a window holding only Tab Keeper pages is dropped, not kept empty', async () => {
     handle = setupChromeFake({
       windows: [

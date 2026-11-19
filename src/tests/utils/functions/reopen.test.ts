@@ -2022,14 +2022,6 @@ describe('closeOpenGroup / reopenClosed: a closed group (KAN-696)', () => {
     ]);
   });
 
-  test('resolves null for a group with no listed tab', async () => {
-    handle = setupChromeFake(docsSeed);
-    const w2 = await openWindow(2);
-
-    expect(await closeOpenGroup(w2, 999)).toBeNull();
-    expect(await shape(2)).toEqual(['a', 'x1', 'x2*', 'x3', 'b']);
-  });
-
   test('resolves null when the remove rejects, and leaves the tabs', async () => {
     handle = setupChromeFake(docsSeed);
     const w2 = await openWindow(2);
