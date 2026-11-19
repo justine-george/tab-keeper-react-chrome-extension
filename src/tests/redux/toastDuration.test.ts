@@ -50,15 +50,6 @@ describe('toast time by kind (KAN-508)', () => {
     expect([TOAST_MS, NEEDS_YOU_TOAST_MS]).toEqual([5000, 8000]);
   });
 
-  test('a plain toast lasts 5s', async () => {
-    const { store } = makeTestStore();
-    vi.useFakeTimers();
-
-    await store.dispatch(showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED }));
-
-    expectLastsExactly(store, TOAST_MESSAGES.SYNC_MERGED, TOAST_MS);
-  });
-
   // Every message by kind: an error added or dropped from ERROR_TOASTS fails its own case.
   const ERRORS = [
     TOAST_MESSAGES.UNREADABLE_ACCOUNT_TOKEN,

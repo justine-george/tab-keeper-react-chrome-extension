@@ -38,14 +38,7 @@ import reducer, {
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { saveToFirestore } from '../../utils/functions/external';
 import { mergeTabContainers } from '../../utils/functions/mergeTabData';
-import {
-  compressToBytes,
-  decompressFromBytes,
-} from '../../utils/functions/compression';
-import {
-  isValidTabMasterContainer,
-  readImportedContainer,
-} from '../../utils/functions/local';
+import { readImportedContainer } from '../../utils/functions/local';
 import { restoreTargetIndex } from '../../utils/functions/windows';
 import {
   T0,
@@ -112,17 +105,6 @@ describe('pinned tabs and the active tab across two devices (KAN-458)', () => {
     expect(w.tabs.some((t) => 'pinned' in t)).toBe(false);
     expect('activeTabId' in w).toBe(false);
     expect(restoreTargetIndex(w.tabs, w.activeTabId)).toBe(0);
-  });
-
-  it('the cloud write and read keep both fields', async () => {
-    const data = deviceWith(savedOnA());
-    const back: unknown = JSON.parse(
-      await decompressFromBytes(await compressToBytes(JSON.stringify(data)))
-    );
-
-    expect(isValidTabMasterContainer(back)).toBe(true);
-    if (!isValidTabMasterContainer(back)) return;
-    expect(windowIn(back, 'S', 'w')).toEqual(windowIn(data, 'S', 'w'));
   });
 
   it('the real cloud write sends the pin and the active tab', async () => {

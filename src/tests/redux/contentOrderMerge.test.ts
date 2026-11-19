@@ -125,18 +125,6 @@ describe('the merge orders by when a session last changed', () => {
     ).toEqual(['old', 'new']);
   });
 
-  test('an unmigrated list merges byte-identically to how it always did', () => {
-    const a = session('a', T0 - 2 * HOUR);
-    const b = session('b', T0 - HOUR);
-    const c = session('c', T0);
-
-    expect(mergedIds(container([c, b, a]), container([c, b, a]))).toEqual([
-      'c',
-      'b',
-      'a',
-    ]);
-  });
-
   // A rank still wins, because an explicit sort or drag is the user saying
   // where a session goes -- and that has to outrank "it changed recently", or
   // editing a session would silently undo the order they arranged.

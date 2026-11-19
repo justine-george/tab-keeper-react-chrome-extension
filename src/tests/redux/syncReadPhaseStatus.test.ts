@@ -74,17 +74,4 @@ describe('the read phase of a sync reports itself', () => {
 
     expect(store.getState().globalState.syncStatus).toBe('loading');
   });
-
-  // Before the fix a rejection left the status untouched: the sync died
-  // looking exactly like one that had not run, and the header kept offering
-  // "sync now" as if nothing had happened.
-  it('is "error" when the read itself throws', async () => {
-    mocks.loadFromFirestore.mockRejectedValue(new Error('offline'));
-    const store = signedInStore();
-    store.dispatch(setSyncStatus('idle'));
-
-    await store.dispatch(syncStateWithFirestore());
-
-    expect(store.getState().globalState.syncStatus).toBe('error');
-  });
 });

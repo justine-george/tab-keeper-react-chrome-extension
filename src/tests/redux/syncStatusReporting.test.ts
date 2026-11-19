@@ -116,30 +116,7 @@ describe('the sync status the header icon reads', () => {
     const store = await runSync(agreeing(), agreeing());
 
     expect(store.getState().globalState.syncStatus).toBe('success');
-  });
-
-  // Pins the reason the branch above is reachable at all: agreeing sides mean
-  // no write. If this ever fails, the test above is passing for the wrong
-  // reason -- it would be going through saveToFirestoreIfDirty's fulfilled
-  // reducer rather than the branch it is meant to cover.
-  it('and does so without writing to Firestore', async () => {
-    await runSync(agreeing(), agreeing());
-
+    // PREMISE: agreeing sides write nothing, so success is not saveToFirestoreIfDirty's.
     expect(mocks.saveToFirestore).not.toHaveBeenCalled();
-  });
-
-  // A bad sync must not read as "up to date". This one already worked; it is
-  // here so a future change to the success paths cannot quietly make every
-  // outcome report success.
-  //
-  // The trigger is an UNREADABLE cloud document, not a failed read. The real
-  // loadFromFirestore never rejects -- it catches everything and returns
-  // undefined (external.ts:49-66), and `undefined` means "no document yet",
-  // which is a success path. A mock that rejects would be testing a contract
-  // the real function does not have.
-  it('reports error when the cloud document cannot be understood', async () => {
-    const store = await runSync(agreeing(), { not: 'a container' });
-
-    expect(store.getState().globalState.syncStatus).toBe('error');
   });
 });

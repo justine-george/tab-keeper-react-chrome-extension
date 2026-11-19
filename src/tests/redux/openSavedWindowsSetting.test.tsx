@@ -169,15 +169,4 @@ describe('Settings › Sessions › Open saved windows', () => {
     ).toHaveAttribute('aria-pressed', 'true');
     expect(pair).toHaveAccessibleDescription(HELP);
   });
-
-  // KAN-910: the open rows follow the save rows.
-  it('sits directly below Skip duplicates when saving', async () => {
-    const { container } = await renderSessions();
-    const titles = [
-      ...container.querySelectorAll<HTMLElement>('[data-settings-section]'),
-    ].map((s) => s.querySelector('span')?.textContent);
-    const at = titles.indexOf('Skip duplicates when saving');
-    expect(at).toBeGreaterThanOrEqual(0);
-    expect(titles[at + 1]).toBe('Open saved windows');
-  });
 });

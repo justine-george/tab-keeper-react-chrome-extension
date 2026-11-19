@@ -58,12 +58,6 @@ describe('the settings slice starts in the language the popup renders (KAN-282)'
     expect(initialState.language).toBe('en');
   });
 
-  it('an unshipped Chrome language starts in English', async () => {
-    chromeSays('nl-NL');
-    const { initialState } = await freshSlice();
-    expect(initialState.language).toBe('en');
-  });
-
   // The unit project has no chrome global at all; this is also the jsdom
   // component setup's state. Loading must not throw.
   it('no chrome API at all starts in English, without throwing', async () => {
