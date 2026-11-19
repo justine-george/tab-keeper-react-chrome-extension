@@ -45,7 +45,6 @@ describe('the row divider is a quiet, visible line', () => {
   test.each(Object.entries(THEMES))(
     '%s: the divider can still be seen against the pane',
     (_name, theme) => {
-      expect(theme).toHaveProperty('DIVIDER_COLOR');
       const fromPane = contrast(theme.DIVIDER_COLOR, theme.PRIMARY_COLOR);
       expect(
         fromPane,
@@ -58,7 +57,6 @@ describe('the row divider is a quiet, visible line', () => {
   test.each(Object.entries(THEMES))(
     '%s: the divider is clearly quieter than the resting scrollbar thumb',
     (_name, theme) => {
-      expect(theme).toHaveProperty('DIVIDER_COLOR');
       const line = contrast(theme.DIVIDER_COLOR, theme.PRIMARY_COLOR);
       const thumb = contrast(theme.SCROLLBAR_THUMB, theme.PRIMARY_COLOR);
       const lineRatio = line.toFixed(2);

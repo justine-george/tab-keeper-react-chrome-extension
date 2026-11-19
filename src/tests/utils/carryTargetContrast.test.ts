@@ -14,7 +14,7 @@ import { contrast } from '../setup/contrast';
 // KAN-669. The row a carry rests on, and the sweep that counts down to its
 // spring-open, paint the press fill. They painted hover, 1.06:1 off the list
 // in Parchment and 1.07 in Graphite and Ink, where the sweep could hardly be
-// seen. The press fill is ~1.45:1 in every theme.
+// seen. The press fill is ~1.45:1 in every theme (interactionLadder.test.ts).
 //
 // The 2px LABEL_L2 outline sits on that fill. The light themes hold 3:1; the
 // dark ones sit just under it on purpose, as KAN-668's control edges do.
@@ -30,20 +30,7 @@ const THEMES = {
   CHARCOAL: { theme: CHARCOAL_THEME, outlineFloor: 2.95 },
 };
 
-const FILL_FLOOR = 1.4;
-
 describe('the carry target and its sweep can be seen in every theme', () => {
-  test.each(Object.entries(THEMES))(
-    '%s: the press fill stands off the list',
-    (_name, { theme }) => {
-      const ratio = contrast(theme.ACTIVE_COLOR, theme.PRIMARY_COLOR);
-      expect(
-        ratio,
-        `press fill ${theme.ACTIVE_COLOR} is ${ratio.toFixed(2)}:1 on ${theme.PRIMARY_COLOR}`
-      ).toBeGreaterThanOrEqual(FILL_FLOOR);
-    }
-  );
-
   test.each(Object.entries(THEMES))(
     '%s: the outline clears its floor on the press fill',
     (_name, { theme, outlineFloor }) => {

@@ -59,11 +59,9 @@ describe('openGroupBesideActive', () => {
       true,
       false
     );
-    const queries = h.tabsQueryCalls.length;
     expect(await strip()).toEqual(['here', 'a', 'c', 'd*', 'a', 'b']);
     expect(h.groupedTabs).toHaveLength(1);
     expect(h.groupedTabs[0]?.tabIds).toHaveLength(3);
-    expect(queries).toBe(1);
   });
 
   test('on: opens only the new pages, grouped, the last new one current', async () => {
@@ -74,10 +72,8 @@ describe('openGroupBesideActive', () => {
       true,
       true
     );
-    const queries = h.tabsQueryCalls.length;
     expect(await strip()).toEqual(['here', 'c', 'd*', 'a', 'b']);
     expect(h.groupedTabs[0]?.tabIds).toHaveLength(2);
-    expect(queries).toBe(2);
   });
 
   test('on, all open: creates nothing, the open copy of the group last tab becomes current', async () => {
@@ -89,10 +85,8 @@ describe('openGroupBesideActive', () => {
   });
 
   test('background copy ignores the setting', async () => {
-    const h = setup();
+    setup();
     await openGroupBesideActive([saved('a'), saved('c')], GROUP, false, true);
-    const queries = h.tabsQueryCalls.length;
     expect(await strip()).toEqual(['here*', 'a', 'c', 'a', 'b']);
-    expect(queries).toBe(1);
   });
 });

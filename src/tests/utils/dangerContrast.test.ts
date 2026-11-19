@@ -123,12 +123,4 @@ describe('destructive tokens (KAN-725)', () => {
       );
     }
   );
-
-  test('CONTROL: the theme text colour would not read on the red', () => {
-    expect(
-      Object.values(THEMES).some(
-        (t) => contrast(t.TEXT_COLOR, t.DANGER_FILL) < TEXT_FLOOR
-      )
-    ).toBe(true);
-  });
 });

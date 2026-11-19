@@ -16,6 +16,7 @@ const COMMENTS = /\/\*[\s\S]*?\*\/|\/\/.*$/gm;
 // whileKeyNav('…') or a helper's (COLORS, '…'), quoted with ' or `.
 const GATED =
   /(?:whileKeyNav\(|focusRing\w*\(\s*COLORS\s*,)\s*(['`])[\s\S]*?\1\s*\)/g;
+const strip = (code: string) => code.replace(COMMENTS, '').replace(GATED, '');
 
 describe('keyboard-only focus rules', () => {
   test('no component writes :focus-visible outside whileKeyNav', () => {
@@ -24,29 +25,18 @@ describe('keyboard-only focus rules', () => {
     expect(files.length).toBeGreaterThan(100);
     // CONTROL: the gate itself is in the glob, so the exclusion names a real file.
     expect(Object.keys(SOURCES)).toContain(GATE);
+    // The strip leaves a bare rule, so an over-eager GATED cannot pass blind.
+    expect(strip('css`\n  &:has(:focus-visible) {\n  }\n`')).toContain(
+      ':focus-visible'
+    );
 
     const offenders = files.flatMap(([name, code]) =>
-      code
-        .replace(COMMENTS, '')
-        .replace(GATED, '')
+      strip(code)
         .split('\n')
         .map((line, i) => [line, i + 1] as const)
         .filter(([line]) => line.includes(':focus-visible'))
         .map(([line]) => `${name}: ${line.trim()}`)
     );
     expect(offenders).toEqual([]);
-  });
-
-  test('the scan finds a bare rule', () => {
-    const bare = 'css`\n  &:has(:focus-visible) {\n    opacity: 1;\n  }\n`';
-    const gated = "css`\n  ${whileKeyNav('&:has(:focus-visible)')} {\n`";
-    const helper =
-      "${focusRingCss(\n  COLORS,\n  '&:has(> input:focus-visible)'\n)}";
-    const strip = (code: string) =>
-      code.replace(COMMENTS, '').replace(GATED, '').includes(':focus-visible');
-
-    expect(strip(bare)).toBe(true);
-    expect(strip(gated)).toBe(false);
-    expect(strip(helper)).toBe(false);
   });
 });

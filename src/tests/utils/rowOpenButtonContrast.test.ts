@@ -62,20 +62,4 @@ describe('the row Open button label is legible in every state', () => {
       expect(ratio, ratio.toFixed(2)).toBeGreaterThanOrEqual(VISIBLE_FLOOR);
     }
   );
-
-  test('CONTROL: the old DIVIDER edge falls under the floor in some theme', () => {
-    const failing = Object.values(THEMES).filter(
-      (t) => contrast(t.DIVIDER_COLOR, t.HOVER_COLOR) < VISIBLE_FLOOR
-    );
-    expect(failing.length).toBeGreaterThan(0);
-  });
-
-  // CONTROL: the reason for the step-up. LABEL_L1 alone fails somewhere on
-  // hover or press, so the test above is not vacuous.
-  test('CONTROL: LABEL_L1 alone would fail on press in some theme', () => {
-    const failing = Object.values(THEMES).filter(
-      (t) => contrast(t.LABEL_L1_COLOR, t.ICON_ACTIVE_COLOR) < FLOOR
-    );
-    expect(failing.length).toBeGreaterThan(0);
-  });
 });

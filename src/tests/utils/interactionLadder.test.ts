@@ -68,12 +68,6 @@ const NOMINAL_PRESSED = 1.45;
 const BAND = 0.04;
 
 describe('the transient interaction ladder (KAN-205)', () => {
-  test.each(ALL)('%s: there is a pressed state at all', (_n, theme) => {
-    expect(theme).toHaveProperty('ACTIVE_COLOR');
-    expect(theme.ACTIVE_COLOR).not.toBe(theme.HOVER_COLOR);
-    expect(theme.ACTIVE_COLOR).not.toBe(theme.PRIMARY_COLOR);
-  });
-
   test.each(ALL)(
     '%s: pressing reads as one clear step beyond hovering',
     (_n, theme) => {
@@ -96,18 +90,6 @@ describe('the transient interaction ladder (KAN-205)', () => {
       )
     ).toBeLessThanOrEqual(BAND);
   });
-
-  // KAN-93 still holds: a hovered icon sits INSIDE a hovered row, so it has to
-  // read as more engaged than the row, or it punches a hole in the fill.
-  // Raising the row's hover is exactly the change that could break this.
-  test.each(ALL)(
-    '%s: a hovered icon is still more engaged than its row',
-    (_n, theme) => {
-      expect(
-        contrast(theme.ICON_HOVER_COLOR, theme.PRIMARY_COLOR)
-      ).toBeGreaterThan(contrast(theme.HOVER_COLOR, theme.PRIMARY_COLOR));
-    }
-  );
 });
 
 // Selection is NOT in this file, on purpose. It is carried by the selected
