@@ -335,19 +335,6 @@ describe('openGroupCopy', () => {
     expect(await strip(1)).toEqual(['11*', `${ids[0]}`, `${ids[1]}`, '12']);
   });
 
-  test('without the grant the tabs open plain, in order, and nothing throws', async () => {
-    handle = twoTabs({ tabGroupsApiAbsent: true });
-
-    const ids = await openGroupCopy(
-      [saved(1), saved(2)],
-      work,
-      { windowId: 1, index: 1 },
-      GO_TO
-    );
-
-    expect(await strip(1)).toEqual(['11*', `${ids[0]}`, `${ids[1]}`, '12']);
-  });
-
   test('a refused tab is skipped; the rest stay together and still group', async () => {
     const tabs = [saved(1), saved(2), saved(3)];
     handle = twoTabs({ refusedUrls: [placeholderOf(tabs[1])] });

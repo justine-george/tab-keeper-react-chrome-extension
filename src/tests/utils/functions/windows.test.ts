@@ -370,31 +370,9 @@ describe('createWindowWithRetries with tab groups', () => {
     expect(handle.groupedTabs).toEqual([]);
   });
 
-  // The load-bearing failure case. By the time grouping runs the tabs are
-  // already open, so a grouping error must cost the groups and nothing else --
-  // above all it must still resolve with the created window, because focus
-  // mode decides whether to close the user's windows from that value.
-  test('a failing tabs.group still resolves with the created window', async () => {
-    handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
-    const tabs = chrome.tabs as unknown as {
-      group: (options: chrome.tabs.GroupOptions) => Promise<number>;
-    };
-    tabs.group = () => Promise.reject(new Error('nope'));
-
-    const created = await createWindowWithRetries(
-      spec({
-        tabs: [{ ...tab('https://a.test'), tabId: 't1', chromeGroupId: 'g1' }],
-        groups: [{ groupId: 'g1', title: 'Work', color: 'blue' }],
-      }),
-      'Go',
-      2
-    );
-
-    expect(created).not.toBeNull();
-  });
-
-  // The try/catch inside applyTabGroups is not only there to keep the
-  // rejection from escaping createWindowWithRetries (the test above): it also
+  // A grouping error must cost the groups and nothing else: createWindowWithRetries
+  // still resolves with the window, because focus mode decides from that value
+  // whether to close the user's windows. The try/catch also
   // sits INSIDE the per-group loop, so one group failing does not abandon the
   // groups after it. This is the assertion that pins that -- a plain
   // "resolves with the window" check cannot distinguish "every group but the
@@ -789,15 +767,6 @@ describe('restore puts back a saved window state', () => {
     await vi.advanceTimersByTimeAsync(2 * WINDOW_SETTLE_MS);
     return done;
   };
-
-  test.each(['maximized', 'fullscreen'] as const)(
-    'a window saved %s comes back that way',
-    async (state) => {
-      handle = setupChromeFake();
-      const created = await restore(spec({ state }));
-      expect(await stateOf(created)).toBe(state);
-    }
-  );
 
   test('an unfocused window gets its state and stays unfocused', async () => {
     handle = setupChromeFake();

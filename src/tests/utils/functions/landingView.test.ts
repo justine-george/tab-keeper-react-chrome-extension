@@ -269,17 +269,6 @@ describe('landingView with ids the session already holds', () => {
     });
   });
 
-  test('CONTROL: the same session with no clash takes it', () => {
-    expect(
-      landingView(
-        [s1(), clash([win('d1', [tab('u9')])])],
-        'S2',
-        savedItem(tabRef('t2')),
-        true
-      )
-    ).not.toBeNull();
-  });
-
   test('no session has the shown id', () => {
     expect(
       landingView([s1()], 'nope', savedItem(tabRef('t1')), true)

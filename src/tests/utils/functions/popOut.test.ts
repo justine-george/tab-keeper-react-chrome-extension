@@ -267,6 +267,7 @@ describe('openOrFocusTabView', () => {
     expect(calls.updates).toEqual([{ tabId: 7, props: { active: true } }]);
     expect(calls.focusWindows).toEqual([5]);
     expect(calls.creates).toEqual([]);
+    expect(calls.announces).toEqual([]);
   });
 
   test('queries for the tab view URL with a trailing wildcard', async () => {
@@ -494,14 +495,6 @@ describe('a request to show a dialog in the full view (KAN-7)', () => {
       { type: SHOW_IN_FULL_VIEW_MESSAGE, tabId: 7, show: 'pinGuide' },
     ]);
     expect(calls.creates).toEqual([]);
-  });
-
-  test('a plain open asks nothing to be shown', async () => {
-    const { api, calls } = makeTabApi({
-      matches: [fakeTab({ id: 7, windowId: 5 })],
-    });
-    await openOrFocusTabView(api, request(5));
-    expect(calls.announces).toEqual([]);
   });
 
   test('KAN-624: the run, asked of an open full view, is announced to it', async () => {

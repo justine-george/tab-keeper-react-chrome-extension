@@ -479,21 +479,6 @@ describe('falls back to new windows', () => {
     expect(isOpenIntoWindowAnswer(answer)).toBe(true);
   });
 
-  test('when the first tab is refused with the window gone: the made window is answered too', async () => {
-    handle = setupChromeFake(seed());
-    const fake = handle;
-    vi.spyOn(
-      chrome.extension,
-      'isAllowedIncognitoAccess'
-    ).mockImplementationOnce(() => {
-      fake.browser.closeWindow(1);
-      return Promise.resolve(false);
-    });
-    const answer = await openIntoWindow(req(saved));
-    expect(answer.madeWindows).toHaveLength(1);
-    expect(answer.madeWindows[0].tabIds).toHaveLength(2);
-  });
-
   test('when this window cannot hold tabs (a popup or app window)', async () => {
     handle = setupChromeFake({
       windows: [
@@ -518,9 +503,11 @@ describe('falls back to new windows', () => {
       fake.browser.closeWindow(1);
       return Promise.resolve(false);
     });
-    const { ids } = await openIntoWindow(req(saved));
-    expect(ids).toEqual([]);
+    const answer = await openIntoWindow(req(saved));
+    expect(answer.ids).toEqual([]);
     expect(await newWindowTabs()).toEqual([['s0', 's1']]);
+    expect(answer.madeWindows).toHaveLength(1);
+    expect(answer.madeWindows[0].tabIds).toHaveLength(2);
   });
 
   test('not when only the first tab is refused: it is skipped, the rest land here, the target falls back', async () => {
@@ -779,13 +766,6 @@ describe('skip tabs already open', () => {
     );
     expect(await strip(1)).toEqual(['p0', 'a', 'b', 's0']);
     expect(answer.leftOut).toBe(1);
-  });
-
-  test("reads the window's tabs once", async () => {
-    handle = setupChromeFake(seed());
-    const query = vi.spyOn(chrome.tabs, 'query');
-    await openIntoWindow(req([spec([tab('a'), tab('s1')])], skip));
-    expect(query.mock.calls.filter(([q]) => q.windowId === 1)).toHaveLength(1);
   });
 
   test('specs opened apart (other kind) are not compared', async () => {

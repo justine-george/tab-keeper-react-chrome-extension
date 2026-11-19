@@ -195,24 +195,24 @@ describe('imported from bookmarks (KAN-862)', () => {
   });
 
   test('an ordinary session is unchanged in all three', () => {
-    for (const group of [build(), build({ contentModified: EDITED })]) {
-      for (const basis of ['edited', 'created'] as const) {
-        expect(
-          sessionDateLabel(group, basis, 'en', 'h12', t, TODAY)
-        ).not.toContain('Imported');
-        expect(sessionDateTitle(group, basis, 'en', 'h12', t)).toBe(
-          getTooltipDate(
-            basis === 'created' || group.contentModified === undefined
-              ? CREATED
-              : EDITED,
-            'en',
-            'h12'
-          )
-        );
-        expect(sessionDateStamp(group, basis, 'en', 'h12', t)).not.toContain(
-          'Imported'
-        );
-      }
+    const plain = build();
+    const edited = build({ contentModified: EDITED });
+    const cases = [
+      [plain, 'edited', CREATED],
+      [plain, 'created', CREATED],
+      [edited, 'edited', EDITED],
+      [edited, 'created', CREATED],
+    ] as const;
+    for (const [group, basis, instant] of cases) {
+      expect(
+        sessionDateLabel(group, basis, 'en', 'h12', t, TODAY)
+      ).not.toContain('Imported');
+      expect(sessionDateTitle(group, basis, 'en', 'h12', t)).toBe(
+        getTooltipDate(instant, 'en', 'h12')
+      );
+      expect(sessionDateStamp(group, basis, 'en', 'h12', t)).not.toContain(
+        'Imported'
+      );
     }
   });
 

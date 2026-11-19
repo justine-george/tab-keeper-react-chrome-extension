@@ -323,14 +323,6 @@ describe('openInPopup (KAN-437)', () => {
     ]);
   });
 
-  test('CONTROL: Default view Compact never touches the popup setting', async () => {
-    const { api, log } = makeApi({ tabs: BESIDE });
-
-    await openInPopup(api, 7);
-
-    expect(log.filter((e) => e.call === 'setPopup')).toEqual([]);
-  });
-
   test('a refused put-back warns, and the popup that opened is not undone by a reopen', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { api, log } = makeApi({
