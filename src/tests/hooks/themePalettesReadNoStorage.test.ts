@@ -26,11 +26,7 @@ describe('theme palettes', () => {
     const { LIGHT_THEME } = await import('../../hooks/useThemeColors');
     expect(LIGHT_THEME).toBeDefined();
     expect(reads.count()).toBe(0);
-  });
-
-  it('control: the settings slice does read them on load', async () => {
-    vi.resetModules();
-    reads = settingsReads();
+    // The spy sees a read: the settings slice makes one on load.
     await import('../../redux/slices/settingsDataStateSlice');
     expect(reads.count()).toBeGreaterThan(0);
   });

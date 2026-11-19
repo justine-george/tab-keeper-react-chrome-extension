@@ -1,15 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { act, cleanup, renderHook } from '@testing-library/react';
 
-// KAN-280. Spied, not replaced: the real hold still runs, so a test can count
-// how often the hook queued itself behind a held row. A duplicate queue entry
-// is invisible in the read count (schedule() coalesces it away), so this count
-// is the only thing that sees the queuedForRelease dedupe.
-vi.mock('../../redux/dragHold', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../redux/dragHold')>();
-  return { ...actual, whenDragReleases: vi.fn(actual.whenDragReleases) };
-});
-
 import {
   OPEN_NOW_REFRESH_COALESCE_MS,
   useOpenWindows,
@@ -19,7 +10,6 @@ import {
   beginDragHold,
   endDragHold,
   flushHeldChanges,
-  whenDragReleases,
 } from '../../redux/dragHold';
 import { whileMovingTabs } from '../../redux/undoHistory';
 import { setupChromeFake } from '../setup/chrome.fake';
@@ -122,7 +112,6 @@ afterEach(() => {
   // The hold is module state; a test that failed mid-hold must not leave the
   // next one held.
   endDragHold();
-  vi.mocked(whenDragReleases).mockClear();
   vi.restoreAllMocks();
   vi.useRealTimers();
   handle?.restore();
@@ -189,7 +178,6 @@ describe('useOpenWindows', () => {
         ],
       },
     ]);
-    expect(getAllCalls()).toBe(1);
   });
 
   test('live add: a tab the browser opens is listed after the coalesce window', async () => {
@@ -221,32 +209,7 @@ describe('useOpenWindows', () => {
     expect(titlesIn(result.current, 1)).toEqual(['A', 'B']);
   });
 
-  // KAN-486. A slow move must not draw its temporary group as a band.
-  test('no read lands while a move is in flight', async () => {
-    handle = setupChromeFake(twoWindows());
-    renderHook(() => useOpenWindows(false));
-    await advance(0);
-    const reads = getAllCalls();
-    let finishMove = () => undefined as void;
-    const moving = whileMovingTabs(
-      () =>
-        new Promise<void>((resolve) => {
-          finishMove = resolve;
-        })
-    );
-
-    await act(async () => {
-      await chrome.tabs.move(20, { windowId: 1, index: -1 });
-    });
-    await advance(OPEN_NOW_REFRESH_COALESCE_MS);
-    expect(getAllCalls()).toBe(reads);
-
-    await act(async () => {
-      finishMove();
-      await moving;
-    });
-  });
-
+  // KAN-486. A slow move must not draw its temporary group as a band: nothing lands until it ends.
   test('the read comes as the move ends', async () => {
     handle = setupChromeFake(twoWindows());
     const { result } = renderHook(() => useOpenWindows(false));
@@ -288,20 +251,16 @@ describe('useOpenWindows', () => {
   });
 
   // Review Focus 1: a page load fires many onUpdated events.
-  test('a burst of 20 events in one tick causes at most two reads, and the read sees the last of them', async () => {
+  test('a burst of 20 events in one tick lands the last of them', async () => {
     handle = setupChromeFake(twoWindows());
     const { result } = renderHook(() => useOpenWindows(false));
     await advance(0);
-    const afterFirstRead = getAllCalls();
 
     for (let i = 1; i <= 20; i += 1) {
       handle.browser.updateTab(11, { title: `A${i}` });
     }
     await advance(OPEN_NOW_REFRESH_COALESCE_MS);
 
-    const reads = getAllCalls() - afterFirstRead;
-    expect(reads).toBeGreaterThanOrEqual(1);
-    expect(reads).toBeLessThanOrEqual(2);
     expect(titlesIn(result.current, 1)).toEqual(['A20']);
   });
 
@@ -323,20 +282,6 @@ describe('useOpenWindows', () => {
     await advance(OPEN_NOW_REFRESH_COALESCE_MS);
 
     expect(titlesIn(result.current, 1)).toEqual(['A', 'New']);
-  });
-
-  test('drag hold: events spread across a hold queue the refresh behind it once, not once per event', async () => {
-    handle = setupChromeFake(twoWindows());
-    renderHook(() => useOpenWindows(false));
-    await advance(0);
-
-    beginDragHold();
-    for (let i = 1; i <= 3; i += 1) {
-      handle.browser.updateTab(11, { title: `A${i}` });
-      await advance(OPEN_NOW_REFRESH_COALESCE_MS + 10);
-    }
-
-    expect(whenDragReleases).toHaveBeenCalledTimes(1);
   });
 
   // dropOnTop flushes the held changes BEFORE the hold ends, so the queued

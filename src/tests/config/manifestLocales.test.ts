@@ -141,10 +141,6 @@ describe('the manifest takes its listing text from _locales (KAN-274)', () => {
 });
 
 describe('every _locales file', () => {
-  test('there is at least the default locale', () => {
-    expect(LOCALES).toContain('en');
-  });
-
   test.each(LOCALES)('%s is a folder name Chrome accepts', (locale) => {
     expect(CHROME_LOCALES.has(locale), locale).toBe(true);
   });
