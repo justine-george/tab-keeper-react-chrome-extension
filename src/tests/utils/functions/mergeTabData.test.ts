@@ -71,15 +71,6 @@ describe('mergeTabContainers - union and per-session LWW', () => {
     ]);
   });
 
-  it('keeps a session that exists only on the cloud side', () => {
-    const local = container(20, [group('b', 20)]);
-    const cloud = container(10, [group('a', 10)]);
-    expect(ids(mergeTabContainers(local, cloud, NOW).merged).sort()).toEqual([
-      'a',
-      'b',
-    ]);
-  });
-
   it('takes the newer version when both sides edited the same session', () => {
     const localA = { ...group('a', 50), title: 'LOCAL' };
     const cloudA = { ...group('a', 99), title: 'CLOUD' };

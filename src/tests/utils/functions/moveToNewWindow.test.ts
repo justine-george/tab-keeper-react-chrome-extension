@@ -64,6 +64,7 @@ describe('moveIntoNewWindow: a tab', () => {
     const windowId = result?.windowId ?? -1;
     expect(await windowIds()).toEqual([1, 2, windowId].sort());
     expect(await strip(windowId)).toEqual(['12*']);
+    expect(result?.stubTabId).toBeNull();
     expect(await strip(1)).toEqual(['11*', '13', '14']);
     expect((await chrome.windows.getLastFocused()).id).toBe(windowId);
   });
@@ -243,19 +244,6 @@ describe('moveIntoNewWindow: the pinned Tab Keeper tab', () => {
     expect((await chrome.tabs.get(12)).active).toBe(true);
   });
 
-  test('not asked for, the window holds only the moved tab', async () => {
-    handle = seed();
-
-    const result = await moveIntoNewWindow(
-      { kind: 'tab', tabId: 12 },
-      true,
-      false
-    );
-
-    expect(result?.stubTabId).toBeNull();
-    expect(await strip(result?.windowId ?? -1)).toEqual(['12*']);
-  });
-
   test('an incognito window gets none', async () => {
     handle = seed({
       incognitoAllowed: true,
@@ -405,6 +393,7 @@ describe('moveIntoNewWindow: a group', () => {
     expect(await anyNewTab()).toBe(false);
     expect(result?.moved.map((t) => t.after.group)).toEqual([BLUE, BLUE, BLUE]);
     expect(result?.moved.map((t) => t.before.windowId)).toEqual([1, 1, 1]);
+    expect(result?.finished).toBe(true);
   });
 
   test('a one-tab group arrives grouped, with its look', async () => {
@@ -480,18 +469,6 @@ describe('moveIntoNewWindow: a group', () => {
       [13, 1],
       [14, 1],
     ]);
-  });
-
-  test('a move that went through says so', async () => {
-    handle = grouped();
-
-    const result = await moveIntoNewWindow(
-      { kind: 'group', tabIds: [12, 13, 14], look: BLUE },
-      true,
-      false
-    );
-
-    expect(result?.finished).toBe(true);
   });
 
   test('without the tabGroups grant a group refuses: null, nothing moved', async () => {

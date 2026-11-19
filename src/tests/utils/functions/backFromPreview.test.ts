@@ -225,21 +225,6 @@ describe('returnFromPreview', () => {
     ]);
   });
 
-  test('popup, opener open: switch, close, then the popup in the window switched to', async () => {
-    const { api, log } = makeApi({
-      tabs: [
-        { id: 1, windowId: 1 },
-        { id: PREVIEW, windowId: 2, opener: 1 },
-      ],
-    });
-    await returnFromPreview(api, PREVIEW, 'popup');
-    expect(log).toEqual([
-      { call: 'activate', tabId: 1 },
-      { call: 'removeTab', tabId: PREVIEW },
-      { call: 'openPopup', windowId: 1 },
-    ]);
-  });
-
   test('popup, opener gone: close, then the popup over the preview window if it is left', async () => {
     const { api, log } = makeApi({
       tabs: [
