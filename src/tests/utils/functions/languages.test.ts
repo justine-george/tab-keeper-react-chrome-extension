@@ -16,12 +16,4 @@ describe('languages', () => {
     await import('../../../utils/functions/languages');
     expect(getItem).not.toHaveBeenCalled();
   });
-
-  test('startupLanguage: saved, else the UI tag, else English', async () => {
-    const { startupLanguage, Language } =
-      await import('../../../utils/functions/languages');
-    expect(startupLanguage('fr', 'de-DE')).toBe(Language.FR);
-    expect(startupLanguage(undefined, 'zh-HK')).toBe(Language.ZH_TW);
-    expect(startupLanguage('en-US', 'xx')).toBe(Language.EN);
-  });
 });

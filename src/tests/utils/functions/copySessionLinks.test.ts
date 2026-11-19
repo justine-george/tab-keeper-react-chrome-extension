@@ -5,10 +5,6 @@ import {
   copyScopeLinks,
   copySessionLinks,
 } from '../../../utils/functions/copySessionLinks';
-import {
-  linksOnlyHtml,
-  linksOnlyList,
-} from '../../../utils/functions/sessionExportHtml';
 import { buildSession } from '../../fixtures/sessionFixture';
 import { tFor } from '../../setup/localeT';
 
@@ -128,16 +124,14 @@ describe('links only (KAN-859)', () => {
       () => Promise.resolve(),
       () => Promise.resolve()
     );
-    const session = buildSession();
-    const tabs = session.windows.flatMap((w) => w.tabs);
 
     await expect(
-      copySessionLinks(session, t, 'en', 'links-only')
-    ).resolves.toBe(tabs.length);
+      copySessionLinks(buildSession(), t, 'en', 'links-only')
+    ).resolves.toBe(1);
 
     expect(await written(write)).toEqual({
-      plain: linksOnlyList(tabs),
-      html: linksOnlyHtml(tabs),
+      plain: 'https://example.com/ | Example Domain',
+      html: '<a href="https://example.com/">Example Domain</a>',
     });
   });
 
@@ -155,11 +149,11 @@ describe('links only (KAN-859)', () => {
 
     await expect(copyScopeLinks(scope, t, 'links-only')).resolves.toBe(2);
 
-    const { plain, html } = await written(write);
-    expect(plain).toBe(linksOnlyList(scope.tabs));
-    expect(plain.split('\n')).toHaveLength(2);
-    expect(plain.startsWith('Hotels')).toBe(false);
-    expect(html).toBe(linksOnlyHtml(scope.tabs));
+    expect(await written(write)).toEqual({
+      plain:
+        'https://example.com/ | Example Domain\nhttps://example.com/ | Example Domain',
+      html: '<a href="https://example.com/">Example Domain</a><br><a href="https://example.com/">Example Domain</a>',
+    });
   });
 
   // A group whose members are apart (an import or a merge) is drawn at its
@@ -213,12 +207,11 @@ describe('links only (KAN-859)', () => {
 
   test('a refused rich write falls back to the links only text', async () => {
     const { writeText } = stubClipboard(refused, () => Promise.resolve());
-    const session = buildSession();
 
-    await copySessionLinks(session, t, 'en', 'links-only');
+    await copySessionLinks(buildSession(), t, 'en', 'links-only');
 
     expect(writeText).toHaveBeenCalledWith(
-      linksOnlyList(session.windows.flatMap((w) => w.tabs))
+      'https://example.com/ | Example Domain'
     );
   });
 });

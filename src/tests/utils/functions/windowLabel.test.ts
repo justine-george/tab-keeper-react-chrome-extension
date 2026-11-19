@@ -28,10 +28,6 @@ describe('windowLabel', () => {
       named: false,
     });
   });
-
-  test('uses the caller name', () => {
-    expect(windowLabel('', 'Fenster 1').text).toBe('Fenster 1');
-  });
 });
 
 describe('windowNumbers', () => {

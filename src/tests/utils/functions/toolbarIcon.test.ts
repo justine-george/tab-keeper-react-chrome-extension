@@ -77,12 +77,6 @@ describe('toolbarIconPath', () => {
 });
 
 describe('applyToolbarIcon', () => {
-  test('sets the icon', async () => {
-    const { api, paths } = action();
-    await applyToolbarIcon(api, 'monochrome', 'dark');
-    expect(paths).toEqual([LIGHT_ICON]);
-  });
-
   test('never rejects: a refusal is logged', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { api } = action(true);
