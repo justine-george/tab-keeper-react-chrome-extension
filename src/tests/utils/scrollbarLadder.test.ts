@@ -85,7 +85,6 @@ describe('the scrollbar thumb is visible and each state steps away from the pane
   test.each(Object.entries(THEMES))(
     '%s: holding moves the thumb visibly further than hovering',
     (_name, theme) => {
-      expect(theme).toHaveProperty('SCROLLBAR_THUMB_ACTIVE');
       const hover = contrast(theme.SCROLLBAR_THUMB_HOVER, theme.PRIMARY_COLOR);
       const held = contrast(theme.SCROLLBAR_THUMB_ACTIVE, theme.PRIMARY_COLOR);
       const heldRatio = held.toFixed(2);

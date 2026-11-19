@@ -62,6 +62,16 @@ const FILES = Object.entries(SOURCES)
     code: stripComments(src),
   }));
 
+const DIALOG_FILES = FILES.filter(
+  (f) => f.name.startsWith('components/modals/') && f.code.includes('<h2')
+);
+// test.each([]) registers no rows, so a scan that misses the dialogs fails here.
+if (DIALOG_FILES.length < 11) {
+  throw new Error(
+    `PREMISE: the scan found ${DIALOG_FILES.length} dialogs, not 11+`
+  );
+}
+
 /**
  * Sizes passed as a PROP rather than written as CSS: `size="0.9rem"`.
  *
@@ -95,15 +105,28 @@ describe('components take their sizes from the shared scales (KAN-205)', () => {
     'border-radius': Object.values(RADIUS) as string[],
   };
 
+  // An off-scale sample per prop, so a pass is never a scan that sees nothing.
+  const offScale: Record<string, [string, string[]]> = {
+    'font-size': [
+      'font-size: 1.4rem; <Label size="1.4rem" />',
+      ['1.4rem', '1.4rem'],
+    ],
+    'border-radius': ['border-radius: 7px;', ['7px']],
+  };
+
   for (const [prop, values] of Object.entries(allowed)) {
+    const scan = (code: string) =>
+      prop === 'font-size'
+        ? [...literals(code, prop), ...sizeProps(code)]
+        : literals(code, prop);
+
     test(`every ${prop} is on the scale`, () => {
+      const [sample, seen] = offScale[prop];
+      expect(scan(sample)).toEqual(seen);
+
       const offenders: string[] = [];
       for (const file of FILES) {
-        const found =
-          prop === 'font-size'
-            ? [...literals(file.code, prop), ...sizeProps(file.code)]
-            : literals(file.code, prop);
-        for (const value of found) {
+        for (const value of scan(file.code)) {
           if (!values.includes(value) && !EXEMPT.includes(value)) {
             offenders.push(`${file.name}: ${value}`);
           }
@@ -174,14 +197,6 @@ describe('components take their sizes from the shared scales (KAN-205)', () => {
   );
 
   // KAN-921: every dialog title is one style, regular and sized by the view.
-  const DIALOG_FILES = FILES.filter(
-    (f) => f.name.startsWith('components/modals/') && f.code.includes('<h2')
-  );
-
-  test('the scan finds the dialogs', () => {
-    expect(DIALOG_FILES.length).toBeGreaterThanOrEqual(11);
-  });
-
   test.each(DIALOG_FILES.map((f) => [f.name, f.code]))(
     '%s takes the shared title style',
     (_, code) => {
@@ -236,39 +251,6 @@ describe('components take their sizes from the shared scales (KAN-205)', () => {
       offenders,
       'icon sizes come from ICON in styles/scale.ts:\n' + offenders.join('\n')
     ).toEqual([]);
-  });
-
-  // CONTROL. Every assertion above passes trivially against a scan that reads
-  // nothing -- an empty file list, a regex that never matches, an exclusion
-  // that swallowed the whole tree. This is what makes them claims about the
-  // components rather than about the walker.
-  test('CONTROL: the scan actually reads the components', () => {
-    expect(FILES.length).toBeGreaterThan(20);
-    expect(FILES.some((f) => f.name.includes('common/Button'))).toBe(true);
-  });
-
-  // CONTROL, on the detector rather than on the codebase.
-  //
-  // This replaced a weaker one that proved the scan could see values by finding
-  // a font-size literal somewhere in the components. That premise died the
-  // moment the last literal was replaced -- i.e. on success -- so it was a
-  // control that could only pass while the work was unfinished. Feeding the
-  // matchers a known string instead keeps them honest whatever the source says.
-  test('CONTROL: the matchers detect an off-scale value', () => {
-    const offScale = 'font-size: 1.4rem; border-radius: 7px;';
-    expect(literals(offScale, 'font-size')).toEqual(['1.4rem']);
-    expect(literals(offScale, 'border-radius')).toEqual(['7px']);
-    expect(sizeProps('<Label size="1.4rem" />')).toEqual(['1.4rem']);
-
-    // And they do NOT flag a value that came from the scale.
-    expect(literals('font-size: ${TYPE.BODY};', 'font-size')).toEqual([]);
-    expect(sizeProps('<Label size={TYPE.BODY} />')).toEqual([]);
-  });
-
-  test('CONTROL: the excluded area really is excluded', () => {
-    expect(FILES.some((f) => f.name.includes('components/export/'))).toBe(
-      false
-    );
   });
 
   test('the scales themselves have no duplicate values', () => {

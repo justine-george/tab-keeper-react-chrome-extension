@@ -50,10 +50,6 @@ const PALETTES: Record<Theme, ThemeColors> = {
 describe('theme-ground.js', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  test('exists', () => {
-    expect(source).toContain('--app-background');
-  });
-
   test.each(Object.values(Theme))('%s paints its PRIMARY_COLOR', (theme) => {
     const settings = { theme, isChalkCharcoalMoveApplied: true };
     expect(groundFor(stored(JSON.stringify(settings)))).toBe(

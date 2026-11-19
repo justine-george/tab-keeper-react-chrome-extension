@@ -32,10 +32,8 @@ describe('squircleRect (KAN-908)', () => {
 
   test('its corner is a squircle: fuller than an arc of the same radius', () => {
     // The point at 45° of the top-right corner (centre 53, 7): an arc puts it
-    // 7·cos45 ≈ 4.95 out; a superellipse(2) puts it 7·√cos45 ≈ 5.89 out.
-    expect(d).toContain(
-      `L${(53 + 7 * Math.sqrt(Math.SQRT1_2)).toFixed(3).replace(/0+$/, '')}`
-    );
+    // 7·cos45 ≈ 4.95 out, at L57.95 2.05; a superellipse(2), 7·√cos45 ≈ 5.89.
+    expect(d).toContain('L58.886 1.114');
   });
 
   test('the same box with other edges keeps the same commands, so it can animate', () => {

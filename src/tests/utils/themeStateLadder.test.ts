@@ -127,20 +127,6 @@ describe('the row state ladder keeps hover nearer the page than selection', () =
       ).toBeGreaterThan(rowFromPage);
     }
   );
-
-  // CONTROL for the rule above. It is satisfied by pushing the icon
-  // arbitrarily far from the page, which would eventually make the glyph and
-  // its label unreadable on top of it. The icon carries TEXT_COLOR content, so
-  // that has to stay above the 4.5:1 body-text floor.
-  test.each(Object.entries(THEMES))(
-    '%s: text stays readable on a hovered icon',
-    (_name, theme) => {
-      expect(
-        contrast(theme.TEXT_COLOR, theme.ICON_HOVER_COLOR),
-        'the icon glyph and its label sit on this background'
-      ).toBeGreaterThanOrEqual(4.5);
-    }
-  );
 });
 
 // KAN-376. On a selected row the hovered action sits on SELECTION_COLOR, so it

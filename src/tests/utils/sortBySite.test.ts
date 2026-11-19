@@ -72,7 +72,6 @@ describe('sortBySite', () => {
       t('YouTube ext', 'https://www.youtube.com/ext'),
       t('Docs notes', 'https://docs.google.com/notes'),
     ];
-    expect(input).toHaveLength(16);
     expect(keys(sortBySite(input))).toEqual([
       'Gmail',
       'Calendar',

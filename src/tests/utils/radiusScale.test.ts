@@ -2,8 +2,6 @@ import { describe, expect, test } from 'vitest';
 import { RADIUS } from '../../styles/scale';
 import {
   ROW_GUTTER_BESIDE_BAR_PX,
-  ROW_GUTTER_END,
-  ROW_GUTTER_END_VAR,
   ROW_GUTTER_PX,
   ROW_RADIUS,
   rowHighlightCss,
@@ -16,14 +14,11 @@ describe('the radius scale nests (KAN-721)', () => {
   test('a child flush in a panel corner sits inside its 1px border', () => {
     expect(px(RADIUS.PANEL_INNER)).toBe(px(RADIUS.PANEL) - 1);
   });
-  test("a menu item is a PANEL-radius menu less the menu's 4px padding", () => {
+  test("a menu item is a PANEL-radius menu less the menu's 4px padding, and the tour ring sits 4px outside a control", () => {
     expect(px(RADIUS.CONTROL)).toBe(px(RADIUS.PANEL) - 4);
   });
   test('the SlidingPair knob is the track less its 1px border and 2px padding (KAN-908)', () => {
     expect(px(RADIUS.SWITCH_KNOB)).toBe(px(RADIUS.SWITCH) - 3);
-  });
-  test('the tour ring sits 4px outside a control', () => {
-    expect(px(RADIUS.PANEL)).toBe(px(RADIUS.CONTROL) + 4);
   });
   test('a row highlight is a panel less the row gutter', () => {
     expect(px(ROW_RADIUS)).toBe(px(RADIUS.PANEL) - ROW_GUTTER_PX);
@@ -36,11 +31,10 @@ describe('rowHighlightCss (KAN-721)', () => {
     expect(css).toContain('background-clip: padding-box');
     expect(css).toContain(`border-left: ${ROW_GUTTER_PX}px solid transparent`);
     // The end gutter is a variable: 4px, or 2px beside a scrollbar (R6).
-    expect(css).toContain(`border-right: ${ROW_GUTTER_END} solid transparent`);
-    expect(ROW_GUTTER_END).toBe(
-      `var(${ROW_GUTTER_END_VAR}, ${ROW_GUTTER_PX}px)`
+    expect(css).toContain(
+      'border-right: var(--row-gutter-end, 4px) solid transparent'
     );
-    expect(ROW_GUTTER_BESIDE_BAR_PX).toBe(ROW_GUTTER_PX - 2);
+    expect(ROW_GUTTER_BESIDE_BAR_PX).toBe(2);
   });
   test('the padding-box curve is ROW_RADIUS square: the horizontal radius carries the gutter', () => {
     expect(css).toMatch(
