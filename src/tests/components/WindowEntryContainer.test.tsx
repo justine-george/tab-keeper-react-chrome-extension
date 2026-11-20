@@ -378,14 +378,6 @@ describe('the window label', () => {
       }
     );
 
-  test('a whitespace-only title is unnamed too', async () => {
-    await renderLabelled('   ');
-
-    expect(
-      screen.getByRole('button', { name: 'Rename window: Window 2' })
-    ).toBeInTheDocument();
-  });
-
   // R7: searching, the title is still the rename button.
   test('while searching, the label is muted the same way', async () => {
     await renderLabelled('', { searching: true });

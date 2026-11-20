@@ -235,8 +235,8 @@ describe('finishing a session rename', () => {
   const titleOf = (store: RenderWithProvidersResult['store']) =>
     store.getState().tabContainerDataState.tabGroups[0].title;
 
-  // THE CONTROL. A component that always rendered the tick would satisfy the
-  // test above; the tick must belong to the editing state.
+  // THE CONTROL. A component that always rendered the tick would satisfy
+  // focusAfterRename's tick test; the tick must belong to the editing state.
   test('CONTROL: no confirm control when not editing', async () => {
     await renderHero();
 
