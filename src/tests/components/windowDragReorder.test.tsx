@@ -275,7 +275,7 @@ describe('a window drag inside a filtered list', () => {
     const { container, store } = await render('Research');
     const windows = layout(container);
     // The premise: nothing is filtered, so this is the same drag the
-    // unfiltered tests above commit.
+    // CONTROL below commits.
     expect(windows.map((r) => r.dataset.dragRowId)).toEqual(['w1', 'w2', 'w3']);
 
     drag(handleIn(nodeFor(container, 'w1')), 20, 170);

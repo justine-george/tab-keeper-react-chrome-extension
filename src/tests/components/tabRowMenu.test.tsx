@@ -459,13 +459,14 @@ describe('an Open now tab tooltip is not announced (KAN-824)', () => {
 
 describe('a long Open now address is capped (KAN-824 final review)', () => {
   test('the tooltip keeps the start and cuts the middle', async () => {
-    const long = `https://live.test/${'x'.repeat(2_000)}`;
+    const long = `https://live.test/${'x'.repeat(2_000)}/end`;
     OPEN_TABS[1] = openTab(2, { url: long });
     try {
       await renderOpenNow(() => undefined);
       const tip = liveRow('Live 2').getAttribute('data-tooltip') ?? '';
       expect(tip.length).toBeLessThanOrEqual(301);
       expect(tip.startsWith('https://live.test/xxx')).toBe(true);
+      expect(tip.endsWith('/end')).toBe(true);
     } finally {
       OPEN_TABS[1] = openTab(2);
     }

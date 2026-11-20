@@ -17,7 +17,7 @@ import {
   Theme,
 } from '../../redux/slices/settingsDataStateSlice';
 
-// KAN-932, KAN-933. Settings › Display › Toolbar icon: Colour or Monochrome. A page
+// KAN-932, KAN-933. Settings › Display › Toolbar icon: Color or Monochrome. A page
 // reads Chrome's mode, because the worker has no way to, and mirrors it for the
 // worker's next start.
 
@@ -72,7 +72,7 @@ afterEach(() => {
 });
 
 describe('the Toolbar icon row', () => {
-  test('sits under Themes, with Colour chosen on a new install and only two tiles', async () => {
+  test('sits under Themes, with Color chosen on a new install and only two tiles', async () => {
     const { container } = await renderDisplay();
     const labels = [
       ...container.querySelectorAll<HTMLElement>('[data-settings-section]'),
@@ -140,7 +140,7 @@ describe('the Toolbar icon row', () => {
     await waitFor(() => expect(chrome.iconsSet).toEqual([LIGHT_ICON]));
   });
 
-  test('back to Colour restores the default icon and stops following', async () => {
+  test('back to Color restores the default icon and stops following', async () => {
     const mode = chromeMode(true);
     const user = userEvent.setup();
     const { chrome } = await renderDisplay();

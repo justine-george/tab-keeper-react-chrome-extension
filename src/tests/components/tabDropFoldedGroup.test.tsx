@@ -98,6 +98,7 @@ describe('a folded band takes a drop above it, on it, or below it', () => {
 
   test('on the band: no slot under its title row, whichever side', () => {
     expect(landsBesideFixedRowIn(edges, 'L', 0, 'g', 'g')).toBeUndefined();
+    expect(landsBesideFixedRowIn(edges, 'M', 1, 'g', 'g')).toBeUndefined();
   });
 
   test('two folded bands side by side: between them is after the first, before the second', () => {
@@ -115,9 +116,10 @@ describe('a folded band takes a drop above it, on it, or below it', () => {
       fixedRowId: 'h',
       side: 'before',
     });
-    expect(
-      landsBesideFixedRowIn(both, 'M', 1, undefined, undefined)
-    ).toMatchObject({ fixedRowId: 'h', side: 'after' });
+    expect(landsBesideFixedRowIn(both, 'M', 1, undefined, undefined)).toEqual({
+      fixedRowId: 'h',
+      side: 'after',
+    });
   });
 
   test("the only member of an open group just above: below the folded band, the slot is after it, not in its own band's place", () => {
@@ -201,18 +203,6 @@ describe('landsBesideFixedRowIn beside a folded band', () => {
     );
     expect(landsBesideFixedRowIn(two, 'N', 1, undefined)).toEqual({
       fixedRowId: 'g',
-      side: 'after',
-    });
-  });
-
-  test('two folded bands in a row: the landing is after the second', () => {
-    const both = groupEdgesOf(
-      [tab('L'), member('G1'), member('H1', 'h'), tab('M')],
-      [group('g', true), group('h', true)],
-      new Set(['g', 'h'])
-    );
-    expect(landsBesideFixedRowIn(both, 'M', 1, undefined)).toEqual({
-      fixedRowId: 'h',
       side: 'after',
     });
   });

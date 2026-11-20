@@ -84,12 +84,8 @@ const onlyOwnTabSeed = {
   currentTabId: 10,
 };
 
-// CONTROL: the same three tabs, but no ?view=tab and no currentTabId -- the
-// popup. Its active tab (10) still happens to BE the tab view here, so the
-// popup's own Tab-Keeper-active-tab fallback still applies (see the
-// popup-specific describes below); what this seed controls for is what
-// stays genuinely tab-view-only -- the visibility listener never attaches
-// outside the tab view, which must stay a no-op in the popup.
+// The same three tabs in the popup (no ?view=tab, no currentTabId). The
+// Tab Keeper tab is left out of the popup's saves too (KAN-300).
 const controlSeed = {
   windows: [
     {
@@ -184,7 +180,7 @@ const clickAddCurrentWindow = () =>
   userEvent.click(screen.getByRole('button', { name: 'Add current window' }));
 
 describe('saving in the tab view leaves out Tab Keeper itself (D6)', () => {
-  test('Save all open windows gives the same', async () => {
+  test('Save all open windows leaves out Tab Keeper’s own tab', async () => {
     goToTabView();
     const { store } = await renderWithProviders(<UserInputContainer />, {
       seed: tabViewSeed,
@@ -369,7 +365,7 @@ describe('the popup empty-save name falls back off a Tab Keeper active tab', () 
   });
 });
 
-describe('the empty-save name recomputes on visibility, but only in the tab view (KAN-299)', () => {
+describe('the empty-save name recomputes on visibility in the tab view (KAN-299)', () => {
   // Typed text survives more than one recompute, even when the user's text
   // equals a suggestion the first recompute computed.
   test('typed text survives two recomputes in a row', async () => {
