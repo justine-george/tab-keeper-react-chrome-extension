@@ -193,8 +193,7 @@ describe('the peek (O5)', () => {
   });
 });
 
-// KAN-385 S2: the search row replaces the caption at the top of the list.
-describe('the saved search row heads the session list (S2)', () => {
+describe('the fold setting', () => {
   test('CONTROL: clicking a session in the popup never writes a fold setting', async () => {
     await renderHome();
     await mounted();

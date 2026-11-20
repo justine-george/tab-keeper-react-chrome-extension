@@ -305,7 +305,7 @@ describe('narrow and side by side (O2)', () => {
 
   // A count of 0 while Chrome has not answered would be false, so the name
   // waits for the first read.
-  test('while the first read is in flight, the rail button is named Open now, with no count', async () => {
+  test('while the first read is in flight, the rail button is named Currently open, with no count', async () => {
     installMatchMedia(true);
     await renderWithProviders(<MainContainer />, {
       seed: twoWindows(),

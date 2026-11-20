@@ -152,7 +152,7 @@ describe('a live group row: Save and a ⋮ (KAN-696)', () => {
     ]);
   });
 
-  test('the menu lists Copy all links (KAN-783), Ungroup, then Close group last', async () => {
+  test("a sorted group's menu lists Copy all links (KAN-783), Rename, Ungroup, then Close group last: no Sort (KAN-746)", async () => {
     const user = userEvent.setup();
     await renderOpenNow();
     await openGroupMenu(user, 'Docs');
@@ -523,8 +523,8 @@ describe('right-clicking an Open now group’s colour bar (KAN-708)', () => {
   });
 });
 
-// KAN-746. A live group's ⋮ (and right-click) offers Sort tabs by site first,
-// only while sorting would change that group's order.
+// KAN-746. A live group's ⋮ (and right-click) offers Sort tabs by site only
+// while sorting would change that group's order. The sorted side is the menu test above.
 describe('Sort tabs by site on a live group (KAN-746)', () => {
   // Docs holds a, b, a: out of order. The window's loose tab stays put.
   const unsorted = (): ChromeSeed =>
@@ -544,7 +544,7 @@ describe('Sort tabs by site on a live group (KAN-746)', () => {
       ],
     });
 
-  test('the menu lists Sort tabs by site right after Copy all links, then Ungroup, then Close group', async () => {
+  test('the menu lists Sort tabs by site after Rename, then Ungroup, then Close group', async () => {
     const user = userEvent.setup();
     await renderOpenNow(unsorted());
     await openGroupMenu(user, 'Docs');
@@ -590,12 +590,5 @@ describe('Sort tabs by site on a live group (KAN-746)', () => {
       'ungroup',
       'closeGroup',
     ]);
-  });
-
-  test('absent for a sorted group', async () => {
-    const user = userEvent.setup();
-    await renderOpenNow();
-    await openGroupMenu(user, 'Docs');
-    expect(menuKeys()).toEqual(['copy', 'rename', 'ungroup', 'closeGroup']);
   });
 });
