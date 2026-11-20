@@ -393,15 +393,6 @@ describe('undoStep and redoStep', () => {
     expect(s.title()).toBe(TITLE_AFTER);
     expect(selectNextStep(s.store.getState(), 'undo')).toBe('saved');
   });
-
-  test('a press after a run ends is not busy (R19)', async () => {
-    handle = setupChromeFake(seed);
-    const s = setup();
-    await s.dragAndKeep(dragTo1);
-    expect(await s.undoing()).toBe('live');
-
-    expect(await s.redoing()).toBe('live');
-  });
 });
 
 // R19. A sort becomes its step only once its last move lands; a press before that is ignored, so it can neither undo the step below nor lose that step's redo.

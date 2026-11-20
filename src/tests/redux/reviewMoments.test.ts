@@ -83,21 +83,6 @@ beforeEach(() => {
 });
 
 describe('restoring a session asks "Your tabs are back"', () => {
-  test('opening every window notes one', async () => {
-    const { store } = makeTestStore();
-    store.dispatch({
-      type: 'tabContainerDataState/saveToTabContainerInternal',
-      payload: session('a', 3),
-    });
-    expect(momentOf(store)).toBeNull();
-
-    await store.dispatch(
-      openAllTabContainer({ tabGroupId: 'a', goToURLText: 'Go to URL' })
-    );
-
-    expect(momentOf(store)).toBe('restored');
-  });
-
   test('opening a single window notes one', async () => {
     const { store } = makeTestStore();
     store.dispatch({

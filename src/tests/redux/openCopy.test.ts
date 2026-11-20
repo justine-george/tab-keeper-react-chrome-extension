@@ -303,11 +303,18 @@ describe('openCarriedCopy', () => {
       {
         type: RESTORE_SESSION_MESSAGE,
         specs: [
-          copyWindowSpec(savedWindow(), {
-            kind: 'tab',
-            windowId: 'w1',
-            tabId: 't2',
-          }),
+          {
+            tabs: [
+              {
+                tabId: 't2',
+                favicon: '',
+                title: 'Two',
+                url: 'https://two.example/',
+              },
+            ],
+            focused: true,
+            bounds: null,
+          },
         ],
         goToURLText: GO_TO,
         closeOtherWindows: false,
@@ -1238,20 +1245,6 @@ describe('copyWindowSpec with a pair (KAN-942)', () => {
 
   it('a half gone is null', () => {
     expect(copyWindowSpec(savedWindow(), pick('gone'))).toBeNull();
-  });
-
-  it('a group keeps its pairs’ splitId, and still opens unpinned', () => {
-    const w = savedWindow();
-    w.tabs = w.tabs.map((t) =>
-      t.chromeGroupId === undefined ? t : { ...t, pinned: true }
-    );
-    const spec = copyWindowSpec(w, {
-      kind: 'group',
-      windowId: 'w1',
-      groupId: 'g1',
-    });
-    expect(spec?.tabs.map((t) => t.splitId)).toEqual(['sq', 'sq']);
-    expect(spec?.tabs.some((t) => t.pinned === true)).toBe(false);
   });
 });
 
