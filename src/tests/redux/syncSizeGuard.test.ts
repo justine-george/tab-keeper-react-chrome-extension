@@ -151,19 +151,9 @@ describe('the sync write refuses a document Firestore would reject', () => {
     });
   });
 
-  // CONTROL for the assertion above: the key alone proves nothing unless an
-  // under-limit save leaves no refusal toast behind at all.
-  it('control: an under-limit container raises no refusal toast', async () => {
-    const { store } = makeTestStore();
-    store.dispatch(setUserId('u1'));
-    store.dispatch(replaceState(buildContainer([buildSession()])));
-    store.dispatch(setIsDirtyWithoutSync());
-    await store.dispatch(saveToFirestoreIfDirty());
-    expect(toastTexts(store.getState())).not.toContain(SYNC_SIZE_REFUSAL);
-  });
-
   // POSITIVE CONTROL. "not called" passes trivially against a broken store or
-  // a thunk that never runs, so prove the same setup CAN write.
+  // a thunk that never runs, so prove the same setup CAN write. And the
+  // refusal key proves nothing unless an under-limit save leaves no toast.
   it('control: an under-limit container IS written', async () => {
     const { store } = makeTestStore();
     store.dispatch(setUserId('u1'));
@@ -171,6 +161,7 @@ describe('the sync write refuses a document Firestore would reject', () => {
     store.dispatch(setIsDirtyWithoutSync());
     await store.dispatch(saveToFirestoreIfDirty());
     expect(mocks.saveToFirestore).toHaveBeenCalledTimes(1);
+    expect(toastTexts(store.getState())).not.toContain(SYNC_SIZE_REFUSAL);
   });
 });
 

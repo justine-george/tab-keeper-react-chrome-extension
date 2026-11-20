@@ -56,8 +56,6 @@ const link = (id: string, url = `https://example.test/${id}`): Node => ({
 });
 const holdsBookmarks = () =>
   globalThis.chrome.permissions.contains({ permissions: ['bookmarks'] });
-const ALL_IMPORTED = 'Everything in your bookmarks is already imported.';
-const NO_BOOKMARKS = 'There are no bookmarks to import.';
 
 describe('startBookmarkImport', () => {
   test('in the popup: hands off to the full view and never asks Chrome', async () => {
@@ -172,8 +170,13 @@ describe('importBookmarksFromSettings', () => {
   };
 
   test.each([
-    ['everything imported', barOf([link('2')]), ['2'], ALL_IMPORTED],
-    ['no bookmarks', barOf([]), [], NO_BOOKMARKS],
+    [
+      'everything imported',
+      barOf([link('2')]),
+      ['2'],
+      TOAST_MESSAGES.BOOKMARKS_ALL_IMPORTED,
+    ],
+    ['no bookmarks', barOf([]), [], TOAST_MESSAGES.NO_BOOKMARKS_TO_IMPORT],
   ])('%s: a toast says so', async (_, tree, importedIds, text) => {
     const store = await press(tree, importedIds);
     await waitFor(() => expect(toastTexts(store.getState())).toEqual([text]));
@@ -206,7 +209,9 @@ describe('importBookmarksFromSettings', () => {
     });
 
     await waitFor(() =>
-      expect(toastTexts(store.getState())).toEqual([ALL_IMPORTED])
+      expect(toastTexts(store.getState())).toEqual([
+        TOAST_MESSAGES.BOOKMARKS_ALL_IMPORTED,
+      ])
     );
     expect(isOpen(store)).toBe(false);
     expect(await holdsBookmarks()).toBe(false);

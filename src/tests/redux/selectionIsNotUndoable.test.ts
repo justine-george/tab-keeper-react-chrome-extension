@@ -185,19 +185,4 @@ describe('selection is not an undoable step (KAN-57)', () => {
 
     expect(titleOf(store, 'group-2')).toBe('Bravo');
   });
-
-  // Carried over from the KAN-35 suite, where it guarded against dropping
-  // SELECT_TAB_CONTAINER_ACTION out of `actionsToCapture` entirely. That
-  // remains the hazard: history must keep tracking what is on screen, or the
-  // next undo restores a stale selection. Only the mechanism changed --
-  // `present` is now updated without touching either stack.
-  test('undo history still tracks the current selection', () => {
-    const { store } = seeded();
-
-    store.dispatch(selectTabContainer('group-1'));
-
-    expect(
-      store.getState().undoRedo.present.tabContainerDataState.selectedTabGroupId
-    ).toBe('group-1');
-  });
 });

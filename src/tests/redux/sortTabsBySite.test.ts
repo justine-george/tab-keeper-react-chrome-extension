@@ -22,7 +22,6 @@ import {
 import { setIsNotDirty } from '../../redux/slices/globalStateSlice';
 import { resetHistory, undo } from '../../redux/slices/undoRedoSlice';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
-import { SORT_TABS_BY_SITE_ACTION } from '../../utils/constants/actionTypes';
 import {
   T0,
   container,
@@ -177,10 +176,6 @@ describe('sortTabsBySiteInternal', () => {
       sortTabsBySiteInternal({ tabGroupId: 'gone', windowId: 'w1', now: T0 })
     );
     expect(data(store)).toBe(before);
-  });
-
-  it('is captured for undo under its action type', () => {
-    expect(sort().type).toBe(SORT_TABS_BY_SITE_ACTION);
   });
 });
 

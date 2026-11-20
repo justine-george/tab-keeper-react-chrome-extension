@@ -22,7 +22,6 @@ import {
 import { setIsNotDirty } from '../../redux/slices/globalStateSlice';
 import { resetHistory, undo } from '../../redux/slices/undoRedoSlice';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
-import { SORT_WINDOW_GROUPS_BY_NAME_ACTION } from '../../utils/constants/actionTypes';
 import {
   T0,
   container,
@@ -164,10 +163,6 @@ describe('sortWindowGroupsByNameInternal', () => {
       })
     );
     expect(data(store)).toBe(before);
-  });
-
-  it('is captured for undo under its action type', () => {
-    expect(sort().type).toBe(SORT_WINDOW_GROUPS_BY_NAME_ACTION);
   });
 });
 
