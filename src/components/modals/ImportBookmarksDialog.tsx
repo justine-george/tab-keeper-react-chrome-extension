@@ -209,8 +209,6 @@ const FolderRow = React.memo(function FolderRow({
     gap: 8px;
     min-height: 38px;
     padding: 0 8px 0 ${4 + depth * 28}px;
-    ${corners(RADIUS.CONTROL)}
-    background-color: ${slot === 'on' ? COLORS.SELECTION_COLOR : 'transparent'};
   `;
   const pickCss = css`
     flex: 1;
