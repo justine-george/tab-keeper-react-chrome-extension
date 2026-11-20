@@ -127,7 +127,7 @@ afterEach(() => {
 });
 
 describe('where the button shows', () => {
-  test('the full view: on the title line, always shown, in place of the pencil', async () => {
+  test('the full view: in the detail pane, always shown, in place of the pencil', async () => {
     await renderHome();
     await mounted();
     const fold = within(detail()).getByRole('button', { name: FOLD_OPEN_NOW });

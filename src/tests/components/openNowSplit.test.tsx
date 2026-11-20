@@ -135,7 +135,7 @@ describe('Open now shows a split view (KAN-564)', () => {
 });
 
 describe('a split as one row (KAN-486)', () => {
-  test('both halves render inside one row, each with its own menu and close', async () => {
+  test('both halves render inside one row; the second keeps its own close and Switch', async () => {
     await renderOpenNow();
     const wiki = document.querySelector('[data-open-tab-id="22"]');
     const guide = document.querySelector('[data-open-tab-id="23"]');

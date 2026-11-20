@@ -131,7 +131,7 @@ afterEach(() => {
 });
 
 describe('the grip is a separator (O1a)', () => {
-  test('named "Resize Open now", vertical, with the shown width and its limits', async () => {
+  test('named "Resize the Currently open panel", vertical, with the shown width and its limits', async () => {
     await renderHome();
     await mounted();
 
