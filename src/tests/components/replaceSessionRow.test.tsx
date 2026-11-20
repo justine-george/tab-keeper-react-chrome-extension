@@ -12,7 +12,7 @@ import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import { setPresentStartup } from '../../redux/slices/undoRedoSlice';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 
-// KAN-581 (picks 1A, 2A). The row's Replace, before Delete, does what the ⋮ menu's Replace this session with open windows does (KAN-468).
+// KAN-581 (picks 1A, 2A). The row's Replace, before Delete, does what the header's Replace this session with open windows does (KAN-468; KAN-581 moved it out of the ⋮).
 
 const SHOWN = buildSession({
   tabGroupId: 'session-shown',
@@ -98,7 +98,7 @@ describe('the row’s Replace (KAN-581)', () => {
     ]);
   });
 
-  test('its tooltip names the whole action, and it is drawn as the menu item is', async () => {
+  test('its tooltip names the whole action, and it draws browser_updated, as the header’s Replace does', async () => {
     await renderList();
 
     const replace = within(rowActions('Q4 product roadmap')).getByRole(

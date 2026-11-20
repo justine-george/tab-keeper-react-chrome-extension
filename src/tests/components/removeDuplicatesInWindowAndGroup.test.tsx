@@ -222,7 +222,7 @@ describe('the group ⋮ (KAN-616, 2A)', () => {
 
 // The window's action strip is a stacking context (translateY), so its menu
 // painted BEHIND the tab rows below it until the strip itself was lifted. jsdom
-// cannot paint; e2e/window-menu-paints-on-top.spec.ts checks what is drawn.
+// cannot paint; e2e/remove-duplicates-in-window.spec.ts checks what is drawn.
 describe('the window strip lifts while its menu is open (KAN-616)', () => {
   const strip = (windowId: string) =>
     windowMenuButton(windowId).closest<HTMLElement>('[data-row-actions]')!;

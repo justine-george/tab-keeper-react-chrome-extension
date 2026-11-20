@@ -81,8 +81,10 @@ describe('the link', () => {
     await renderLink('full', false);
 
     const rules = classRulesFor(link());
-    expect(rules).toContain('prefers-reduced-motion: no-preference');
-    expect(rules).toContain('translate: -5px');
+    expect(rules).toContain(
+      '(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)'
+    );
+    expect(rules).toMatch(/:hover \.preview-back-arrow \{ translate: -5px;/);
   });
 });
 

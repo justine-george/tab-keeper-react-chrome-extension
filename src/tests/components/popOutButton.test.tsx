@@ -62,9 +62,8 @@ describe('the open-in-a-tab button', () => {
     expect(popOutIndex).toBeLessThan(sortIndex);
   });
 
-  // KAN-340. "The same thing, bigger": the popup opened full size. Its size
-  // (ICON.MEDIUM) is homeHeaderIcons.test.tsx's job. Checked here as the
-  // glyph's ligature text, which is what the font draws from.
+  // KAN-340. "The same thing, bigger": the popup opened full size. Checked
+  // here as the glyph's ligature text, which is what the font draws from.
   test('draws the open_in_full glyph', async () => {
     await render();
 

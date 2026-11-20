@@ -25,7 +25,7 @@ import {
 // lifetime does not just cost a render pass; it overwrites what the user is
 // typing whenever the prop moves underneath them. That is reachable without
 // any user action: customMiddleware.ts dispatches syncStateWithFirestore(),
-// and the merge lands replaceState(merged) (globalStateSlice.ts:121).
+// and the merge lands replaceState(next) (globalStateSlice.ts).
 //
 // The third (WindowEntryContainer's `windowOpenState`) is a reset-on-identity
 // -change, which is the job a `key` already does -- see the last test.

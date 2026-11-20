@@ -16,25 +16,15 @@ import {
 // KAN-132. The group drag is ONE drag area over every window's top-level rows,
 // rather than one per window -- the same move the tab list made, one level up.
 //
-// Each test below pins one way a naive pane-wide list breaks:
-//
-//   * the index a drop reports must count the items of the window it lands in,
-//     not every item above it in the pane
-//   * a release over ANOTHER window lands there, previewed in each window's own
-//     frame (KAN-132 §11.3); one over NO window is still refused
-//   * a row whose window holds a single item must still measure its own
-//     footprint, now that its window's list container is gone
-//
-// The first and third were written against the per-window areas this file's
-// task replaced, and passed there. The second was their exact opposite then --
-// the interim rule was that a group could not leave its window at all -- and is
-// inverted here by the task that wired the cross-window reducer up.
+// The index and cross-window drops themselves are e2e (group-drag,
+// cross-window-group-drag). Left here: a release below the last window is
+// refused, a release inside the group's own window still reorders, and a row
+// whose window holds a single item measures its own footprint.
 //
 // jsdom has no layout and applies no App.css, so every row and block is given a
 // box below and the held group does not compress -- every box here is the
-// resting one. What these pin (which window's rows the index counts, which
-// releases are refused, which box a footprint is measured on) does not depend on
-// the fold; the fold itself is e2e/group-drag.
+// resting one. What these pin (which releases are refused, which box a
+// footprint is measured on) does not depend on the fold; the fold itself is e2e/group-drag.
 
 const box = (top: number, height: number) =>
   ({
