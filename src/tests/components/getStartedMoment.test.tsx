@@ -7,7 +7,6 @@ import {
   type RenderWithProvidersResult,
 } from '../setup/renderWithProviders';
 import {
-  HELLO_ENTRANCE,
   SHUTTER_EASE,
   playHelloEntrance,
   playGetStarted,
@@ -381,9 +380,8 @@ describe('playGetStarted and playHelloEntrance', () => {
           { opacity: 0, transform: 'translate(-50%, -50%) scale(0.97)' },
           { opacity: 1, transform: 'translate(-50%, -50%) scale(1)' },
         ],
-        options: { duration: HELLO_ENTRANCE.MS, easing: HELLO_ENTRANCE.EASE },
+        options: { duration: 220, easing: 'cubic-bezier(0.32, 0.72, 0, 1)' },
       },
     ]);
-    expect(HELLO_ENTRANCE.EASE).toBe('cubic-bezier(0.32, 0.72, 0, 1)');
   });
 });

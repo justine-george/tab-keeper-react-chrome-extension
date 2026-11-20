@@ -581,20 +581,6 @@ describe('the session header keeps three actions and a menu (KAN-193, KAN-581)',
     });
   });
 
-  test('Delete removes the selected session', async () => {
-    const user = userEvent.setup();
-    const { store } = await renderHeader();
-
-    await openMenu(user);
-    await user.click(screen.getByRole('menuitem', { name: 'Delete session' }));
-
-    expect(
-      store
-        .getState()
-        .tabContainerDataState.tabGroups.map((group) => group.tabGroupId)
-    ).not.toContain('session-kyoto');
-  });
-
   // Delete behind a menu is safe only because it is undoable: the undo
   // middleware captures DELETE_TAB_CONTAINER_ACTION.
   test('a session deleted from the menu comes back with Undo', async () => {

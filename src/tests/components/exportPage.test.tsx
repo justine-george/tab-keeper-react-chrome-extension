@@ -14,7 +14,6 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { newestToast } from '../setup/toasts';
 import { rgb } from '../setup/hexColor';
 import { EXPORT_PALETTE } from '../../utils/functions/sessionExportHtml';
-import { getPrettyDate } from '../../utils/functions/local';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import { readExportIcons } from '../../utils/functions/exportIcons';
@@ -1059,9 +1058,7 @@ describe('the exported date line (KAN-347)', () => {
     );
 
     await waitFor(() =>
-      expect(frame().srcdoc).toContain(
-        `Edited ${getPrettyDate(EDITED, 'en', 'h12')}`
-      )
+      expect(frame().srcdoc).toContain('Edited Sep 24, 2026, 2:51:57 AM')
     );
   });
 
@@ -1087,9 +1084,7 @@ describe('the exported date line (KAN-347)', () => {
     );
 
     await waitFor(() =>
-      expect(frame().srcdoc).toContain(
-        `Edited ${getPrettyDate(TODAY_EDIT, 'en', 'h12')}`
-      )
+      expect(frame().srcdoc).toContain('Edited Sep 29, 2026, 4:12:05 PM')
     );
     expect(frame().srcdoc).not.toMatch(/\btoday\b/i);
   });
