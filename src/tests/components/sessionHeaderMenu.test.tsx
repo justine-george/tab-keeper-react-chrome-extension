@@ -80,11 +80,18 @@ describe('right-clicking the session header (KAN-708)', () => {
 
   test('the Open button gives the same menu', async () => {
     await renderBoth();
+    fireEvent.contextMenu(title());
+    const titleItems = labels(rowMenus()[0]);
+    fireEvent.keyDown(document.activeElement ?? document.body, {
+      key: 'Escape',
+    });
+
     const open = header().querySelector('[data-tour-anchor="open"] *');
     if (open === null) throw new Error('no Open button');
     expect(fireEvent.contextMenu(open)).toBe(false);
     expect(rowMenus()).toHaveLength(1);
-    expect(labels(rowMenus()[0]).length).toBeGreaterThanOrEqual(3);
+    expect(rowMenus()[0]).toHaveAccessibleName('More actions: Roadmap');
+    expect(labels(rowMenus()[0])).toEqual(titleItems);
   });
 
   test('Delete session deletes the header’s session', async () => {

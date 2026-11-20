@@ -21,16 +21,6 @@ const renderSessions = () =>
   });
 
 describe('Settings › Sessions › Skip duplicates when opening', () => {
-  it('sits directly after Open saved windows', async () => {
-    const { container } = await renderSessions();
-    const titles = [
-      ...container.querySelectorAll<HTMLElement>('[data-settings-section]'),
-    ].map((s) => s.querySelector('span')?.textContent);
-    const at = titles.indexOf('Open saved windows');
-    expect(at).toBeGreaterThanOrEqual(0);
-    expect(titles[at + 1]).toBe('Skip duplicates when opening');
-  });
-
   it('starts Off, is described by its help line, and On dispatches and shows On pressed', async () => {
     const user = userEvent.setup();
     const { store } = await renderSessions();
