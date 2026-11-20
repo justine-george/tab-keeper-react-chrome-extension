@@ -54,7 +54,7 @@ const bandOf = (name: string, band: string) =>
   tileOf(name).querySelector<HTMLElement>(`[data-theme-band="${band}"]`)!;
 
 describe('the theme picker shows each theme as a miniature (KAN-237)', () => {
-  test('seven buttons, each named after its theme, and nothing else in the picker', async () => {
+  test("seven buttons, each named by its theme's visible name, not a tooltip", async () => {
     await renderDisplay();
 
     for (const name of NAMES) expect(swatch(name)).toBeTruthy();
@@ -130,7 +130,10 @@ describe('the theme picker shows each theme as a miniature (KAN-237)', () => {
       asWritten(BB_PINK_THEME.LABEL_L1_COLOR)
     );
     // Every other tile keeps the 1px frame.
-    expect(getComputedStyle(tileOf('Paper')).borderTopWidth).toBe('1px');
+    for (const n of NAMES) {
+      if (n === 'Petal') continue;
+      expect(getComputedStyle(tileOf(n)).borderTopWidth).toBe('1px');
+    }
 
     // The check: on the current tile only, hidden from the name it sits beside.
     const checks = NAMES.filter(

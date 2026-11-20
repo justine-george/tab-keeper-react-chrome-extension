@@ -20,7 +20,7 @@ import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 
 // KAN-695. The app-drawn tooltip: when it shows, what it says, when it hides.
-// jsdom has no layout, so where it sits is Task 5's (e2e); here only that the
+// jsdom has no layout, so where it sits is e2e/tooltip.spec.ts's; here only that the
 // layer hands its boxes to placeTooltip and draws where that says.
 
 vi.mock('../../components/common/tooltipRules', async (importOriginal) => {

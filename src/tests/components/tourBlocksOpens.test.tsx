@@ -261,7 +261,7 @@ describe('opens on the tour’s sample', () => {
   });
 
   // KAN-586 H1. The session header's Open, Switch and Replace wait with the row's.
-  test('the session header’s Open, Switch and Replace on the sample say why, are dimmed and do nothing; after the tour Replace acts', async () => {
+  test('the session header’s Open, Switch and Replace on the sample say why and are dimmed, and Replace does nothing; after the tour Replace acts', async () => {
     const r = await renderWithProviders(<HeroContainerRight />, {
       seed: SEED,
       seedStore: (store) => {

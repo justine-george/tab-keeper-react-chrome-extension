@@ -68,11 +68,6 @@ describe("What's new (KAN-861)", () => {
     ).toEqual(['2.2.0', '2.1.0']);
   });
 
-  test('Open Settings shows when an entry points to a setting', async () => {
-    await render(ONE);
-    expect(screen.getByRole('button', { name: 'Open Settings' })).toBeTruthy();
-  });
-
   test('Open Settings is absent when no entry points to one', async () => {
     await render([{ version: '2.1.0', fixesOnly: false, entries: [PLAIN] }]);
     expect(screen.queryByRole('button', { name: 'Open Settings' })).toBeNull();

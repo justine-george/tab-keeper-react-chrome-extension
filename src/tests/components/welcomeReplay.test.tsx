@@ -5,7 +5,8 @@ import { CloudConsentModal } from '../../components/modals/CloudConsentModal';
 import { openCloudConsentModal } from '../../redux/slices/globalStateSlice';
 import { renderWithProviders } from '../setup/renderWithProviders';
 
-// KAN-464: Play again shows once the loop rests, hides while it plays, and replays it.
+// KAN-464. Get started ends the popup welcome's loop, so Play again never shows.
+// Its replay is e2e welcome's.
 
 interface Run {
   target: Element;

@@ -73,19 +73,12 @@ const base = {
 };
 
 describe('describeSyncState', () => {
-  test('token, auto on, cloud, no error: on', () => {
-    expect(describeSyncState(base).kind).toBe('on');
-    expect(describeSyncState({ ...base, syncStatus: 'success' }).kind).toBe(
-      'on'
-    );
-  });
-
   // KAN-750 R13b. "On" draws the done cloud only once a sync has landed;
   // before one, or after an edit, the still arrows, as the header draws them.
   test('on draws the done cloud after a landed sync, still arrows otherwise', () => {
-    expect(describeSyncState({ ...base, syncStatus: 'success' }).icon).toBe(
-      'cloud_done'
-    );
+    const landed = describeSyncState({ ...base, syncStatus: 'success' });
+    expect(landed.kind).toBe('on');
+    expect(landed.icon).toBe('cloud_done');
     const idle = describeSyncState({ ...base, syncStatus: 'idle' });
     expect(idle.icon).toBe('sync');
     expect(idle.kind).toBe('on');
@@ -273,11 +266,6 @@ afterEach(() => {
 const card = () => screen.getByTestId('sync-status');
 
 describe('the sync status line follows the store (KAN-248)', () => {
-  test('auto sync on, cloud: "Cloud sync on"', async () => {
-    await renderSync();
-    expect(card().textContent).toContain('Cloud sync on');
-  });
-
   // KAN-261. The write after Merge/Replace runs while the user is on this
   // pane; the card says so, then says how it went, in step with the toast.
   test('the card follows a cloud write: syncing, then on or failed', async () => {
@@ -339,6 +327,7 @@ describe('the sync status line follows the store (KAN-248)', () => {
 
   test('turning auto sync off changes the card to manual -- the case it used to get wrong', async () => {
     const { store } = await renderSync();
+    expect(card().textContent).toContain('Cloud sync on');
     act(() => {
       store.dispatch(toggleAutoSync());
     });
@@ -531,7 +520,7 @@ describe('the sync status line follows the store (KAN-248)', () => {
 
 // keyCoverage.test.ts scans t('literal') and is blind to t(variable). The
 // card passes the derivation's keys through t(), so this is the check that
-// they exist -- the drift test then holds the other nine locales to en.
+// they exist -- the drift test then holds the other locales to en.
 describe('every key the derivation emits is a translation key', () => {
   test('titles and lines exist in en', async () => {
     const en = (await import('../../../public/locales/en/translation.json'))
@@ -613,7 +602,7 @@ describe('the status line shows when it last synced (KAN-255)', () => {
     expect(card().querySelector('[data-sync-synced]')).toBeNull();
   });
 
-  test('a successful sync stamps the time; a failed one does not', async () => {
+  test('recordSyncedNow stamps the time', async () => {
     const { store } = await renderWith({ autoSync: true, lastSyncedTime: '' });
     expect(store.getState().settingsDataState.lastSyncedTime).toBe('');
     act(() => {
