@@ -17,7 +17,6 @@ import {
   grantCloudConsent,
   setLastSyncedTime,
 } from '../../redux/slices/settingsDataStateSlice';
-import { getTooltipDate } from '../../utils/functions/local';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import type { makeTestStore } from '../setup/makeStore';
 
@@ -50,21 +49,25 @@ const CASES = [
     when: 'today',
     at: new Date(2026, 9, 13, 15, 9, 38).getTime(),
     reads: 'Last synced today, 3:09 PM',
+    hover: 'Oct 13, 2026, 3:09 PM',
   },
   {
     when: 'yesterday',
     at: new Date(2026, 9, 12, 9, 41, 7).getTime(),
     reads: 'Last synced yesterday, 9:41 AM',
+    hover: 'Oct 12, 2026, 9:41 AM',
   },
   {
     when: 'earlier this year',
     at: new Date(2026, 9, 5, 10, 52, 11).getTime(),
     reads: 'Last synced Oct 5, 10:52 AM',
+    hover: 'Oct 5, 2026, 10:52 AM',
   },
   {
     when: 'another year',
     at: new Date(2025, 2, 3, 8, 0, 0).getTime(),
     reads: 'Last synced Mar 3, 2025',
+    hover: 'Mar 3, 2025, 8:00 AM',
   },
 ];
 
@@ -110,22 +113,18 @@ describe('"Last synced" reads like a session date (KAN-584)', () => {
 
   test.each(CASES)(
     'Settings, $when: the hover is the full timestamp',
-    async ({ at }) => {
+    async ({ at, hover }) => {
       await renderSettings(at);
-      expect(settingsLine()?.getAttribute('data-tooltip')).toBe(
-        getTooltipDate(at, 'en', 'h12')
-      );
+      expect(settingsLine()?.getAttribute('data-tooltip')).toBe(hover);
     }
   );
 
   // Not focusable, so a screen reader reaches the date only through this.
   test.each(CASES)(
     'Settings, $when: the full timestamp is also the description',
-    async ({ at }) => {
+    async ({ at, hover }) => {
       await renderSettings(at);
-      expect(settingsLine()?.getAttribute('aria-description')).toBe(
-        getTooltipDate(at, 'en', 'h12')
-      );
+      expect(settingsLine()?.getAttribute('aria-description')).toBe(hover);
     }
   );
 
