@@ -446,16 +446,10 @@ describe('publishNewWindowFree: the space free below the last window', () => {
     return pane;
   };
 
-  test('a list that fits: the space from the block to the pane’s inner bottom', () => {
+  test('a list that fits publishes the space to the pane’s inner bottom; given room, none', () => {
     setDragNewWindow(true);
     publishNewWindowFree(paneWith(377), false);
     // 100 + 1 + 300 - 377.
-    expect(free()).toBe('24px');
-  });
-  test('a list given room: none, so nothing is capped', () => {
-    setDragNewWindow(true);
-    publishNewWindowFree(paneWith(377), false);
-    // PREMISE: published.
     expect(free()).toBe('24px');
     publishNewWindowFree(paneWith(377), true);
     expect(free()).toBe('');

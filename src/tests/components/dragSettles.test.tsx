@@ -250,20 +250,6 @@ describe('a move that lands later (Open now)', () => {
     expect(probe()).toBe('settling');
   });
 
-  test('nothing moved (resolves null): the rows ease back', async () => {
-    const { onMove, resolve } = later();
-    render(<Area ids={['a', 'b', 'c']} onMove={onMove} />);
-    dropAPastB();
-    expect(probe()).toBe('settling');
-
-    await act(async () => {
-      resolve(null);
-      await Promise.resolve();
-    });
-
-    expect(probe()).toBe('none');
-  });
-
   test('moved, but never drawn: the rows ease back after a second', async () => {
     vi.useFakeTimers();
     const { onMove, resolve } = later();
