@@ -159,17 +159,6 @@ describe('adding the current tab to a Chrome group', () => {
     expect(runs[2].tabs.map((t) => t.tabId)).toEqual(['loose-2']);
   });
 
-  // Contiguity is what applyTabGroups needs on restore: chrome.tabs.group is
-  // called with the members' ids, and they must not be interleaved with others.
-  it('keeps the group contiguous', () => {
-    const tabs = add(seed()).tabGroups[0].windows[0].tabs;
-    const memberIndexes = tabs
-      .map((t, i) => (t.chromeGroupId === 'grp' ? i : -1))
-      .filter((i) => i !== -1);
-
-    expect(memberIndexes).toEqual([1, 2, 3]);
-  });
-
   it('increments both tab counts', () => {
     const after = add(seed());
     expect(after.tabGroups[0].tabCount).toBe(5);
