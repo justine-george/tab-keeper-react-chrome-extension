@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { act, waitFor } from '@testing-library/react';
 
-// Firebase is the only reason App cannot just be mounted (see appSessionsPermissionWiring.test.tsx).
+// Firebase is the only reason App cannot just be mounted.
 vi.mock('../../config/firebase', () => ({
   // The yes turns sync on, and App starts the cloud session.
   ensureCloudSession: () => {},
