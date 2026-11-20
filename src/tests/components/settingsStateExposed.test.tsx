@@ -88,22 +88,8 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
     expect(store.getState().settingsDataState.isAutoSync).toBe(false);
   });
 
-  // The other two toggles live on a different panel and were the same defect,
-  // and became pairs after Auto Sync did (KAN-249).
-  //
-  // Note the first group's name. The code passes t('Lazy Load Tabs'), but
-  // `en` RE-MAPS that key to "Optimize Memory Usage On Session Restore" -- an
-  // i18n key in this repo is not its own display string. Asserting the key
-  // here would fail against entirely correct code, which is what it did on
-  // the first run. Always assert the rendered VALUE.
-  // The other toggle lives on the Data Management panel and was the same
-  // defect; it became a pair after Auto Sync did (KAN-249). The memory
-  // setting that sat above it is gone (KAN-250): restores always open later
-  // tabs as placeholders, so there is nothing to choose.
-  // KAN-280 added the second pair, "Bring back tab history when reopening";
-  // Default view and Pin Tab Keeper moved to Quick access (KAN-652), and tab
-  // history is always on, with no pair (KAN-663).
-  // KAN-859 added Copy links below it; KAN-892 added Open saved windows above Save Tab Groups; KAN-906 added Skip duplicates when saving below it; KAN-910 put the save rows before the open rows.
+  // KAN-249 made these toggles pairs. KAN-250 and KAN-663 removed the memory and history settings; KAN-859, 892, 906 and 910 added the rest.
+  // An i18n key here is not its own display string, so assert the rendered name, never the key.
   test('Sessions has five pairs, Save Tab Groups, Skip duplicates when saving, Open saved windows, Skip duplicates when opening and Copy links, and no memory or history setting', async () => {
     await renderOn(SettingsCategory.SESSIONS);
 
@@ -210,7 +196,7 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
 });
 
 describe('the theme picker marks the active theme (KAN-88)', () => {
-  // The five swatches are the only buttons in the Display panel's first section, Themes.
+  // The seven swatches are the only buttons in the Display panel's first section, Themes.
   const swatches = (container: HTMLElement) => [
     ...(container
       .querySelector('[data-settings-section]')

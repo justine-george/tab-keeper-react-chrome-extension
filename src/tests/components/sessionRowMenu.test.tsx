@@ -291,7 +291,7 @@ describe('the held session row (KAN-708, 5B)', () => {
     }
   );
 
-  test('the selected and the unselected row are told apart by hover, and held follows each', async () => {
+  test('the selected and the unselected row draw different held looks', async () => {
     await renderBoth();
     const selectedHeld = rulesLike(rowOf('Roadmap'), '[data-row-menu-held]');
     const otherHeld = rulesLike(rowOf('Kyoto'), '[data-row-menu-held]');

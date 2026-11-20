@@ -146,7 +146,7 @@ describe('a saved tab row’s name', () => {
     expect(r.chrome.createdTabs).toEqual([]);
   });
 
-  test('the live read stops when the saved session goes', async () => {
+  test('the live read stops when the pane unmounts', async () => {
     const r = await renderSaved();
     expect(r.chrome.liveEventListenerCount()).toBeGreaterThan(0);
 

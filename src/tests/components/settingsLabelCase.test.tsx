@@ -43,7 +43,6 @@ function firstText(section: Element): string {
 describe('Settings labels are sentence case (KAN-651)', () => {
   test('the rail', () => {
     const rail = initialState.map(({ name }) => en[name as keyof typeof en]);
-    expect(rail).toHaveLength(initialState.length);
     expect(
       rail.filter((label) => capitalisedAfterFirst(String(label)).length > 0)
     ).toEqual([]);

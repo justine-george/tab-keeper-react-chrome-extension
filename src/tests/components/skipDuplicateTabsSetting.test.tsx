@@ -21,16 +21,6 @@ const renderSessions = () =>
   });
 
 describe('Settings › Sessions › Skip duplicates when saving', () => {
-  it('sits directly after Save tab groups', async () => {
-    const { container } = await renderSessions();
-    const titles = [
-      ...container.querySelectorAll<HTMLElement>('[data-settings-section]'),
-    ].map((s) => s.querySelector('span')?.textContent);
-    const at = titles.indexOf('Save tab groups');
-    expect(at).toBeGreaterThanOrEqual(0);
-    expect(titles[at + 1]).toBe('Skip duplicates when saving');
-  });
-
   it('starts Off, is described by its help line, and On dispatches and shows On pressed', async () => {
     const user = userEvent.setup();
     const { store } = await renderSessions();

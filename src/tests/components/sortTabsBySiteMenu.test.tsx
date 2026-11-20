@@ -15,8 +15,8 @@ import type { RootState } from '../../redux/store';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { buildSession } from '../fixtures/sessionFixture';
 
-// KAN-694. A saved window's ⋮ offers Sort tabs by site first, only while the
-// sort would change the order.
+// KAN-694. A saved window's ⋮ offers Sort tabs by site right after Rename, only
+// while the sort would change the order.
 
 const tab = (
   tabId: string,
@@ -144,7 +144,7 @@ describe('Sort tabs by site in a saved window menu (KAN-694)', () => {
   });
 });
 
-// KAN-746. A saved group's ⋮ offers it first too, for that group's tabs only.
+// KAN-746. A saved group's ⋮ offers it right after Rename too, for that group's tabs only.
 describe('Sort tabs by site in a saved group menu (KAN-746)', () => {
   const g1 = { chromeGroupId: 'g1' };
   const openGroupMenu = async (user: ReturnType<typeof userEvent.setup>) => {

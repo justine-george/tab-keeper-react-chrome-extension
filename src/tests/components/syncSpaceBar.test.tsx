@@ -166,7 +166,7 @@ describe('the sync space bar (KAN-596)', () => {
     );
   });
 
-  test('from 80% it warns; past the limit it says the sessions are too large to sync', async () => {
+  test('from 80% it warns that sync stops at 1 MB', async () => {
     await renderSync(Math.ceil(FIRESTORE_MAX_DOCUMENT_BYTES * 0.85));
     expect(screen.getByTestId('sync-space').dataset.level).toBe('near');
     expect(line()).toMatch(
@@ -331,6 +331,7 @@ describe('the sync space bar with sync off (KAN-633)', () => {
     await renderOff(Math.ceil(FIRESTORE_MAX_DOCUMENT_BYTES * 0.85));
     expect(state()).toBe('off');
     expect(screen.getByTestId('sync-space').dataset.level).toBe('near');
+    expect(fillColor()).toBe(rgb(LIGHT_THEME.DANGER_MARK));
     expect(line()).toMatch(
       / of the 1 MB sync limit\. Sync stops at 1 MB: delete sessions you no longer need\.$/
     );
