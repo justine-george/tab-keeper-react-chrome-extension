@@ -132,7 +132,7 @@ const row = (id: string): HTMLElement => {
   if (!(found instanceof HTMLElement)) throw new Error(`no row ${id}`);
   return found;
 };
-// A ticked row is drawn on the selection color; jsdom reads Emotion's rules back.
+// jsdom reads Emotion's rules back.
 const background = (id: string) => getComputedStyle(row(id)).backgroundColor;
 const previewTitles = () =>
   [...preview().querySelectorAll('[data-preview-session] > :first-child')].map(
@@ -426,8 +426,16 @@ describe('the import dialog: ticking', () => {
     tick('Kitchen remodel');
     expect(box('Tiles')).toHaveAttribute('aria-checked', 'false');
     expect(box('Fridges')).toHaveAttribute('aria-checked', 'false');
-    expect(background('tiles')).toBe(background('other'));
     expect(importButton()).toHaveTextContent(/^Import$/);
+  });
+
+  // KAN-975 (11-20). The tickbox is the only mark: gray stays the selected session's.
+  test('a ticked row draws no fill', async () => {
+    await openDialog();
+    await screen.findByRole('checkbox', { name: 'Kitchen remodel' });
+    tick('Kitchen remodel');
+    expect(box('Kitchen remodel')).toHaveAttribute('aria-checked', 'true');
+    expect(background('kitchen')).toBe(background('other'));
   });
 
   test('a click on the box ticks once; a click on the chevron only folds', async () => {
