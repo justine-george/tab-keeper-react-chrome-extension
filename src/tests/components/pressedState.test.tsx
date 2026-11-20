@@ -93,9 +93,6 @@ describe('a press is confirmed on every interactive surface (KAN-205)', () => {
     expect(activeRulesFor(item)).not.toMatch(PRESSED);
   });
 
-  // THE CONTROL. Every assertion above is satisfied by a stylesheet that
-  // mentions the token somewhere; this is what makes them claims about a rule
-  // that actually fires on :active.
   // KAN-236. The settings category rows were left out of the sweep above:
   // they had the KAN-96 hover fix and the selected fill, and no press. Found
   // on the settings page after the home page had been fixed. Both rows are
@@ -114,6 +111,9 @@ describe('a press is confirmed on every interactive surface (KAN-205)', () => {
     );
   });
 
+  // THE CONTROL. Every assertion above is satisfied by a stylesheet that
+  // mentions the token somewhere; this is what makes them claims about a rule
+  // that actually fires on :active.
   test('CONTROL: a non-actionable icon gets no press at all', async () => {
     await renderWithProviders(<Icon type="settings" />);
 

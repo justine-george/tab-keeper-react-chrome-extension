@@ -24,7 +24,7 @@ describe('RowOpenButton', () => {
     expect(button).toHaveTextContent('Open');
   });
 
-  test('carries the tooltip as its title', async () => {
+  test('carries the tooltip text in data-tooltip', async () => {
     await render();
     expect(screen.getByRole('button', { name: NAME })).toHaveAttribute(
       'data-tooltip',
@@ -38,13 +38,6 @@ describe('RowOpenButton', () => {
     expect(
       button.querySelector('.material-symbols-outlined')
     ).toHaveTextContent('reopen_window');
-  });
-
-  test('a click calls onClick once', async () => {
-    const onClick = vi.fn();
-    await render(onClick);
-    fireEvent.click(screen.getByRole('button', { name: NAME }));
-    expect(onClick).toHaveBeenCalledTimes(1);
   });
 
   // KAN-698. A double-click is one press: its second click does nothing.

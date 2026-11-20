@@ -90,16 +90,7 @@ describe('Remove duplicate tabs in the session menu (KAN-609)', () => {
     ]);
   });
 
-  test('says "tab" for one', async () => {
-    const user = userEvent.setup();
-    await renderHeader([tab('t1', A), tab('t2', A)]);
-    const menu = await openMenu(user);
-    expect(
-      within(menu).queryByRole('menuitem', { name: 'Remove 1 duplicate tab' })
-    ).not.toBeNull();
-  });
-
-  test('draws stack_off', async () => {
+  test('one copy reads "Remove 1 duplicate tab", drawn with stack_off', async () => {
     const user = userEvent.setup();
     await renderHeader([tab('t1', A), tab('t2', A)]);
     const menu = await openMenu(user);

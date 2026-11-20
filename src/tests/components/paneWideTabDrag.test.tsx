@@ -14,22 +14,14 @@ import {
 } from '../../redux/slices/globalStateSlice';
 
 // KAN-132. The tab drag is ONE drag area over every tab in the session, rather
-// than one per window, so that a tab can be dropped into another window. Each
-// test here pins one way a naive pane-wide list gets that wrong:
-//
-//   * the index a drop reports must count the rows of the window it lands in,
-//     not every row above it in the pane
-//   * a release over another window moves the tab there; one in no window at
-//     all is refused
-//   * a window's groups must not answer for a drop in a different window, where
-//     their window-local positions mean nothing
-//   * a band lights up in whichever window the pointer is over, and the one it
-//     left goes dark
+// than one per window, so that a tab can be dropped into another window. The
+// cross-window drops themselves are e2e (cross-window-drag,
+// window-boundary-landing). Left here: a release below the last window is
+// refused, and the pane keeps its hook count across selecting a session.
 //
 // jsdom has no layout, so every row, title row, tail marker and band is given a
 // box below. The window blocks are measured only where a test says so
-// (measureWindows): unmeasured, no release is over any window, which is what
-// the tests that predate the cross-window drop still see.
+// (measureWindows): unmeasured, no release is over any window.
 
 const box = (top: number, height: number) =>
   ({
@@ -204,9 +196,8 @@ afterEach(() => {
 });
 
 describe('a tab drag in a pane-wide list', () => {
-  // THE CONTROL for the rule above: the gap is only between two blocks. Far
-  // below the last window there is no nearer block to claim the release, and
-  // it is still refused -- the KAN-132 guard this must not have widened.
+  // The KAN-132 guard: far below the last window no block claims the release,
+  // and it is refused.
   test('CONTROL: a release below the last window still commits nothing', async () => {
     const { container, store } = await render();
     const node = layout(container);

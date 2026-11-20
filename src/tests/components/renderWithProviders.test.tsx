@@ -22,7 +22,7 @@ function StoreProbe() {
 }
 
 describe('renderWithProviders', () => {
-  // 'Open session' is one of the 19 en keys whose value differs from the key.
+  // 'Open session' is one of the en keys whose value differs from the key.
   // Asserting on the VALUE is what proves i18n is really running rather than
   // an identity mock -- under `t: (k) => k` this test fails.
   test('renders real translated text, not the key', async () => {

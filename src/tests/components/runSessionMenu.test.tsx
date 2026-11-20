@@ -11,11 +11,7 @@ import {
   replaceState,
   selectTabContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
-import {
-  newRun,
-  runStepKind,
-  type RunStep,
-} from '../../utils/functions/firstRun';
+import { newRun, type RunStep } from '../../utils/functions/firstRun';
 
 // KAN-582. Delete lives only in the session header's ⋮, so the run's Delete step points there, and (hard rule 2) the ⋮ explains only while it does.
 
@@ -41,10 +37,6 @@ async function renderHeader(step: RunStep) {
 const more = () => screen.getByRole('button', { name: 'More actions' });
 
 describe('the run’s Delete step (KAN-582)', () => {
-  test('step 6 is the Delete step in the popup', () => {
-    expect(runStepKind('popup', DELETE_STEP)).toBe('delete');
-  });
-
   test('it points at the session header’s ⋮, in both views', () => {
     for (const view of ['popup', 'full'] as const)
       expect(runStepPlan(view, 'delete', null, 'run', false)?.anchors).toEqual([

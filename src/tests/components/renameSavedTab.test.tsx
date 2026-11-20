@@ -184,7 +184,7 @@ describe('the rename field (KAN-824)', () => {
       within(tabRow).getByRole('button', { name: 'Save changes' })
     ).toBeInTheDocument();
     // The favicon stays beside the field.
-    expect(tabRow.querySelector('img, [data-favicon], span')).not.toBeNull();
+    expect(tabRow.querySelector('img[alt="favicon"]')).not.toBeNull();
   });
 
   test('Enter saves the name and gives focus back to the row', async () => {
