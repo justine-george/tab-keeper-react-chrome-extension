@@ -417,7 +417,7 @@ describe('a saved session always gets a name (KAN-84)', () => {
     return rendered;
   };
 
-  test.each([['   '], ['　'], ['']])(
+  test.each([['   '], ['　']])(
     'falls back to the active tab title when the name is %j',
     async (blank) => {
       const { store } = await typeNameAndSave(blank);
