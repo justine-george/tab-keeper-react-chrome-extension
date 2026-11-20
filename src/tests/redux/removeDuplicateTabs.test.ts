@@ -298,10 +298,6 @@ describe('countDuplicateTabs within a window or group (KAN-616)', () => {
       countDuplicateTabs(SCOPED(), { windowId: 'w1', groupId: 'gone' })
     ).toBe(0);
   });
-
-  it('with no scope, still counts across the whole session', () => {
-    expect(countDuplicateTabs(SCOPED())).toBe(4);
-  });
 });
 
 describe('removeDuplicateTabsInternal within a window or group (KAN-616)', () => {

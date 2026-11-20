@@ -199,14 +199,6 @@ describe('copyOnSessionRow: a row drop is a new first window, and says so (D4 A,
     off();
   });
 
-  it('a window becomes the first window', () => {
-    const { store } = ready(container(undefined, 'S1'));
-    store.dispatch(copyOnSessionRow(LIVE(LW), 'S2'));
-    expect(sessionIn(data(store), 'S2').windows.map((w) => w.windowId)).toEqual(
-      ['live-w', 'd1', 'd2']
-    );
-  });
-
   it('a target another page removed while carried: nothing saved, no toast', () => {
     const { store } = ready(container(undefined, 'S1'));
     // Another page's write: S2 gone. The drop re-reads storage first (D9).

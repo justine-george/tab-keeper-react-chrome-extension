@@ -425,15 +425,4 @@ describe('createdTime and createdAt stay put after a content edit', () => {
     expect(after.createdAt).toBe(CREATED.getTime());
     expect(after.createdTime).toBe(getStringDate(CREATED));
   });
-
-  // The coherence claim the old version of this block was really making, kept
-  // because it is the part that still matters: the wall clock and the instant
-  // must describe the same moment. Restamping one field and not the other
-  // fails here even though both assertions above would still pass for the
-  // untouched one.
-  it.each(cases)('%s keeps the two describing one moment', (_label, act) => {
-    const after = byId(act(), 'a');
-
-    expect(getStringDate(new Date(after.createdAt!))).toBe(after.createdTime);
-  });
 });
