@@ -194,7 +194,7 @@ test.describe('a copy opened in Currently open (KAN-851)', () => {
     ]);
   });
 
-  test('a saved group: each tab its saved title, then its page’s', async ({
+  test('a saved group: each tab its saved title, then Chrome’s for it (a placeholder keeps its own, KAN-250)', async ({
     context,
     extensionId,
     serviceWorker: worker,

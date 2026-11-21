@@ -7,7 +7,7 @@ import { standIn } from './fixtures/standInPages';
 
 // KAN-794 (his pick F). The fold sits on the heading's line, so the icon row
 // keeps 32px for Back: in English Back keeps its whole label at the narrowest
-// side by side (a 1100px window, Open now 323px wide) and in the 380px drawer.
+// side by side (a 1100px window, Open now 340px wide) and in the 480px drawer.
 // Measured on main before the move: cut to 121px of its 134 at 1100.
 
 const BACK = 'Back to your tab';
