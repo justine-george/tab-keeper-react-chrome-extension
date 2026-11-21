@@ -10,8 +10,10 @@
 //
 // Same two halves as tab-group-join-preview.spec.ts: the arrangement the drop
 // produces is seeded and measured, then the real drag is asserted against it.
-// The leaving-upward case itself is asserted there; here are the other five
-// edges, measured 2026-09-14 at 790x550, tops relative to the tab list.
+// The leaving-upward case itself is asserted there; here are four more, then
+// the same edges from another window, measured 2026-09-14 at 790x550, tops
+// relative to the tab list. The edges between two adjacent bands are
+// band-gap-between-groups.spec.ts's.
 
 import type { BrowserContext, Page } from '@playwright/test';
 

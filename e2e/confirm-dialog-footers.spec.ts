@@ -286,7 +286,7 @@ const PR_LANGS = ['de', 'fr', 'ru', 'hi', 'ja'] as const;
 const LANGS = process.env.E2E_ALL_LANGS === '1' ? ALL_LANGS : PR_LANGS;
 
 for (const which of ['switch', 'delete', 'empty', 'load'] as const) {
-  test(`${which}: the footer is one row in every language at 16, 20 and 24px`, async ({
+  test(`${which}: the footer is one row in each tested language at 16, 20 and 24px`, async ({
     context,
     serviceWorker,
     extensionId,

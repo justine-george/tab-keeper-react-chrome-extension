@@ -24,7 +24,7 @@ import { header } from './fixtures/savedWindows';
 // The title is deliberately left as "Research" even though it substring-
 // matches the "search" control: `getByRole(name:)` matches a SUBSTRING unless
 // `exact: true` is passed, and this fixture is the cheapest standing reminder
-// of that. It is the same hazard golden-path.spec.ts:138 already guards
+// of that. It is the same hazard back-target.spec.ts's `label` guards
 // against, where the ligature text "arrow_back" substring-matches "Back".
 // KAN-64 made it bite for real, because the session row is now a button named
 // after its title.
@@ -90,8 +90,8 @@ test.describe('accessible controls', () => {
   // The other half of the Icon change: a presentational icon is hidden from
   // the tree, not merely unnamed. Material Symbols renders its glyph as
   // ligature TEXT, so without aria-hidden this button's content reads
-  // "arrow_back Back" -- which is exactly why golden-path.spec.ts:138 has to
-  // pass `exact: true` to stop "arrow_back" substring-matching "Back".
+  // "arrow_back Back" -- which is exactly why back-target.spec.ts's `label`
+  // passes `exact: true` to stop "arrow_back" substring-matching "Back".
   test('a presentational icon is hidden from the accessibility tree (KAN-56)', async ({
     context,
     extensionId,
@@ -488,7 +488,7 @@ test.describe('controls are reachable by keyboard', () => {
 
   // KAN-75, carried to the review card (KAN-653). The old dialog's
   // dismissals were bare `<div onClick>`s no keyboard user could reach. The
-  // card's three controls must each take a tab stop.
+  // card's four controls must each take a tab stop.
   //
   // These run in a real browser because the tab-order walk is the assertion
   // that matters: a role query proves the markup is a button; only walking
@@ -510,7 +510,7 @@ test.describe('controls are reachable by keyboard', () => {
     expect(names).toContain('Never ask again');
   });
 
-  test('the review card controls are buttons with accessible names (KAN-75)', async ({
+  test("the review card's three buttons and its Share feedback link have accessible names (KAN-75)", async ({
     context,
     extensionId,
   }) => {

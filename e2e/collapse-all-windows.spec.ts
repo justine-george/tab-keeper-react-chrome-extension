@@ -100,7 +100,7 @@ test('folding every window shortens the pane, and the control offers to undo it'
   // reported 416 in both states. scrollHeight never falls below the element's
   // own padding box, and folding three tab rows away makes this content SHORTER
   // THAN ITS VIEWPORT -- so the container's height answered both times and the
-  // measurement could not move. Same clamp dragCollapse.test.tsx:116 records for
+  // measurement could not move. Same clamp dragCollapse.test.tsx:111 records for
   // KAN-154, met here from the other side.
   //
   // Measuring the blocks' own union has no such floor: it is the content's
