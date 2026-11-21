@@ -47,7 +47,7 @@ async function pressAndHold(page: Page, row: Locator) {
 }
 
 test.describe('a settings category row answers a press (KAN-236)', () => {
-  test('an unselected row: hover, then a darker press, then hover again', async ({
+  test('an unselected row: hover, then a darker press, then the selected fill', async ({
     context,
     extensionId,
   }) => {
@@ -64,7 +64,7 @@ test.describe('a settings category row answers a press (KAN-236)', () => {
     expect(ACTIVE).not.toBe(HOVER);
 
     await page.mouse.up();
-    // Release selects Sync & Privacy; the pointer is still on it. Its fill is
+    // Release selects Sync & backup; the pointer is still on it. Its fill is
     // now the selected one -- a selected row shows no hover (KAN-96).
     await expectFill(row, SELECTION);
   });

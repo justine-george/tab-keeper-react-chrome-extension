@@ -116,7 +116,7 @@ for (const view of VIEWS) {
         sessions: [session('S1', 'Launch week', [WINDOW])],
       });
 
-    test('Sort tabs by site comes right after Copy all links and Rename, and sorts; one ⌘Z restores', async ({
+    test('Sort tabs by site comes after Copy all links, Rename and Replace, and sorts; one ⌘Z restores', async ({
       context,
       extensionId,
     }) => {
