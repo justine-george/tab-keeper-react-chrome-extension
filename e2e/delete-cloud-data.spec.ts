@@ -12,8 +12,9 @@ import { test, expect } from './fixtures/extension';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
 
 // KAN-254. "Delete cloud data" on Sync & Backup opens a confirm dialog; Cancel
-// and Escape close it with nothing changed. The confirm path runs against the
-// dev cloud below, and skips in CI, which builds without one (KAN-147).
+// and Escape close it with nothing changed. Without a cloud a confirm fails
+// (the first test); a confirm that reaches the cloud runs against the dev
+// cloud below, and skips in CI, which builds without one (KAN-147).
 // KAN-719. The press never confirms or claims a delete of nothing: no stored id
 // says so before the dialog, and a granted device is checked before it asks.
 

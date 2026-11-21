@@ -319,7 +319,7 @@ for (const [theme, colors] of [
 // tile, so its column grew and the centred tile moved. Nothing may move.
 for (const language of ['en', 'de', 'ru'])
   for (const root of [16, 20])
-    test(`KAN-801: choosing a save moves neither tile nor word (${language}, ${root}px root)`, async ({
+    test(`KAN-801: choosing a save moves no tile (${language}, ${root}px root)`, async ({
       context,
       extensionId,
     }) => {

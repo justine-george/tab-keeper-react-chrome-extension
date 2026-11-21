@@ -11,8 +11,8 @@ import { hello } from './fixtures/run';
 // designed at. The tab view (KAN-279) opens the same page at a browser
 // window's width, where 78% grows past what a confirm needs: 998px @1280,
 // 1498px @1920, measured on main. DIALOG.WIDTH (styles/scale.ts) is
-// `min(78%, 616px)`, shared by all four, so every dialog stays the size it
-// was designed at wherever it opens.
+// `min(78%, 616px)`, shared by these four and every dialog since (Hello among
+// them, below), so each stays the size it was designed at wherever it opens.
 //
 // The sync-question dialog exercises the shared value for the popup (the
 // welcome) and both tab-view sizes (the plain question, from Auto Sync); the

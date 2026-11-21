@@ -16,7 +16,7 @@ import { expectReadable } from './fixtures/textContrast';
 // KAN-7 §7. Default view on the real build: the page applies setPopup and
 // mirrors the choice; the worker's onClicked opens or focuses the full view.
 
-async function openSessionsSettings(
+async function openQuickAccessSettings(
   context: BrowserContext,
   extensionId: string,
   path = 'index.html',
@@ -83,7 +83,7 @@ test('Full removes the popup and mirrors the choice; Compact puts it back', asyn
   serviceWorker,
 }) => {
   await seedSessions(context, buildContainer());
-  const page = await openSessionsSettings(context, extensionId);
+  const page = await openQuickAccessSettings(context, extensionId);
   await expect(side(page, 'Compact view')).toHaveAttribute(
     'aria-pressed',
     'true'
@@ -106,7 +106,7 @@ test('choosing Compact from the full view leaves the full view open', async ({
   extensionId,
   serviceWorker,
 }) => {
-  const page = await openSessionsSettings(
+  const page = await openQuickAccessSettings(
     context,
     extensionId,
     FULL_VIEW_PATH,
@@ -125,7 +125,7 @@ test('the toolbar click opens one full view, and a second click focuses it', asy
   extensionId,
   serviceWorker,
 }) => {
-  const page = await openSessionsSettings(context, extensionId);
+  const page = await openQuickAccessSettings(context, extensionId);
   await side(page, 'Full view').click();
   await expect.poll(() => popupOf(serviceWorker)).toBe('');
   const windowId = await page.evaluate(
@@ -150,7 +150,7 @@ test('two toolbar clicks at once open one full view', async ({
   extensionId,
   serviceWorker,
 }) => {
-  const page = await openSessionsSettings(context, extensionId);
+  const page = await openQuickAccessSettings(context, extensionId);
   await side(page, 'Full view').click();
   await expect.poll(() => popupOf(serviceWorker)).toBe('');
   const windowId = await page.evaluate(
@@ -174,7 +174,7 @@ for (const [theme, palette] of THEMES) {
     extensionId,
   }) => {
     await seedSettings(context, { theme });
-    const page = await openSessionsSettings(context, extensionId);
+    const page = await openQuickAccessSettings(context, extensionId);
     expect(await pageGround(page)).toBe(palette.PRIMARY_COLOR);
     await expectReadable(
       page.locator('[data-settings-section]', {
