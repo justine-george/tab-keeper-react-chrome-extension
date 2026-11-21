@@ -11,9 +11,9 @@ const RESEARCH = buildSession({
 });
 
 // Carries chromeTabGroups and a chromeGroupId'd tab, but hasTabGroupsPermission
-// defaults to false in a fresh profile -- there is no known way to pre-grant
-// an optional permission in the Playwright profile, so this is the only path
-// the E2E suite can cover. It pins that the feature stays invisible to a user
+// defaults to false in a fresh profile -- an optional permission cannot be
+// pre-granted in this profile, so this spec covers the ungranted path (the
+// granted bands run on fixtures/grantedExtension.ts). It pins that the feature stays invisible to a user
 // who never grants it, rather than promising a restore it cannot deliver.
 const GROUPED = buildSession({
   tabGroupId: 'session-grouped',

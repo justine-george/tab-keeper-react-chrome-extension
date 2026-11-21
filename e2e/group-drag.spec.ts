@@ -431,8 +431,9 @@ test.describe('dragging a group', () => {
   //   at w0's top or bottom, and it lands in the MIDDLE of w0 instead.
   //
   // The third thing it guarded -- `restoreScrollIfNoDrop`, "the view comes
-  // back" -- has moved to the test below, which is a release that really is
-  // refused. A committed drop deliberately does not restore the scroll: it
+  // back" -- has no test here since KAN-185: Escape's restore is
+  // window-drag.spec's `after Escape, the view is where the drag began`. A
+  // committed drop deliberately does not restore the scroll: it
   // follows the row it just dropped (KAN-155).
   test('released over the window above, the group lands in it', async ({
     context,
@@ -619,7 +620,7 @@ test.describe('the gap a group drag opens', () => {
 
     // Down past the next item's midpoint in the compressed layout, so it steps.
     await page.mouse.move(at.x + 8, at.y + 50, { steps: 8 });
-    // The step is animated (0.18s); measuring early reads it part-way.
+    // The step is animated (DURATION.MOVE, 200ms); measuring early reads it part-way.
     await page.waitForTimeout(320);
 
     const geom = await page.evaluate(() => {
@@ -719,7 +720,7 @@ test.describe('a tab dragged across a group boundary', () => {
     // Past the first group member's midpoint, so it has to step up. That
     // midpoint is a band header further down than the tab pitch suggests.
     await page.mouse.move(before.grabX, before.grabY + 110, { steps: 10 });
-    // The step is animated (0.18s); measuring early reads it part-way.
+    // The step is animated (DURATION.MOVE, 200ms); measuring early reads it part-way.
     await page.waitForTimeout(320);
 
     const shifted = await page.evaluate(() => {

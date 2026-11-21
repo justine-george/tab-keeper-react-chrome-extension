@@ -157,7 +157,7 @@ test('Esc on a card is Skip tutorial, and is prevented so the popup stays (KAN-4
   await expect.poll(() => storedTitles(page)).toEqual([]);
 });
 
-test('the user’s own session keeps an undimmed Open through and after the run', async ({
+test('the user’s own session’s Open is undimmed after the run', async ({
   context,
   extensionId,
 }) => {

@@ -128,7 +128,7 @@ async function hold(page: Page, rowId: string, y: number) {
   // Past the activation distance first, so this is a drag and not a click.
   await page.mouse.move(x, held.y + held.height / 2 + (y > held.y ? 8 : -8));
   await page.mouse.move(x, y, { steps: 10 });
-  await page.waitForTimeout(280); // the 0.18s shift transition
+  await page.waitForTimeout(280); // the rows' DURATION.MOVE (200ms) shift
 }
 
 test.describe("a group's frame while a tab lands after it", () => {

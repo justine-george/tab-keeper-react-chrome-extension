@@ -167,7 +167,7 @@ test.describe('a saved group', () => {
     await collapse(page).click();
 
     await expect(expand(page)).toHaveAttribute('aria-expanded', 'false');
-    // The band's mark, which Task 4's drop rules read.
+    // The band's mark, which the drop rules read (dropRules.ts).
     await expect(band(page)).toHaveAttribute('data-group-folded', '');
     await expect(memberRows(page)).toHaveCount(0);
     await expect(band(page).getByText('Tab a')).toHaveCount(0);
@@ -384,7 +384,7 @@ const savedRow = (page: Page, id: string): Locator =>
 const landingSlot = (page: Page): Locator =>
   page.locator('[data-drag-landing-slot]');
 
-// Presses on `row`, clears the activation distance, and rests at `y` past the rows' 0.18s ease.
+// Presses on `row`, clears the activation distance, and rests at `y` past the rows' DURATION.MOVE (200ms) ease.
 async function holdOver(page: Page, row: Locator, y: () => Promise<number>) {
   const from = await boxOf(row);
   const x = from.x + 40;
