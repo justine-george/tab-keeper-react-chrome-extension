@@ -40,7 +40,7 @@ const activate = (worker: Worker, tabId: number) =>
   }, tabId);
 
 test.describe('Open now marks the tab This window came from (KAN-475)', () => {
-  test('the tab you switched away from wears the active bar, reads Last used tab, and follows the next switch', async ({
+  test("the tab you switched away from wears the front tab's mark, reads Last used tab, and follows the next switch", async ({
     context,
     serviceWorker,
     extensionId,
@@ -95,7 +95,8 @@ test.describe('Open now marks the tab This window came from (KAN-475)', () => {
     await expect(switchRow(page, 'Budget sheet')).toHaveAccessibleDescription(
       'Last used tab'
     );
-    // CONTROL: Alpha is its window's real active tab, so it has the bar.
+    // CONTROL: Alpha is its window's real active tab, so its title wears the
+    // mark.
     const activeMark = await markOf(page, ids.alpha);
     expect(activeMark).toEqual({ weight: '600' });
     await expect.poll(() => markOf(page, ids.budget)).toEqual(activeMark);

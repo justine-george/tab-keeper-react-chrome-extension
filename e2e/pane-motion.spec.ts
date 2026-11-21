@@ -125,7 +125,7 @@ async function press(page: Page, act: () => Promise<void>) {
 const rail = (page: Page) =>
   page.getByRole('button', { name: /^Currently open/ });
 
-test('each fold and the drawer start a transition that moves their layers', async ({
+test('each fold starts a transition that moves its layers, from the drawer too; the drawer slides on its own', async ({
   context,
   extensionId,
 }) => {
@@ -268,7 +268,7 @@ test("folding Currently open, the saved session's edge strip slides", async ({
   expect(offset(positions![1])).toBeCloseTo(8, 1);
 });
 
-test('with reduced motion, the folds and the drawer swap at once', async ({
+test('with reduced motion, folding Currently open and opening the drawer start no transition', async ({
   context,
   extensionId,
 }) => {

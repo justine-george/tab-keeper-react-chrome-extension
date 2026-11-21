@@ -24,8 +24,8 @@ import { closeOpenNowWindowFromMenu } from './fixtures/menus';
 // What the unit tests cannot show, because they run against a fake: that
 // Chrome really grants `sessions` to a close with no prompt, inside the
 // click's gesture, that a restored tab really has its history, and the rules
-// the fake only MODELS (tests 7b and 9 to 15 measure them and print the
-// numbers).
+// the fake only MODELS (tests 7b, 9, 10, 11 and 12 measure them and print
+// the numbers).
 //
 // Pages come from a local http server, one per test (servePages). Not a
 // data: URL, which cannot hold a history: Chrome takes a tabs.update from one
@@ -402,7 +402,7 @@ function recordWorkerWarnings(worker: Worker): string[] {
 }
 
 // Headless Chromium cannot show a window getting the focus BACK. Measured
-// 2026-09-27 (test 15): once windows.update({ focused: true }) has focused a
+// 2026-09-27: once windows.update({ focused: true }) has focused a
 // window, getLastFocused keeps naming it, and it keeps reporting focused,
 // after the same call focuses another window -- both then report focused.
 // So after a restore has focused the History tab's window, whether the undo
@@ -470,7 +470,7 @@ test.describe('no setting: a close asks for sessions itself (KAN-663)', () => {
 
     await expect.poll(() => holdsSessions(page)).toBe(true);
     await expect(reopenButton(page)).toBeVisible();
-    // Usable at once, in this page, with no reload (Task 1, Q4).
+    // Usable at once, in this page, with no reload.
     expect(
       await page.evaluate(async () =>
         Array.isArray(await chrome.sessions.getRecentlyClosed())
@@ -485,7 +485,7 @@ grantedTest.describe('Reopen with history (KAN-280 Part D)', () => {
   // from Open now.
   const runs: { name: string; history: boolean }[] = [
     {
-      name: '4. a tab closed from Open now in a fresh profile, and reopened with the toast’s Reopen, comes back with its history, in its place, in its group, behind, and the undo gives the focus back',
+      name: '4. a tab closed from Open now in a fresh profile, and reopened with the toast’s Reopen, comes back with its history, in its place, in its group, behind, and the undo asks for the focus back',
       history: true,
     },
     {
@@ -637,7 +637,7 @@ grantedTest.describe('Reopen with history (KAN-280 Part D)', () => {
   );
 
   grantedTest(
-    '7. On: a window closed from Open now comes back with its tabs and their history, and the undo gives the focus back',
+    '7. On: a window closed from Open now comes back with its tabs and their history, and the undo asks for the focus back',
     async ({ context, extensionId, serviceWorker }) => {
       const site = await servePages(context);
       await grantSessions(context, extensionId);
@@ -1083,7 +1083,7 @@ grantedTest.describe('an ungrouped tab and a collapsed group (KAN-316)', () => {
       : [];
   };
 
-  // Task 8, M2 raw. The chrome fake's restore follows this (KAN-316).
+  // The chrome fake's restore follows this (KAN-316).
   grantedTest(
     '10. raw: Chrome restores an ungrouped tab just after a collapsed group, in front, and leaves the group collapsed',
     async ({ context, extensionId, serviceWorker }) => {

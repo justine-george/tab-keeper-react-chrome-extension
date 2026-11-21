@@ -304,10 +304,7 @@ function expectWithinHalfPixel(
   ).toBeLessThanOrEqual(0.5);
 }
 
-// ---- the front-tab bar (KAN-280 M3, Justine's pick B3, no shade) ----
-
-// Every theme, by the name the picker shows and the value settingsData
-// stores: the pane and hover fill the bar sits on differ in each.
+// ---- the front-tab mark (KAN-567 B: the title's weight, no fill, no bar) ----
 
 // KAN-567 B. A live row's front-tab mark: its title's computed weight, the
 // row's own fill, and what (if anything) it draws at its left edge.
@@ -810,7 +807,7 @@ const MANY = Array.from({ length: 20 }, (_, i) =>
 const TITLE_OF = new Map(MANY.map((s) => [s.tabGroupId, s.title]));
 
 // The drag engine scrolls the list while the pointer is within this of the
-// scroller's top or bottom (RowDragArea's EDGE_ZONE_PX). An aim inside it
+// scroller's top or bottom (edgeScroll.ts's EDGE_ZONE_PX). An aim inside it
 // moves the list under the pointer, so the drag stays clear of it.
 const EDGE_ZONE_PX = 48;
 
@@ -1051,7 +1048,7 @@ test.describe('Open now heading and empty-list layout (KAN-280)', () => {
     expect(facts.textOverflow).toBe('ellipsis');
   });
 
-  // O1b: the heading steps down INSIDE its existing 32px line, so the
+  // O1b: the heading sits inside its 32px line, so the
   // header's height must not move -- if it did, Open now's rows would sit
   // out of step with the saved detail's, and the sessions list's, below
   // their own same-height headers. Side by side is the only layout where
