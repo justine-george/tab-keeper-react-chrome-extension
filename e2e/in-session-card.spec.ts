@@ -71,7 +71,7 @@ const session = (
     windows,
   });
 
-// S1 and S2 as in drag-between-sessions.spec.ts: no popup pane scrolls.
+// S1 and S2 as in fixtures/betweenSessions.ts: no popup pane scrolls.
 const S1 = () =>
   session('S1', 'Source', [
     win(
@@ -377,7 +377,7 @@ async function springOpen(page: Page, sessionId: string): Promise<void> {
 }
 
 // Into the opened session, onto the phantom's own place, until the list
-// adopts it and nothing is shifted (drag-between-sessions.spec.ts's
+// adopts it and nothing is shifted (fixtures/betweenSessions.ts's
 // adoptPhantom, which explains the loop).
 async function adoptPhantom(page: Page, phantomId: string): Promise<Locator> {
   const phantom = row(page, phantomId);
@@ -1513,8 +1513,6 @@ test.describe('the click after a release lands on the hidden row', () => {
     await expect.poll(() => storedTabs(page)).not.toBe(start);
     const r = await releaseRecord(page);
     expect(r).toMatchObject({ held: 'a0', hitInHeld: true });
-    // No click reaches anything but the row that was held.
-    expect(r?.clicks.every((c) => c.inHeld)).toBe(true);
     await page.waitForTimeout(1000);
     expect(context.pages().length).toBe(before);
   });

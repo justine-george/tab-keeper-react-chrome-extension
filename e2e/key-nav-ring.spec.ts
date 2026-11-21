@@ -17,7 +17,7 @@ import { CHALK_THEME } from '../src/hooks/useThemeColors';
 const SESSIONS = ['Alpha', 'Bravo', 'Charlie', 'Delta'].map((t) =>
   buildSession({ tabGroupId: `s-${t.toLowerCase()}`, title: t })
 );
-// KAN-731. Chalk, the default on a light OS.
+// KAN-731. Chalk, a new install's theme on every OS (KAN-829).
 const RING = CHALK_THEME.TEXT_COLOR.toUpperCase();
 
 async function openPopup(

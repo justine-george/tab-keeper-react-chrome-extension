@@ -9,11 +9,11 @@ import { ICON } from '../src/styles/scale';
 // KAN-340. The home header's icon row: even glyphs in equal boxes (I1), in
 // three pairs 8px apart (A), ordered views | history | account (R1).
 //
-// Every assertion runs at a 16px root AND a 20px root. 20px is what Chrome's
-// Settings > Appearance > Font size "Large" gives an extension page (KAN-312
-// measured it), and it is the case a px literal gets wrong while looking
-// right at 16px. Setting the root in the page matches the pref, since every
-// size here is in rem.
+// The boxes, gaps, mark and title tests run at a 16px root AND a 20px root.
+// 20px is what Chrome's Settings > Appearance > Font size "Large" gives an
+// extension page (KAN-312 measured it), and it is the case a px literal gets
+// wrong while looking right at 16px. Setting the root in the page matches the
+// pref, since every size here is in rem.
 
 const POPUP_VIEWPORT = { width: 790, height: 550 };
 const TAB_VIEWPORT = { width: 1280, height: 800 };

@@ -338,7 +338,7 @@ test.describe('translated UI still fits its layout', () => {
     });
   }
 
-  test('the review card keeps its height: English shares one line', async ({
+  test("in English the review card's quiet links share one line (KAN-864 C)", async ({
     context,
     extensionId,
   }) => {
