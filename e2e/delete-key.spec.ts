@@ -363,7 +363,7 @@ test('Backspace in the search, rename and save fields edits text and deletes not
   await expect(toasts(page)).toHaveCount(0);
 });
 
-test('K1: the ⋮ shows ⌫ beside Delete session, red at rest and white on its red hover', async ({
+test('K1: the ⋮ shows the delete key (⌫ on a Mac, Del elsewhere) beside Delete session, red at rest and white on its red hover', async ({
   context,
   extensionId,
 }) => {

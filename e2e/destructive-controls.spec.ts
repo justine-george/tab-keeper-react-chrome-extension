@@ -23,8 +23,8 @@ import type { ThemeColors } from '../src/hooks/useThemeColors';
 // KAN-6. The meter reads the compressed size: pad with text gzip cannot shrink.
 import { incompressible } from '../src/tests/fixtures/incompressible';
 
-// KAN-725 on the real artifact: every kind of destructive control, in all five
-// themes, measured from computed styles at rest, hover, press (held) and
+// KAN-725 on the real artifact: every kind of destructive control, in every
+// theme, measured from computed styles at rest, hover, press (held) and
 // keyboard focus, and the sync meter at near and full. Presses are released
 // off the control, so nothing is deleted. DESTRUCTIVE_SHOTS=<dir> also saves
 // every reading as JSON and the dark themes' meters as PNGs, for the demo.

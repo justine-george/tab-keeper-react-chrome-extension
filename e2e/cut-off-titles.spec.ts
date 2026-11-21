@@ -347,7 +347,7 @@ test.describe('tab rows', () => {
   }) => {
     const page = await open(context, extensionId);
     expect(await chipAfterRest(textOf(page, 'Short page'))).toBe(
-      await addressOf(page, 't2')
+      'https://www.inkandswitch.com/t2/local-first/'
     );
   });
 
@@ -357,7 +357,7 @@ test.describe('tab rows', () => {
   }) => {
     const page = await open(context, extensionId);
     expect(await chipAfterRest(textOf(page, 'Pinned page'))).toBe(
-      await addressOf(page, 't7')
+      'https://www.inkandswitch.com/t7/local-first/'
     );
   });
 });

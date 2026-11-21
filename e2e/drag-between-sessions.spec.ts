@@ -359,6 +359,9 @@ test.describe('an exact spot in a session already holding the ids', () => {
       phantom: 'carried:a1',
       aim: 'c1',
       count: 4,
+      // Before c1, under a new id: the seeded a1 keeps its own.
+      around: [0, 2, 3],
+      want: ['a1', 'c1', 'x0*'],
     },
     {
       name: 'a group',
@@ -367,6 +370,9 @@ test.describe('an exact spot in a session already holding the ids', () => {
       phantom: 'group:carried:alpha',
       aim: 'tab:c1',
       count: 5,
+      // Its two tabs between c0 and c1.
+      around: [0, 3, 4],
+      want: ['c0', 'c1', 'x0*'],
     },
   ]) {
     test(`${c.name} lands where it was aimed`, async ({
@@ -389,6 +395,8 @@ test.describe('an exact spot in a session already holding the ids', () => {
       await expect
         .poll(async () => (await layout(page, 'S2'))[0].split(' ').length)
         .toBe(c.count);
+      const ids = (await layout(page, 'S2'))[0].split(' ');
+      expect(c.around.map((i) => ids[i])).toEqual(c.want);
       const after = sessionOf(await stored(page), 'S2');
       expect(after.windows).toHaveLength(1);
       idsAreUnique(after);
@@ -1144,7 +1152,7 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
     ['Charcoal', 2.95],
   ]);
   for (const theme of THEMES) {
-    test(`the target outline clears 3:1 against the row's fill (${theme})`, async ({
+    test(`the target outline clears its floor (3:1, 2.95 dark) against the row's fill (${theme})`, async ({
       context,
       extensionId,
     }) => {
@@ -1831,7 +1839,7 @@ test.describe('the target visuals (V1-V4)', () => {
     });
   }
 
-  // V2 A: lit, the box takes the hover fill and a solid border, and no slot is seen. The trailing block's look is read in the Q4 test.
+  // V2 A: lit, the box takes the press fill (KAN-669) and a solid border, and no slot is seen. The trailing block's look is read in the Q4 test.
   test('V2: a landing in the target lights the box, with no dashed slot seen', async ({
     context,
     extensionId,
@@ -1908,19 +1916,14 @@ test.describe('the target visuals (V1-V4)', () => {
           };
         });
       });
-    const slotColour = await page.evaluate(() =>
-      getComputedStyle(document.documentElement)
-        .getPropertyValue('--drag-landing-slot')
-        .trim()
-        .toUpperCase()
-    );
     const resting = await slotNow();
     expect(resting).toHaveLength(1);
     // Dashed; its width is checked against the landing slot's below (both
     // declare 1.5px, which Chrome draws at its device-pixel width).
     expect(resting[0]).toMatchObject({ kind: 'resting', opacity: '1' });
     expect(resting[0]?.border).toMatch(/ dashed$/);
-    expect(rgbToHex(resting[0]?.colour ?? '')).toBe(slotColour);
+    // KAN-234: LABEL_L2 (Chalk, the new-install theme).
+    expect(rgbToHex(resting[0]?.colour ?? '')).toBe(CHALK_THEME.LABEL_L2_COLOR);
     // At the top of the session, as tall as the window row it stands for.
     const own = await boxOf(phantom);
     expect(resting[0]?.top).toBeCloseTo(own.y, 0);
@@ -5498,9 +5501,11 @@ test.describe('a tab carried into another session reads bands from its row, wher
       await expect(band).toHaveAttribute('data-drop-target', '');
       await page.mouse.up();
 
+      // Between ga0 and ga1, in gamma: alpha did not come with it.
       await expect
         .poll(async () => (await layout(page, 'S2'))[0])
-        .toContain('al0*');
+        .toBe('c0 c1 ga0* al0* ga1* c2');
+      expect(await groupEntries(page, 'S2', 0)).toEqual(['gamma']);
     });
   }
 });
