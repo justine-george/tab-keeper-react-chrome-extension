@@ -18,8 +18,8 @@ import { seedSettings } from './fixtures/seed';
 // for a join. Every drop asserts that Chrome, and the re-read list, put the
 // row exactly there. Predicting from rects misread two KAN-129 probes.
 //
-// On main's build Open now has no drag at all, so every case below first
-// requires that the row was PICKED UP. That is also what keeps the refusal
+// On a build without the drag, Open now has none at all, so every case below
+// first requires that the row was PICKED UP. That is also what keeps the refusal
 // cases honest: "no slot in the other window" holds trivially for a row that
 // was never held.
 //
@@ -578,7 +578,7 @@ async function expectTabRefused(
   }
   const preview = await release(page, 'tabs');
   expect(preview).toEqual(expected);
-  // A move lands within ~15ms of its call (Task 1 Q6); a refused release
+  // A move lands within ~15ms of its call; a refused release
   // makes none, so after this the list has nothing left to catch up on.
   await page.waitForTimeout(500);
   expect(await chromeTab(chromeContext, tabId)).toMatchObject({
@@ -647,7 +647,7 @@ test.describe('a drop moves the real tabs where the preview showed (KAN-280 O11,
       extensionId
     );
     await expectLandedAsPreviewed(page, a.tab('a1'), preview);
-    // An inactive tab: neither window's front tab changes (Task 1 Q5).
+    // An inactive tab: neither window's front tab changes.
     expect([
       await frontTab(worker, a.windowId),
       await frontTab(worker, b.windowId),
@@ -729,8 +729,8 @@ async function dragGroup(
 // A PROBE, not an assertion: samples the windows' rows and bands on every
 // frame from now until stopped, keeping each distinct picture once, and the
 // test attaches them. Whether a multi-call move shows an intermediate state
-// after the hold ends (ledger, Task 6c) is recorded for review; headless
-// runs so far show none (Task 8 report), but CI timing is not promised.
+// after the hold ends is recorded for review; headless runs so far show
+// none, but CI timing is not promised.
 async function startSampling(page: Page, windowIds: number[]) {
   await page.evaluate((windowIds) => {
     const seen: string[] = [];
@@ -874,11 +874,10 @@ test.describe('a whole group (KAN-280 O11a Q1, O11g G1)', () => {
     expect(await frontTab(worker, b.windowId)).toBe(b.tab('b0'));
   });
 
-  // G1: tabGroups.move would make g1 the destination's front tab (Task 1
-  // Q5), so the tabs move with tabs.move and are grouped again. Chrome's
-  // neighbour rule in the source: g1 leaving hands the front to its group
-  // mate g2, and g2 leaving hands it to the tab after the run, a3 (Task 6a
-  // Q1: W1 [a, b*]).
+  // G1: tabGroups.move would make g1 the destination's front tab, so the
+  // tabs move with tabs.move and are grouped again. Chrome's neighbour rule
+  // in the source: g1 leaving hands the front to its group mate g2, and g2
+  // leaving hands it to the tab after the run, a3 (W1 [a, b*]).
   test("4c. G1: a group holding its window's front tab arrives behind, with its look, and the source shows its neighbour", async ({
     context,
     extensionId,
@@ -954,8 +953,8 @@ test.describe('a whole group (KAN-280 O11a Q1, O11g G1)', () => {
 // ---- 5: pinned -----------------------------------------------------------------
 
 // KAN-814: the slot decides the pin, as in a saved session (KAN-458), and a
-// change says so with KAN-811's toast. On main's build a tab is held to its
-// side of the run and a pinned tab to its window, so each change below fails
+// change says so with KAN-811's toast. Before KAN-814 a tab was held to its
+// side of the run and a pinned tab to its window, so each change below failed
 // there; 5c and 5g's unpinned half are the silent CONTROLS.
 const toasts = (page: Page) =>
   page.locator('[role="status"] > [data-toast]:not([aria-hidden="true"])');
@@ -1235,8 +1234,9 @@ test.describe('the slot decides the pin (KAN-814)', () => {
     expect((await chromeTab(worker, a.tab('p0')))?.pinned).toBe(true);
     await listMatchesChrome(page, worker, [a.windowId], extensionId);
 
-    // Unpinned: it goes just below B's run, still unpinned (the CONTROL main
-    // passes too; it fails on a build that reads position 0 as a slot).
+    // Unpinned: it goes just below B's run, still unpinned (the CONTROL that
+    // passed before KAN-814 too; it fails on a build that reads position 0
+    // as a slot).
     const unpinned = await dragTab(page, a.tab('a1'), onB);
     expect(unpinned).toMatchObject({ windowId: b.windowId, index: 0 });
     await expect
@@ -1784,8 +1784,8 @@ test.describe("the tab view's own page (KAN-280 O11h T1, Review Focus 2)", () =>
   });
 
   // R26(b): a window's FRONT tab joining another window's group goes by
-  // tabs.group then a same-window tabs.move (Task 1 Q3: one tabs.move into a
-  // run is refused). Measured here, not assumed: where Chrome puts it, and
+  // tabs.group then a same-window tabs.move (one tabs.move into a run is
+  // refused). Measured here, not assumed: where Chrome puts it, and
   // both windows' front tabs.
   test("8b. a window's front tab dragged into another window's group joins it where previewed; it arrives behind, and its old window shows a neighbour", async ({
     context,
@@ -1854,8 +1854,8 @@ test.describe("the tab view's own page (KAN-280 O11h T1, Review Focus 2)", () =>
 // KAN-322 (spec O11e). Without the grant Open now shows no groups, so a
 // Chrome group's tabs are loose rows and the engine offers the slot between
 // two of them. One tabs.move from another window into a group's run is
-// refused (Task 1 Q3), so the drop joins the group with tabs.group (which
-// works without the grant, Task 6a Q3) and lands where the preview showed.
+// refused, so the drop joins the group with tabs.group (which works without
+// the grant) and lands where the preview showed.
 // On 0a1489f's build the release was refused and the tab went back.
 ungrantedTest(
   '12. without the grant, a tab from another window dropped between two grouped tabs joins that group where the preview showed (KAN-322)',
@@ -1952,10 +1952,10 @@ test("9. in the narrow tab view's drawer, a drop moves the real tab as in the pa
 // row near the top, auto-scroll DOWN until its old place is off screen
 // above, and release far below it, in another window.
 //
-// Measured (Task 8, ledger R22): the follow's one scrollIntoView lands on the
+// Measured (R22): the follow's one scrollIntoView lands on the
 // row already re-read into its NEW place (top 687 in a 123-791 pane), so
 // `nearest` scrolls nothing, and Open now keeps the saved lists' follow
-// (R28 removed the opt-out Task 6c had added). This pins what the user sees:
+// (R28 removed an earlier opt-out). This pins what the user sees:
 // if the follow ever outran the re-read, the view would jump back.
 //
 // The frames are read only until the re-read reorders the rows: the re-read

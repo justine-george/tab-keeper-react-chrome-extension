@@ -290,7 +290,7 @@ test.describe('Open saved windows: This window (KAN-892)', () => {
       'Elsewhere',
     ]);
 
-    // Task 2 review: an appended placeholder loads its page when shown.
+    // An appended placeholder loads its page when shown.
     const o1 = by('O1');
     if (!o1) throw new Error('no O1');
     await expect
@@ -384,7 +384,7 @@ test.describe('Open saved windows: This window (KAN-892)', () => {
     expect(await titles(serviceWorker, here)).toEqual(before);
   });
 
-  // Task 2 review: Chrome must not pull tabs added after a grouped last tab into its group.
+  // Chrome must not pull tabs added after a grouped last tab into its group.
   test("when this window's last tab is in a group, the saved tabs land after it, outside the group", async ({
     context,
     extensionId,
@@ -435,7 +435,7 @@ test.describe('Open saved windows: This window (KAN-892)', () => {
     ]);
   });
 
-  // Review Focus 1. The real toolbar popup, opened over window A, driven from a Tab Keeper page in another window.
+  // The real toolbar popup, opened over window A, driven from a Tab Keeper page in another window.
   test('from the popup, the tabs land in the window it opened over', async ({
     context,
     extensionId,
@@ -511,7 +511,7 @@ test.describe('Open saved windows: This window (KAN-892)', () => {
     expect(await normalWindowIds(serviceWorker)).toEqual(windowsBefore);
   });
 
-  // Spec 7. Allowed in incognito, a window saved incognito opens in its own
+  // Allowed in incognito, a window saved incognito opens in its own
   // new window from this normal one: Open says so, and no other way is offered.
   test('an incognito saved window from a normal window: Open says new window, the right-click offers no other way, and Open makes a new window', async ({
     context,

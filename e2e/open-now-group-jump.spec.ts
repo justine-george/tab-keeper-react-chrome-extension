@@ -16,7 +16,7 @@ const VIEWPORT = { width: 1600, height: 800 };
 // focus may take for that wait to mean anything.
 const QUIET_MS = 500;
 
-// The helpers below are copied from open-now-search.spec.ts and
+// The helpers below follow the shape of open-now-search.spec.ts's and
 // open-now-close.spec.ts, where they are file-local, as every Open now spec
 // keeps its own.
 

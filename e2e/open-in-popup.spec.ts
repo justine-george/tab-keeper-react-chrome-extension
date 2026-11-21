@@ -4,9 +4,9 @@ import { test, expect } from './fixtures/extension';
 import { seedSessions, seedSettings } from './fixtures/seed';
 
 // KAN-437. The full view's Open compact view, on the built artifact.
-// Tests 1-6 read what the worker did: the full view's tab, and each
+// Most tests read what the worker did: the full view's tab, and each
 // chrome.action.openPopup call, recorded by a stub in the worker.
-// Test 7 calls the real openPopup, which opens a popup headless (plan Task 1, Q1/Q2).
+// Tests 7 and 10 call the real openPopup, which opens a popup headless.
 
 const VIEW_TAB = 'index.html?view=tab';
 const BUTTON = 'Open compact view';

@@ -521,7 +521,7 @@ grantedTest.describe('Close and Reopen a window (KAN-280 O8)', () => {
 
 // What Chrome reported about a tab's group while a Reopen ran: the group a
 // created tab was put in, then each change of it. recordGroupSteps keeps
-// these on the service worker's global, under this name (tests 10 and 14).
+// these on the service worker's global, under this name (tests 9 and 10).
 const GROUP_STEPS = 'reopenGroupSteps';
 
 interface GroupStep {
@@ -1363,6 +1363,11 @@ test.describe('The Reopen toast is as wide as its line (KAN-280 O8b)', () => {
         clientWidth: span.clientWidth,
       }));
     expect(line.scrollWidth).toBeGreaterThan(line.clientWidth);
+    expect(
+      await toast
+        .locator('> span')
+        .evaluate((span) => getComputedStyle(span).textOverflow)
+    ).toBe('ellipsis');
   });
 });
 

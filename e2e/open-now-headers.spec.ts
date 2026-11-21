@@ -7,8 +7,8 @@ import { standIn } from './fixtures/standInPages';
 import { isValidTabMasterContainer } from '../src/utils/functions/local';
 
 // KAN-696 on the real extension: Open now's window strip (Save, then a ⋮ with
-// Close window) and a live group's strip (Save, then a ⋮ with Ungroup and
-// Close group). What jsdom cannot model: Chrome's own group rules on a Reopen
+// Copy all links and Close window) and a live group's strip (Save, then a ⋮
+// with Ungroup and Close group). What jsdom cannot model: Chrome's own group rules on a Reopen
 // into a window that changed meanwhile, the focus after a real close, and the
 // reveal of a strip by keyboard focus and not by a mouse elsewhere.
 //
