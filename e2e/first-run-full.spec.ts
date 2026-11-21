@@ -35,7 +35,7 @@ import {
   watchRunDrawn,
 } from './fixtures/run';
 
-// §3 on the real build, from Help: 8 cards, each in its mocked place.
+// §3 on the real build, from Help: 9 cards, each in its mocked place.
 
 // How many tabs the browser has gained since now, read from the browser itself, not from the harness's announcement.
 async function watchNewTabs(page: Page): Promise<() => Promise<number>> {

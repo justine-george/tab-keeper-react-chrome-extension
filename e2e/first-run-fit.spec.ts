@@ -36,7 +36,7 @@ import {
 } from './fixtures/run';
 import type { ThemeColors } from '../src/hooks/useThemeColors';
 
-// §14 on the real build: every card and dialog of the first run fits in every locale at a 24px root, and reads in every theme.
+// §14 on the real build: every card and dialog of the first run fits in each tested locale (all 13 before a release) at a 24px root, and reads in every theme.
 
 test.use({ freshProfile: true });
 
