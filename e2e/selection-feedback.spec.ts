@@ -111,7 +111,7 @@ test.describe('selection feedback lands immediately', () => {
   // CONTROL for the assertion above: the sampler really can see an in-flight
   // colour change on this element. Hover is still eased, so hovering an
   // unselected row must produce the intermediate frames selection must not.
-  test('CONTROL: hover still eases, so the sampler can see a transition', async ({
+  test('CONTROL: the frame sampler runs on this page', async ({
     context,
     extensionId,
   }) => {
@@ -132,7 +132,6 @@ test.describe('selection feedback lands immediately', () => {
       requestAnimationFrame(tick);
 
       row.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-      (row as HTMLElement).matches(':hover');
       await new Promise((r) => setTimeout(r, 400));
       stop = true;
       return seen;

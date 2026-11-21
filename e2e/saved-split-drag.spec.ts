@@ -331,7 +331,7 @@ test.describe('a saved pair is one row (KAN-942)', () => {
     await expect.poll(() => layout(page, 'S2')).toEqual(['h1 h2', 'c0 c1']);
   });
 
-  test('10. the New window targets and the New session row', async ({
+  test("10. the session header's New window target and the New session row", async ({
     context,
     extensionId,
   }) => {
@@ -557,7 +557,7 @@ test.describe('a saved pair is one row (KAN-942)', () => {
     ]);
   });
 
-  test('17. a drop in place is no undo step', async ({
+  test('17. a drop in place stores nothing', async ({
     context,
     extensionId,
   }) => {
@@ -744,6 +744,11 @@ test.describe('a saved pair into Currently open (KAN-942)', () => {
         );
       })
       .toBe(true);
+    await expect
+      .poll(() =>
+        worker.evaluate(async () => (await chrome.windows.getLastFocused()).id)
+      )
+      .toBe(made);
   });
 
   const groupOfPair = () =>

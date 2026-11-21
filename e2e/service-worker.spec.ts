@@ -3,7 +3,7 @@ import { generatePlaceholderURL } from '../src/utils/functions/local';
 
 const TARGET = 'https://example.com/';
 
-// The tests jsdom cannot express, and the reason this harness exists.
+// The test jsdom cannot express, and the reason this harness exists.
 //
 // KAN-36: restoring a session lazily opens every tab past the first as a
 // placeholder document, and something has to swap that placeholder for the

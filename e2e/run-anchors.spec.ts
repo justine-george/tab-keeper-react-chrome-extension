@@ -2,7 +2,7 @@ import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 import { openFullView, openPopup } from './fixtures/onboarding';
 
-// Every anchor the run's steps name is drawn once, in the view that names it.
+// Every anchor the run's steps name is drawn in the view that names it.
 
 const ANCHORS_EVERYWHERE = [
   '[data-pane="sessions"] [data-tour-anchor="save"]',
