@@ -988,7 +988,7 @@ grantedTest(
 
 // KAN-473. An older version knows no pins, so it can leave one below an unpinned tab or inside a group.
 grantedTest.describe(
-  'Open, then Switch, when an older version left a pin out of place',
+  'when an older version left a pin out of place (KAN-473)',
   () => {
     const GROUP: chromeTabGroupData[] = [
       { groupId: 'g1', title: 'Group', color: 'blue' },

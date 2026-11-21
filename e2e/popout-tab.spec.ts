@@ -17,15 +17,14 @@ import { buildSession, seedSessions, seedSettings } from './fixtures/seed';
 // divs MainContainer already renders. No existing hook reaches them: an
 // aria-labelled row's nearest bordered ancestor is TabGroupEntryContainer (an
 // inset framed box, margin: 8px 0 inside LeftPane's own 8px padding), not the
-// leftPaneStyle/rightPaneStyle div this task changes the width of -- walking
+// leftPaneStyle/rightPaneStyle div KAN-279 changes the width of -- walking
 // up from it stops two levels too early. The attribute carries no layout of
 // its own, so it is inert for every other spec.
 const TAB_VIEWPORT = { width: 1280, height: 800 };
 const POPUP_VIEWPORT = { width: 790, height: 550 };
 
-// CONTROL literals. Measured on this branch's HEAD (57c8b5e), before any of
-// this task's changes, at 790x550, via `[data-pane]` added temporarily for
-// the measurement only (see the task report for the exact steps):
+// CONTROL literals. Measured at 57c8b5e, before KAN-279's changes, at
+// 790x550, via `[data-pane]` added temporarily for the measurement only:
 //   HOME sessions pane:     {left: 0,     right: 355.5, width: 355.5, bottom: 550}
 //   HOME detail pane:       {left: 355.5, right: 790,   width: 434.5, bottom: 550}
 //   SETTINGS sessions pane: {left: 0,     right: 237,   width: 237,   bottom: 550}
@@ -71,7 +70,7 @@ async function seedAndOpen(
   await page.setViewportSize(viewport);
   await page.goto(`chrome-extension://${extensionId}/${path}`);
   // Barrier: goto resolves before React mounts. "Sort sessions" is the
-  // header control every home-view test above waits on; it only exists once
+  // header control every home-view test below waits on; it only exists once
   // the app has rendered.
   await page.getByRole('button', { name: 'Sort sessions' }).waitFor();
   return page;

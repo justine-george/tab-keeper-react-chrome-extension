@@ -5,7 +5,7 @@ import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 import { overAnOrdinaryTab } from './fixtures/currentTab';
 
 // KAN-92. A session row shows two things when you engage with it: it REVEALS
-// its Open/Switch/Delete actions, and it FILLS with the hover colour. Those
+// its Open/Switch/Replace actions, and it FILLS with the hover colour. Those
 // were driven by two independent mechanisms and could disagree.
 //
 //   reveal (the action block's opacity) <- React `isHovered` state, OR the
@@ -54,7 +54,7 @@ async function openWith(
 const rowFor = (page: Page, title: string): Locator =>
   page.getByRole('button', { name: title, exact: true }).locator('..');
 
-/** The absolutely-positioned Open/Switch/Delete block inside a row. */
+/** The absolutely-positioned Open/Switch/Replace block inside a row. */
 const actionsIn = (row: Locator): Locator => row.locator('[data-row-actions]');
 
 type SeamFrame = { left: string; right: string; strip: boolean };
@@ -256,7 +256,7 @@ async function tabUntilFocused(
 }
 
 test.describe('a row reveals its actions and fills as one state', () => {
-  test('a row the keyboard reaches is filled like a hovered one, and shows no actions until it is the one shown', async ({
+  test('a row the keyboard reaches is filled like a hovered one, and draws no actions while another session is shown', async ({
     context,
     extensionId,
   }) => {

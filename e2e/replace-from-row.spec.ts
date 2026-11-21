@@ -11,7 +11,7 @@ import { showRowActions } from './fixtures/savedRow';
 import { stored } from './fixtures/savedWindows';
 import { localeStrings } from './fixtures/locales';
 
-// KAN-581 (picks 1A, 2A). The saved row's Replace, before Delete, in both views: the ⋮ menu's Replace this session with open windows (KAN-468).
+// KAN-581 (picks 1A, 2A). The saved row's Replace, last on the row, in both views: the ⋮ menu's Replace this session with open windows (KAN-468).
 
 const page = (title: string) => `data:text/html,<title>${title}</title>`;
 const OLD = ['https://kyoto.test/', 'https://osaka.test/'];
@@ -123,7 +123,7 @@ for (const view of ['popup', 'full'] as const) {
   });
 }
 
-// Each row label stays inside its own 57px button, so neighbours never run together.
+// Each row label stays inside its own button, so neighbours never run together.
 const LANGS = [
   'de',
   'en',

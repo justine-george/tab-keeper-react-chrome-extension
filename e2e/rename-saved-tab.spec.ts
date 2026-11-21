@@ -141,7 +141,7 @@ test('a click away saves', async ({ context, extensionId }) => {
   expect(await customTitleOf(page, 't1')).toBe('Sync notes');
 });
 
-test("a right-click in the field keeps it open with Chrome's own menu", async ({
+test('a right-click in the field keeps it open and opens no row menu', async ({
   context,
   extensionId,
 }) => {
