@@ -127,7 +127,7 @@ async function pickUp(page: Page, rowId: string) {
 }
 
 test.describe('the gap between two windows', () => {
-  test('never previews a landing back at the row own origin', async ({
+  test("never previews a landing back at the row's own origin", async ({
     context,
     extensionId,
   }) => {

@@ -26,9 +26,9 @@ import {
   storedRun,
   watchRunDrawn,
 } from './fixtures/run';
-import { WELCOME_LOOP, heroPx } from '../src/components/modals/welcomeMotion';
 
-// §5 on the real build: a new install's welcome, with Try the full view folded in.
+// §5 on the real build: a new install's welcome, whose Get started opens the
+// full view (KAN-623).
 
 test.use({ freshProfile: true });
 
@@ -52,6 +52,15 @@ test('the welcome: hero, one line, the hint, Show me here and Get started (never
   );
   await expect(
     welcome(page).getByRole('button', { name: 'Show me here', exact: true })
+  ).toBeVisible();
+  await expect(
+    welcome(page).getByText(
+      'Save your open windows, close them, and bring them all back later.',
+      { exact: true }
+    )
+  ).toBeVisible();
+  await expect(
+    welcome(page).getByRole('button', { name: 'Get started', exact: true })
   ).toBeVisible();
   await expect(
     welcome(page).getByRole('button', { name: 'Not now', exact: true })
@@ -264,11 +273,13 @@ const chipsHome = (dialog: import('@playwright/test').Locator) =>
       return [r.left - right.left, r.top - right.top];
     });
   });
-// Each chip's place in the right window, at the drawing's scale (KAN-654).
-const HOME = [0, 1, 2].map((i) => [
-  heroPx(6) + i * WELCOME_LOOP.CHIP_STEP_PX,
-  heroPx(5),
-]);
+// Each chip's place in the right window, at the drawing's 0.8 scale (KAN-654):
+// 6px in and 5px down, one every 50px.
+const HOME = [
+  [5, 4],
+  [45, 4],
+  [85, 4],
+];
 
 const expectHome = (home: number[][]) =>
   home.forEach(([x, y], i) => {

@@ -30,14 +30,13 @@ import {
 } from './fixtures/run';
 import { overAnOrdinaryTab } from './fixtures/currentTab';
 
-// KAN-695. What Chrome's accessibility tree says about every titled control,
-// recorded on main before the native tooltip is replaced. A `title` on a
-// control that already has a name is its description, so removing `title`
-// must leave these arrays as they are (the decided text changes aside).
+// KAN-695. What Chrome's accessibility tree says about every tooltip anchor.
+// The app's chip took over from the native `title` and left each name and
+// description as it was (the decided text changes aside).
 // Each key comes from the markup (data-tour-anchor, aria-label, text), never
 // from `title`, so it survives the swap.
 
-/** Every element that carries a tooltip. The one line the swap changes. */
+/** Every element that carries a tooltip. */
 const TITLED = '[data-tooltip]';
 
 interface AxReading {
@@ -240,6 +239,7 @@ const EXPECTED: Record<string, AxRecord[]> = {
     ['settings: Language', 'button "Go back" #1', 'button', 'Go back', ''],
     ['settings: Quick access', 'button "Go back" #1', 'button', 'Go back', ''],
     ['settings: Sync & backup', 'button "Go back" #1', 'button', 'Go back', ''],
+    ['settings: Import', 'button "Go back" #1', 'button', 'Go back', ''],
     ['settings: Sessions', 'button "Go back" #1', 'button', 'Go back', ''],
     ['settings: Recently deleted', 'button "Go back" #1', 'button', 'Go back', ''],
     ['settings: About', 'button "Go back" #1', 'button', 'Go back', ''],
@@ -248,7 +248,7 @@ const EXPECTED: Record<string, AxRecord[]> = {
   export: asRecords([
     // KAN-880. The way back's visible words are "Tab Keeper"; its name and tooltip say where.
     ['export', 'button "Back to Tab Keeper" #1', 'button', 'Back to Tab Keeper', ''],
-    // KAN-827. Layout's glyphs carry their words as tooltips, as Colour's do.
+    // KAN-827. Layout's glyphs carry their words as tooltips, as Color's do.
     ['export', 'button "Compact" #1', 'button', 'Compact', ''],
     ['export', 'button "Comfortable" #1', 'button', 'Comfortable', ''],
     ['export', 'button "Light" #1', 'button', 'Light', ''],
@@ -941,6 +941,7 @@ const PANES = [
   'Language',
   'Quick access',
   'Sync & backup',
+  'Import',
   'Sessions',
   'Recently deleted',
   'About',

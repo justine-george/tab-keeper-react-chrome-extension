@@ -16,7 +16,7 @@ import { stubToolbarPin } from './fixtures/toolbarPin';
 // sight within the hour for the same reason.
 //
 // Cramped: 2px of outline plus 2px of offset is 4px of ring, and the swatches
-// sit in a flex row with gap: 4px, so the ring consumed the whole gap and
+// sat in a flex row with gap: 4px, so the ring consumed the whole gap and
 // touched its neighbours. Each swatch also carries its own 1px border, so the
 // active one drew two concentric lines with a space between them.
 //
@@ -108,7 +108,7 @@ test.describe('the active theme swatch is marked by its own border', () => {
 
     // The width of one swatch while it is NOT active, then while it is. This
     // is the whole reason KAN-88 used an outline: a border that changes the
-    // box shoves the other four sideways as selection moves. box-sizing:
+    // box shoves the others sideways as selection moves. box-sizing:
     // border-box is what makes the border safe to use here, and this is the
     // assertion that holds it to that.
     await swatch(page, 'Paper').click();

@@ -5,7 +5,8 @@ import { buildSession, seedSettings } from './fixtures/seed';
 import { seedOnce } from './fixtures/cloud';
 import { POPUP, TAB_VIEW } from './fixtures/savedWindows';
 
-// KAN-587 on the real artifact: 12-hour unless picked; Settings › Display ›
+// KAN-587 on the real artifact: saved settings with no clock read 12-hour (a
+// first run starts on its language's clock, KAN-954); Settings › Display ›
 // 24-hour redraws the rows, survives a reload, and reaches another open page
 // through the storage event. Nothing here differs by OS.
 
@@ -90,7 +91,7 @@ test('another open page redraws without a reload', async ({
 // The hover is the one place Chromium would also change the DATE: zh 12-hour
 // draws 2026/10/14 where Chinese reads 2026年10月14日 (review, measured in
 // Chromium 156). Only a real browser's ICU shows it.
-test('Chinese, 12-hour by default: the hover keeps the date as Chinese writes it', async ({
+test('Chinese, on 12-hour: the hover keeps the date as Chinese writes it', async ({
   context,
   extensionId,
 }) => {

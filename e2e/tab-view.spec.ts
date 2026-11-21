@@ -493,9 +493,9 @@ const C = buildSession({ tabGroupId: 'c', title: 'Session C', ...at(2) });
 const D = buildSession({ tabGroupId: 'd', title: 'Session D', ...at(1) });
 
 // How long a negative is watched for, from the moment the page heard the
-// save. A page not held draws a save by the time it hears it (the
-// save-round-trip test), so an absence across this window is the hold, not
-// a slow event, however slow the run is.
+// save. A page not held draws a save by the time it hears it (`a save in
+// either page appears in the other`), so an absence across this window is
+// the hold, not a slow event, however slow the run is.
 const WATCH_MS = 2_000;
 
 const CLOUD = /firestore\.googleapis\.com|identitytoolkit\.googleapis\.com/;

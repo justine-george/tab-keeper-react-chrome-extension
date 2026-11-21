@@ -6,7 +6,6 @@ import { THEMES } from './fixtures/onboarding';
 import { localeStrings } from './fixtures/locales';
 import { expectReadable } from './fixtures/textContrast';
 import { rgbToHex } from './fixtures/pixels';
-import { mixHex } from '../src/styles/mixHex';
 
 // KAN-450, KAN-732. The tab-group offer closes like the sync dialog: Not now
 // outlined, then a filled Turn on half as wide again, paired at the right.
@@ -96,7 +95,7 @@ test('a user who answered once on 1.9 gets the same two buttons', async ({
     isTabGroupsPromptAnsweredOnce: true,
   });
   const dialog = page.getByRole('dialog');
-  await expect(dialog.getByRole('button')).toHaveCount(2);
+  await expect(dialog.getByRole('button')).toHaveText(['Not now', 'Turn on']);
   await expect(
     page.getByRole('button', { name: "Don't ask again", exact: true })
   ).toHaveCount(0);
@@ -202,6 +201,17 @@ test('the pair is one row in every language at 16, 20 and 24px', async ({
   expect(px).toBeGreaterThan(0);
 });
 
+// Turn on's hover and press fills: TEXT over PRIMARY at 88% and 76%.
+const FILLS: Record<string, [string, string]> = {
+  Chalk: ['#393A3C', '#545556'],
+  Light: ['#515356', '#686A6D'],
+  WarmLight: ['#413E37', '#5A564F'],
+  BBPink: ['#594C51', '#6F6267'],
+  Charcoal: ['#D6D7D8', '#BCBDBE'],
+  Darkenheimer: ['#BCBCBC', '#A8A8A8'],
+  Blue: ['#BCBCCB', '#A8A8B7'],
+};
+
 for (const [theme, palette] of THEMES) {
   test(`${theme}: Turn on (rest, hover, press) and Not now read at 4.5:1`, async ({
     context,
@@ -212,6 +222,9 @@ for (const [theme, palette] of THEMES) {
       theme,
     });
     const { notNow, turnOn } = buttonsOf(page);
+    const fills = FILLS[theme];
+    if (fills === undefined) throw new Error(`no fills for ${theme}`);
+    const [hover, press] = fills;
     const fillIs = (hex: string) => () =>
       turnOn
         .evaluate((el) => getComputedStyle(el).backgroundColor)
@@ -223,15 +236,11 @@ for (const [theme, palette] of THEMES) {
     await expectReadable(notNow, `${theme} Not now, rest`);
 
     await turnOn.hover();
-    await expect(
-      fillIs(mixHex(palette.TEXT_COLOR, palette.PRIMARY_COLOR, 0.88))
-    ).toPass();
+    await expect(fillIs(hover)).toPass();
     await expectReadable(turnOn, `${theme} Turn on, hover`);
 
     await page.mouse.down();
-    await expect(
-      fillIs(mixHex(palette.TEXT_COLOR, palette.PRIMARY_COLOR, 0.76))
-    ).toPass();
+    await expect(fillIs(press)).toPass();
     await expectReadable(turnOn, `${theme} Turn on, press`);
     await page.mouse.up();
   });

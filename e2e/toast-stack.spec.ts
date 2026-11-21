@@ -17,9 +17,10 @@ import { NEEDS_YOU_TOAST_MS, TOAST_MS } from '../src/redux/toastDuration';
 import { ON_TITLE } from './fixtures/savedRow';
 
 // KAN-349 on the real artifact: toasts stack, newest at the bottom, older
-// ones above, 8px apart, at most 3; each keeps its own time and a hover on
-// any holds them all; a new one rises 12px and fades in over 220ms while the
-// others move up; reduced motion fades only; and Cmd/Ctrl+Z follows Q1 C′.
+// ones above, 8px apart, at most 4 (KAN-401); each keeps its own time and a
+// hover on any holds them all; a new one rises 12px and fades in over 220ms
+// while the others move up; reduced motion fades only; and Cmd/Ctrl+Z follows
+// Q1 C′.
 // What jsdom cannot show: layout, transitions, and the key in a real page.
 //
 // Every toast here comes from the real UI: Open now's × ("Tab closed", with
