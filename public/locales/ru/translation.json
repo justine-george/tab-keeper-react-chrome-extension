@@ -597,5 +597,9 @@
   "Select all": "Выбрать все",
   "Deselect all": "Снять выбор",
   "Everything in your bookmarks is already imported.": "Всё из ваших закладок уже импортировано.",
-  "There are no bookmarks to import.": "Нет закладок для импорта."
+  "There are no bookmarks to import.": "Нет закладок для импорта.",
+  "WhatsNewImportBookmarksTitle": "Импорт папок закладок",
+  "WhatsNewImportBookmarksBody": "В разделе Настройки › Импорт отметьте нужные папки. Каждая станет сохранённой сессией, а ваши закладки останутся без изменений.",
+  "WhatsNewFoldGroupTitle": "Сворачивайте группы вкладок",
+  "WhatsNewFoldGroupBody": "Нажмите стрелку перед названием группы, чтобы свернуть её. В разделе «Открытые вкладки» группа сворачивается и в Chrome. Свёрнутая сохранённая группа откроется свёрнутой."
 }

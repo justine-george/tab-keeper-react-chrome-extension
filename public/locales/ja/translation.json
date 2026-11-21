@@ -522,5 +522,9 @@
   "Select all": "すべて選択",
   "Deselect all": "すべて選択解除",
   "Everything in your bookmarks is already imported.": "ブックマークはすべてインポート済みです。",
-  "There are no bookmarks to import.": "インポートできるブックマークがありません。"
+  "There are no bookmarks to import.": "インポートできるブックマークがありません。",
+  "WhatsNewImportBookmarksTitle": "ブックマークフォルダをインポート",
+  "WhatsNewImportBookmarksBody": "設定 › インポート で、インポートしたいフォルダにチェックを入れます。各フォルダが保存済みセッションになり、ブックマークはそのまま残ります。",
+  "WhatsNewFoldGroupTitle": "タブグループを折りたたむ",
+  "WhatsNewFoldGroupBody": "グループ名の前にある矢印をクリックすると、グループを折りたためます。「現在開いているタブ」では、Chrome のグループも折りたたまれます。折りたたんだ保存済みグループは、開いたときも折りたたまれたままです。"
 }

@@ -522,5 +522,9 @@
   "Select all": "全选",
   "Deselect all": "取消全选",
   "Everything in your bookmarks is already imported.": "您的书签已全部导入。",
-  "There are no bookmarks to import.": "没有可导入的书签。"
+  "There are no bookmarks to import.": "没有可导入的书签。",
+  "WhatsNewImportBookmarksTitle": "导入书签文件夹",
+  "WhatsNewImportBookmarksBody": "在 设置 › 导入 中，勾选需要的文件夹。每个文件夹都会成为一个已保存的会话，您的书签保持不变。",
+  "WhatsNewFoldGroupTitle": "折叠标签页群组",
+  "WhatsNewFoldGroupBody": "点击群组名称前的箭头即可折叠该群组。在“当前打开的标签页”中，Chrome 里的群组也会一起折叠。折叠后的已保存群组，打开时仍保持折叠。"
 }

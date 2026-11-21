@@ -22,7 +22,8 @@ Tab Keeper is a free, open-source session and tab manager for Chrome. It manages
 - **Save as PDF:** Preview any session, or the windows you have open, as a clean document, rename titles or hide rows, then save it as a PDF or print it. Or copy all its links at once.
 - **Device Sync:** Turn on sync to access your sessions from Chrome desktop browsers connected to the same Chrome profile.
 - **Privacy First:** No email address, account setup, or signup required. Sessions stay on your device until you choose to sync.
-- **Backup to File:** Save your sessions to a file, and load them back by merging or replacing.
+- **Backup to File:** Save your sessions and settings to a file, and load them back by merging or replacing.
+- **Import from Bookmarks:** Turn Chrome bookmark folders into saved sessions. Your bookmarks stay as they are.
 - **Quick Search:** Find any saved or open tab as you type, by its title or its tab group's name.
 - **Keyboard Friendly:** Open Tab Keeper with a shortcut, and use it fully from the keyboard or with a screen reader.
 - **Multi-Language Support:** Use Tab Keeper in 13 languages. It starts in Chrome's language.
@@ -54,7 +55,30 @@ Read the full [privacy policy](PRIVACY.md).
 
 ## Changelog
 
-### v.2.4.0 (Latest)
+### v.2.5.0 (Latest)
+
+#### Features
+
+- Import Chrome bookmark folders as saved sessions, from Settings › Import or during setup. Each folder becomes a session, and the folders inside it become its windows. Your bookmarks stay as they are
+- Tab groups fold and unfold from the arrow next to their name. In Currently open, Chrome folds the group too. A saved group you fold stays folded when you open it
+- Backups carry your settings. Replace, or a load into an empty Tab Keeper, brings them back; Merge keeps this device's
+
+#### Improvements
+
+- The backup buttons read Save a backup and Load a backup
+- The sort menu names its dates the way the session line does: Date edited, Date created
+- The two skip settings say when they apply: Skip duplicates when saving, Skip duplicates when opening
+- Drops onto New window, into the session list and across windows glide into place like a drop within a window
+- Text links answer hover with a thicker underline instead of a fill
+- Tour cards put Skip tutorial and Not now at the left of the button row
+- Accounts near the sync limit sync compressed past 80% of it, so they hold more sessions
+
+#### Fixes
+
+- After a group's only tab is dropped elsewhere, the rows below it no longer jump up
+- The group menu's color row sits centered between its two lines
+
+### v.2.4.0
 
 #### Features
 
@@ -110,12 +134,6 @@ Read the full [privacy policy](PRIVACY.md).
 - Esc closes Currently open's window menu even if its Sort item goes while the menu is open
 - Row actions hide after a rename once the pointer has moved away
 - An open cloud question closes when another page answers it
-
-### v.2.2.1
-
-#### Improvements
-
-- Dialogs look more consistent: titles share one style, and their icons line up with the text
 
 ## Blog Posts
 

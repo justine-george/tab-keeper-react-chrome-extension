@@ -564,5 +564,9 @@
   "Select all": "Seleccionar todo",
   "Deselect all": "Deseleccionar todo",
   "Everything in your bookmarks is already imported.": "Todo lo de tus marcadores ya está importado.",
-  "There are no bookmarks to import.": "No hay marcadores para importar."
+  "There are no bookmarks to import.": "No hay marcadores para importar.",
+  "WhatsNewImportBookmarksTitle": "Importa tus carpetas de marcadores",
+  "WhatsNewImportBookmarksBody": "En Configuración › Importación, marca las carpetas que quieras. Cada una se convierte en una sesión guardada, y tus marcadores se quedan como están.",
+  "WhatsNewFoldGroupTitle": "Contrae un grupo de pestañas",
+  "WhatsNewFoldGroupBody": "Haz clic en la flecha que hay antes del nombre de un grupo para contraerlo. En «Pestañas abiertas», el grupo también se contrae en Chrome. Un grupo guardado que contraigas sigue contraído al abrirlo."
 }
