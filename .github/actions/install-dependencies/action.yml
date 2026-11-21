@@ -1,0 +1,45 @@
+name: Install dependencies
+description: >
+  Restores node_modules from the Actions cache, or runs npm ci when there is
+  none (KAN-978). With save, it only looks the cache up, and stores the
+  install when the lookup misses.
+
+# A cache saved from a PR is readable only by that PR, so a cache every PR can
+# use must be saved from main (warm_dependency_cache.yaml) or, on a lockfile
+# change, by the PR's own `deps` job before the other jobs start.
+# The key is the lockfile plus the OS and Node major: the platform binaries
+# npm picks (rolldown, lightningcss) follow the OS, and nothing compiles
+# against Node's ABI. A miss always falls back to a clean npm ci.
+
+inputs:
+  save:
+    description: "'true' to store node_modules when the cache has none"
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Node major
+      id: node
+      shell: bash
+      run: echo "major=$(node -p 'process.versions.node.split(".")[0]')" >> "$GITHUB_OUTPUT"
+
+    - name: Restore node_modules
+      id: cache
+      uses: actions/cache/restore@v6
+      with:
+        path: node_modules
+        key: node-modules-${{ runner.os }}-node${{ steps.node.outputs.major }}-${{ hashFiles('package-lock.json') }}
+        lookup-only: ${{ inputs.save }}
+
+    - name: npm ci
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: npm ci --no-audit --no-fund
+
+    - name: Save node_modules
+      if: inputs.save == 'true' && steps.cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: node_modules
+        key: ${{ steps.cache.outputs.cache-primary-key }}

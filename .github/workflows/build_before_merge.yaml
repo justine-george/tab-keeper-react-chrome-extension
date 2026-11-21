@@ -5,9 +5,10 @@ on:
     branches:
       - main
 
-# KAN-227, KAN-444. Five kinds of job, so the slow parts run side by side:
+# KAN-227, KAN-444. Six kinds of job, so the slow parts run side by side:
 #
 #   changes whether the PR changes only docs            one runner
+#   deps    node_modules in the cache (KAN-978)         one runner
 #   checks  lint, E2E typecheck                         one runner
 #   unit    the vitest suite, in 2 shards               one runner per shard
 #   e2e     the E2E suite, in 15 shards                 one runner per shard
@@ -51,9 +52,31 @@ jobs:
           git diff --name-only HEAD^1 HEAD
           echo "docs_only=$(git diff --name-only HEAD^1 HEAD | node scripts/docs_only.mjs)" >> "$GITHUB_OUTPUT"
 
+  # KAN-978. Beside `changes`, so it costs no time: a lookup when main's cache
+  # (warm_dependency_cache.yaml) has this lockfile, and on a lockfile change one
+  # npm ci, saved for this PR's other jobs instead of 18 of them each running it.
+  deps:
+    name: Dependencies cached
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        uses: ./.github/actions/install-dependencies
+        with:
+          save: 'true'
+
   checks:
     name: Lint, E2E typecheck
-    needs: changes
+    needs: [changes, deps]
     if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -71,7 +94,7 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        uses: bahmutov/npm-install@v1
+        uses: ./.github/actions/install-dependencies
 
       # Fails on lint errors only; `any` and exhaustive-deps are warnings and
       # are reported without blocking. Without this step the lint script was
@@ -88,7 +111,7 @@ jobs:
   # ~4 min of vitest on one 4-vCPU runner was the floor once e2e got faster.
   unit:
     name: Unit tests shard ${{ matrix.shard }} of ${{ strategy.job-total }}
-    needs: changes
+    needs: [changes, deps]
     if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -107,14 +130,14 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        uses: bahmutov/npm-install@v1
+        uses: ./.github/actions/install-dependencies
 
       - name: Run tests
         run: npx vitest run --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
   e2e:
     name: E2E shard ${{ matrix.shard }} of ${{ strategy.job-total }}
-    needs: changes
+    needs: [changes, deps]
     if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     # Above the suite's 12-minute globalTimeout plus ~2 min of setup.
@@ -134,10 +157,11 @@ jobs:
       fail-fast: false
       matrix:
         # Shards hold equal measured time, not equal test counts (KAN-444).
-        # 15 hold ~3 min of tests each (KAN-465); with checks and unit, 18 jobs
-        # run at once (`changes` ends before them, the gate starts after), under
-        # a public repo's 20 concurrent, so one PR never queues (two at once
-        # do). The `--shard` total follows this length.
+        # 15 held ~3 min of tests each at KAN-465, ~8 min by KAN-978. With
+        # checks and unit, 18 jobs run at once (`changes` and `deps` end before
+        # them, the gate starts after), under a public repo's 20 concurrent, so
+        # one PR never queues (two at once do). The `--shard` total follows
+        # this length.
         shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
     steps:
@@ -166,7 +190,7 @@ jobs:
 
       - name: Install dependencies
         timeout-minutes: 5
-        uses: bahmutov/npm-install@v1
+        uses: ./.github/actions/install-dependencies
 
       # `build:e2e`, not `build`: it chains the prune step, so CI now produces
       # the artifact that actually ships (the release workflow strips remotely
