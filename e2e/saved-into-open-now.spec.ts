@@ -27,8 +27,9 @@ import type {
 } from '../src/redux/slices/tabContainerDataStateSlice';
 
 // KAN-815 on the real artifact: a saved tab, group or window let go over
-// Currently open opens a copy in Chrome, in the background. The saved session
-// never changes, and nothing is focused or switched to.
+// Currently open opens a copy in Chrome, in the background, and nothing is
+// switched to. One let go on a New window box opens a new window, in front
+// (KAN-853). The saved session never changes.
 //
 // Every live tab is a data: page in a window the worker opens unfocused, so
 // the tab view stays the page under the pointer. The tab view is side by side
@@ -701,30 +702,9 @@ test.describe('the ghost', () => {
   const OPEN_NOW_SLOT = `${OPEN_NOW} [data-drag-landing-slot]`;
   const OPEN_NOW_PHANTOM = `${OPEN_NOW} [data-drag-row-id^="open-now:"]`;
 
-  test('in the lit box below the last window, the box alone is drawn', async ({
-    context,
-    extensionId,
-    serviceWorker: worker,
-  }) => {
-    const live = await openLiveWindow(worker, ['A', 'B']);
-    const page = await setUp(context, extensionId);
-    await expect(liveRow(page, live.idOf('B'))).toBeVisible();
-
-    await pickUp(page, tabHandle(page, 's2'));
-    // CONTROL: between two rows the slot is drawn.
-    await carryTo(page, await topOf(liveRow(page, live.idOf('B'))));
-    await expect(page.locator(OPEN_NOW_SLOT)).toBeVisible();
-
-    const b = await boxOf(liveRow(page, live.idOf('B')));
-    await carryTo(page, { x: b.x + 80, y: b.y + b.height + 6 });
-    await expect(page.locator(LAST_BOX)).toHaveAttribute('data-landing', '');
-    await expect(page.locator(OPEN_NOW_SLOT)).toBeHidden();
-    await page.keyboard.press('Escape');
-  });
-
   // Demo D4 (his pick): like the saved side's, drawn only while lit, so rows a
   // gap pushes down never land on it.
-  test('the box below the last window is drawn only while lit', async ({
+  test('the box below the last window is drawn only while lit, and lit it is the only landing drawn', async ({
     context,
     extensionId,
     serviceWorker: worker,
@@ -735,6 +715,7 @@ test.describe('the ghost', () => {
     const label = page.locator(LAST_BOX).getByText('New window');
 
     await pickUp(page, tabHandle(page, 's2'));
+    // CONTROL: between two rows the slot is drawn.
     await carryTo(page, await topOf(liveRow(page, live.idOf('B'))));
     await expect(page.locator(OPEN_NOW_SLOT)).toBeVisible();
     await expect(label).toBeHidden();
@@ -747,6 +728,7 @@ test.describe('the ghost', () => {
     const b = await boxOf(liveRow(page, live.idOf('B')));
     await carryTo(page, { x: b.x + 80, y: b.y + b.height + 6 });
     await expect(page.locator(LAST_BOX)).toHaveAttribute('data-landing', '');
+    await expect(page.locator(OPEN_NOW_SLOT)).toBeHidden();
     await expect(label).toBeVisible();
     expect(await border()).not.toBe('rgba(0, 0, 0, 0)');
     await page.keyboard.press('Escape');

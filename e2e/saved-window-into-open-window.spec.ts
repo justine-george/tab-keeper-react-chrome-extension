@@ -21,7 +21,8 @@ import type {
 // the end of it by Open's rules, with nothing taking focus: every new tab
 // inactive, the window's active tab unchanged, Tab Keeper still in front. The
 // New window box below the list still makes a new window. The saved session
-// never changes; no toast, no Undo.
+// never changes; no toast. ⌘Z takes it back (KAN-893,
+// saved-into-open-now-undo.spec.ts).
 //
 // Every live tab is a data: page in a window the worker opens unfocused, so
 // the tab view stays the page under the pointer. Side by side at 1280x800.
@@ -175,7 +176,7 @@ test('a release adds the tabs at its end, inactive; focus and the active tab are
   expect(await toastCount(page)).toBe(0);
 });
 
-// Review carry from Task 2: the window's last tab grouped -- appended tabs must not join that group.
+// The window's last tab is grouped: appended tabs must not join that group.
 test('pinned and grouped saved tabs land as Open lands them', async ({
   context,
   extensionId,

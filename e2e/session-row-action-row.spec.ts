@@ -13,7 +13,9 @@ import {
   stored,
 } from './fixtures/savedWindows';
 
-// KAN-775 on the real artifact: an unselected session row's right-click leads with Open · Switch · Replace and offers Add current window.
+// KAN-775 on the real artifact: an unselected session row's right-click leads
+// with Open · Switch · Replace (Open · Replace in the tab view) and offers Add
+// current window.
 
 const SESSIONS = [
   session('S1', 'Trip', [savedWindow('w1', 'Reading', 2)]),

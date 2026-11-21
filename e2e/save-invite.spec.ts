@@ -105,7 +105,7 @@ for (const view of VIEWS) {
       });
     }
 
-    test('hover stops the pulse, the still ring stays', async ({
+    test('hover stops the pulse, the still ring stays, and leaving does not start it again', async ({
       context,
       extensionId,
     }) => {
@@ -114,38 +114,20 @@ for (const view of VIEWS) {
       await page.locator(SAVE).hover();
       await expect.poll(() => pulse(page)).toBeNull();
       expect(await ringShadow(page)).toContain('0px 0px 0px 2px');
-    });
-
-    test('focus stops the pulse, the still ring stays', async ({
-      context,
-      extensionId,
-    }) => {
-      const page = await openEmpty(context, extensionId, view);
-      expect(await pulse(page)).not.toBeNull();
-      await page.locator(SAVE).focus();
-      await expect.poll(() => pulse(page)).toBeNull();
-      expect(await ringShadow(page)).toContain('0px 0px 0px 2px');
-    });
-
-    test('after a hover, leaving does not start it again', async ({
-      context,
-      extensionId,
-    }) => {
-      const page = await openEmpty(context, extensionId, view);
-      await page.locator(SAVE).hover();
-      await expect.poll(() => pulse(page)).toBeNull();
       await page.mouse.move(1, 1);
       await page.waitForTimeout(100);
       expect(await pulse(page)).toBeNull();
     });
 
-    test('after focus, a blur does not start it again', async ({
+    test('focus stops the pulse, the still ring stays, and a blur does not start it again', async ({
       context,
       extensionId,
     }) => {
       const page = await openEmpty(context, extensionId, view);
+      expect(await pulse(page)).not.toBeNull();
       await page.locator(SAVE).focus();
       await expect.poll(() => pulse(page)).toBeNull();
+      expect(await ringShadow(page)).toContain('0px 0px 0px 2px');
       await page.locator(SAVE).blur();
       await page.waitForTimeout(100);
       expect(await pulse(page)).toBeNull();

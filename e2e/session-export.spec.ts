@@ -776,7 +776,8 @@ test('a knob held mid-slide never counts as settled', async ({
   );
 });
 
-// Every shipped language, before and after a flip: options differ in width.
+// Ten of the shipped languages, before and after a flip: options differ in
+// width.
 const LANGUAGES = ['en', 'de', 'es', 'fr', 'hi', 'it', 'ja', 'pt', 'ru', 'zh'];
 
 for (const language of LANGUAGES) {
@@ -909,7 +910,7 @@ test('the knob springs past its rest and still never leaves the frame', async ({
 });
 
 // KAN-201 stops every transition for the frame the palette changes; the
-// Colour knob needs its own exemption to slide.
+// Color knob needs its own exemption to slide.
 test('pressing Dark slides the knob while the colours switch at once', async ({
   context,
   extensionId,
