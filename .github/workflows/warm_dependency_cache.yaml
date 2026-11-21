@@ -1,0 +1,34 @@
+name: Warm dependency cache
+
+# KAN-978. A cache saved from a PR is readable by that PR alone; one saved from
+# main is readable by every PR. So main saves node_modules for its lockfile,
+# and each PR job restores it instead of running npm ci (~60s). A lookup when
+# the cache already has this lockfile; a PR restoring it keeps it from the
+# 7-day eviction. workflow_dispatch refills it by hand after an eviction.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  node_modules:
+    name: node_modules for main's lockfile
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+
+      # The same Node as build_before_merge.yaml: the key holds its major.
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        uses: ./.github/actions/install-dependencies
+        with:
+          save: 'true'
