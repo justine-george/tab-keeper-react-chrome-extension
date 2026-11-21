@@ -84,7 +84,7 @@ test.describe('the sliding pair from the keyboard (KAN-225)', () => {
     expect(await pressedIn(page, 'Layout')).toEqual(['Comfortable']);
   });
 
-  test('the Colour pair behaves the same', async ({ context, extensionId }) => {
+  test('the Color pair behaves the same', async ({ context, extensionId }) => {
     const page = await openExport(context, extensionId);
     expect(await pressedIn(page, 'Color')).toEqual(['Light']);
 

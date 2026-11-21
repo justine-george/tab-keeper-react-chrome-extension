@@ -37,7 +37,7 @@ const side = (page: Page, word: 'On' | 'Off') =>
 const card = (page: Page) => page.getByTestId('sync-status');
 
 test.describe('the sync status line agrees with the Auto Sync pair (KAN-248)', () => {
-  test('booted with auto sync off, the card says manual and Off is pressed', async ({
+  test('booted with auto sync off, the card says manual and Off is pressed; pressing On moves it off manual, pressing Off brings it back', async ({
     context,
     extensionId,
   }) => {
@@ -45,13 +45,6 @@ test.describe('the sync status line agrees with the Auto Sync pair (KAN-248)', (
     await expect(side(page, 'Off')).toHaveAttribute('aria-pressed', 'true');
     await expect(card(page)).toHaveAttribute('data-sync-state', 'manual');
     await expect(card(page)).toContainText('Manual sync');
-  });
-
-  test('pressing On moves the card off manual; pressing Off brings it back', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await openSyncPane(context, extensionId, false);
     // KAN-268. Pressing On starts a real sign-in and read in a local build
     // (it carries the project's config; CI's does not). A full local run
     // signs up ~400 fresh profiles and Firebase then refuses the IP (signUp
@@ -108,22 +101,17 @@ test.describe('the sync status line agrees with the Auto Sync pair (KAN-248)', (
     ).toBe('10px');
   });
 
-  test('the body line wraps rather than truncating', async ({
+  test('the body line is not cut off at its edge', async ({
     context,
     extensionId,
   }) => {
     const page = await openSyncPane(context, extensionId, false);
     const line = card(page).locator('[data-sync-line]');
-    const { scrollWidth, clientWidth, lines } = await line.evaluate((el) => ({
+    const { scrollWidth, clientWidth } = await line.evaluate((el) => ({
       scrollWidth: el.scrollWidth,
       clientWidth: el.clientWidth,
-      lines: Math.round(
-        el.getBoundingClientRect().height /
-          parseFloat(getComputedStyle(el).lineHeight)
-      ),
     }));
     expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
-    expect(lines).toBeGreaterThanOrEqual(1);
   });
 });
 

@@ -30,7 +30,7 @@ const layoutWidth = (el: Locator) =>
 const boxWidth = (el: Locator) =>
   el.evaluate((node) => node.getBoundingClientRect().width);
 
-// Setup on its first step, in one language, with all six steps.
+// Setup on its first step, in one language, with all seven steps.
 async function openSetup(
   context: BrowserContext,
   extensionId: string,

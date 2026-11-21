@@ -336,8 +336,9 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
   });
 
   // The held row is below the window that opens: the frame it opens in
-  // already shows everything where it rests (Task 3's re-measure, before
-  // paint), and the title row it rests on does not move (D12).
+  // already shows everything where it rests (the re-measure before paint,
+  // dragSpringOpenRemeasure.test.tsx), and the title row it rests on does not
+  // move (D12).
   async function expectOpensAbove(
     page: Page,
     w: {

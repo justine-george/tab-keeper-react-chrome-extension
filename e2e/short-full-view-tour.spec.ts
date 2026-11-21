@@ -142,7 +142,7 @@ test('an unanswered welcome still gets the whole tour', async ({
   await expectCount(full, 1, 9);
 });
 
-test('Help after the short tour runs all nine', async ({
+test('Help after the short tour starts the nine-card tour', async ({
   context,
   extensionId,
 }) => {

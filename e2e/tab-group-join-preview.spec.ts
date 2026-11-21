@@ -255,18 +255,6 @@ test.describe('ground truth: what the drop actually does', () => {
   });
 });
 
-// Drag `rowId` onto Alpha's title row and read the preview WITHOUT releasing,
-// so the measurement is of the preview rather than of the committed drop.
-//
-// Returns each element's previewed top: its pre-drag top plus whatever the
-// drag has translated it by, and for the held row the landing slot's own
-// position -- which is where the preview PROMISES the row will settle.
-//
-// Read from the COMMANDED transform, never from the animating box: rows carry
-// `transition: transform 0.18s`, so a rect read straight after the last
-// pointer move catches them at the start of the ease and reports a row that is
-// about to move as one that is not. Measured -- the members read 130 mid-flight
-// where they settle at 164.
 // The middle of Alpha's title row: inside the band, so a release joins Alpha.
 const titleRowY = async (page: Page) => {
   const b = (await page
@@ -293,6 +281,18 @@ const secondSlotY = async (page: Page) => {
   return b.y + b.height * 0.75;
 };
 
+// Drag `rowId` onto Alpha's title row and read the preview WITHOUT releasing,
+// so the measurement is of the preview rather than of the committed drop.
+//
+// Returns each element's previewed top: its pre-drag top plus whatever the
+// drag has translated it by, and for the held row the landing slot's own
+// position -- which is where the preview PROMISES the row will settle.
+//
+// Read from the COMMANDED transform, never from the animating box: rows carry
+// `transition: transform 0.18s`, so a rect read straight after the last
+// pointer move catches them at the start of the ease and reports a row that is
+// about to move as one that is not. Measured -- the members read 130 mid-flight
+// where they settle at 164.
 async function previewOfDragging(
   page: Page,
   rowId: string,
@@ -505,13 +505,8 @@ test.describe('the preview predicts the drop', () => {
     expect(painted.strip!.top).toBe(painted.band!.top);
     expect(painted.strip!.bottom).toBe(painted.band!.bottom);
 
-    // THE HIT AREA MUST NOT MOVE. Growing the frame previews the RESULT; it
-    // does not make the target bigger. bandAt reads this box on every pointer
-    // move, so a band that grew its own hit area would keep the pointer inside
-    // itself and LATCH as the drop target -- measured in CI, where a pointer
-    // moved clear of every band left one still marked.
-    // PREMISE: the band's painted box really did grow past its resting top,
-    // so the strip of screen tested below exists at all.
+    // PREMISE for the next test: the band's painted box grew past its
+    // resting top.
     expect(painted.band!.top).toBeLessThan(rest.band!.top);
   });
 
@@ -613,10 +608,11 @@ test.describe('the preview predicts the drop', () => {
   });
 
   // KAN-175. The mirror of KAN-174, at the other end of the group. A tab
-  // joining at the TAIL must be drawn inside the strip it is joining, and one
-  // landing just past the group must be drawn outside it -- the two land 2px
-  // apart, so the frame is the only thing that can tell them apart.
-  test('joining at the tail is drawn inside the strip, landing past it outside', async ({
+  // joining at the TAIL must be drawn inside the strip it is joining; one
+  // landing just past the group is drawn outside it (group-tail-frame.spec's
+  // `stops at the last member…`) -- the two land 2px apart, so the frame is
+  // the only thing that can tell them apart.
+  test('joining at the tail is drawn inside the strip', async ({
     context,
     extensionId,
   }) => {

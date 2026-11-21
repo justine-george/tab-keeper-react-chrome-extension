@@ -12,9 +12,11 @@ const SECTIONS = [
   'Language',
   'Quick access',
   'Sync & backup',
+  'Import',
   'Sessions',
   'Recently deleted',
   'Help',
+  'About',
 ];
 
 async function openSettings(page: Page, rootPx: number) {

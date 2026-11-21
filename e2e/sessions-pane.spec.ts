@@ -14,9 +14,9 @@ import { buildContainer, seedSessions } from './fixtures/seed';
 // The pair is not pressed here. On asks Chrome for an optional permission,
 // which no e2e profile can pre-grant and which may close the popup before
 // it settles (KAN-226); what Chrome is asked is covered in jsdom against the
-// fake. This pins the pane's shape in a real browser: one pair, named for
-// its setting, Off pressed in a fresh profile, on the popup scale, and no
-// memory row above it.
+// fake. This pins the pane's shape in a real browser: five pairs, each named
+// for its setting, the first with Off pressed in a fresh profile, on the popup
+// scale, and no memory row.
 
 async function openPane(
   context: Parameters<typeof seedSessions>[0],
@@ -46,7 +46,7 @@ const openQuickAccess = (
 ) => openPane(context, extensionId, 'Quick access', 'Default view');
 
 test.describe('the Sessions pane (KAN-249, KAN-250, KAN-253)', () => {
-  test('five pairs, Save Tab Groups with Off pressed on the popup scale, Skip duplicates when saving (KAN-906), Open saved windows (KAN-892), Skip duplicates when opening (KAN-910), then Copy links; no memory setting, no history setting, no backup', async ({
+  test('five pairs, Save tab groups with Off pressed on the popup scale, Skip duplicates when saving (KAN-906), Open saved windows (KAN-892), Skip duplicates when opening (KAN-910), then Copy links; no memory setting, no history setting, no backup', async ({
     context,
     extensionId,
   }) => {
