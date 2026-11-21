@@ -355,7 +355,7 @@ const openView = (
 
 // Skip on every card the run can skip from, in both views, with the user's own sessions kept.
 for (const [view, last] of [
-  ['popup', 7],
+  ['popup', 8],
   ['full', 8],
 ] as const) {
   for (let at = view === 'full' ? 0 : 1; at < last; at++) {

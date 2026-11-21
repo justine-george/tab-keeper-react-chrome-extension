@@ -48,7 +48,7 @@ test('no full view open: one opens on setup’s first step, and its address forg
   expect((await storedSettings(full)).setupState).toBe('pending');
 });
 
-test('a full view already open is focused and shows the pin guide, dismissed or not', async ({
+test('a full view already open shows the pin guide, even after a dismissal, and no second one opens', async ({
   context,
   extensionId,
 }) => {

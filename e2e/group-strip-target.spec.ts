@@ -332,7 +332,8 @@ test.describe('the group colour strip is a legal target (KAN-231)', () => {
 // KAN-706. A tab dragged over its group's strip found it shrinking from the
 // drop target's 16px to the hover's 11: the two rules weigh the same and the
 // hover one came later. Mid-drag the strip is not a control to click, so
-// only the drop target's width may show.
+// only the drop target's width may show. With no drag, a hover still widens
+// it to 11px: `paints 7px at rest, 11 hovered…` above.
 test.describe('a drag over the strip keeps the drop target width (KAN-706)', () => {
   /** Picks up alpha1 by its row and holds it in its own group. */
   async function pickUp(page: Page) {
@@ -394,15 +395,5 @@ test.describe('a drag over the strip keeps the drop target width (KAN-706)', () 
     });
     expect(min).toBe(16);
     await page.mouse.up();
-  });
-
-  test('CONTROL: with no drag, hovering the strip still widens it to 11px', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await open(context, extensionId);
-    await page.locator(STRIP).hover();
-    await page.waitForTimeout(300);
-    expect((await geometry(page)).paint).toBe(11);
   });
 });
