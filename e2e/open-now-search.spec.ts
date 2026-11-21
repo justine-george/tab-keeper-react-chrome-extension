@@ -944,7 +944,7 @@ test.describe('the placeholder fits in every locale (KAN-330)', () => {
 // ---- a search typed while a row is held ----
 
 // Measured 2026-09-28 (headless Chromium, this build), the reachability probe
-// for Task 7's jsdom finding:
+// behind KAN-335's jsdom finding:
 // - A press on a row moves focus from the field to the row's Switch button,
 //   so typing, Backspace and `/` while the row is held leave the field alone
 //   (value stayed '', activeElement stayed the button, `/` is refused).

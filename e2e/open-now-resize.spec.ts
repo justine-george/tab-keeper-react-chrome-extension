@@ -920,6 +920,10 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     await expectOpenNow(page, 616);
     await expect.poll(() => storedWidth(page)).toBe(616);
     await expect(grip).toHaveAttribute('aria-valuenow', '616');
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    await expectOpenNow(page, 584);
+    await expect(grip).toHaveAttribute('aria-valuenow', '584');
 
     // The double-click's own presses start and end a drag that moves
     // nothing, so they save nothing; the dblclick itself resets.
@@ -927,7 +931,7 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     await page.mouse.dblclick(centre.x, centre.y);
     await expectOpenNow(page, 600);
     await expect.poll(() => storedWidth(page)).toBeNull();
-    // The key is written as null, not left at 616 and read around.
+    // The key is written as null, not left at 584 and read around.
     expect(
       await page.evaluate(() => {
         const raw = window.localStorage.getItem('settingsData') ?? '{}';

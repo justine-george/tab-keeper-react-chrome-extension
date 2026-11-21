@@ -18,7 +18,7 @@ import { boxOf, pickUp } from './fixtures/sessionDrag';
 // engine's landings on boxes drawn at pick-up, and the list's re-read.
 //
 // Every live tab is a data: page in a window the worker opens unfocused; Tab Keeper's page is in the launch
-// window, which Open now does not list.
+// window, which Open now lists as This window, without Tab Keeper's own tab.
 
 const OPEN_NOW = '[data-pane="open-now"]';
 const HEADER_BOX = `${OPEN_NOW} [data-new-window-target="open-now-first"]`;
@@ -145,12 +145,19 @@ test.describe('the boxes a live drag is offered', () => {
     // PREMISE: at rest neither box is drawn.
     await expect(page.locator(HEADER_BOX)).toHaveCount(0);
     await expect(page.locator(LAST_BOX)).toHaveCount(0);
+    // CSS, not a role query: a role query skips a hidden control.
+    const collapseAll = page.locator(
+      `${OPEN_NOW} [aria-label="Collapse all windows"]`
+    );
+    await expect(collapseAll).toBeVisible();
 
     await pickUp(page, liveHandle(page, live.idOf('B')));
 
     await expect(page.locator(HEADER_BOX)).toBeVisible();
     await expect(page.locator(HEADER_BOX)).not.toHaveAttribute('data-landing');
     await expect(page.locator(TOOLBAR)).toHaveCount(1);
+    await expect(collapseAll).toHaveCount(1);
+    await expect(collapseAll).toBeHidden();
     await expect(page.locator(LAST_BOX)).toBeAttached();
     await expect(page.locator(LAST_BOX)).not.toHaveAttribute('data-landing');
 

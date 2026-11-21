@@ -64,7 +64,7 @@ test('Enter renames the group out of the search: focus moves to the field', asyn
   await expect(field(page)).toBeFocused();
 });
 
-test('the tick does the same', async ({
+test('the tick renames the group out of the search: focus moves to the field', async ({
   context,
   extensionId,
   serviceWorker,

@@ -75,7 +75,8 @@ test('popup: no line between the list and the session, an 8px gap, and the sessi
   expect(p.sessions.borderLeft).toBe('1px');
   expect(p.detail.borderRight).toBe('1px');
   expect(p.detail.borderTop).toBe('1px');
-  // Today's session content was 364.5..781; the 9px comes off its left.
+  // Before KAN-747 the session's content was 364.5..781; the 9px comes off
+  // its left.
   expect(p.detail.contentRight).toBe(POPUP.width - 9);
   expect(p.detail.contentRight - p.detail.contentLeft).toBe(781 - 364.5 + 9);
 });
