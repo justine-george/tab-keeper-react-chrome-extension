@@ -114,7 +114,7 @@ test('Monochrome mirrors for the worker, draws for the mode, and stays chosen af
     .poll(() => iconsSet(page))
     .toEqual([LIGHT_ICON, DARK_ICON, 'icons/icon128.png']);
 
-  // CONTROL: on Colour, a mode change touches nothing.
+  // CONTROL: on Color, a mode change touches nothing.
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.waitForTimeout(300);
   expect(await iconsSet(page)).toHaveLength(3);
@@ -295,7 +295,7 @@ base('a restart applies Monochrome in the last mode a page saw', async () => {
   );
 });
 
-base('worst path: a stored value no build wrote starts on Colour', async () => {
+base('worst path: a stored value no build wrote starts on Color', async () => {
   const seen = await startWith({ toolbarIcon: 'neon', toolbarMode: 'dusk' });
   baseExpect(new Set(seen)).toEqual(new Set(['icons/icon128.png']));
 });

@@ -1000,6 +1000,7 @@ test.describe('no native tooltip', () => {
       'Language',
       'Quick access',
       'Sync & backup',
+      'Import',
       'Sessions',
       'Recently deleted',
       'About',

@@ -60,7 +60,8 @@ const open = (
   });
 
 // The title is the header's button that shows the label: found by its text, not
-// its name, so on main's build it is the same button (which opened the window).
+// its name, so before KAN-394 P2 it was the same button (which opened the
+// window).
 const title = (page: Page, windowId: string, label: string) =>
   header(page, windowId).locator('button', { hasText: label });
 
@@ -73,7 +74,8 @@ const openButton = (page: Page, windowId: string, label: string) =>
 const editor = (page: Page, windowId: string) =>
   header(page, windowId).getByRole('textbox');
 
-// Opens the window's title editor. The one step that differs on main's build.
+// Opens the window's title editor. The one step that differed before KAN-394
+// P2.
 const startRename = (page: Page, windowId: string, label: string) =>
   title(page, windowId, label).click();
 
@@ -501,7 +503,7 @@ for (const [theme, colours] of THEMES) {
   });
 }
 
-// ---- the Open button's look (Task 7's checks, on the built artifact) ---------
+// ---- the Open button's look, on the built artifact --------------------------
 
 for (const [theme, colours] of THEMES) {
   test(`popup, ${theme}: the Open button is 32px, a 1px PANEL_BORDER edge, SECONDARY type, LABEL_L1 at rest and TEXT on hover and press`, async ({
@@ -731,7 +733,7 @@ test('popup, scrolled: a sideways drag on a title renames nothing', async ({
   expect(await gestureSeen(page)).toEqual({ dragging: false, editor: true });
 });
 
-// ---- group bands follow windows (Task 9) ---------------------------------------
+// ---- group bands follow windows ---------------------------------------------
 
 const RESEARCH = { groupId: 'gr', title: 'Research', color: 'blue' as const };
 const UNNAMED = { groupId: 'gu', title: '', color: 'red' as const };
@@ -742,11 +744,13 @@ const G1 = (groups = [RESEARCH, UNNAMED]) =>
     groupedWindow('gw', 'Grouped', groups, 2, { width: 800, height: 600 }),
   ]);
 
-// Found by its text, so on main's build it is the same button (which opened).
+// Found by its text, so before KAN-394 P2 it was the same button (which
+// opened).
 const groupTitle = (page: Page, groupId: string, label: string) =>
   bandHandle(page, groupId).locator('button', { hasText: label });
 
-// Open in the strip: on main the TITLE carried this name, so the strip is the scope.
+// Open in the strip: before KAN-394 P2 the TITLE carried this name, so the
+// strip is the scope.
 const groupOpen = (page: Page, groupId: string, label: string) =>
   bandHandle(page, groupId)
     .locator('[data-row-actions]')
