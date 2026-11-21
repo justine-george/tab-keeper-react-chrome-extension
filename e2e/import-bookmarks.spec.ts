@@ -479,7 +479,7 @@ test.describe('Import from bookmarks in setup (KAN-862)', () => {
     );
   });
 
-  // KAN-862 task 12. No card: the line, the button and the small print start where the step heading does,
+  // KAN-862. No card: the line, the button and the small print start where the step heading does,
   // before an import and after it, when the line and the button have new words.
   test('the heading, the line, the button and the small print share one left edge, before and after an import', async ({
     context,
@@ -515,7 +515,7 @@ test.describe('Import from bookmarks in setup (KAN-862)', () => {
     await shareTheEdge('1 session imported.', 'Import more');
   });
 
-  // KAN-862 task 12. German's line before an import takes two lines at this width and its later lines take one,
+  // KAN-862. German's line before an import takes two lines at this width and its later lines take one,
   // so the line has to hold the tallest one's room or the button just focused and the small print jump up.
   test('in German the line, the button and the small print stay put through an import and a press with nothing left', async ({
     context,

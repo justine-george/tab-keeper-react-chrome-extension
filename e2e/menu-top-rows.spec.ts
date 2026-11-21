@@ -331,7 +331,7 @@ test('tab view: a live group’s Go to lands on its tab used last, with its wind
   serviceWorker,
 }) => {
   const windowId = await stage(serviceWorker);
-  // In Chrome's order: Flights, then Temples (Inari, Kinkaku-ji), then Kyoto weather.
+  // In Chrome's order: Flights, then Temples (Inari, Kinkaku-ji).
   const ids = await serviceWorker.evaluate(
     async (id) =>
       (await chrome.tabs.query({ windowId: id }))

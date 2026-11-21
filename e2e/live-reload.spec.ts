@@ -83,7 +83,7 @@ const renameControl = (page: Page, title: string) =>
   page.getByRole('button', { name: `Rename session: ${title}`, exact: true });
 
 // Undo and redo are div[role=button]; "disabled" is opacity 0.3, not an
-// attribute (e2e-testing-recipes).
+// attribute.
 const opacityOf = (page: Page, name: string) =>
   page
     .getByRole('button', { name, exact: true })
