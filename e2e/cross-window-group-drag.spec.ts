@@ -3,8 +3,8 @@
 // tabs in order and contiguous.
 //
 // The same drop `cross-window-drag.spec.ts` pins for a TAB, one level up. The
-// helpers below are copied from it unchanged, so the two files ask their
-// questions the same way; only the fixture and the pick-up differ (an items
+// helpers below follow its shape, so the two files ask their questions the
+// same way; only the fixture and the pick-up differ (an items
 // list is dragged by its handle, as in `group-drag.spec.ts`).
 //
 // Previews are read from the COMMANDED inline transforms, never from rects: the
@@ -457,7 +457,7 @@ test.describe('a group released over another window', () => {
       .poll(() => order(page, 'w2'))
       .toBe('be0* be1* al0* al1* b0 b1');
     expect(await groupsOf(page, 'w2')).toEqual([BETA, ALPHA]);
-    // STRENGTHENED (Task 13 step 1): the release lands deep inside beta's own
+    // STRENGTHENED: the release lands deep inside beta's own
     // band, which is the one geometry where a bug pouring alpha's tabs into
     // beta could also leave alpha's metadata behind in w1 -- the two windows'
     // chromeTabGroups arrays being independent, a bug in the removal half of
@@ -467,7 +467,7 @@ test.describe('a group released over another window', () => {
 });
 
 // A release that names no window has nowhere to go, and doing nothing is the
-// honest answer (§11.3, §6 as amended in Task 5). It pairs with the drops
+// honest answer (§11.3, §6). It pairs with the drops
 // above, so a list that refused everything cannot pass here.
 test.describe('a group released over no window', () => {
   // KAN-185 REPLACED this one's rule. The gap between two blocks named no
@@ -532,8 +532,8 @@ test.describe('while a group is held over another window', () => {
 });
 
 // KAN-164: the preview must show what the release DOES. Each window is
-// previewed in its own frame (previewShiftsAcross, measured wrong as one flat
-// range in Task 5): the window the group leaves closes up below it, the window
+// previewed in its own frame (previewShiftsAcross; one flat range measured it
+// wrong): the window the group leaves closes up below it, the window
 // it enters opens from the insertion point down, and nothing else moves.
 test.describe('what a group drag into another window previews', () => {
   test('into the middle: only the items past the landing point step down', async ({
@@ -729,7 +729,7 @@ test.describe('a window emptied by the group that left it', () => {
   });
 });
 
-// Task 13 step 2. Every other fixture in this file gives its groups two
+// Every other fixture in this file gives its groups two
 // members, which cannot tell "landed in the right place" apart from "landed
 // with its members reordered" -- two members can only ever look the same
 // forwards and backwards read as a pair, or a bug could drop a middle member
@@ -804,12 +804,12 @@ test.describe('a three-tab group crossing windows', () => {
   });
 });
 
-// Task 13 step 4. The end-to-end counterpart of Task 10's store-level undo
-// round trip: a real drag, through the DOM, undone through the same Ctrl+Z
-// path a user presses (MainContainer's keydown handler), asserting both
-// windows' stored orders and both windows' group lists -- not just one side
-// of the move, which is exactly the asymmetry M1 in Task 12 showed can hide a
-// wrong answer in the window the user dragged FROM.
+// The end-to-end counterpart of moveChromeGroupAcrossWindowsSyncs.test.ts's
+// store-level undo round trip: a real drag, through the DOM, undone through the
+// same Ctrl+Z path a user presses (MainContainer's keydown handler), asserting
+// both windows' stored orders and both windows' group lists -- not just one
+// side of the move, an asymmetry that can hide a wrong answer in the window
+// the user dragged FROM.
 test.describe('undoing a cross-window group move', () => {
   test('puts both windows back exactly as they were', async ({
     context,

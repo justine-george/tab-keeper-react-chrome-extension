@@ -11,7 +11,6 @@ import {
 import { openFullView, storedSettings } from './fixtures/onboarding';
 import { cardAt, cardButton, closeReplayNote } from './fixtures/run';
 import { rgbToHex } from './fixtures/pixels';
-import { mixHex } from '../src/styles/mixHex';
 import {
   CHALK_THEME,
   DARKENHEIMER_THEME,
@@ -271,7 +270,7 @@ test.describe('the cloud question (KAN-259)', () => {
 test.describe('dialog buttons answer a press', () => {
   test.use({ freshProfile: true });
 
-  // The filled button: its letters stay PRIMARY while its fill mixes TEXT over PRIMARY, 88% then 76%.
+  // The filled button: its letters stay PRIMARY while its fill mixes TEXT over PRIMARY, 88% then 76% (Chalk: #393A3C, #545556).
   test('hover and a held press are two different fills', async ({
     context,
     extensionId,
@@ -297,12 +296,12 @@ test.describe('dialog buttons answer a press', () => {
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await expect
       .poll(fill, { timeout: 2000 })
-      .toEqual([mixHex(TEXT_COLOR, PRIMARY_COLOR, 0.88), PRIMARY_COLOR]);
+      .toEqual(['#393A3C', PRIMARY_COLOR]);
 
     await page.mouse.down();
     await expect
       .poll(fill, { timeout: 2000 })
-      .toEqual([mixHex(TEXT_COLOR, PRIMARY_COLOR, 0.76), PRIMARY_COLOR]);
+      .toEqual(['#545556', PRIMARY_COLOR]);
     // Release off the button, so the press is not also a click.
     await page.mouse.move(0, 0);
     await page.mouse.up();

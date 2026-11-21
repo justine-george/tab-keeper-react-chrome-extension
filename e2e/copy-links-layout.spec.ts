@@ -165,7 +165,7 @@ test.beforeEach(async ({ context, serviceWorker }) => {
   });
 });
 
-test('a fresh install pastes links only from the session menu', async ({
+test('with the default setting, the session menu pastes links only', async ({
   context,
   extensionId,
 }) => {
@@ -188,7 +188,7 @@ test('a fresh install pastes links only from the session menu', async ({
   expect(rich.items).toBe(0);
 });
 
-test("with headings seeded, the session menu pastes today's layout", async ({
+test('with headings seeded, the session menu pastes the With headings layout', async ({
   context,
   extensionId,
 }) => {

@@ -276,6 +276,7 @@ for (const view of ['full view', 'popup'] as const) {
     );
 
     const lines = plain.split('\n');
+    expect(lines[1]).toMatch(/^2 Windows · \d+ Tabs$/);
     expect(lines).toContain('  Temples (2 Tabs)');
     expect(plain).toContain('Fushimi Inari hours');
   });

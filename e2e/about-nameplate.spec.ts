@@ -15,7 +15,7 @@ import {
 } from '../src/hooks/useThemeColors';
 import { rgb } from './fixtures/pixels';
 
-// KAN-241. Settings -> About is laid out like the other four panes -- a
+// KAN-241. Settings -> About is laid out like the other panes -- a
 // left-aligned section under the shared inset -- with a nameplate on top: the
 // app's mark drawn in the page's ink beside "Tab Keeper", and the version
 // under it.
