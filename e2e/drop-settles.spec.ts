@@ -43,7 +43,7 @@ import {
 // at release and its settled top. The controls hold the other half: a drag
 // that moves nothing still eases its rows home.
 
-// Frames recorded after the release: past DURATION.MOVE (280ms) and Open
+// Frames recorded after the release: past DURATION.MOVE (200ms) and Open
 // now's re-read.
 const FRAMES = 40;
 
@@ -414,41 +414,9 @@ test.describe('a saved list (KAN-835)', () => {
     expect(strays(frames)).toEqual([]);
   });
 
-  test('the session list: a session dropped two rows down', async ({
-    context,
-    extensionId,
-  }) => {
-    const list = sessions(4);
-    const page = await openSaved(context, extensionId, 'popup', {
-      sessions: [S1, ...list],
-    });
-    const row = (id: string) =>
-      page.locator(`[data-pane="sessions"] [data-drag-row-id="${id}"]`);
-    await expectFits(row('L0'));
-    const { x } = await pickUp(page, row('L1'));
-    const below = await boxOf(row('L3'));
-    await moveTo(page, x, below.y + below.height - 6);
-    await recordFrames(
-      page,
-      '[data-pane="sessions"] [data-drag-row-id]',
-      'data-drag-row-id',
-      'pointerup'
-    );
-    await page.mouse.up();
-
-    const frames = await framesRecorded(page);
-    expectSettled(frames);
-    expect(
-      (await stored(page)).tabGroups
-        .map((g) => g.tabGroupId)
-        .filter((id) => id !== 'S1')
-    ).toEqual(['L0', 'L2', 'L3', 'L1']);
-    expect(strays(frames)).toEqual([]);
-  });
-
   // KAN-957. The dropped session glides from where it was let go into its
   // slot, as a dropped tab does, and nothing else in the list moves.
-  test('the session list: the dropped session glides into its slot', async ({
+  test('the session list: a session dropped two rows down glides into its slot', async ({
     context,
     extensionId,
   }) => {
@@ -471,6 +439,11 @@ test.describe('a saved list (KAN-835)', () => {
 
     const frames = await framesRecorded(page);
     expectSettled(frames);
+    expect(
+      (await stored(page)).tabGroups
+        .map((g) => g.tabGroupId)
+        .filter((id) => id !== 'S1')
+    ).toEqual(['L0', 'L2', 'L3', 'L1']);
     // PREMISE: let go off its slot.
     expect(Math.abs(travel(frames, 'L1'))).toBeGreaterThan(8);
     expect(eased(frames)).toEqual(['L1']);

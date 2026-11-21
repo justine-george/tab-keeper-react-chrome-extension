@@ -270,6 +270,9 @@ test.describe('export open windows (KAN-208)', () => {
         const row = document.querySelector('div:has(> input#name)')!;
         const input = row.querySelector('input#name')!.getBoundingClientRect();
         return {
+          rowHeight: document
+            .querySelector('[data-save-row]')
+            ?.getBoundingClientRect().height,
           inputBottom: input.bottom,
           saveAll: row
             .querySelector(`[aria-label="${saveAll}"]`)!
@@ -280,6 +283,7 @@ test.describe('export open windows (KAN-208)', () => {
         };
       }, strings['Save every open window as a session']);
 
+      expect(geometry.rowHeight).toBeCloseTo(58, 0);
       expect(geometry.inputBottom).toBeCloseTo(115, 0);
       expect(geometry.trigger.height).toBeCloseTo(geometry.saveAll.height, 0);
       expect(geometry.trigger.width).toBeCloseTo(28, 0);

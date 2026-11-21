@@ -70,7 +70,7 @@ const JUNK = [
 
 for (const [view, path] of PAGES) {
   for (const [name, raw] of JUNK) {
-    test(`${view}, ${name}: the first frame is the default's ground, Chalk's on a light OS`, async ({
+    test(`${view}, ${name}: the first frame is the default theme's ground, Chalk's`, async ({
       context,
       extensionId,
     }) => {

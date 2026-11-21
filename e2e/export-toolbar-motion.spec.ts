@@ -136,7 +136,10 @@ test('the popup keeps its buttons as they were', async ({
   expect(press.scale, 'a popup Button does not dip').toBe(1);
 });
 
-test('with reduced motion nothing dips', async ({ context, extensionId }) => {
+test('with reduced motion Edit does not dip', async ({
+  context,
+  extensionId,
+}) => {
   const page = await openExport(context, extensionId);
   await page.emulateMedia({ reducedMotion: 'reduce' });
 
@@ -148,7 +151,7 @@ test('with reduced motion nothing dips', async ({ context, extensionId }) => {
   expect(press.scale).toBe(1);
 });
 
-test('on a touch screen, hovering fills nothing', async ({
+test('on a touch screen, hovering Edit fills nothing', async ({
   context,
   extensionId,
 }) => {
