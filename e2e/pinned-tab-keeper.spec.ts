@@ -268,7 +268,7 @@ test.describe('Open session', () => {
 });
 
 test.describe('Switch', () => {
-  test('Off, a hand-pinned full view: it survives the switch, pinned at index 0 of the focused new window', async ({
+  test('Off, a hand-pinned full view: it survives the switch, pinned at index 0 of the new Window 1', async ({
     context,
     extensionId,
     serviceWorker,
@@ -855,7 +855,7 @@ test('⤢ asking for the pin guide turns the asking window’s stub into the ful
   ]);
 });
 
-// pinned.js against the faked hidden state (stubsStayHidden); the no-CDP test below is the real-Chrome proof.
+// pinned.js against the faked hidden state (stubsStayHidden).
 test('the stub paints its theme’s ground while hidden, and becomes the full view when shown', async ({
   context,
   extensionId,

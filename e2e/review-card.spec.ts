@@ -275,8 +275,6 @@ test('✕ closes it as Not now, and the gap keeps it away on reload', async ({
   await expect(anyCard(page)).toHaveCount(0);
 });
 
-// Review I2. Below 1100px Open now is a drawer on the right, over the panes.
-// The card opens there too, and must not sit under it, its ✕ hidden.
 // KAN-864. Never click the real mailto: here: even headless, Chrome hands it
 // to the OS and Mail opens. Same-page, so the browser can follow it safely.
 const FEEDBACK_MAIL =
@@ -317,6 +315,8 @@ test('Share feedback follows its link and closes the card as a close', async ({
   expect(settings.isNeverAskAgainToRate).toBe(false);
 });
 
+// Review I2. Below 1100px Open now is a drawer on the right, over the panes.
+// The card opens there too, and must not sit under it, its ✕ hidden.
 test('a narrow full view: the card stays over the Open now drawer', async ({
   context,
   extensionId,

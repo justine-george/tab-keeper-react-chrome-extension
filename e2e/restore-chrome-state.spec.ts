@@ -191,7 +191,7 @@ grantedTest.describe('collapsed groups (KAN-460)', () => {
   );
 });
 
-test("3. Window 1 is the window saved from, even when it is not Chrome's first, and Open all focuses it", async ({
+test("3. Window 1 is the window saved from, even when it is not Chrome's first, and Open focuses it", async ({
   context,
   extensionId,
   serviceWorker,

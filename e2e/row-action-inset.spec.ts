@@ -33,7 +33,7 @@ import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 // it can never read as "touching the border" on one row and not another.
 
 // The detail pane shows the selected session's window and tab rows, which
-// carry the same hook; this spec measures the session rows.
+// carry the same hook; this spec measures the shown session's row.
 const SESSION_ACTIONS = '[data-pane="sessions"] [data-row-actions]';
 
 /** Per side, in CSS px. Mirrors `ACTION_ICON_INSET` in TabGroupEntry.tsx. */
@@ -107,7 +107,7 @@ async function rowMetrics(page: Page): Promise<RowMetric[]> {
 }
 
 test.describe('a row action icon is inset by a stated amount', () => {
-  test('every row leaves exactly the declared inset around its action icon', async ({
+  test('the shown row leaves exactly the declared inset around its action icon', async ({
     context,
     extensionId,
   }) => {
@@ -245,7 +245,7 @@ test.describe('the action block takes its box from the row', () => {
     }, SESSION_ACTIONS);
 
     // CONTROL: the sweep really did change the row's height. Without this,
-    // seventeen identical measurements would satisfy the assertion below.
+    // identical samples would satisfy the assertion below.
     expect(
       new Set(samples.map((s) => s.rowH)).size,
       'the sweep should produce a range of row heights'

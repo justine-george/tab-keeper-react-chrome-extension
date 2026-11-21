@@ -242,6 +242,11 @@ test.describe('controls', () => {
       '8px',
       "the dialog's Cancel"
     );
+    await expectCorners(
+      dialog.getByRole('button', { name: 'Delete', exact: true }),
+      '8px',
+      "the dialog's Delete"
+    );
   });
 });
 

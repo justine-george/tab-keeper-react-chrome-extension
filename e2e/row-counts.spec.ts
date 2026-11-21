@@ -1,7 +1,7 @@
 // KAN-720 on the real artifact: every window and group row ends in a tag that
 // counts the tabs it draws. What jsdom cannot show: the tag's real height on a
 // real row, its gap after the title's text, the corner shape Chromium draws,
-// a long title ellipsizing before it in the 380px drawer, and ru plurals
+// a long title ellipsizing before it in the 480px drawer, and ru plurals
 // fetched over the locale backend.
 
 import type { BrowserContext, Locator, Worker } from '@playwright/test';
