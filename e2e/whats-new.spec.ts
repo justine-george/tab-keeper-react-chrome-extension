@@ -11,11 +11,9 @@ import { seedSettings } from './fixtures/seed';
 // worker's own record is unit-tested. Updated from the release before the newest
 // listed one, the build shows that release; bump both when a release gets entries.
 
-const SINCE = '2.3.0';
-const NEWEST_LISTED = '2.4.0';
+const SINCE = '2.4.0';
+const NEWEST_LISTED = '2.5.0';
 const TITLE = `What's new in Tab Keeper ${NEWEST_LISTED}`;
-// 2.4.0 points at no setting: Open Settings needs 2.3.0's Display entry in the list too.
-const SINCE_WITH_SETTINGS = '2.2.1';
 
 const sinceIn = (worker: Worker) =>
   worker.evaluate(async () => {
@@ -30,10 +28,11 @@ const updatedFrom = (worker: Worker, version: string) =>
     version
   );
 
-const whatsNew = (page: Page, title = TITLE) =>
-  page.getByRole('dialog', { name: title, exact: true });
-// More than one release: the title names no version.
-const withSettings = (page: Page) => whatsNew(page, "What's new in Tab Keeper");
+const whatsNew = (page: Page) =>
+  page.getByRole('dialog', { name: TITLE, exact: true });
+// Settings › Import's own button: Open Settings landed there.
+const importButton = (page: Page) =>
+  page.getByRole('button', { name: 'Import from bookmarks', exact: true });
 
 test.describe("What's new (KAN-861)", () => {
   test('a fresh install shows nothing', async ({
@@ -83,31 +82,17 @@ test.describe("What's new (KAN-861)", () => {
     await expect(next.locator('dialog[data-whats-new]')).toHaveCount(0);
   });
 
-  test('with no entry pointing at a setting, only Got it shows', async ({
+  test('Open Settings lands on Settings › Import', async ({
     context,
     extensionId,
     serviceWorker,
   }) => {
     await updatedFrom(serviceWorker, SINCE);
     const page = await openPopup(context, extensionId);
-    await expect(whatsNew(page).getByRole('button')).toHaveText(['Got it']);
-  });
+    await whatsNew(page).getByRole('button', { name: 'Open Settings' }).click();
 
-  test('Open Settings lands on Settings › Display', async ({
-    context,
-    extensionId,
-    serviceWorker,
-  }) => {
-    await updatedFrom(serviceWorker, SINCE_WITH_SETTINGS);
-    const page = await openPopup(context, extensionId);
-    await withSettings(page)
-      .getByRole('button', { name: 'Open Settings' })
-      .click();
-
-    await expect(
-      page.getByRole('group', { name: 'Toolbar icon', exact: true })
-    ).toBeVisible();
-    await expect(withSettings(page)).toBeHidden();
+    await expect(importButton(page)).toBeVisible();
+    await expect(whatsNew(page)).toBeHidden();
     await expect.poll(() => sinceIn(serviceWorker)).toBeNull();
   });
 
@@ -120,14 +105,12 @@ test.describe("What's new (KAN-861)", () => {
     const ratingCard = (page: Page) => page.getByTestId('review-card');
 
     await seedSettings(context, askable);
-    await updatedFrom(serviceWorker, SINCE_WITH_SETTINGS);
+    await updatedFrom(serviceWorker, SINCE);
     const settings = await openPopup(context, extensionId);
-    await withSettings(settings)
+    await whatsNew(settings)
       .getByRole('button', { name: 'Open Settings' })
       .click();
-    await expect(
-      settings.getByRole('group', { name: 'Toolbar icon', exact: true })
-    ).toBeVisible();
+    await expect(importButton(settings)).toBeVisible();
     await expect(ratingCard(settings)).toHaveCount(0);
     await settings.close();
 

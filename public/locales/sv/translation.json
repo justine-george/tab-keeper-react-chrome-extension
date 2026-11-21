@@ -543,5 +543,9 @@
   "Select all": "Markera alla",
   "Deselect all": "Avmarkera alla",
   "Everything in your bookmarks is already imported.": "Allt i dina bokmärken är redan importerat.",
-  "There are no bookmarks to import.": "Det finns inga bokmärken att importera."
+  "There are no bookmarks to import.": "Det finns inga bokmärken att importera.",
+  "WhatsNewImportBookmarksTitle": "Importera dina bokmärkesmappar",
+  "WhatsNewImportBookmarksBody": "Markera mapparna du vill ha i Inställningar › Import. Varje mapp blir en sparad session, och dina bokmärken förblir som de är.",
+  "WhatsNewFoldGroupTitle": "Fäll ihop en flikgrupp",
+  "WhatsNewFoldGroupBody": "Klicka på pilen före en grupps namn för att fälla ihop den. I ”Öppna flikar” fälls gruppen ihop i Chrome också. En sparad grupp som du fäller ihop förblir ihopfälld när du öppnar den."
 }

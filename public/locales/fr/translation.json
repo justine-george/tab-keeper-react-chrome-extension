@@ -564,5 +564,9 @@
   "Select all": "Tout sélectionner",
   "Deselect all": "Tout désélectionner",
   "Everything in your bookmarks is already imported.": "Tout le contenu de vos favoris est déjà importé.",
-  "There are no bookmarks to import.": "Il n’y a aucun favori à importer."
+  "There are no bookmarks to import.": "Il n’y a aucun favori à importer.",
+  "WhatsNewImportBookmarksTitle": "Importez vos dossiers de favoris",
+  "WhatsNewImportBookmarksBody": "Dans Paramètres › Importation, cochez les dossiers voulus. Chacun devient une session enregistrée, et vos favoris restent tels quels.",
+  "WhatsNewFoldGroupTitle": "Réduisez un groupe d’onglets",
+  "WhatsNewFoldGroupBody": "Cliquez sur la flèche devant le nom d’un groupe pour le réduire. Dans « Onglets ouverts », le groupe se réduit aussi dans Chrome. Un groupe enregistré que vous réduisez reste réduit à l’ouverture."
 }

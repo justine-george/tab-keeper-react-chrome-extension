@@ -219,8 +219,42 @@ describe('the shipped list', () => {
     expect(changes('2.1.0')).toBe(true);
   });
 
-  test('2.4.0 is split views, live new window, then undo a drop', () => {
+  test('2.5.0 reaches 2.4.0 alone, and 2.3.0 with 2.4.0', () => {
+    const shipped = (since: string) =>
+      releasesToShow(since, '2.5.0').map((r) => r.version);
+    expect(shipped('2.4.0')).toEqual(['2.5.0']);
+    expect(shipped('2.3.0')).toEqual(['2.5.0', '2.4.0']);
+    expect(shipped('2.5.0')).toEqual([]);
+  });
+
+  test('Open Settings opens Import, the newest release with a page, from 2.4.0 and from 2.2.1', () => {
+    const page = (since: string) =>
+      settingsPageOf(releasesToShow(since, '2.5.0'));
+    expect(page('2.4.0')).toBe(SettingsCategory.IMPORT);
+    expect(page('2.2.1')).toBe(SettingsCategory.IMPORT);
+  });
+
+  test('2.5.0 is import from bookmarks, then fold a tab group', () => {
     expect(WHATS_NEW[0]).toEqual({
+      version: '2.5.0',
+      entries: [
+        {
+          titleKey: 'WhatsNewImportBookmarksTitle',
+          bodyKey: 'WhatsNewImportBookmarksBody',
+          settingsPage: SettingsCategory.IMPORT,
+          changesDefault: false,
+        },
+        {
+          titleKey: 'WhatsNewFoldGroupTitle',
+          bodyKey: 'WhatsNewFoldGroupBody',
+          changesDefault: false,
+        },
+      ],
+    });
+  });
+
+  test('2.4.0 is split views, live new window, then undo a drop', () => {
+    expect(WHATS_NEW[1]).toEqual({
       version: '2.4.0',
       entries: [
         {
@@ -243,7 +277,7 @@ describe('the shipped list', () => {
   });
 
   test('2.3.0 is toolbar icon, group color, then open in new window', () => {
-    expect(WHATS_NEW[1]).toEqual({
+    expect(WHATS_NEW[2]).toEqual({
       version: '2.3.0',
       entries: [
         {
@@ -267,7 +301,7 @@ describe('the shipped list', () => {
   });
 
   test('2.2.0 is open in this window, skip tabs, then switch to an open tab', () => {
-    expect(WHATS_NEW[2]).toEqual({
+    expect(WHATS_NEW[3]).toEqual({
       version: '2.2.0',
       entries: [
         {
@@ -292,7 +326,7 @@ describe('the shipped list', () => {
   });
 
   test('2.1.0 is Copy links, Replace a saved window, then live duplicates', () => {
-    expect(WHATS_NEW[3]).toEqual({
+    expect(WHATS_NEW[4]).toEqual({
       version: '2.1.0',
       entries: [
         {

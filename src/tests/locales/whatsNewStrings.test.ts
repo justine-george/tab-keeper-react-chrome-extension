@@ -96,4 +96,14 @@ describe.each(locales)('%s', (_, dict) => {
     expect(body).toContain(dict['Open now']);
     expect(body).toContain(dict.Undo);
   });
+
+  test('the bookmarks body names Settings › Import as shown', () => {
+    expect(dict.WhatsNewImportBookmarksBody).toContain(
+      `${dict.Settings} › ${dict.Import}`
+    );
+  });
+
+  test('the fold body names Currently open as shown', () => {
+    expect(dict.WhatsNewFoldGroupBody).toContain(dict['Open now']);
+  });
 });

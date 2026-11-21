@@ -564,5 +564,9 @@
   "Select all": "Seleziona tutto",
   "Deselect all": "Deseleziona tutto",
   "Everything in your bookmarks is already imported.": "Tutto ciò che è nei tuoi segnalibri è già stato importato.",
-  "There are no bookmarks to import.": "Non ci sono segnalibri da importare."
+  "There are no bookmarks to import.": "Non ci sono segnalibri da importare.",
+  "WhatsNewImportBookmarksTitle": "Importa le cartelle dei segnalibri",
+  "WhatsNewImportBookmarksBody": "In Impostazioni › Importazione, seleziona le cartelle che vuoi. Ognuna diventa una sessione salvata, e i tuoi segnalibri restano come sono.",
+  "WhatsNewFoldGroupTitle": "Riduci un gruppo di schede",
+  "WhatsNewFoldGroupBody": "Fai clic sulla freccia prima del nome di un gruppo per ridurlo. In «Schede aperte», il gruppo si riduce anche in Chrome. Un gruppo salvato che riduci resta ridotto quando lo apri."
 }

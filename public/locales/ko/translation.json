@@ -522,5 +522,9 @@
   "Select all": "모두 선택",
   "Deselect all": "모두 선택 해제",
   "Everything in your bookmarks is already imported.": "북마크를 모두 이미 가져왔습니다.",
-  "There are no bookmarks to import.": "가져올 북마크가 없습니다."
+  "There are no bookmarks to import.": "가져올 북마크가 없습니다.",
+  "WhatsNewImportBookmarksTitle": "북마크 폴더 가져오기",
+  "WhatsNewImportBookmarksBody": "설정 › 가져오기에서 원하는 폴더를 선택하세요. 각 폴더는 저장된 세션이 되고, 북마크는 그대로 유지됩니다.",
+  "WhatsNewFoldGroupTitle": "탭 그룹 접기",
+  "WhatsNewFoldGroupBody": "그룹 이름 앞의 화살표를 클릭하면 그룹을 접을 수 있습니다. “지금 열려 있는 탭”에서는 Chrome의 그룹도 함께 접힙니다. 접어 둔 저장된 그룹은 열 때도 접힌 상태로 열립니다."
 }

@@ -564,5 +564,9 @@
   "Select all": "Selecionar tudo",
   "Deselect all": "Desmarcar tudo",
   "Everything in your bookmarks is already imported.": "Tudo nos seus favoritos já foi importado.",
-  "There are no bookmarks to import.": "Não há favoritos para importar."
+  "There are no bookmarks to import.": "Não há favoritos para importar.",
+  "WhatsNewImportBookmarksTitle": "Importe suas pastas de favoritos",
+  "WhatsNewImportBookmarksBody": "Em Configurações › Importação, marque as pastas que quiser. Cada uma vira uma sessão salva, e seus favoritos permanecem como estão.",
+  "WhatsNewFoldGroupTitle": "Recolha um grupo de abas",
+  "WhatsNewFoldGroupBody": "Clique na seta antes do nome de um grupo para recolhê-lo. Em “Abas abertas”, o grupo também é recolhido no Chrome. Um grupo salvo que você recolher continua recolhido quando você o abre."
 }
