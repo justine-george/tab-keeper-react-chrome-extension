@@ -52,6 +52,17 @@ export const ToastTimeLeft: React.FC<ToastTimeLeftProps> = ({ id }) => {
     overflow: hidden;
     pointer-events: none;
     ${corners(RADIUS.PANEL_INNER)}
+    /* Pick D: a faint track the full width, which the line shrinks over, so
+       the room at the bottom always reads as the line's. */
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: ${LINE_PX}px;
+      background: ${COLORS.DIVIDER_COLOR};
+    }
     & > span {
       position: absolute;
       left: 0;
@@ -63,7 +74,7 @@ export const ToastTimeLeft: React.FC<ToastTimeLeftProps> = ({ id }) => {
     }
     /* Only the front toast shows its time (Justine): in an opened stack the
        older ones' lines read as clutter. Each still counts down. */
-    [data-toast]:not([data-depth='0']) > & {
+    [data-toast]:not([data-front]) > & {
       display: none;
     }
     /* Justine's pick: no line at all; the toast still leaves on time. */
@@ -73,8 +84,9 @@ export const ToastTimeLeft: React.FC<ToastTimeLeftProps> = ({ id }) => {
   `;
 
   return (
-    <span data-time-left aria-hidden="true" css={lineStyle}>
+    // A div, not a span: specs and styles read a toast's message as its span.
+    <div data-time-left aria-hidden="true" css={lineStyle}>
       <span ref={bar} />
-    </span>
+    </div>
   );
 };

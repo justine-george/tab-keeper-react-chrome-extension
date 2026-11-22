@@ -40,6 +40,9 @@ const LEAVES_PLAIN_TOASTS: StepPress = { closesPlainToasts: false };
 
 // The stack's distance from the window's left and bottom edges.
 const EDGE_PX = 20;
+// KAN-979 (pick D). The front toast's extra room for its time-left line: the
+// 3px line, and the 1px border its gap above is measured across.
+const LINE_ROOM_PX = 4;
 
 interface ToastProps {
   style?: string;
@@ -57,6 +60,11 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
   // An empty stack takes the hover with it (the effect below), so it is not open either.
   if (toasts.length === 0 && open) setOpen(false);
   const { shown, refFor } = useToastStack(toasts, open);
+  // KAN-979. The front toast, known at render so the stack's layout reads its
+  // height with the room for its line (useToastStack sets data-depth later).
+  let frontIndex = shown.length - 1;
+  while (frontIndex >= 0 && shown[frontIndex].leaving) frontIndex -= 1;
+  const frontId = frontIndex === -1 ? null : shown[frontIndex].toast.id;
   const isSettingsPage = useSelector(
     (state: RootState) => state.globalState.isSettingsPage
   );
@@ -162,6 +170,18 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     box-sizing: border-box;
     width: ${isSettingsPage ? `min(300px, ${settingsCap})` : '300px'};
     min-height: ${CONTROL.DEFAULT};
+    /* KAN-979. The front toast is taller by its line, so its text sits as far
+       from the line as from the top. With no line (reduced motion), no room. */
+    &[data-front] {
+      padding-bottom: ${10 + LINE_ROOM_PX}px;
+      min-height: calc(${CONTROL.DEFAULT} + ${LINE_ROOM_PX}px);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      &[data-front] {
+        padding-bottom: 10px;
+        min-height: ${CONTROL.DEFAULT};
+      }
+    }
     display: flex;
     justify-content: center;
     font-family: ${FONT_FAMILY};
@@ -181,6 +201,14 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     justify-content: space-between;
     gap: 8px;
     padding: 6px 6px 6px 12px;
+    &[data-front] {
+      padding-bottom: ${6 + LINE_ROOM_PX}px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      &[data-front] {
+        padding-bottom: 6px;
+      }
+    }
   `;
   const growStyle = css`
     width: max-content;
@@ -255,7 +283,10 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
         setHold({ focused: false });
       }}
     >
-      {shown.map(({ toast, leaving }) => {
+      {shown.map(({ toast, leaving }, index) => {
+        // KAN-979. The newest toast still showing is in front; one fading out
+        // after it was in front, and stays so while it fades.
+        const isFront = toast.id === frontId || (leaving && index > frontIndex);
         // The text is a key and params its interpolation values (KAN-86).
         // t() with no matching key returns the key unchanged, which is what
         // keeps a raw platform error -- a JSON SyntaxError naming its
@@ -279,6 +310,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
               key={toast.id}
               ref={refFor(toast.id)}
               data-toast
+              data-front={isFront || undefined}
               css={[toastStyle, leaving && leavingStyle]}
               aria-hidden={leaving || undefined}
             >
@@ -295,6 +327,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
             key={toast.id}
             ref={refFor(toast.id)}
             data-toast
+            data-front={isFront || undefined}
             css={[
               toastStyle,
               chipRowStyle,

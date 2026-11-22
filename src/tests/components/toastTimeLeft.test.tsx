@@ -5,6 +5,7 @@ import { Toast } from '../../components/common/Toast';
 import { ToastTimeLeft } from '../../components/common/ToastTimeLeft';
 import { showToast } from '../../redux/slices/globalStateSlice';
 import { resetHistory } from '../../redux/slices/undoRedoSlice';
+import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { holdToasts, releaseToasts } from '../../redux/toastTimers';
 import { initTestI18n } from '../setup/i18nForTests';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -129,6 +130,20 @@ describe('the time-left line (KAN-979)', () => {
     if (!line) throw new Error('no time-left line');
     expect(drawn(line)).toBeCloseTo(0.75, 2);
   });
+});
+
+test('only the newest toast is marked front, at render, so the stack measures it with its room', async () => {
+  const rendered = await renderWithProviders(<Toast />);
+  // An error stays 8s (KAN-508), so the plain toast after it leaves first.
+  await show(rendered, TOAST_MESSAGES.REOPEN_FAILED);
+  await show(rendered, 'Plain');
+  const front = () => liveToasts().map((el) => el.hasAttribute('data-front'));
+  expect(front()).toEqual([false, true]);
+
+  // The newest leaves: the one behind comes to the front.
+  act(() => vi.advanceTimersByTime(5000));
+  expect(liveToasts()).toHaveLength(1);
+  expect(front()).toEqual([true]);
 });
 
 test('draws nothing for a toast with no timer', async () => {
