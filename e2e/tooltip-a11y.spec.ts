@@ -36,8 +36,13 @@ import { overAnOrdinaryTab } from './fixtures/currentTab';
 // Each key comes from the markup (data-tour-anchor, aria-label, text), never
 // from `title`, so it survives the swap.
 
-/** Every element that carries a tooltip. */
-const TITLED = '[data-tooltip]';
+/**
+ * Every element that carries a tooltip, outside the toasts. A toast's Close
+ * (KAN-980) comes and goes on the toast's timer, so each surface is read
+ * without it, and a toast is read on its own (`a toast: its Close`).
+ */
+const TITLED_OFF_TOASTS = '[data-tooltip]:not([role="status"] *)';
+const TITLED_IN_TOASTS = '[role="status"] [data-tooltip]';
 
 interface AxReading {
   role: string;
@@ -113,7 +118,11 @@ function markupKeysOf(page: Page, selector: string): Promise<string[]> {
 /** Past the boot sync's 8s limit, the longest a page can say "Syncing…" at the blocked cloud. */
 const SYNC_SETTLES_MS = 10_000;
 
-async function recordAx(page: Page, surface: string): Promise<AxRecord[]> {
+async function recordAx(
+  page: Page,
+  surface: string,
+  selector: string = TITLED_OFF_TOASTS
+): Promise<AxRecord[]> {
   await expectUtc(page);
   // KAN-750 R8b, R14. A cloud build opens on "Syncing…" while the boot sync
   // waits for sign-in, until the blocked cloud fails it. The rows pin the
@@ -126,8 +135,8 @@ async function recordAx(page: Page, surface: string): Promise<AxRecord[]> {
     .poll(
       async () => {
         [readings, keys] = await Promise.all([
-          axOf(page, TITLED),
-          markupKeysOf(page, TITLED),
+          axOf(page, selector),
+          markupKeysOf(page, selector),
         ]);
         return [...keys, ...readings.map((r) => r.name)].filter((text) =>
           text.includes('Syncing…')
@@ -750,6 +759,9 @@ const EXPECTED: Record<string, AxRecord[]> = {
     ['saved group', 'button "Switch to tab: about:blank" #1', 'button', 'Switch to tab: about:blank', 'Last used tab'],
     ['saved group', 'div[button] "Close tab: about:blank" #1', 'button', 'Close tab: about:blank', ''],
   ]),
+  toast: asRecords([
+    ['toast', 'div[button] "Close" #1', 'button', 'Close', ''],
+  ]),
   recentlyDeleted: asRecords([
     ['recently deleted', 'button "Go back" #1', 'button', 'Go back', ''],
   ]),
@@ -1123,6 +1135,27 @@ test('Settings: Recently deleted with a deleted session in it', async ({
   await page.getByRole('button', { name: 'Restore Alpha' }).waitFor();
   const ax = await recordAx(page, 'recently deleted');
   await expectAx(page, ax, EXPECTED.recentlyDeleted);
+});
+
+// KAN-980. A toast's Close, read once its toast is the only one up.
+test('a toast: its Close', async ({ context, extensionId }) => {
+  await pinClockAndZone(context);
+  await seedOnce(context, [
+    buildSession({ tabGroupId: 's-alpha', title: 'Alpha' }),
+    buildSession({ tabGroupId: 's-bravo', title: 'Bravo' }),
+  ]);
+  await seedSettings(context, {});
+  const page = await openPopup(context, extensionId);
+  // Focused, not clicked: Delete acts on the focused row. "Session deleted.", with Undo.
+  await page
+    .locator('[data-pane="sessions"]')
+    .getByRole('button', { name: 'Alpha', exact: true })
+    .focus();
+  await page.keyboard.press('Delete');
+  const toast = page.locator('[role="status"] > [data-toast]');
+  await expect(toast).toHaveCount(1);
+  const ax = await recordAx(page, 'toast', TITLED_IN_TOASTS);
+  await expectAx(page, ax, EXPECTED.toast);
 });
 
 test('a saved session with a pinned tab and a split-view pair', async ({
