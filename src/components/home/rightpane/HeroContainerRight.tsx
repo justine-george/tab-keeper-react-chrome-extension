@@ -62,6 +62,7 @@ import { DURATION, ICON, RADIUS, TYPE } from '../../../styles/scale';
 import { useNewFirstWindowReceiver } from './useNewFirstWindowReceiver';
 import { selectRunHoldsDelete } from '../../../redux/firstRun';
 import { onFirstClickOnly } from '../../common/firstClickOnly';
+import { panes, prepareLayoutGlide } from '../../common/layoutGlide';
 import {
   clearSessionRenameDraft,
   setSessionRenameDraft,
@@ -605,7 +606,8 @@ export default function HeroContainerRight() {
                   glyphCss={glyphCss}
                 />
               )}
-              onClick={() =>
+              onClick={() => {
+                prepareLayoutGlide(panes('detail'), 'fold');
                 dispatch(
                   setAllWindowsCollapsed({
                     tabGroupId,
@@ -616,8 +618,8 @@ export default function HeroContainerRight() {
                       ? selectedTabGroup.windows.map((w) => w.windowId)
                       : [],
                   })
-                )
-              }
+                );
+              }}
             />
             {!isSearching && (
               <span

@@ -17,8 +17,8 @@ import { standIn } from './fixtures/standInPages';
 // draws its layout change as motion: the rows below glide to their place,
 // what left fades out where it stood (a copy no code can find), what arrived
 // fades in, and a group's colour strip keeps its length while its end travels
-// with the rows. From the keyboard, under Reduce motion, and for Collapse all,
-// it all happens at once.
+// with the rows. Collapse all and Expand all glide the same way. From the
+// keyboard and under Reduce motion it all happens at once.
 
 const TRIP = session('S1', 'Trip', [
   groupedWindow('gw', 'Flights & stays', [
@@ -57,8 +57,9 @@ interface Samples {
 }
 
 // Each animation frame for `ms`, from now: every named element's top (for a
-// name ending in ":h", its height; ":clip", whether it is clipped), and how
-// many leaving copies are drawn.
+// name ending in ":h", its height; ":clip", whether it is clipped; ":copy",
+// the top of the text in a leaving copy that reads its value), and how many
+// leaving copies are drawn.
 async function startSampling(
   page: Page,
   targets: Record<string, string>,
@@ -72,7 +73,11 @@ async function startSampling(
       const end = performance.now() + ms;
       const tick = () => {
         for (const [name, sel] of Object.entries(targets)) {
-          const el = document.querySelector(sel);
+          const el = name.endsWith(':copy')
+            ? ([...document.querySelectorAll('[data-leaving-row] *')].find(
+                (e) => e.childElementCount === 0 && e.textContent === sel
+              ) ?? null)
+            : document.querySelector(sel);
           const r = el?.getBoundingClientRect();
           // ":clip": 1 while the element is clipped, else 0.
           out[name].push(
@@ -260,7 +265,81 @@ test('folding a saved window glides the window below up', async ({
   await expect(page.locator('[data-leaving-row]')).toHaveCount(0);
 });
 
-test('Collapse all stays instant', async ({ context, extensionId }) => {
+test('Collapse all glides the windows up, and Expand all glides them back', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openTrip(context, extensionId);
+  const next = '[data-pane="detail"] [data-drop-window-id="w2"]';
+  const open = await topOf(block(page, 'w2'));
+  const titleWas = await topOf(
+    tabRow(page, 'w2-t1').getByText('Page w2.1', { exact: true })
+  );
+
+  await startSampling(page, {
+    next,
+    'title:copy': 'Page w2.1',
+  });
+  await page
+    .getByRole('button', { name: 'Collapse all windows', exact: true })
+    .click();
+  const folding = await samples(page);
+  const folded = await topOf(block(page, 'w2'));
+
+  expect(open - folded).toBeGreaterThan(80);
+  expect(between(folding.next, open, folded).length).toBeGreaterThanOrEqual(3);
+  expect(Math.max(...folding.copies)).toBeGreaterThan(0);
+  // The copy starts where its row stood.
+  const copiedAt = folding['title:copy'].find((v) => !Number.isNaN(v));
+  expect(copiedAt).toBeCloseTo(titleWas, 0);
+  await expect(page.locator('[data-leaving-row]')).toHaveCount(0);
+
+  await startSampling(page, { next });
+  await page
+    .getByRole('button', { name: 'Expand all windows', exact: true })
+    .click();
+  const unfolding = await samples(page);
+  await expect.poll(() => topOf(block(page, 'w2'))).toBeCloseTo(open, 0);
+  expect(between(unfolding.next, folded, open).length).toBeGreaterThanOrEqual(
+    3
+  );
+});
+
+test('Collapse all copies only the windows in view', async ({
+  context,
+  extensionId,
+}) => {
+  const big = session(
+    'B',
+    'Big',
+    Array.from({ length: 12 }, (_, i) => savedWindow(`b${i}`, `W${i}`, 30))
+  );
+  const page = await openSaved(context, extensionId, 'popup', {
+    sessions: [big],
+    selected: 'B',
+  });
+  await expect(tabRow(page, 'b0-t0')).toBeVisible();
+  await documentLanded(page);
+  // PREMISE: the last window starts well below the window's bottom edge.
+  expect(await topOf(block(page, 'b11'))).toBeGreaterThan(
+    page.viewportSize()?.height ?? Infinity
+  );
+
+  await startSampling(page, {});
+  await page
+    .getByRole('button', { name: 'Collapse all windows', exact: true })
+    .click();
+  const s = await samples(page);
+
+  expect(Math.max(...s.copies)).toBeGreaterThan(0);
+  expect(Math.max(...s.copies)).toBeLessThan(12);
+  await expect(page.locator('[data-leaving-row]')).toHaveCount(0);
+});
+
+test('Collapse all from the keyboard is instant', async ({
+  context,
+  extensionId,
+}) => {
   const page = await openTrip(context, extensionId);
   const from = await topOf(block(page, 'w2'));
 
@@ -269,12 +348,14 @@ test('Collapse all stays instant', async ({ context, extensionId }) => {
   });
   await page
     .getByRole('button', { name: 'Collapse all windows', exact: true })
-    .click();
+    .focus();
+  await page.keyboard.press('Enter');
   const s = await samples(page);
   const to = await topOf(block(page, 'w2'));
 
   expect(from - to).toBeGreaterThan(80);
   expect(between(s.next, from, to)).toEqual([]);
+  expect(Math.max(...s.copies)).toBe(0);
 });
 
 test.describe('deleting a tab', () => {
@@ -435,5 +516,42 @@ test('folding a live group in Currently open glides the rows below', async ({
   const to = await topOf(loose);
 
   expect(from - to).toBeGreaterThan(40);
+  expect(between(s.next, from, to).length).toBeGreaterThanOrEqual(3);
+});
+
+test('Collapse all in Currently open glides the windows below up', async ({
+  context,
+  extensionId,
+  serviceWorker,
+}) => {
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
+  const k = await openKyoto(serviceWorker);
+  const win = page.locator(`[data-open-window-id="${k.windowId}"]`);
+  await expect(win.locator('[data-open-tab-id]')).toHaveCount(3);
+  await elementLanded(win, 'ancestors');
+  const from = await topOf(win);
+  const ids = await page
+    .locator('[data-open-window-id]')
+    .evaluateAll((els) =>
+      els.map((e) => e.getAttribute('data-open-window-id'))
+    );
+  // Only a window below another one moves when the ones above it fold.
+  expect(ids.indexOf(String(k.windowId))).toBeGreaterThan(0);
+
+  await startSampling(
+    page,
+    { next: `[data-open-window-id="${k.windowId}"]` },
+    1200
+  );
+  await page
+    .getByRole('button', { name: 'Collapse all windows', exact: true })
+    .click();
+  const s = await samples(page);
+  await expect(win.locator('[data-open-tab-id]')).toHaveCount(0);
+  const to = await topOf(win);
+
+  expect(from - to).toBeGreaterThan(20);
   expect(between(s.next, from, to).length).toBeGreaterThanOrEqual(3);
 });

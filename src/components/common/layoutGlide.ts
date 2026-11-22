@@ -48,6 +48,10 @@ const boxOf = (el: Element): Box => {
   return { top: r.top, bottom: r.bottom, left: r.left, width: r.width };
 };
 
+// Whether any of top..bottom is in the window: a fade nobody can see is not drawn.
+const inView = (top: number, bottom: number): boolean =>
+  bottom > 0 && top < window.innerHeight;
+
 /**
  * Each element's own glide: how far it was moved, less what the nearest
  * gliding element around it already carries it. `moved` is old top minus new
@@ -282,10 +286,17 @@ function draw(
     (el) => !before.boxes.has(el)
   );
   // Only the outermost arrival fades; its rows come with it.
-  const arrivals = arrived.filter(
-    (el) => !arrived.some((other) => other !== el && other.contains(el))
-  );
-  const arrivalBoxes = arrivals.map((el) => ({ el, box: boxOf(el) }));
+  const arrivedSet = new Set(arrived);
+  const outermost = (el: Element): boolean => {
+    for (let up = parentOf(el); up !== null; up = parentOf(up)) {
+      if (arrivedSet.has(up)) return false;
+    }
+    return true;
+  };
+  const arrivalBoxes = arrived
+    .filter(outermost)
+    .map((el) => ({ el, box: boxOf(el) }))
+    .filter(({ box }) => inView(box.top, box.bottom));
   const strips: { el: HTMLElement; by: number }[] = [];
   before.strips.forEach((height, el) => {
     if (!el.isConnected || !(el instanceof HTMLElement)) return;
@@ -298,7 +309,18 @@ function draw(
     const inside = [...before.boxes].filter(([el]) => node.contains(el));
     if (inside.length === 0) return [];
     const [first, box] = inside.reduce((a, b) => (b[1].top < a[1].top ? b : a));
-    return [{ node, parent, next, path: pathTo(node, first), box }];
+    const bottom = Math.max(...inside.map(([, b]) => b.bottom));
+    if (!inView(box.top, bottom)) return [];
+    return [
+      {
+        node,
+        parent,
+        next,
+        path: pathTo(node, first),
+        box,
+        width: parent.clientWidth,
+      },
+    ];
   });
 
   // The rows that close over (or open from) a region: the nearest mover below it.
@@ -345,16 +367,16 @@ function draw(
       timing(t.in, Math.max(t.inDelay, wait))
     );
   });
-  leaving.forEach(({ node, parent, next, path, box }) => {
-    if (!parent.isConnected) return;
+  // Copies in three passes (insert, measure, place) so a Collapse all lays out twice, not per copy.
+  const placed = leaving.flatMap(({ node, parent, next, path, box, width }) => {
+    if (!parent.isConnected) return [];
     const copy = node.cloneNode(true);
     const twin = copy instanceof Element ? follow(copy, path) : null;
-    if (!(copy instanceof HTMLElement) || twin === null) return;
+    if (!(copy instanceof HTMLElement) || twin === null) return [];
     stripHooks(copy);
     copy.inert = true;
     copy.setAttribute('aria-hidden', 'true');
     copy.dataset.leavingRow = '';
-    const width = parent.clientWidth;
     Object.assign(copy.style, {
       position: 'absolute',
       left: '0px',
@@ -369,12 +391,23 @@ function draw(
       next !== null && next.parentNode === parent ? next : null
     );
     copies.add(copy);
-    // Laid out where it lands, then moved so its first row sits on that row's old box.
-    copy.style.width = `${width + box.width - twin.getBoundingClientRect().width}px`;
-    const at = twin.getBoundingClientRect();
-    copy.style.left = `${box.left - at.left}px`;
-    copy.style.top = `${box.top - at.top}px`;
-    const own = copy.getBoundingClientRect();
+    return [{ copy, twin, box, width }];
+  });
+  // Laid out where it lands, widened so its first row is as wide as that row was.
+  const widths = placed.map(({ twin }) => twin.getBoundingClientRect().width);
+  placed.forEach(({ copy, box, width }, i) => {
+    copy.style.width = `${width + box.width - widths[i]}px`;
+  });
+  const at = placed.map(({ copy, twin }) => ({
+    twin: twin.getBoundingClientRect(),
+    copy: copy.getBoundingClientRect(),
+  }));
+  placed.forEach(({ copy, box }, i) => {
+    // Then moved so its first row sits on that row's old box.
+    const dx = box.left - at[i].twin.left;
+    const dy = box.top - at[i].twin.top;
+    copy.style.left = `${dx}px`;
+    copy.style.top = `${dy}px`;
     const end = () => {
       copies.delete(copy);
       copy.remove();
@@ -383,11 +416,11 @@ function draw(
       ...timing(t.out),
       fill: 'forwards',
     });
-    const line = lineBelow(own.bottom, true);
+    const top = at[i].copy.top + dy;
+    const bottom = at[i].copy.bottom + dy;
+    const line = lineBelow(bottom, true);
     const clip =
-      line === null
-        ? null
-        : clipAboveLine(own.top, own.bottom, line.from, line.to);
+      line === null ? null : clipAboveLine(top, bottom, line.from, line.to);
     const cut =
       clip === null
         ? null

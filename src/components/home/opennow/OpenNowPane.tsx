@@ -1163,13 +1163,14 @@ export default function OpenNowPane({
               renderGlyph={(glyphCss) => (
                 <FoldAllGlyph folds={anyWindowOpen} glyphCss={glyphCss} />
               )}
-              onClick={() =>
+              onClick={() => {
+                prepareLayoutGlide(panes('open-now'), 'fold');
                 setFoldedIds(
                   anyWindowOpen
                     ? new Set(drawnWindows.map((w) => w.id))
                     : new Set()
-                )
-              }
+                );
+              }}
             />
           )}
           {canSave && (
