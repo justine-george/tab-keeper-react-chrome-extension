@@ -142,16 +142,16 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
   // KAN-980 (pick A2). A circle over the toast's top-right corner, in the
   // toast's own fill. Shown only while its toast is hovered or has focus in
   // it, which opens the stack, so a folded older toast never shows one.
-  // Hidden by opacity, not visibility, so Tab still reaches it.
+  // Hidden by opacity, not visibility, so Tab still reaches it, and it keeps
+  // the pointer: the next toast's × sliding under a pointer that closed the
+  // last one shows, even where it overhangs its toast.
   const closeSlotStyle = css`
     position: absolute;
     top: calc(-0.75rem + 1px);
     right: calc(-0.75rem + 1px);
     opacity: 0;
-    pointer-events: none;
     [data-stack='open'] [data-toast]:is(:hover, :focus-within) > & {
       opacity: 1;
-      pointer-events: auto;
     }
   `;
   const closeIconStyle = `

@@ -70,13 +70,12 @@ async function threeToasts(page: Page): Promise<void> {
   await expect(toasts(page)).toHaveCount(3);
 }
 
-// Whether a × can be seen and pressed: drawn opaque and taking the pointer.
+// Whether a × can be seen: its slot drawn opaque.
 const shows = (close: Locator): Promise<boolean> =>
   close.evaluate((el) => {
     const slot = el.closest('[data-toast-close]');
     if (!slot) throw new Error('no close slot');
-    const style = getComputedStyle(slot);
-    return style.opacity === '1' && style.pointerEvents !== 'none';
+    return getComputedStyle(slot).opacity === '1';
   });
 
 // Every transition in the stack has finished.
@@ -213,6 +212,54 @@ test('clicks in one spot clear the stack newest first; closing Undo’s toast un
   await page.keyboard.press('Control+z');
   await expect(sessionRow(page, 'Bravo')).toHaveCount(1);
 });
+
+// Spots on the × relative to its centre: inside the toast, and in the parts
+// that overhang its right and top edges, where nothing else takes the pointer.
+const SPOTS = [
+  { name: 'its centre', dx: 0, dy: 0 },
+  { name: 'past the right edge', dx: 8, dy: 0 },
+  { name: 'above the top edge', dx: 0, dy: -8 },
+  { name: 'its outer corner', dx: 6, dy: -6 },
+];
+for (const { name, dx, dy } of SPOTS) {
+  test(`clicks on ${name} keep the stack open, the next × under the pointer`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    await threeToasts(page);
+    await message(toasts(page).nth(2)).hover();
+    await settled(page);
+    const box = await closeOf(toasts(page).nth(2)).boundingBox();
+    if (!box) throw new Error('no box');
+    const spot = {
+      x: box.x + box.width / 2 + dx,
+      y: box.y + box.height / 2 + dy,
+    };
+    await page.mouse.move(spot.x, spot.y);
+
+    for (const left of [2, 1]) {
+      await page.mouse.click(spot.x, spot.y);
+      await expect(toasts(page)).toHaveCount(left);
+      await settled(page);
+      await expect(page.getByRole('status')).toHaveAttribute(
+        'data-stack',
+        'open'
+      );
+      const front = toasts(page).nth(left - 1);
+      expect(await shows(closeOf(front))).toBe(true);
+      // The pointer is on the next ×, so the next click lands on it.
+      expect(
+        await closeOf(front).evaluate(
+          (el, p) => el.contains(document.elementFromPoint(p.x, p.y)),
+          spot
+        )
+      ).toBe(true);
+    }
+    await page.mouse.click(spot.x, spot.y);
+    await expect(toasts(page)).toHaveCount(0);
+  });
+}
 
 test('from the keyboard: Enter, then Escape, each close the front toast and hand focus on', async ({
   context,
