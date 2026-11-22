@@ -1,5 +1,6 @@
 import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
+import { documentLanded } from './fixtures/landed';
 
 // KAN-206. The session header's fold-everything control, in a real browser.
 //
@@ -123,6 +124,8 @@ test('folding every window shortens the pane, and the control offers to undo it'
   await expect(collapsed).toBeVisible();
   await expect(page.getByText('Alpha Page')).toBeHidden();
   await expect(page.getByText('Charlie Page')).toBeHidden();
+  // The windows below glide to their place (KAN-984); measure where they land.
+  await documentLanded(page);
 
   const shutHeight = await blocksExtent();
   // Three tab rows at 32px each is 96px of content that has to go. Asserting a
@@ -134,6 +137,7 @@ test('folding every window shortens the pane, and the control offers to undo it'
   // And back, from the same control in its other state.
   await collapsed.click();
   await expect(page.getByText('Alpha Page')).toBeVisible();
+  await documentLanded(page);
   expect(await blocksExtent()).toBe(openHeight);
 });
 

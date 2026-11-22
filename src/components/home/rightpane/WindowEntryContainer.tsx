@@ -150,6 +150,7 @@ import {
   rowHighlightCss,
 } from '../../../styles/rowHighlight';
 import { useNativeMouseLeave } from '../../../hooks/useNativeMouseLeave';
+import { panes, prepareLayoutGlide } from '../../common/layoutGlide';
 
 /**
  * The Chrome group title, and the editor that replaces it (KAN-205).
@@ -549,8 +550,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       label: t('Delete tab group'),
       icon: 'delete',
       danger: true,
-      onSelect: () =>
-        dispatch(deleteChromeTabGroup({ tabGroupId, windowId, groupId })),
+      onSelect: () => {
+        prepareLayoutGlide(panes('detail'), 'delete');
+        dispatch(deleteChromeTabGroup({ tabGroupId, windowId, groupId }));
+      },
     },
   ];
 
@@ -1268,7 +1271,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           label: t('Delete tab'),
           icon: 'delete' as const,
           danger: true,
-          onSelect: () => dispatch(deleteTab({ tabGroupId, windowId, tabId })),
+          onSelect: () => {
+            prepareLayoutGlide(panes('detail'), 'delete');
+            dispatch(deleteTab({ tabGroupId, windowId, tabId }));
+          },
         },
       ];
     },
@@ -1306,6 +1312,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   };
 
   function handleAccordionClick() {
+    prepareLayoutGlide(panes('detail'), 'fold');
     dispatch(toggleWindowCollapse({ tabGroupId, windowId }));
   }
 
@@ -1502,6 +1509,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               danger
               onClick={(e) => {
                 e.stopPropagation();
+                prepareLayoutGlide(panes('detail'), 'delete');
                 dispatch(deleteTab({ tabGroupId, windowId, tabId }));
               }}
             />
@@ -2049,6 +2057,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         )}
                         onClick={(e) => {
                           e.stopPropagation();
+                          prepareLayoutGlide(panes('detail'), 'fold');
                           dispatch(
                             setChromeTabGroupCollapsed({
                               tabGroupId,

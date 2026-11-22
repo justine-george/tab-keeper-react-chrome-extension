@@ -137,6 +137,7 @@ import OpenNowNewWindowBlock from './OpenNowNewWindowBlock';
 import { useOpenNowCarryReceiver } from './useOpenNowCarryReceiver';
 import { useArrival } from './useArrival';
 import { onFirstClickOnly } from '../../common/firstClickOnly';
+import { panes, prepareLayoutGlide } from '../../common/layoutGlide';
 
 export type OpenNowHeaderAction = {
   icon: IconName;
@@ -544,13 +545,15 @@ export default function OpenNowPane({
     [offersNewWindow]
   );
 
-  const toggleWindow = (id: number) =>
+  const toggleWindow = (id: number) => {
+    prepareLayoutGlide(panes('open-now'), 'fold');
     setFoldedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+  };
 
   // KAN-280 rule 8. Focus moves BEFORE the close, read from the rows on
   // screen: the closed row is about to go, and the re-read that drops it can
@@ -1160,13 +1163,14 @@ export default function OpenNowPane({
               renderGlyph={(glyphCss) => (
                 <FoldAllGlyph folds={anyWindowOpen} glyphCss={glyphCss} />
               )}
-              onClick={() =>
+              onClick={() => {
+                prepareLayoutGlide(panes('open-now'), 'fold');
                 setFoldedIds(
                   anyWindowOpen
                     ? new Set(drawnWindows.map((w) => w.id))
                     : new Set()
-                )
-              }
+                );
+              }}
             />
           )}
           {canSave && (

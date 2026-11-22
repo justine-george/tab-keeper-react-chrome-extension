@@ -15,6 +15,7 @@ import {
   type Locator,
 } from '@playwright/test';
 import { expect } from './grantedExtension';
+import { documentLanded } from './landed';
 import { stored, type Point, boxOf } from './sessionDrag';
 import { ON_TITLE } from './savedRow';
 
@@ -581,6 +582,8 @@ export async function collapseWindow(
     page.locator(`${blockOf(windowId)} [data-window-tabs]`)
   ).toHaveCount(0);
   await page.mouse.move(1, 1);
+  // KAN-984. The fold glides; callers measure the folded list at rest.
+  await documentLanded(page);
 }
 
 // The pointer onto a window's title row, at `x`, level with its middle.
