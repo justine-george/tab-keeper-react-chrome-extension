@@ -1,4 +1,4 @@
-import { documentLanded } from './fixtures/landed';
+import { documentLanded, elementLanded } from './fixtures/landed';
 import type { Locator, Page, Worker } from '@playwright/test';
 
 // Saved groups draw as bands only with tabGroups, so every spec here needs the grant.
@@ -204,6 +204,8 @@ test.describe('a saved group', () => {
       button: 'right',
     });
     const menu = page.locator('[role="menu"]').filter({ has: colorRow(page) });
+    // KAN-982. Measured at rest: menus grow in, dialogs rise.
+    await elementLanded(menu, 'subtree');
     const [actionRow, row, dot] = await Promise.all([
       menu.locator('[data-menu-action-row]').boundingBox(),
       colorRow(page).boundingBox(),
