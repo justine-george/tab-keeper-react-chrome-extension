@@ -13,7 +13,6 @@ import { reopenFromOffer } from '../../redux/reopenOffer';
 import { showSession } from '../../redux/showSession';
 import { selectLiveStepOnTop } from '../../redux/slices/undoRedoSlice';
 import { undoStep } from '../../redux/undoHistory';
-import type { StepPress } from '../../redux/undoHistory';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useTranslation } from 'react-i18next';
@@ -37,9 +36,6 @@ import {
 } from '../../utils/constants/common';
 import { isTabView } from '../../utils/functions/viewMode';
 import { corners } from '../../styles/corners';
-
-// KAN-583, KAN-694. A toast's Undo closes its own toast only; the other plain toasts stay up.
-const LEAVES_PLAIN_TOASTS: StepPress = { closesPlainToasts: false };
 
 // The stack's distance from the window's left and bottom edges.
 const EDGE_PX = 20;
@@ -474,8 +470,8 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
                 iconType="undo"
                 text={t('Undo')}
                 keyHint={keyTakesStep ? undoKeyHint : undefined}
-                // Shown only while its step is the newest; the undo reducer closes this toast (globalStateSlice).
-                onClick={() => void dispatch(undoStep(LEAVES_PLAIN_TOASTS))}
+                // Shown only while its step is the newest; undoing that step closes this toast (KAN-981).
+                onClick={() => void dispatch(undoStep())}
                 style={chipStyle}
               />
             )}
@@ -485,17 +481,8 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
                 iconType="undo"
                 text={t('Undo')}
                 keyHint={keyTakesStep ? undoKeyHint : undefined}
-                // Shown only while its step (a sort, or a drop that changed a pin) is the newest, so this undoes it, then closes this toast; a press ignored while another step runs (R19) leaves it.
-                onClick={() =>
-                  void dispatch(undoStep(LEAVES_PLAIN_TOASTS)).then((run) => {
-                    if (
-                      undoStep.fulfilled.match(run) &&
-                      run.payload !== 'busy'
-                    ) {
-                      dispatch(toastsRemoved([toast.id]));
-                    }
-                  })
-                }
+                // Shown only while its step (a sort, or a drop that changed a pin) is the newest, so this undoes it, which closes this toast (KAN-981); a press ignored while another step runs (R19) leaves it.
+                onClick={() => void dispatch(undoStep())}
                 style={chipStyle}
               />
             )}

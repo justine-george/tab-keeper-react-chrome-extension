@@ -1,7 +1,7 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 
 import { nextActionNumber } from './actionOrder';
-import { closePlainToasts, showToast } from './slices/globalStateSlice';
+import { showToast, stepToastsClosed } from './slices/globalStateSlice';
 import {
   liveStepDropped,
   liveStepRedone,
@@ -96,16 +96,20 @@ const REFUSED_TOAST = {
 
 type Direction = 'undo' | 'redo';
 
-// How a press treats the plain toasts showing. The key and the menu close them
-// (KAN-311 O8c), before any refused toast appears (R11); a toast's own Undo
-// leaves them up (KAN-583, KAN-694). Omitted, the press closes them.
-export interface StepPress {
-  closesPlainToasts: boolean;
+// KAN-981. An undo closes only the toasts announcing the step it takes, before
+// any refused toast appears (R11); every other toast stays. A redo closes none.
+function closeToastsOf(
+  direction: Direction,
+  stepId: number | undefined,
+  dispatch: AppDispatch
+): void {
+  if (direction === 'undo' && stepId !== undefined) {
+    dispatch(stepToastsClosed(stepId));
+  }
 }
 
 async function takeStep(
   direction: Direction,
-  { closesPlainToasts }: StepPress,
   dispatch: AppDispatch,
   getState: () => RootState
 ): Promise<StepRun> {
@@ -115,8 +119,9 @@ async function takeStep(
   if (next === null) return 'nothing';
 
   if (next === 'saved') {
+    const undone = state.undoRedo.present.savedStepId;
     dispatch(direction === 'undo' ? undo() : redo());
-    if (closesPlainToasts) dispatch(closePlainToasts());
+    closeToastsOf(direction, undone, dispatch);
     return 'saved';
   }
 
@@ -127,7 +132,7 @@ async function takeStep(
 
   running = true;
   try {
-    if (closesPlainToasts) dispatch(closePlainToasts());
+    closeToastsOf(direction, step.id, dispatch);
     const { drop } = step;
     const hasTabGroups = getState().globalState.hasTabGroupsPermission;
     const run = await whileMovingTabs<LiveRun<LiveDrop>>(() =>
@@ -170,23 +175,21 @@ async function takeStep(
   }
 }
 
-const CLOSES_PLAIN_TOASTS: StepPress = { closesPlainToasts: true };
-
-// The thunk prefix is 'history/', never 'undoRedo/': the toast reducers match 'undoRedo/undo' exactly.
+// The thunk prefix is 'history/', never 'undoRedo/': customMiddleware matches 'undoRedo/undo' exactly.
 export const undoStep = createAsyncThunk<
   StepRun,
-  StepPress | undefined,
+  void,
   { state: RootState; dispatch: AppDispatch }
->('history/undoStep', (press, { dispatch, getState }) =>
-  takeStep('undo', press ?? CLOSES_PLAIN_TOASTS, dispatch, getState)
+>('history/undoStep', (_, { dispatch, getState }) =>
+  takeStep('undo', dispatch, getState)
 );
 
 export const redoStep = createAsyncThunk<
   StepRun,
-  StepPress | undefined,
+  void,
   { state: RootState; dispatch: AppDispatch }
->('history/redoStep', (press, { dispatch, getState }) =>
-  takeStep('redo', press ?? CLOSES_PLAIN_TOASTS, dispatch, getState)
+>('history/redoStep', (_, { dispatch, getState }) =>
+  takeStep('redo', dispatch, getState)
 );
 
 // KAN-744 R1. Keeps an Open now move as a step in the undo history, when it changed any place, or ended a split, which moves nothing (KAN-942); returns its id.

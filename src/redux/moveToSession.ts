@@ -8,6 +8,7 @@ import type {
   SessionMove,
   TabMasterContainer,
 } from './slices/tabContainerDataStateSlice';
+import { stepSince } from './slices/tabContainerDataStateSlice';
 import { TOAST_MESSAGES } from '../utils/constants/common';
 import type { RootState } from './store';
 
@@ -16,16 +17,19 @@ import type { RootState } from './store';
 // it takes ⌘Z from a Reopen offer (KAN-349 Q1 C′). Show only while the
 // target is not the session on screen after the drop (the Show rule) --
 // `selectedAfter` is the selection once the move has been made.
-// leftOut: tabs the target already had (KAN-914), said after it.
+// leftOut: tabs the target already had (KAN-914), said after it. step: the
+// undo step the move recorded, whose undo closes this toast (KAN-981).
 export const movedToSessionToast = (
   target: { tabGroupId: string; title: string },
   selectedAfter: string | null,
+  step: number | null,
   leftOut = 0
 ) =>
   showToast({
     toastText: TOAST_MESSAGES.MOVED_TO_SESSION,
     toastParams: { title: target.title },
     announcesSavedChange: true,
+    announcesStep: step,
     leftOut,
     show:
       selectedAfter === target.tabGroupId
@@ -90,12 +94,16 @@ export const moveToSession =
     if (sourceTitle === undefined || targetTitle === undefined) return false;
 
     const drop = sessionMoveDrop(move, selectSkipsDuplicateTabs(getState()));
-    const beforeMove: { state: TabMasterContainer | null } = { state: null };
+    const beforeMove: {
+      state: TabMasterContainer | null;
+      history: RootState['undoRedo']['present'] | null;
+    } = { state: null, history: null };
     dispatch(
       dropOnTop({
         ...drop,
         move: (toIndex) => {
           beforeMove.state = getState().tabContainerDataState;
+          beforeMove.history = getState().undoRedo.present;
           return drop.move(toIndex);
         },
       })
@@ -103,6 +111,10 @@ export const moveToSession =
 
     const after = getState().tabContainerDataState;
     if (beforeMove.state === null || after === beforeMove.state) return false;
+    const step =
+      beforeMove.history === null
+        ? null
+        : stepSince(getState, beforeMove.history);
 
     // KAN-914. What left the source and never arrived: the target had it.
     const leftOut =
@@ -116,6 +128,7 @@ export const moveToSession =
         movedToSessionToast(
           { tabGroupId: move.to.tabGroupId, title: targetTitle },
           after.selectedTabGroupId,
+          step,
           leftOut
         )
       );
@@ -126,6 +139,7 @@ export const moveToSession =
           toastText: TOAST_MESSAGES.DUPLICATE_TABS_LEFT_OUT,
           toastParams: { count: leftOut },
           announcesSavedChange: true,
+          announcesStep: step,
         })
       );
     }
@@ -139,6 +153,7 @@ export const moveToSession =
           toastText: TOAST_MESSAGES.SESSION_EMPTIED_REMOVED,
           toastParams: { title: sourceTitle },
           announcesSavedChange: true,
+          announcesStep: step,
         })
       );
     }

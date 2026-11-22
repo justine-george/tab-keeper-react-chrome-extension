@@ -17,6 +17,7 @@ vi.mock('../../utils/functions/external', () => ({
 }));
 
 import { makeTestStore } from '../setup/makeStore';
+import { announcedSteps } from '../setup/toasts';
 import {
   replaceState,
   type TabMasterContainer,
@@ -118,6 +119,16 @@ describe('copyOnSessionRow: a row drop is a new first window, and says so (D4 A,
         show: { tabGroupId: 'S2' },
       },
     ]);
+  });
+
+  // KAN-981. Its undo closes it.
+  it('"Copied to" names the step the copy recorded', () => {
+    const { store } = ready(container(undefined, 'S1'));
+    store.dispatch(copyOnSessionRow(LIVE(L1), 'S2'));
+    const { announced, onTop } = announcedSteps(store.getState());
+    expect(onTop).toEqual(expect.any(Number));
+    expect(announced).toEqual(announced.map(() => onTop));
+    expect(announced.length).toBeGreaterThan(0);
   });
 
   // KAN-608: no duplicate check. A window holding tabs the target already has lands whole.

@@ -13,6 +13,7 @@ vi.mock('../../utils/functions/external', () => ({
 }));
 
 import { makeTestStore } from '../setup/makeStore';
+import { announcedSteps } from '../setup/toasts';
 import {
   replaceState,
   restoreDeletedSession,
@@ -206,5 +207,14 @@ describe('the thunk', () => {
     expect(store.getState().globalState.toasts.map((t) => t.text)).toContain(
       TOAST_MESSAGES.SESSION_RESTORED
     );
+  });
+
+  // KAN-981. Its undo closes it.
+  it('the toast names the step the restore recorded', async () => {
+    const { store } = ready([at('C')]);
+    await store.dispatch(restoreDeletedSession(deletedA()));
+    const { announced, onTop } = announcedSteps(store.getState());
+    expect(onTop).toEqual(expect.any(Number));
+    expect(announced).toEqual([onTop]);
   });
 });

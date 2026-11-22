@@ -15,6 +15,7 @@ vi.mock('../../utils/functions/external', () => ({
 }));
 
 import { makeTestStore } from '../setup/makeStore';
+import { announcedSteps } from '../setup/toasts';
 import {
   replaceState,
   type CarriedRef,
@@ -146,6 +147,16 @@ describe('a saved tab dropped in its own session', () => {
       'b2',
     ]);
     expect(toasts(store)).toEqual([PINNED]);
+  });
+
+  // KAN-981. Its undo closes it.
+  it('"Tab pinned." names the step the drop recorded', () => {
+    const store = ready();
+    drop(store, 't1', 0);
+    const { announced, onTop } = announcedSteps(store.getState());
+    expect(onTop).toEqual(expect.any(Number));
+    expect(announced).toEqual(announced.map(() => onTop));
+    expect(announced.length).toBeGreaterThan(0);
   });
 
   it('below the pinned run: "Tab unpinned." with Undo', () => {

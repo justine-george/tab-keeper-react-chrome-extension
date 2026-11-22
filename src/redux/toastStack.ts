@@ -31,6 +31,10 @@ export interface ToastItem {
   liveStepId: number | null;
   // KAN-906. Duplicate tabs the save left out; 0 says nothing.
   leftOut: number;
+  // KAN-981. The undo step whose change this toast announces (a saved step's
+  // savedStepId, a live step's id); undoing that step closes it. Null for a
+  // toast no step made.
+  announcesStep: number | null;
 }
 
 function sameParams(a: ToastItem['params'], b: ToastItem['params']): boolean {

@@ -9,7 +9,7 @@ import {
 } from './dropSpecs';
 import { showToast } from './slices/globalStateSlice';
 import {
-  isLatestUndoStep,
+  stepSince,
   type tabContainerData,
   type tabData,
 } from './slices/tabContainerDataStateSlice';
@@ -79,13 +79,15 @@ export const announcingPinChange =
       arriving
     );
     if (landed !== undefined && (landed.pinned === true) !== wasPinned) {
+      const step = stepSince(getState, before.undoRedo.present);
       void dispatch(
         showToast({
           toastText: wasPinned
             ? TOAST_MESSAGES.TAB_UNPINNED
             : TOAST_MESSAGES.TAB_PINNED,
           announcesSavedChange: true,
-          offersUndo: isLatestUndoStep(getState, before.undoRedo.present),
+          announcesStep: step,
+          offersUndo: step !== null,
         })
       );
     }

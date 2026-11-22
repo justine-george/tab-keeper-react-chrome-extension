@@ -2,6 +2,7 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 import type { TabMasterContainer } from './tabContainerDataStateSlice';
 import { initialState as tabContainerDataInitialState } from './tabContainerInitialState';
 import type { RootState } from '../store';
+import { nextActionNumber } from '../actionOrder';
 import { STACK_LEVEL } from '../../utils/constants/common';
 import {
   isOpenedCopy,
@@ -67,6 +68,11 @@ export interface UndoableStates {
 
   // KAN-936. The group color menu whose picks made this state; another pick from it folds in here.
   colorPickRun?: number;
+
+  // KAN-981. The saved step that led into this state, numbered when recorded,
+  // so its undo can close the toasts announcing it. None on the base, or on a
+  // live step's state: its liveStep id names that step.
+  savedStepId?: number;
 }
 
 export interface undoRedoState {
@@ -87,18 +93,27 @@ export const undoRedoSlice = createSlice({
   name: 'undoRedo',
   initialState,
   reducers: {
-    set: (state, action: PayloadAction<UndoableStates>) => {
-      state.past.push(state.present);
-      // if past has more than STACK_LEVEL states, remove the oldest one.
-      if (state.past.length > STACK_LEVEL) {
-        state.past.shift();
-      }
-      const { liveStep } = action.payload;
-      state.present = {
-        ...action.payload,
-        liveStep: liveStep && writable(liveStep),
-      };
-      state.future = [];
+    set: {
+      reducer: (
+        state,
+        action: PayloadAction<UndoableStates & { savedStepId: number }>
+      ) => {
+        state.past.push(state.present);
+        // if past has more than STACK_LEVEL states, remove the oldest one.
+        if (state.past.length > STACK_LEVEL) {
+          state.past.shift();
+        }
+        const { liveStep } = action.payload;
+        state.present = {
+          ...action.payload,
+          liveStep: liveStep && writable(liveStep),
+        };
+        state.future = [];
+      },
+      // KAN-981. Numbered here, as the action is made: a reducer can't count.
+      prepare: (states: Omit<UndoableStates, 'savedStepId'>) => ({
+        payload: { ...states, savedStepId: nextActionNumber() },
+      }),
     },
     undo: (state) => {
       if (state.past.length !== 0) {
@@ -138,6 +153,7 @@ export const undoRedoSlice = createSlice({
         addedTabGroupIds: state.present.addedTabGroupIds,
         liveStep: state.present.liveStep,
         colorPickRun: state.present.colorPickRun,
+        savedStepId: state.present.savedStepId,
       };
     },
 
@@ -170,6 +186,7 @@ export const undoRedoSlice = createSlice({
         addedTabGroupIds: state.present.addedTabGroupIds,
         liveStep: state.present.liveStep,
         colorPickRun: state.present.colorPickRun,
+        savedStepId: state.present.savedStepId,
       };
     },
 

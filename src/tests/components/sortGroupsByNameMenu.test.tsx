@@ -161,6 +161,11 @@ describe('saved window', () => {
     const toast = newestToast(store.getState());
     expect(toast?.text).toBe(TOAST_MESSAGES.GROUPS_SORTED_BY_NAME);
     expect(toast?.offersUndo).toBe(true);
+    // KAN-981. Its undo closes it.
+    expect(toast?.announcesStep).toEqual(expect.any(Number));
+    expect(toast?.announcesStep).toBe(
+      store.getState().undoRedo.present.savedStepId
+    );
   });
 
   test('is absent when the groups are in name order, unnamed last', async () => {

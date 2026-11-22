@@ -20,3 +20,9 @@ export const shownOfferId = (state: RootState): number | null => {
   }
   return null;
 };
+
+// KAN-981. The step a toast announces, against the step on top of the history.
+export const announcedSteps = (state: RootState) => ({
+  announced: state.globalState.toasts.map((t) => t.announcesStep),
+  onTop: state.undoRedo.present.savedStepId,
+});

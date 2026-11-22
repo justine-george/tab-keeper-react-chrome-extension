@@ -241,6 +241,11 @@ describe('removeDuplicateTabs', () => {
     expect(toast.text).toBe(TOAST_MESSAGES.DUPLICATE_TABS_REMOVED);
     expect(toast.params).toEqual({ count: 4 });
     expect(toast.offersUndo).toBe(true);
+    // KAN-981. Its undo closes it.
+    expect(toast.announcesStep).toEqual(expect.any(Number));
+    expect(toast.announcesStep).toBe(
+      store.getState().undoRedo.present.savedStepId
+    );
   });
 
   it('does nothing and says nothing when there are none', async () => {

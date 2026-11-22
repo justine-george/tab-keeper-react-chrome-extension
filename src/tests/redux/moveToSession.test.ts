@@ -15,6 +15,7 @@ vi.mock('../../utils/functions/external', () => ({
 }));
 
 import { makeTestStore } from '../setup/makeStore';
+import { announcedSteps } from '../setup/toasts';
 import {
   moveToSessionInternal,
   replaceState,
@@ -155,6 +156,17 @@ describe('moveToSession: the toasts (S5 A, Toasts, Show rule)', () => {
       MOVED('Target', { tabGroupId: 'S2' }),
       EMPTIED('Source'),
     ]);
+  });
+
+  // KAN-981. One undo takes back the move, so it closes both.
+  it('both toasts name the step the move recorded', () => {
+    const { store } = ready(container([s3(), s2(), lonely()]));
+    store.dispatch(moveToSession({ move: T3_EMPTIES_S1, announceMoved: true }));
+    const { announced, onTop } = announcedSteps(store.getState());
+    expect(onTop).toEqual(expect.any(Number));
+    expect(announced).toEqual(announced.map(() => onTop));
+    expect(announced.length).toBeGreaterThan(0);
+    expect(announced).toHaveLength(2);
   });
 
   it('an emptied source that was on screen: the target is selected, so no Show (Q4 A)', () => {

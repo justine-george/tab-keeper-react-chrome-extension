@@ -3,8 +3,8 @@ import { act, fireEvent, screen, within } from '@testing-library/react';
 
 import { Toast } from '../../components/common/Toast';
 import {
+  closeAllToasts,
   closeOfferToast,
-  closePlainToasts,
   showToast,
 } from '../../redux/slices/globalStateSlice';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
@@ -41,10 +41,19 @@ const liveTexts = () => liveToasts().map((el) => el.textContent);
 async function show(
   { store }: Rendered,
   toastText: string,
-  extra: { reopenOfferId?: number; announcesSavedChange?: boolean } = {}
+  extra: { reopenOfferId?: number; announcesSavedChange?: true } = {}
 ) {
+  const announced = extra.announcesSavedChange
+    ? { announcesSavedChange: true as const, announcesStep: null }
+    : {};
   await act(async () => {
-    await store.dispatch(showToast({ toastText, ...extra }));
+    await store.dispatch(
+      showToast({
+        toastText,
+        reopenOfferId: extra.reopenOfferId,
+        ...announced,
+      })
+    );
   });
 }
 
@@ -116,7 +125,7 @@ describe('the stack on screen (KAN-349)', () => {
     await show(rendered, 'Two');
 
     act(() => {
-      rendered.store.dispatch(closePlainToasts());
+      rendered.store.dispatch(closeAllToasts());
     });
 
     // Still drawn, fading, but not reachable.
@@ -257,8 +266,7 @@ describe('the stack sits collapsed until hovered or focused (KAN-488)', () => {
     // PREMISE: open.
     expect(transforms()).toEqual(OPEN);
     act(() => {
-      rendered.store.dispatch(closePlainToasts());
-      rendered.store.dispatch(closeOfferToast(1));
+      rendered.store.dispatch(closeAllToasts());
     });
     expect(liveToasts()).toEqual([]);
 
