@@ -1,8 +1,4 @@
-import {
-  DIALOG_LEAVE,
-  leaveCopy,
-  useLeaveRef,
-} from '../common/popoverMotion';
+import { DIALOG_LEAVE, leaveCopy, useLeaveRef } from '../common/popoverMotion';
 import { useHasRisen } from '../../hooks/useHasRisen';
 import { dialogRiseCss } from './dialogRise';
 import React, {
