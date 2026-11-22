@@ -1,3 +1,6 @@
+import { DIALOG_LEAVE, useLeaveRef } from '../common/popoverMotion';
+import { useHasRisen } from '../../hooks/useHasRisen';
+import { dialogRiseCss } from './dialogRise';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
@@ -53,7 +56,10 @@ export const PinGuideModal: React.FC = () => {
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
+  // KAN-982. On its way out a copy fades with its dim.
+  const leaveRef = useLeaveRef<HTMLDialogElement>(DIALOG_LEAVE, dialogRef);
+  const hasRisen = useHasRisen(dialogRef);
   const [isPinned, setPinned] = useState(false);
 
   // Opens unlit (KAN-243): the dialog holds the focus, not its first control.
@@ -217,10 +223,10 @@ export const PinGuideModal: React.FC = () => {
 
   return (
     <dialog
-      ref={dialogRef}
+      ref={leaveRef}
       // Focusable only by script, never by Tab; see the effect above.
       tabIndex={-1}
-      css={dialogStyle}
+      css={[dialogStyle, dialogRiseCss(hasRisen, false)]}
       aria-labelledby={TITLE_ID}
       aria-describedby={WHY_ID}
       onCancel={(e) => {

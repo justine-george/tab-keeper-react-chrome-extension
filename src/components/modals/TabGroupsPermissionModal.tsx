@@ -1,3 +1,6 @@
+import { DIALOG_LEAVE, useLeaveRef } from '../common/popoverMotion';
+import { useHasRisen } from '../../hooks/useHasRisen';
+import { dialogRiseCss } from './dialogRise';
 import { useEffect, useRef } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
@@ -39,7 +42,7 @@ export const TabGroupsPermissionModal: React.FC<
     (state: RootState) => state.globalState.tabGroupsPromptCount
   );
 
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
 
   // KAN-89. This was a plain fixed-position div -- visible, but not modal.
   // showModal() moves the dialog to the top layer, confines Tab to the
@@ -66,6 +69,9 @@ export const TabGroupsPermissionModal: React.FC<
   // Below the hooks, never above them: an early return placed at the top of
   // this component would change the number of hooks React sees between the
   // closed and open renders, which is the one thing hook ordering forbids.
+  // KAN-982. On its way out a copy fades with its dim.
+  const leaveRef = useLeaveRef<HTMLDialogElement>(DIALOG_LEAVE, dialogRef);
+  const hasRisen = useHasRisen(dialogRef, tabGroupsPromptCount !== null);
   if (tabGroupsPromptCount === null) return null;
 
   const handleEnable = () => {
@@ -106,7 +112,7 @@ export const TabGroupsPermissionModal: React.FC<
     // top layer rather than sitting in the page, which is what stops the
     // content behind from being reachable at all.
     <dialog
-      ref={dialogRef}
+      ref={leaveRef}
       // Focusable only by script, never by Tab; see the effect above.
       tabIndex={-1}
       aria-labelledby={TITLE_ID}
@@ -114,39 +120,42 @@ export const TabGroupsPermissionModal: React.FC<
       // Escape is Not now.
       onCancel={handleNotNow}
       // KAN-501. Built like the confirm dialogs (CloudConsentModal) and the review prompt.
-      css={css`
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        margin: 0;
-        padding: 20px;
-        width: ${DIALOG.WIDTH};
-        max-width: none;
-        ${dialogFitsWindow()}
-        background-color: ${COLORS.PRIMARY_COLOR};
-        color: ${COLORS.LABEL_L1_COLOR};
-        border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
-        ${corners(RADIUS.DIALOG)}
-        font-family: ${FONT_FAMILY};
-        font-size: ${TYPE.BODY};
+      css={[
+        css`
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          margin: 0;
+          padding: 20px;
+          width: ${DIALOG.WIDTH};
+          max-width: none;
+          ${dialogFitsWindow()}
+          background-color: ${COLORS.PRIMARY_COLOR};
+          color: ${COLORS.LABEL_L1_COLOR};
+          border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+          ${corners(RADIUS.DIALOG)}
+          font-family: ${FONT_FAMILY};
+          font-size: ${TYPE.BODY};
 
-        /* Scoped to [open] so the dialog stays hidden until showModal() runs,
+          /* Scoped to [open] so the dialog stays hidden until showModal() runs,
            rather than flashing as a non-modal box for a frame. */
-        &[open] {
-          display: block;
-        }
+          &[open] {
+            display: block;
+          }
 
-        &::backdrop {
-          background: ${COLORS.MODAL_BACKDROP};
-        }
+          &::backdrop {
+            background: ${COLORS.MODAL_BACKDROP};
+          }
 
-        /* The container carries initial focus (KAN-243) and is never reached
+          /* The container carries initial focus (KAN-243) and is never reached
            by Tab, so a ring on it would mark nothing anyone can act on. */
-        outline: none;
+          outline: none;
 
-        ${style}
-      `}
+          ${style}
+        `,
+        dialogRiseCss(hasRisen),
+      ]}
     >
       <h2
         id={TITLE_ID}

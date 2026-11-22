@@ -10,6 +10,7 @@ import {
 } from '../MenuPanel';
 import { useMenuList } from '../../../hooks/useMenuList';
 import { placeMenu, VIEWPORT_GUTTER_PX } from './placeMenu';
+import { growMenuIn } from '../popoverMotion';
 import type { RowMenuTarget } from './rowMenuStore';
 
 export type RowMenuCloseReason = 'chosen' | 'outside' | 'escape' | 'away';
@@ -36,7 +37,9 @@ export function RowContextMenu({
   colorRow?: MenuColorRow;
   onClose: (reason: RowMenuCloseReason) => void;
 }): React.ReactElement {
-  const menuRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  // KAN-982. Whether it has grown in yet: a relabel places it again, but grows nothing.
+  const grown = useRef(false);
 
   // KAN-708. The window listeners must not re-bind on every render for a fresh closure.
   const onCloseRef = useRef(onClose);
@@ -50,16 +53,24 @@ export function RowContextMenu({
   useLayoutEffect(() => {
     const el = menuRef.current;
     if (el === null) return;
-    const rect = el.getBoundingClientRect();
+    // KAN-982. Layout sizes: a box measured mid-grow would be scaled.
+    const width = el.offsetWidth;
+    const height = el.offsetHeight;
     const { left, top } = placeMenu(
       { x, y },
-      { width: rect.width, height: rect.height },
+      { width, height },
       { width: window.innerWidth, height: window.innerHeight },
       VIEWPORT_GUTTER_PX
     );
     el.style.left = `${left}px`;
     el.style.top = `${top}px`;
     el.style.visibility = 'visible';
+    if (grown.current) return;
+    grown.current = true;
+    // From the pointer, wherever the menu had to sit to fit.
+    const ox = Math.min(Math.max(x - left, 0), width);
+    const oy = Math.min(Math.max(y - top, 0), height);
+    growMenuIn(el, `${ox}px ${oy}px`);
   }, [x, y, contents]);
 
   useEffect(() => {

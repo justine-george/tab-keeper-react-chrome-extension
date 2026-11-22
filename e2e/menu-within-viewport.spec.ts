@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 
+import { elementLanded } from './fixtures/landed';
 import { test, expect } from './fixtures/extension';
 import { localeStrings } from './fixtures/locales';
 import { saveRowMenu, sessionHeaderMenu } from './fixtures/menus';
@@ -89,6 +90,8 @@ for (const menu of MENUS) {
       // renamed control reads as a passing measurement of nothing.
       await expect(trigger).toBeVisible();
       await trigger.click();
+      // KAN-982. Measured at rest: menus grow in, dialogs rise.
+      await elementLanded(page.locator('[role="menu"]'), 'subtree');
 
       const box = await page.evaluate(() => {
         const el = document.querySelector('[role="menu"]');

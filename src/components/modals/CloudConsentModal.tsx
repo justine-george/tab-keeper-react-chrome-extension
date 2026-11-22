@@ -1,3 +1,4 @@
+import { DIALOG_LEAVE, useLeaveRef } from '../common/popoverMotion';
 import { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
@@ -66,7 +67,9 @@ export const CloudConsentModal: React.FC = () => {
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
+  // KAN-982. On its way out a copy fades with its dim.
+  const leaveRef = useLeaveRef<HTMLDialogElement>(DIALOG_LEAVE, dialogRef);
   const getStartedRef = useRef<HTMLButtonElement>(null);
   const motion = useRef<Motion | null>(null);
   const loop = useHeroLoop();
@@ -298,7 +301,7 @@ export const CloudConsentModal: React.FC = () => {
 
   return (
     <dialog
-      ref={dialogRef}
+      ref={leaveRef}
       // Focusable only by script, never by Tab; see the effect above.
       tabIndex={-1}
       css={[dialogStyle, dialogRiseCss(hasRisen)]}

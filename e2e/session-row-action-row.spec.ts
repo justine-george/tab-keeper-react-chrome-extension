@@ -1,5 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 
+import { elementLanded } from './fixtures/landed';
 import { test, expect } from './fixtures/extension';
 import { waitForFontsLoaded } from './fixtures/fonts';
 import { localeStrings, shippedLanguages } from './fixtures/locales';
@@ -235,6 +236,8 @@ test('popup: row buttons are 42px tall; list items stay 34px', async ({
     sessions: SESSIONS,
   });
   await rightClickTitle(page, sessionRow(page, 'S2'));
+  // KAN-982. Measured at rest: menus grow in, dialogs rise.
+  await elementLanded(rowMenu(page), 'subtree');
   const heights = (items: Locator) =>
     items.evaluateAll((els) =>
       els.map((el) => Math.round(el.getBoundingClientRect().height))

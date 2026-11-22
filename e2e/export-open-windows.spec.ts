@@ -1,5 +1,6 @@
 import type { BrowserContext, Page, Worker } from '@playwright/test';
 
+import { elementLanded } from './fixtures/landed';
 import { test, expect } from './fixtures/extension';
 import { localeStrings } from './fixtures/locales';
 import { saveRowMenu } from './fixtures/menus';
@@ -304,6 +305,8 @@ test.describe('export open windows (KAN-208)', () => {
       await saveRowMenu(popup).click();
       const menu = popup.getByRole('menu');
       await expect(menu).toBeVisible();
+      // KAN-982. Measured at rest: menus grow in, dialogs rise.
+      await elementLanded(menu, 'subtree');
       await expect(menu.getByRole('menuitem')).toHaveCount(3);
       // Not toHaveText: it would include the aria-hidden glyph's ligature.
       await expect(menu.getByRole('menuitem').nth(0)).toHaveAccessibleName(

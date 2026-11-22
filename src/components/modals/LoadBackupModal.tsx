@@ -1,3 +1,6 @@
+import { DIALOG_LEAVE, useLeaveRef } from '../common/popoverMotion';
+import { useHasRisen } from '../../hooks/useHasRisen';
+import { dialogRiseCss } from './dialogRise';
 import { useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
@@ -59,7 +62,7 @@ export const LoadBackupModal: React.FC = () => {
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
 
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
 
   const pending = useSelector((s: RootState) => s.globalState.pendingImport);
   const savedHere = useSelector(
@@ -74,6 +77,9 @@ export const LoadBackupModal: React.FC = () => {
     }
   }, [pending]);
 
+  // KAN-982. On its way out a copy fades with its dim.
+  const leaveRef = useLeaveRef<HTMLDialogElement>(DIALOG_LEAVE, dialogRef);
+  const hasRisen = useHasRisen(dialogRef, pending !== null);
   if (pending === null) return null;
 
   const inFile = pending.container.tabGroups.length;
@@ -160,9 +166,9 @@ export const LoadBackupModal: React.FC = () => {
 
   return (
     <dialog
-      ref={dialogRef}
+      ref={leaveRef}
       tabIndex={-1}
-      css={dialogStyle}
+      css={[dialogStyle, dialogRiseCss(hasRisen)]}
       aria-labelledby={TITLE_ID}
       aria-describedby={BODY_ID}
       onCancel={(e) => {

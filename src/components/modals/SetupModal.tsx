@@ -1,3 +1,4 @@
+import { DIALOG_LEAVE, useLeaveRef } from '../common/popoverMotion';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
@@ -91,7 +92,9 @@ export const SetupModal: React.FC = () => {
   // KAN-862. The import step shows what came in while setup was open, not before.
   const [importedAtOpen] = useState(importedCount);
   const popupShortcut = usePopupShortcut();
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
+  // KAN-982. On its way out a copy fades with its dim.
+  const leaveRef = useLeaveRef<HTMLDialogElement>(DIALOG_LEAVE, dialogRef);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const hasMoved = useRef(false);
   const [stepIndex, setStepIndex] = useState(0);
@@ -485,7 +488,7 @@ export const SetupModal: React.FC = () => {
 
   return (
     <dialog
-      ref={dialogRef}
+      ref={leaveRef}
       // Focusable only by script, never by Tab; see the effect above.
       tabIndex={-1}
       css={[dialogStyle, dialogRiseCss(hasRisen)]}

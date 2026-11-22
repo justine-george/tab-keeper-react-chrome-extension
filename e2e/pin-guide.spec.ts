@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 
+import { documentLanded } from './fixtures/landed';
 import { test, expect } from './fixtures/extension';
 import {
   buildContainer,
@@ -49,6 +50,8 @@ test('unpinned and not dismissed: the full view shows it, unlit, waiting, ahead 
   await seedSettings(context, { isPinGuideDismissed: false, ...REVIEW_DUE });
   const page = await openFullView(context, extensionId);
   await expect(guide(page)).toBeVisible();
+  // KAN-982. Measured at rest: menus grow in, dialogs rise.
+  await documentLanded(page);
   await expect(reviewCard(page)).toHaveCount(0);
   expect(
     await page.evaluate(
@@ -89,6 +92,8 @@ test('a pin ticks step 3, says so, and closes itself without dismissing', async 
   await seedSettings(context, { isPinGuideDismissed: false });
   const page = await openFullView(context, extensionId);
   await expect(guide(page)).toBeVisible();
+  // KAN-982. Measured at rest: menus grow in, dialogs rise.
+  await documentLanded(page);
 
   await setPin(page, true);
   await expect(
@@ -98,6 +103,8 @@ test('a pin ticks step 3, says so, and closes itself without dismissing', async 
     captions(page).nth(2).locator('.material-symbols-outlined')
   ).toHaveText('check');
   await expect(guide(page)).toBeVisible();
+  // KAN-982. Measured at rest: menus grow in, dialogs rise.
+  await documentLanded(page);
   await expect(guide(page)).toHaveCount(0, { timeout: 5000 });
   expect((await storedSettings(page)).isPinGuideDismissed).toBe(false);
 });
@@ -110,6 +117,8 @@ test('without the event, coming back to the window re-reads the pin', async ({
   await seedSettings(context, { isPinGuideDismissed: false });
   const page = await openFullView(context, extensionId);
   await expect(guide(page)).toBeVisible();
+  // KAN-982. Measured at rest: menus grow in, dialogs rise.
+  await documentLanded(page);
 
   await setPin(page, true);
   await expect(
@@ -164,6 +173,8 @@ test('with setup pending, unpinned: setup opens first, and the guide when it clo
   await expect(guide(page)).toHaveCount(0);
   await setup.getByText('Skip setup', { exact: true }).click();
   await expect(guide(page)).toBeVisible();
+  // KAN-982. Measured at rest: menus grow in, dialogs rise.
+  await documentLanded(page);
   await expect(setup).toHaveCount(0);
 });
 
@@ -179,6 +190,8 @@ test.describe('dismissals stick on this machine', () => {
       });
       const page = await openFullView(context, extensionId);
       await expect(guide(page)).toBeVisible();
+      // KAN-982. Measured at rest: menus grow in, dialogs rise.
+      await documentLanded(page);
       if (how === 'Escape') await page.keyboard.press('Escape');
       else
         await guide(page)
@@ -225,6 +238,8 @@ test('the arrow points straight up at the puzzle piece, clear of the guide', asy
   await seedSettings(context, { isPinGuideDismissed: false });
   const page = await openFullView(context, extensionId);
   await expect(guide(page)).toBeVisible();
+  // KAN-982. Measured at rest: menus grow in, dialogs rise.
+  await documentLanded(page);
   expect(page.viewportSize()).toEqual({ width: 1280, height: 800 });
   const measured = await page.evaluate(() => {
     const arrow = document.querySelector('[data-pin-arrow] svg');
@@ -278,6 +293,8 @@ test('steps 1 and 3 draw the toolbar in Chrome’s order', async ({
   await seedSettings(context, { isPinGuideDismissed: false });
   const page = await openFullView(context, extensionId);
   await expect(guide(page)).toBeVisible();
+  // KAN-982. Measured at rest: menus grow in, dialogs rise.
+  await documentLanded(page);
   const order = (step: number) =>
     page.evaluate((index) => {
       const li = document.querySelectorAll('dialog[open] ol > li')[index];
@@ -325,6 +342,8 @@ test('each step’s pointer sits under its ringed item', async ({
   await seedSettings(context, { isPinGuideDismissed: false });
   const page = await openFullView(context, extensionId);
   await expect(guide(page)).toBeVisible();
+  // KAN-982. Measured at rest: menus grow in, dialogs rise.
+  await documentLanded(page);
   const offsets = await page.evaluate(() =>
     [...document.querySelectorAll('dialog[open] ol > li')].map((li) => {
       const ring = li.querySelector('[data-ringed]');
@@ -350,6 +369,8 @@ test('step 2 draws no ⋮; steps 1 and 3 keep theirs', async ({
   await seedSettings(context, { isPinGuideDismissed: false });
   const page = await openFullView(context, extensionId);
   await expect(guide(page)).toBeVisible();
+  // KAN-982. Measured at rest: menus grow in, dialogs rise.
+  await documentLanded(page);
   const steps = guide(page).locator('ol > li');
   const kebabs = (n: number) =>
     steps
@@ -369,6 +390,8 @@ test('step 2 name shows Tab Keeper whole before the cut', async ({
   await seedSettings(context, { isPinGuideDismissed: false });
   const page = await openFullView(context, extensionId);
   await expect(guide(page)).toBeVisible();
+  // KAN-982. Measured at rest: menus grow in, dialogs rise.
+  await documentLanded(page);
   // Fractional edges: an integer clientWidth rounds away a sub-pixel overrun.
   const fit = await page.evaluate(() => {
     const el = document.querySelector('[data-pin-app-name]');
@@ -429,6 +452,8 @@ for (const [theme, palette] of THEMES) {
     await seedSettings(context, { theme, isPinGuideDismissed: false });
     const page = await openFullView(context, extensionId);
     await expect(guide(page)).toBeVisible();
+    // KAN-982. Measured at rest: menus grow in, dialogs rise.
+    await documentLanded(page);
     const boxes = await page.evaluate(() => {
       const r = (s: string) => {
         const b = document.querySelector(s)!.getBoundingClientRect();

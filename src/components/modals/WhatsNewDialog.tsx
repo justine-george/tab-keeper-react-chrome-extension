@@ -1,3 +1,6 @@
+import { DIALOG_LEAVE, useLeaveRef } from '../common/popoverMotion';
+import { useHasRisen } from '../../hooks/useHasRisen';
+import { dialogRiseCss } from './dialogRise';
 import { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
 import { useTranslation } from 'react-i18next';
@@ -30,7 +33,10 @@ export const WhatsNewDialog: React.FC<{ shown: readonly ShownRelease[] }> = ({
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
+  // KAN-982. On its way out a copy fades with its dim.
+  const leaveRef = useLeaveRef<HTMLDialogElement>(DIALOG_LEAVE, dialogRef);
+  const hasRisen = useHasRisen(dialogRef);
 
   // Opens unlit (KAN-243), with no entrance motion.
   useEffect(() => {
@@ -152,10 +158,10 @@ export const WhatsNewDialog: React.FC<{ shown: readonly ShownRelease[] }> = ({
 
   return (
     <dialog
-      ref={dialogRef}
+      ref={leaveRef}
       tabIndex={-1}
       data-whats-new
-      css={dialogStyle}
+      css={[dialogStyle, dialogRiseCss(hasRisen)]}
       aria-labelledby={TITLE_ID}
       onCancel={(e) => {
         e.preventDefault();
