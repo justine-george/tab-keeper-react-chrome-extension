@@ -13,10 +13,13 @@ import App from './App.tsx';
 import { store } from './redux/store.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 import { trackKeyNav } from './utils/functions/keyNav.ts';
+import { trackLastInput } from './utils/functions/lastInput.ts';
 import './styles/keyNav.css';
 
 // Before the first key or press: rings follow it (KAN-689).
 trackKeyNav(window);
+// KAN-982. And motion: a menu a key opens or closes has none.
+trackLastInput(window);
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
