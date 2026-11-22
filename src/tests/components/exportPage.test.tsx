@@ -735,15 +735,22 @@ describe('the Save as PDF… pointer (KAN-826)', () => {
   test('stays after the first press on Save as PDF…, goes at the second, and the device remembers', async () => {
     const user = userEvent.setup();
     const { store } = await renderPage();
+    const printed = vi.fn();
     Object.defineProperty(frame(), 'contentWindow', {
       configurable: true,
-      value: { print: vi.fn() },
+      value: { print: printed },
     });
     await waitFor(() => expect(pointer()).not.toBeNull());
+    // KAN-971. Unloaded, the press waits out the 1000 ms icon cap: as long as waitFor.
+    await waitFor(() =>
+      expect(frame().getAttribute('srcdoc')).toContain('data-icons="ready"')
+    );
+    fireEvent.load(frame());
 
     const save = screen.getByRole('button', { name: 'Save as PDF…' });
     await user.click(save);
-    await waitFor(() => expect(save).not.toHaveAttribute('aria-disabled'));
+    await waitFor(() => expect(printed).toHaveBeenCalledTimes(1));
+    expect(save).not.toHaveAttribute('aria-disabled');
     expect(pointer()).not.toBeNull();
     expect(store.getState().settingsDataState.saveAsPdfPresses).toBe(1);
 
