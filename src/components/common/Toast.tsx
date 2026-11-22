@@ -27,6 +27,7 @@ import {
   TOAST_GAP_PX,
   TOAST_LEAVE_MS,
   TOAST_MOVE,
+  TOAST_MOVE_MS,
   useToastStack,
 } from './useToastStack';
 import {
@@ -122,6 +123,26 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     if (hovered.current || focused.current) holdToasts();
   }, [toasts]);
 
+  // KAN-980. A click on a × takes its toast from under the pointer, and the
+  // next one only slides in after: for that moment the pointer is over
+  // nothing, and the stack would fold and open again. So a leave in that
+  // time is put off, and taken only if the pointer is not back on the stack.
+  const bridgingLeave = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bridgeLeave = () => {
+    if (bridgingLeave.current !== null) clearTimeout(bridgingLeave.current);
+    bridgingLeave.current = setTimeout(() => {
+      bridgingLeave.current = null;
+      if (regionRef.current?.matches(':hover') !== true)
+        setHold({ hovered: false });
+    }, TOAST_MOVE_MS);
+  };
+  useEffect(
+    () => () => {
+      if (bridgingLeave.current !== null) clearTimeout(bridgingLeave.current);
+    },
+    []
+  );
+
   // KAN-980. Closes one toast. From the keyboard, focus first goes to the
   // next front toast's ×, so pressing again clears the stack one by one; with
   // none left, the leaving toast gives focus up (useToastStack).
@@ -136,6 +157,8 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
       others[others.length - 1]
         ?.querySelector<HTMLElement>('[data-toast-close] [role="button"]')
         ?.focus();
+    } else {
+      bridgeLeave();
     }
     dispatch(toastsRemoved([id]));
   };
@@ -356,7 +379,9 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
       data-stack={open ? 'open' : 'collapsed'}
       css={regionStyle}
       onMouseEnter={() => setHold({ hovered: true })}
-      onMouseLeave={() => setHold({ hovered: false })}
+      onMouseLeave={() => {
+        if (bridgingLeave.current === null) setHold({ hovered: false });
+      }}
       onFocus={() => setHold({ focused: true })}
       onBlur={(event) => {
         // Focus moving between controls inside the stack is not leaving.

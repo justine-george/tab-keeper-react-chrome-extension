@@ -11,7 +11,8 @@ const MAX_DEPTH = MAX_TOASTS + 1;
 // fades only.
 export const TOAST_GAP_PX = 8;
 export const TOAST_RISE_PX = 12;
-export const TOAST_MOVE = '220ms cubic-bezier(0.2, 0, 0, 1)';
+export const TOAST_MOVE_MS = 220;
+export const TOAST_MOVE = `${TOAST_MOVE_MS}ms cubic-bezier(0.2, 0, 0, 1)`;
 export const TOAST_LEAVE_MS = 160;
 export const TOAST_FADE_REDUCED = '120ms linear';
 // KAN-488. Collapsed, each older toast peeks this far above the one in front of it, this much narrower.

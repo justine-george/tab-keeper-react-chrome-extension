@@ -238,6 +238,17 @@ for (const { name, dx, dy } of SPOTS) {
     };
     await page.mouse.move(spot.x, spot.y);
 
+    // Every change to the stack's fold, from here on.
+    await page.evaluate(() => {
+      const w = window as unknown as { folds: string[] };
+      w.folds = [];
+      const region = document.querySelector('[role="status"]');
+      if (!region) throw new Error('no region');
+      new MutationObserver(() => {
+        w.folds.push(region.getAttribute('data-stack') ?? '');
+      }).observe(region, { attributeFilter: ['data-stack'] });
+    });
+
     for (const left of [2, 1]) {
       await page.mouse.click(spot.x, spot.y);
       await expect(toasts(page)).toHaveCount(left);
@@ -256,10 +267,45 @@ for (const { name, dx, dy } of SPOTS) {
         )
       ).toBe(true);
     }
+    // It never folded in between, even for a moment.
+    expect(
+      await page.evaluate(
+        () => (window as unknown as { folds: string[] }).folds
+      )
+    ).toEqual([]);
     await page.mouse.click(spot.x, spot.y);
     await expect(toasts(page)).toHaveCount(0);
   });
 }
+
+test('a pointer that leaves right after a click still lets the stack fold and run', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openPopup(context, extensionId);
+  await threeToasts(page);
+  await message(toasts(page).nth(2)).hover();
+  await settled(page);
+  await closeOf(toasts(page).nth(2)).click();
+  await page.mouse.move(AWAY.x, AWAY.y);
+
+  await expect(page.getByRole('status')).toHaveAttribute(
+    'data-stack',
+    'collapsed'
+  );
+  // Released: the front toast's time-left line is shrinking again.
+  const left = () =>
+    toasts(page)
+      .nth(1)
+      .evaluate((el) => {
+        const bar = el.querySelector('[data-time-left] > span');
+        if (!bar) throw new Error('no line');
+        return bar.getBoundingClientRect().width;
+      });
+  const before = await left();
+  await page.waitForTimeout(600);
+  expect(await left()).toBeLessThan(before);
+});
 
 test('from the keyboard: Enter, then Escape, each close the front toast and hand focus on', async ({
   context,
