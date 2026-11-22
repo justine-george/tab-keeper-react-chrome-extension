@@ -226,7 +226,7 @@ export const PinGuideModal: React.FC = () => {
       ref={leaveRef}
       // Focusable only by script, never by Tab; see the effect above.
       tabIndex={-1}
-      css={[dialogStyle, dialogRiseCss(hasRisen)]}
+      css={[dialogStyle, dialogRiseCss(hasRisen, false)]}
       aria-labelledby={TITLE_ID}
       aria-describedby={WHY_ID}
       onCancel={(e) => {

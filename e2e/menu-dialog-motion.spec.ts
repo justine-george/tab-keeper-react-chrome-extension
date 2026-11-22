@@ -1,6 +1,10 @@
 import type { Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { documentLanded } from './fixtures/landed';
+import { openFullView } from './fixtures/onboarding';
+import { seedSettings } from './fixtures/seed';
+import { stubToolbarPin } from './fixtures/toolbarPin';
 import {
   boxOf,
   openSaved,
@@ -310,6 +314,35 @@ test.describe('dialogs (KAN-982)', () => {
     expect(parts[1].tag).toBe('DIV');
     expect(parts[1].text).toContain('Switch');
     await expect(copies(page)).toHaveCount(0);
+  });
+});
+
+test.describe('the pin guide (KAN-982)', () => {
+  // Its arrow is fixed to Chrome's toolbar: a rise would carry it along.
+  test('fades in where it stands, and its arrow never moves', async ({
+    context,
+    extensionId,
+  }) => {
+    await stubToolbarPin(context, { pinned: false });
+    await seedSettings(context, { isPinGuideDismissed: false });
+    const page = await openFullView(context, extensionId);
+    const arrow = page.locator('[data-pin-arrow] svg');
+    const guide = page.getByRole('dialog', {
+      name: 'Pin Tab Keeper to your toolbar',
+      exact: true,
+    });
+    await expect(guide).toBeVisible();
+    const arriving = await boxOf(arrow);
+    expect(
+      (await motionsOf(guide)).find((m) => m.pseudo === null)
+    ).toMatchObject({
+      duration: 200,
+      keyframes: [{ opacity: '0' }, { opacity: '1' }],
+    });
+    await documentLanded(page);
+    const landed = await boxOf(arrow);
+    expect(arriving.x).toBeCloseTo(landed.x, 0);
+    expect(arriving.y).toBeCloseTo(landed.y, 0);
   });
 });
 

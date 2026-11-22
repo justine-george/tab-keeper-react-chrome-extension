@@ -162,7 +162,11 @@ export function leaveCopy(
     easing: EASE.OUT,
     fill: 'forwards' as const,
   };
-  const fade = copy.animate([{ opacity: 1, scale: '1' }, spec.to], timing);
+  // Only what `to` names: a scale would make the copy the containing block of
+  // a fixed child (PinGuide's arrow) and carry it off its place.
+  const from: Keyframe = { opacity: 1 };
+  if ('scale' in spec.to) from.scale = '1';
+  const fade = copy.animate([from, spec.to], timing);
   for (const part of parts.slice(0, -1)) {
     part.animate([{ opacity: 1 }, { opacity: 0 }], timing);
   }

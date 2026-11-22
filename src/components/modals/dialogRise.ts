@@ -9,18 +9,19 @@ const RISE = keyframes`
   to { opacity: 1; translate: 0 0; }
 `;
 
-// KAN-982. The dim comes with it, on the same timing.
-const DIM_IN = keyframes`
+// KAN-982. The dim, and a dialog that must not move: PinGuide's arrow is
+// fixed to Chrome's toolbar, and any translate on the dialog would carry it.
+const FADE_IN = keyframes`
   from { opacity: 0; }
   to { opacity: 1; }
 `;
 
 // KAN-654. A dialog rises into place as the review card does, and takes no pointer input until it lands.
-export const dialogRiseCss = (hasRisen: boolean) => css`
-  animation: ${RISE} ${DURATION.MOVE} ${EASE.OUT};
+export const dialogRiseCss = (hasRisen: boolean, travels = true) => css`
+  animation: ${travels ? RISE : FADE_IN} ${DURATION.MOVE} ${EASE.OUT};
   pointer-events: ${hasRisen ? 'auto' : 'none'};
   &::backdrop {
-    animation: ${DIM_IN} ${DURATION.MOVE} ${EASE.OUT};
+    animation: ${FADE_IN} ${DURATION.MOVE} ${EASE.OUT};
   }
   @media (prefers-reduced-motion: reduce) {
     animation: none;
