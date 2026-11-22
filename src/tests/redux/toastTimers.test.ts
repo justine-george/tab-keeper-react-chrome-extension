@@ -18,9 +18,9 @@ import { makeTestStore } from '../setup/makeStore';
 import {
   closeAllToasts,
   closeOfferToast,
-  closePlainToasts,
   selectUndoKeyTarget,
   showToast,
+  stepToastsClosed,
 } from '../../redux/slices/globalStateSlice';
 import {
   holdToasts,
@@ -44,8 +44,18 @@ const show = (
   extra: { reopenOfferId?: number } = {}
 ) => store.dispatch(showToast({ toastText: text, ...extra }));
 
-const showSavedChange = (store: Store, text: string) =>
-  store.dispatch(showToast({ toastText: text, announcesSavedChange: true }));
+const showSavedChange = (
+  store: Store,
+  text: string,
+  step: number | null = null
+) =>
+  store.dispatch(
+    showToast({
+      toastText: text,
+      announcesSavedChange: true,
+      announcesStep: step,
+    })
+  );
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -141,12 +151,27 @@ describe('a hold holds every toast (T3)', () => {
 });
 
 describe('closing', () => {
-  test('closePlainToasts leaves the offer', async () => {
+  // KAN-981. What an undo of step 3 closes.
+  test('stepToastsClosed closes only the toasts announcing that step', async () => {
     const { store } = makeTestStore();
     await show(store, 'Tab closed', { reopenOfferId: 7 });
     await show(store, 'Links copied');
-    store.dispatch(closePlainToasts());
-    expect(texts(store)).toEqual(['Tab closed']);
+    await showSavedChange(store, 'Tab deleted', 2);
+    await showSavedChange(store, 'Session deleted', 3);
+    // PREMISE: all four fit (MAX_TOASTS).
+    expect(texts(store)).toHaveLength(4);
+    store.dispatch(stepToastsClosed(3));
+    expect(texts(store)).toEqual(['Tab closed', 'Links copied', 'Tab deleted']);
+  });
+
+  // A move that empties its source says both; one undo takes both back.
+  test('stepToastsClosed closes every toast of that step, and none named null', async () => {
+    const { store } = makeTestStore();
+    await showSavedChange(store, 'Moved', 3);
+    await showSavedChange(store, 'Session emptied', 3);
+    await showSavedChange(store, 'Sorted', null);
+    store.dispatch(stepToastsClosed(3));
+    expect(texts(store)).toEqual(['Sorted']);
   });
 
   test('closeAllToasts closes every toast', async () => {
@@ -213,6 +238,7 @@ describe('which offer ⌘Z takes (Q1 C′)', () => {
       showToast({
         toastText: 'Tab deleted',
         announcesSavedChange: true,
+        announcesStep: null,
       })
     );
     vi.advanceTimersByTime(TOAST_MS);
@@ -223,8 +249,8 @@ describe('which offer ⌘Z takes (Q1 C′)', () => {
   test('the key does not come back when an undo closes the taking toast', async () => {
     const { store } = makeTestStore();
     await offerOn(store);
-    await showSavedChange(store, 'Tab deleted');
-    store.dispatch(closePlainToasts());
+    await showSavedChange(store, 'Tab deleted', 5);
+    store.dispatch(stepToastsClosed(5));
     expect(texts(store)).toEqual(['Tab closed']);
     expect(selectUndoKeyTarget(store.getState())).toBeNull();
   });

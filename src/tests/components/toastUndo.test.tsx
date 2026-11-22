@@ -17,7 +17,7 @@ import {
   deleteTab,
   deleteTabContainer,
   deleteWindow,
-  recordsUndoStep,
+  recordedStep,
   replaceSessionWithOpenWindows,
   replaceState,
   saveToTabContainerInternal,
@@ -25,11 +25,9 @@ import {
   updateTabGroupTitle,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import {
-  redo,
   resetHistory,
   selectLiveStepOnTop,
   setPresentStartup,
-  undo,
 } from '../../redux/slices/undoRedoSlice';
 import { keepLiveStep, undoStep } from '../../redux/undoHistory';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
@@ -218,17 +216,16 @@ describe('Undo in the Delete and Replace toasts (KAN-583)', () => {
     expect(undoButtons()).toHaveLength(0);
   });
 
-  test.each([
-    ['undo', undo],
-    ['redo', redo],
-  ])('%s from the key or the header closes the Undo toast', async (_, step) => {
+  // KAN-981. The key and the header both take undoStep: it closes the toast of the step it undoes.
+  test('undo from the key or the header closes the Undo toast', async () => {
     const { store } = await renderToasts();
     await deleteKyoto(store);
 
-    act(() => {
-      store.dispatch(step());
+    await act(async () => {
+      await store.dispatch(undoStep());
     });
 
+    expect(sessionIds(store)).toContain('kyoto');
     expect(toastTexts(store.getState())).toEqual([]);
   });
 
@@ -495,24 +492,24 @@ describe('a drag in the history and the toasts (KAN-744)', () => {
   });
 });
 
-describe('recordsUndoStep (KAN-583)', () => {
-  test('true for a change customMiddleware records, false for one it does not', async () => {
+describe('recordedStep (KAN-583, KAN-981)', () => {
+  test('the step for a change customMiddleware records, null for one it does not', async () => {
     const { store } = await renderToasts();
 
-    expect(
-      recordsUndoStep(store.getState, () =>
-        store.dispatch(
-          updateTabGroupTitle({ tabGroupId: 'osaka', editableTitle: 'Nara' })
-        )
+    const renamed = recordedStep(store.getState, () =>
+      store.dispatch(
+        updateTabGroupTitle({ tabGroupId: 'osaka', editableTitle: 'Nara' })
       )
-    ).toBe(true);
+    );
+    expect(renamed).toBe(store.getState().undoRedo.present.savedStepId);
+    expect(renamed).toEqual(expect.any(Number));
     // Selecting moves `present` without a step: Undo would take back the rename.
     const presentBefore = store.getState().undoRedo.present;
     expect(
-      recordsUndoStep(store.getState, () =>
+      recordedStep(store.getState, () =>
         store.dispatch(selectTabContainer('osaka'))
       )
-    ).toBe(false);
+    ).toBeNull();
     // PREMISE: the selection did move `present`.
     expect(store.getState().undoRedo.present).not.toBe(presentBefore);
   });

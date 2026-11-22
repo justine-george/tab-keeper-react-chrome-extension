@@ -42,10 +42,7 @@ import { useOpenNowPlace } from '../hooks/useOpenNowPlace';
 import { paneMotionCss } from './home/paneMotion';
 import LeftPaneSettings from './settings/leftpane/LeftPaneSettings';
 import RightPaneSettings from './settings/rightpane/RightPaneSettings';
-import {
-  closePlainToasts,
-  selectUndoKeyTarget,
-} from '../redux/slices/globalStateSlice';
+import { selectUndoKeyTarget } from '../redux/slices/globalStateSlice';
 import { reopenFromOffer } from '../redux/reopenOffer';
 import { ReviewCard } from './reviewCard/ReviewCard';
 import { FocusConfirmModal } from './modals/FocusConfirmModal';
@@ -259,8 +256,7 @@ export default function MainContainer() {
       // satisfy the plain-undo branch as well and the two cancel out.
       //
       // KAN-744 R2. Redo takes the step undone last, saved or live, and
-      // never a Reopen offer. An undo or redo dismisses a plain toast, but not
-      // an offer: it is still there to take (KAN-311, O8c).
+      // never a Reopen offer. It closes no toast (KAN-981).
       if (key === 'y' || (key === 'z' && event.shiftKey)) {
         const nextRedo = selectNextStep(store.getState(), 'redo');
         // KAN-744 R20. A repeat never runs a live step; it starts the hold.
@@ -269,8 +265,6 @@ export default function MainContainer() {
           event.preventDefault();
           return;
         }
-        // KAN-349. A press with nothing to redo still closes plain toasts; redoStep closes them for a step.
-        if (nextRedo === null) dispatch(closePlainToasts());
         holdAfterRun(freshPresses.current, dispatch(redoStep()));
         event.preventDefault();
         return;
@@ -295,8 +289,6 @@ export default function MainContainer() {
         repeatsDropped.current = true;
         return;
       }
-      // KAN-349. A press with nothing to undo still closes plain toasts; undoStep closes them for a step.
-      if (next === null) dispatch(closePlainToasts());
       holdAfterRun(freshPresses.current, dispatch(undoStep()));
     }
     // The hold ends when Z or Y is let go, or the modifier is: macOS Chrome

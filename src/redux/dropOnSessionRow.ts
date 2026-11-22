@@ -3,7 +3,10 @@ import type { ThunkAction, UnknownAction } from '@reduxjs/toolkit';
 import { dropOnTopMoved } from './dropOnTop';
 import { intoNewWindow, windowDrop } from './dropSpecs';
 import { moveToSession, movedToSessionToast } from './moveToSession';
-import type { CarriedRef } from './slices/tabContainerDataStateSlice';
+import {
+  stepSince,
+  type CarriedRef,
+} from './slices/tabContainerDataStateSlice';
 import type { RootState } from './store';
 import { revealSavedWindow } from '../components/home/rightpane/revealSavedWindow';
 
@@ -89,6 +92,7 @@ const rowDropMove =
         )?.title;
         // Moved or not is read off the move action, as moveToSession reads
         // it: the reducer returns the same state for a window already first.
+        const history = getState().undoRedo.present;
         const moved = dispatch(
           dropOnTopMoved(windowDrop(tabGroupId, carried.windowId, 0))
         );
@@ -96,7 +100,8 @@ const rowDropMove =
           dispatch(
             movedToSessionToast(
               { tabGroupId, title },
-              getState().tabContainerDataState.selectedTabGroupId
+              getState().tabContainerDataState.selectedTabGroupId,
+              stepSince(getState, history)
             )
           );
         }

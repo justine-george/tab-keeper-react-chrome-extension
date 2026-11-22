@@ -5,6 +5,7 @@ import { newSessionDrop } from './dropSpecs';
 import { showToast } from './slices/globalStateSlice';
 import {
   moveToNewSessionInternal,
+  stepSince,
   type CarriedRef,
 } from './slices/tabContainerDataStateSlice';
 import { showSession } from './showSession';
@@ -40,6 +41,7 @@ export const moveToNewSession =
       {},
       selectSkipsDuplicateTabs(getState())
     );
+    const history = getState().undoRedo.present;
     const moved = dispatch(dropOnTopMoved(newSessionDrop(carried, action)));
     if (!moved) return false;
 
@@ -52,6 +54,7 @@ export const moveToNewSession =
           toastText: TOAST_MESSAGES.SESSION_EMPTIED_REMOVED,
           toastParams: { title: sourceTitle },
           announcesSavedChange: true,
+          announcesStep: stepSince(getState, history),
         })
       );
     }

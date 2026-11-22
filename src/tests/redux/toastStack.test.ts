@@ -20,6 +20,7 @@ const plain = (
   offersUndo: false,
   liveStepId: null,
   leftOut: 0,
+  announcesStep: null,
 });
 
 const offer = (id: number, offerId: number): ToastItem => ({
@@ -31,6 +32,7 @@ const offer = (id: number, offerId: number): ToastItem => ({
   offersUndo: false,
   liveStepId: null,
   leftOut: 0,
+  announcesStep: null,
 });
 
 const ids = (list: readonly ToastItem[]) => list.map((t) => t.id);

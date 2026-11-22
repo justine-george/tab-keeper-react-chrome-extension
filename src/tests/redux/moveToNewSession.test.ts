@@ -21,6 +21,7 @@ vi.mock('../../utils/functions/external', () => ({
 }));
 
 import { makeTestStore } from '../setup/makeStore';
+import { announcedSteps } from '../setup/toasts';
 import {
   moveToNewSessionInternal,
   replaceState,
@@ -159,6 +160,20 @@ describe('moveToNewSession: the toasts (4A)', () => {
 
     expect(sessionIds(data(store))).toHaveLength(1);
     expect(toasts(store)).toEqual([EMPTIED('Source')]);
+  });
+
+  // KAN-981. Its undo closes it.
+  it('the emptied toast names the step the move recorded', () => {
+    const { store } = ready(
+      container([
+        session('S1', 'Source', T0 - 3_600_000, [win('w2', [tab('t3')])]),
+      ])
+    );
+    store.dispatch(moveToNewSession(T3_EMPTIES_S1, 'Fallback'));
+    const { announced, onTop } = announcedSteps(store.getState());
+    expect(onTop).toEqual(expect.any(Number));
+    expect(announced).toEqual(announced.map(() => onTop));
+    expect(announced.length).toBeGreaterThan(0);
   });
 });
 

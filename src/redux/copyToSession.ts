@@ -15,6 +15,7 @@ import { showToast } from './slices/globalStateSlice';
 import { selectSkipsDuplicateTabs } from './slices/settingsDataStateSlice';
 import {
   copyToNewSessionInternal,
+  stepSince,
   type SessionCopy,
   type TabMasterContainer,
   type windowGroupData,
@@ -56,14 +57,16 @@ const copyToSession =
     // The state the copy action is dispatched against, and what it lands: after dropOnTop applied what arrived while carried.
     const at: {
       state: TabMasterContainer | null;
+      history: RootState['undoRedo']['present'] | null;
       landing: { window: windowGroupData; leftOut: number };
-    } = { state: null, landing: { window: placed, leftOut: 0 } };
+    } = { state: null, history: null, landing: { window: placed, leftOut: 0 } };
     dispatch(
       dropOnTop({
         ...drop,
         move: (i) => {
           const now = getState();
           at.state = now.tabContainerDataState;
+          at.history = now.undoRedo.present;
           at.landing = landingAtDrop(now, copy, placed);
           return sessionCopyDrop(copy, at.landing.window).move(i);
         },
@@ -113,6 +116,8 @@ const copyToSession =
               }
             : { title: target.title },
           announcesSavedChange: true,
+          announcesStep:
+            at.history === null ? null : stepSince(getState, at.history),
           show,
           leftOut,
         })

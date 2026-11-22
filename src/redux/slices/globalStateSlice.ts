@@ -11,12 +11,10 @@ import {
 import { AppDispatch, RootState } from '../store';
 import {
   pushLiveStep,
-  redo,
   resetHistory,
   selectLastLiveStepId,
   set,
   setPresentStartup,
-  undo,
 } from './undoRedoSlice';
 import { nextActionNumber } from '../actionOrder';
 import { isDragHeld, whenDragReleases } from '../dragHold';
@@ -1161,14 +1159,20 @@ export const ERROR_TOASTS: ReadonlySet<string> = new Set([
   SYNC_SIZE_REFUSAL,
 ]);
 
-interface ShowToastPayload {
+// KAN-349 Q1 C′. The toast announces a saved-session change the user just
+// made, so it takes ⌘Z from a Reopen offer showing above it, for good.
+// KAN-981. Such a toast names the undo step the change recorded (null when it
+// recorded none: a change folded into the step before, or one not kept), so
+// undoing that step closes it.
+type SavedChangeAnnounced =
+  | { announcesSavedChange: true; announcesStep: number | null }
+  | { announcesSavedChange?: false; announcesStep?: never };
+
+type ShowToastPayload = SavedChangeAnnounced & {
   toastText: string;
   toastParams?: Record<string, string | number>;
   // KAN-280 O8a. Set only by offerReopen.
   reopenOfferId?: number;
-  // KAN-349 Q1 C′. The toast announces a saved-session change the user just
-  // made, so it takes ⌘Z from a Reopen offer showing above it, for good.
-  announcesSavedChange?: boolean;
   // KAN-401. Its twin stays: each one is its own event (Copy all links).
   stacksOnTwin?: boolean;
   // KAN-350. A Show chip that puts this session on screen. Twins replace
@@ -1180,7 +1184,7 @@ interface ShowToastPayload {
   liveStepId?: number;
   // KAN-906. How many duplicate tabs the save left out: the toast says so after its text.
   leftOut?: number;
-}
+};
 
 let lastToastId = 0;
 
@@ -1212,6 +1216,7 @@ export const showToast = createAsyncThunk(
       toastParams,
       reopenOfferId,
       announcesSavedChange = false,
+      announcesStep,
       stacksOnTwin = false,
       show,
       offersUndo = false,
@@ -1241,6 +1246,8 @@ export const showToast = createAsyncThunk(
           offersUndo,
           liveStepId: liveStepId ?? null,
           leftOut,
+          // A live step's toast announces that step.
+          announcesStep: announcesStep ?? liveStepId ?? null,
         },
         announcesSavedChange,
         stacksOnTwin,
@@ -1479,10 +1486,11 @@ export const globalStateSlice = createSlice({
       state.toasts = state.toasts.filter((t) => !gone.has(t.id));
     },
 
-    // An undo or redo dismisses the plain toasts, but not a Reopen offer: the
-    // offer is still there to take (KAN-311, O8c).
-    closePlainToasts: (state) => {
-      state.toasts = state.toasts.filter((t) => t.reopenOffer !== null);
+    // KAN-981. An undo closes only the toasts announcing the step it took.
+    stepToastsClosed: (state, action: PayloadAction<number>) => {
+      state.toasts = state.toasts.filter(
+        (t) => t.announcesStep !== action.payload
+      );
     },
 
     // Opening or leaving Settings clears the stack.
@@ -1699,9 +1707,9 @@ export const globalStateSlice = createSlice({
       // KAN-583. Undo steps back from the latest step only. A new step (L1),
       // saved or live (KAN-744 R16), or a reset history leaves the older toast
       // with no step of its own to undo, so it keeps its text and loses the
-      // button; an undo or redo has moved off the step, so its toast closes,
-      // as ⌘Z closes a plain one. A new step takes a sort toast's Undo off
-      // too, for good; a reset keeps it, since live steps outlive it (R14).
+      // button; the undo of a step closes its toast (KAN-981, takeStep). A new
+      // step takes a sort toast's Undo off too, for good; a reset keeps it,
+      // since live steps outlive it (R14).
       .addCase(set, (state) => {
         state.toasts = withoutLiveUndo(withoutUndo(state.toasts), null);
       })
@@ -1713,12 +1721,6 @@ export const globalStateSlice = createSlice({
       })
       .addCase(resetHistory, (state) => {
         state.toasts = withoutUndo(state.toasts);
-      })
-      .addCase(undo, (state) => {
-        state.toasts = state.toasts.filter((t) => !t.offersUndo);
-      })
-      .addCase(redo, (state) => {
-        state.toasts = state.toasts.filter((t) => !t.offersUndo);
       })
       // KAN-206. Leaving a session forgets how it was folded.
       //
@@ -1850,7 +1852,7 @@ export const {
   setSearchInputText,
   toastAdded,
   toastsRemoved,
-  closePlainToasts,
+  stepToastsClosed,
   closeAllToasts,
   closeOfferToast,
   closeSettingsPage,

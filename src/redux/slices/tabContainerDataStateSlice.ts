@@ -927,7 +927,8 @@ const sessionOrder = (state: RootState): string =>
 
 function announceIfReordered(
   thunkAPI: { getState: () => unknown; dispatch: (action: unknown) => unknown },
-  before: string
+  before: string,
+  step: number | null
 ): void {
   if (sessionOrder(thunkAPI.getState() as RootState) === before) return;
 
@@ -935,6 +936,7 @@ function announceIfReordered(
     showToast({
       toastText: TOAST_MESSAGES.SESSION_ORDER_CHANGED,
       announcesSavedChange: true,
+      announcesStep: step,
     })
   );
 }
@@ -942,18 +944,24 @@ function announceIfReordered(
 export const sortSessions = createAsyncThunk(
   'global/sortSessions',
   async (params: sortSessionsParams, thunkAPI) => {
-    const before = sessionOrder(thunkAPI.getState() as RootState);
-    thunkAPI.dispatch(sortSessionsInternal(params));
-    announceIfReordered(thunkAPI, before);
+    const getState = thunkAPI.getState as () => RootState;
+    const before = sessionOrder(getState());
+    const step = recordedStep(getState, () =>
+      thunkAPI.dispatch(sortSessionsInternal(params))
+    );
+    announceIfReordered(thunkAPI, before, step);
   }
 );
 
 export const resetSessionOrder = createAsyncThunk(
   'global/resetSessionOrder',
   async (_: void, thunkAPI) => {
-    const before = sessionOrder(thunkAPI.getState() as RootState);
-    thunkAPI.dispatch(clearSessionOrder());
-    announceIfReordered(thunkAPI, before);
+    const getState = thunkAPI.getState as () => RootState;
+    const before = sessionOrder(getState());
+    const step = recordedStep(getState, () =>
+      thunkAPI.dispatch(clearSessionOrder())
+    );
+    announceIfReordered(thunkAPI, before, step);
   }
 );
 
@@ -1030,7 +1038,9 @@ export const saveToTabContainer = createAsyncThunk(
       ? withoutRepeats(params.container)
       : { container: params.container, leftOut: 0 };
 
-    thunkAPI.dispatch(saveToTabContainerInternal(container));
+    const step = recordedStep(thunkAPI.getState as () => RootState, () =>
+      thunkAPI.dispatch(saveToTabContainerInternal(container))
+    );
 
     // KAN-653. The first session kept is a payoff of its own, whatever its
     // size. The sample is no session of the user's (KAN-7), so it neither
@@ -1068,6 +1078,7 @@ export const saveToTabContainer = createAsyncThunk(
       showToast({
         toastText: SAVED_TOAST[params.scope],
         announcesSavedChange: true,
+        announcesStep: step,
         leftOut,
       })
     );
@@ -1100,37 +1111,41 @@ export const addCurrWindowToTabGroup = createAsyncThunk(
       return;
     }
 
-    thunkAPI.dispatch(addCurrWindowToTabGroupInternal({ ...params, window }));
+    const step = recordedStep(thunkAPI.getState as () => RootState, () =>
+      thunkAPI.dispatch(addCurrWindowToTabGroupInternal({ ...params, window }))
+    );
 
     thunkAPI.dispatch(
       showToast({
         toastText: TOAST_MESSAGES.ADD_CURR_WINDOW_TO_TABGROUP_SUCCESS,
         announcesSavedChange: true,
+        announcesStep: step,
         leftOut,
       })
     );
   }
 );
 
-// KAN-583. Makes a change and says whether customMiddleware recorded it as an
-// undo step, so a toast offers Undo only when one undo takes back this change.
+// KAN-583, KAN-981. Makes a change and returns the undo step customMiddleware
+// recorded for it, or null when it recorded none: a toast offers Undo only when
+// one undo takes back this change, and closes when that undo is taken.
 // A step pushes the old `present` onto `past`; a selection moves `present` only.
-export function recordsUndoStep(
+export function recordedStep(
   getState: () => RootState,
   change: () => void
-): boolean {
+): number | null {
   const before = getState().undoRedo.present;
   change();
-  return isLatestUndoStep(getState, before);
+  return stepSince(getState, before);
 }
 
-// Whether the newest undo step takes the state back to `present`, read before a change.
-export function isLatestUndoStep(
+// The newest undo step when it takes the state back to `present`, read before a change; else null.
+export function stepSince(
   getState: () => RootState,
   present: RootState['undoRedo']['present']
-): boolean {
-  const { past } = getState().undoRedo;
-  return past[past.length - 1] === present;
+): number | null {
+  const { past, present: now } = getState().undoRedo;
+  return past[past.length - 1] === present ? (now.savedStepId ?? null) : null;
 }
 
 // KAN-468. Every open window, captured as Save does, replaces the session's; the session keeps its name.
@@ -1148,7 +1163,7 @@ export const replaceSessionWithOpenWindows = createAsyncThunk<
   const captured = await captureOpenWindows(group.title, 'all-windows');
   // Gone while capturing (deleted, or synced away): nothing to replace.
   if (!captured || !sessionOf()) return false;
-  const offersUndo = recordsUndoStep(thunkAPI.getState, () =>
+  const step = recordedStep(thunkAPI.getState, () =>
     thunkAPI.dispatch(
       replaceSessionContentInternal({
         tabGroupId,
@@ -1161,7 +1176,8 @@ export const replaceSessionWithOpenWindows = createAsyncThunk<
     showToast({
       toastText: TOAST_MESSAGES.SESSION_REPLACED,
       announcesSavedChange: true,
-      offersUndo,
+      announcesStep: step,
+      offersUndo: step !== null,
     })
   );
   return true;
@@ -1200,7 +1216,7 @@ export const replaceWindowWithCurrentWindow = createAsyncThunk<
         ? { ...captured.windows[0], windowId, title: w.title }
         : w
     );
-    const offersUndo = recordsUndoStep(thunkAPI.getState, () =>
+    const step = recordedStep(thunkAPI.getState, () =>
       thunkAPI.dispatch(
         replaceSessionContentInternal({ tabGroupId, windows, now: Date.now() })
       )
@@ -1209,7 +1225,8 @@ export const replaceWindowWithCurrentWindow = createAsyncThunk<
       showToast({
         toastText: TOAST_MESSAGES.WINDOW_REPLACED,
         announcesSavedChange: true,
-        offersUndo,
+        announcesStep: step,
+        offersUndo: step !== null,
       })
     );
     return true;
@@ -1227,7 +1244,7 @@ export const removeDuplicateTabs = createAsyncThunk<
     .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === tabGroupId);
   const count = session ? countDuplicateTabs(session, within) : 0;
   if (count === 0) return;
-  const offersUndo = recordsUndoStep(thunkAPI.getState, () =>
+  const step = recordedStep(thunkAPI.getState, () =>
     thunkAPI.dispatch(
       removeDuplicateTabsInternal({ tabGroupId, within, now: Date.now() })
     )
@@ -1237,7 +1254,8 @@ export const removeDuplicateTabs = createAsyncThunk<
       toastText: TOAST_MESSAGES.DUPLICATE_TABS_REMOVED,
       toastParams: { count },
       announcesSavedChange: true,
-      offersUndo,
+      announcesStep: step,
+      offersUndo: step !== null,
     })
   );
 });
@@ -1253,7 +1271,7 @@ export const sortTabsBySite = createAsyncThunk<
     .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === tabGroupId)
     ?.windows.find((w) => w.windowId === windowId);
   if (!window || isSavedWindowSortedBySite(window)) return;
-  const offersUndo = recordsUndoStep(thunkAPI.getState, () =>
+  const step = recordedStep(thunkAPI.getState, () =>
     thunkAPI.dispatch(
       sortTabsBySiteInternal({ tabGroupId, windowId, now: Date.now() })
     )
@@ -1262,7 +1280,8 @@ export const sortTabsBySite = createAsyncThunk<
     showToast({
       toastText: TOAST_MESSAGES.TABS_SORTED_BY_SITE,
       announcesSavedChange: true,
-      offersUndo,
+      announcesStep: step,
+      offersUndo: step !== null,
     })
   );
 });
@@ -1280,7 +1299,7 @@ export const sortGroupTabsBySite = createAsyncThunk<
       .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === tabGroupId)
       ?.windows.find((w) => w.windowId === windowId);
     if (!window || isSavedGroupSortedBySite(window, groupId)) return;
-    const offersUndo = recordsUndoStep(thunkAPI.getState, () =>
+    const step = recordedStep(thunkAPI.getState, () =>
       thunkAPI.dispatch(
         sortGroupTabsBySiteInternal({
           tabGroupId,
@@ -1294,7 +1313,8 @@ export const sortGroupTabsBySite = createAsyncThunk<
       showToast({
         toastText: TOAST_MESSAGES.TABS_SORTED_BY_SITE,
         announcesSavedChange: true,
-        offersUndo,
+        announcesStep: step,
+        offersUndo: step !== null,
       })
     );
   }
@@ -1313,7 +1333,7 @@ export const sortWindowGroupsByName = createAsyncThunk<
       .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === tabGroupId)
       ?.windows.find((w) => w.windowId === windowId);
     if (!window || isSavedWindowGroupsSortedByName(window, locale)) return;
-    const offersUndo = recordsUndoStep(thunkAPI.getState, () =>
+    const step = recordedStep(thunkAPI.getState, () =>
       thunkAPI.dispatch(
         sortWindowGroupsByNameInternal({
           tabGroupId,
@@ -1327,7 +1347,8 @@ export const sortWindowGroupsByName = createAsyncThunk<
       showToast({
         toastText: TOAST_MESSAGES.GROUPS_SORTED_BY_NAME,
         announcesSavedChange: true,
-        offersUndo,
+        announcesStep: step,
+        offersUndo: step !== null,
       })
     );
   }
@@ -1365,12 +1386,15 @@ export const addCurrTabToWindow =
       return false;
     }
     const before = getState().tabContainerDataState;
-    dispatch(addCurrTabToWindowInternal(params));
+    const step = recordedStep(getState, () =>
+      dispatch(addCurrTabToWindowInternal(params))
+    );
 
     dispatch(
       showToast({
         toastText: TOAST_MESSAGES.ADD_CURR_TAB_TO_WINDOW_SUCCESS,
         announcesSavedChange: true,
+        announcesStep: step,
       })
     );
     return getState().tabContainerDataState !== before;
@@ -1399,7 +1423,7 @@ export const deleteTabContainer = createAsyncThunk<
   string,
   { state: RootState }
 >('global/deleteTabContainer', async (toBeDeletedTabGroupId, thunkAPI) => {
-  const offersUndo = recordsUndoStep(thunkAPI.getState, () =>
+  const step = recordedStep(thunkAPI.getState, () =>
     thunkAPI.dispatch(deleteTabContainerInternal(toBeDeletedTabGroupId))
   );
 
@@ -1407,7 +1431,8 @@ export const deleteTabContainer = createAsyncThunk<
     showToast({
       toastText: TOAST_MESSAGES.DELETE_TAB_CONTAINER_SUCCESS,
       announcesSavedChange: true,
-      offersUndo,
+      announcesStep: step,
+      offersUndo: step !== null,
     })
   );
 });
@@ -1418,11 +1443,14 @@ export const restoreDeletedSession = createAsyncThunk<
   tabContainerData,
   { state: RootState }
 >('global/restoreDeletedSession', async (session, thunkAPI) => {
-  thunkAPI.dispatch(restoreDeletedSessionInternal(session));
+  const step = recordedStep(thunkAPI.getState, () =>
+    thunkAPI.dispatch(restoreDeletedSessionInternal(session))
+  );
   thunkAPI.dispatch(
     showToast({
       toastText: TOAST_MESSAGES.SESSION_RESTORED,
       announcesSavedChange: true,
+      announcesStep: step,
     })
   );
 });
@@ -1433,7 +1461,7 @@ export const deleteWindow = createAsyncThunk<
   deleteWindowParams,
   { state: RootState }
 >('global/deleteWindow', async (params, thunkAPI) => {
-  const offersUndo = recordsUndoStep(thunkAPI.getState, () =>
+  const step = recordedStep(thunkAPI.getState, () =>
     thunkAPI.dispatch(deleteWindowInternal(params))
   );
 
@@ -1441,7 +1469,8 @@ export const deleteWindow = createAsyncThunk<
     showToast({
       toastText: TOAST_MESSAGES.DELETE_WINDOW_SUCCESS,
       announcesSavedChange: true,
-      offersUndo,
+      announcesStep: step,
+      offersUndo: step !== null,
     })
   );
 });
@@ -1452,7 +1481,7 @@ export const deleteTab = createAsyncThunk<
   deleteTabParams,
   { state: RootState }
 >('global/deleteTab', async (params, thunkAPI) => {
-  const offersUndo = recordsUndoStep(thunkAPI.getState, () =>
+  const step = recordedStep(thunkAPI.getState, () =>
     thunkAPI.dispatch(deleteTabInternal(params))
   );
 
@@ -1460,7 +1489,8 @@ export const deleteTab = createAsyncThunk<
     showToast({
       toastText: TOAST_MESSAGES.DELETE_TAB_SUCCESS,
       announcesSavedChange: true,
-      offersUndo,
+      announcesStep: step,
+      offersUndo: step !== null,
     })
   );
 });
@@ -1471,7 +1501,7 @@ export const deleteChromeTabGroup = createAsyncThunk<
   chromeTabGroupTargetParams,
   { state: RootState }
 >('global/deleteChromeTabGroup', async (params, thunkAPI) => {
-  const offersUndo = recordsUndoStep(thunkAPI.getState, () =>
+  const step = recordedStep(thunkAPI.getState, () =>
     thunkAPI.dispatch(deleteChromeTabGroupInternal(params))
   );
 
@@ -1479,7 +1509,8 @@ export const deleteChromeTabGroup = createAsyncThunk<
     showToast({
       toastText: TOAST_MESSAGES.DELETE_CHROME_GROUP_SUCCESS,
       announcesSavedChange: true,
-      offersUndo,
+      announcesStep: step,
+      offersUndo: step !== null,
     })
   );
 });

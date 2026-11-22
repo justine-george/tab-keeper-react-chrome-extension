@@ -205,6 +205,11 @@ describe('sortGroupTabsBySite', () => {
     expect(toasts(store)).toHaveLength(1);
     expect(toast.text).toBe(TOAST_MESSAGES.TABS_SORTED_BY_SITE);
     expect(toast.offersUndo).toBe(true);
+    // KAN-981. Its undo closes it.
+    expect(toast.announcesStep).toEqual(expect.any(Number));
+    expect(toast.announcesStep).toBe(
+      store.getState().undoRedo.present.savedStepId
+    );
   });
 
   it('an already sorted group is not an edit: no step, no stamp, no toast', async () => {

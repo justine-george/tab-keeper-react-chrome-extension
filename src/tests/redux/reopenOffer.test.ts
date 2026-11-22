@@ -30,7 +30,7 @@ import { setPinTabKeeperInNewWindows } from '../../redux/slices/settingsDataStat
 import type { ClosedItem } from '../../utils/functions/reopen';
 import {
   closeAllToasts,
-  closePlainToasts,
+  stepToastsClosed,
   selectUndoKeyTarget,
   showToast,
 } from '../../redux/slices/globalStateSlice';
@@ -139,6 +139,7 @@ describe('the Reopen offer (KAN-280 O8a)', () => {
       showToast({
         toastText: TOAST_MESSAGES.DELETE_TAB_SUCCESS,
         announcesSavedChange: true,
+        announcesStep: null,
       })
     );
 
@@ -173,15 +174,21 @@ describe('the Reopen offer (KAN-280 O8a)', () => {
     expect(takeReopenOffer(id)).toBeNull();
   });
 
-  test('closing the plain toasts (undo) keeps the offer', async () => {
+  test('an undo closing its own toast keeps the offer', async () => {
     const [item] = await closedTabs();
     const { store } = makeTestStore();
 
     await store.dispatch(offerReopen(item));
     const id = shownOfferId(store.getState());
     if (id === null) throw new Error('no offer id');
-    await store.dispatch(showToast({ toastText: 'One' }));
-    store.dispatch(closePlainToasts());
+    await store.dispatch(
+      showToast({
+        toastText: 'One',
+        announcesSavedChange: true,
+        announcesStep: 4,
+      })
+    );
+    store.dispatch(stepToastsClosed(4));
 
     expect(takeReopenOffer(id)).toBe(item);
   });

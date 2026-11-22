@@ -34,6 +34,7 @@ const show = async (
       showToast({
         toastText: SAVED,
         announcesSavedChange: true,
+        announcesStep: null,
         ...(leftOut === undefined ? {} : { leftOut }),
       })
     );
