@@ -61,6 +61,11 @@ export const ToastTimeLeft: React.FC<ToastTimeLeftProps> = ({ id }) => {
       background: ${COLORS.LABEL_L3_COLOR};
       transform-origin: left;
     }
+    /* Only the front toast shows its time (Justine): in an opened stack the
+       older ones' lines read as clutter. Each still counts down. */
+    [data-toast]:not([data-depth='0']) > & {
+      display: none;
+    }
     /* Justine's pick: no line at all; the toast still leaves on time. */
     @media (prefers-reduced-motion: reduce) {
       display: none;

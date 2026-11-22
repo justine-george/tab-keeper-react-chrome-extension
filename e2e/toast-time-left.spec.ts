@@ -7,8 +7,8 @@ import { NEEDS_YOU_TOAST_MS } from '../src/redux/toastDuration';
 
 // KAN-979 (pick A) on the real artifact: a line along each toast's bottom edge
 // shrinks as its time runs out, stops while the stack is held, carries on when
-// released, hides with a folded toast's content, keeps its place when a toast
-// loses its Undo, and is not drawn at all with reduced motion.
+// released, shows on the front toast only, keeps its time when a toast comes
+// forward, and is not drawn at all with reduced motion.
 // Toasts come from ⌫ on a focused session row ("Session deleted.", with Undo,
 // NEEDS_YOU_TOAST_MS), so no pointer has to cross the stack to make one.
 
@@ -53,11 +53,13 @@ const leftOf = (toast: Locator): Promise<number> =>
     );
   });
 
-const lineOpacity = (toast: Locator): Promise<string> =>
+// Whether a toast's line can be seen: drawn, and not hidden with its content.
+const lineShows = (toast: Locator): Promise<boolean> =>
   toast.evaluate((el) => {
     const line = el.querySelector('[data-time-left]');
     if (!line) throw new Error('no time-left line');
-    return getComputedStyle(line).opacity;
+    const style = getComputedStyle(line);
+    return style.display !== 'none' && style.opacity !== '0';
   });
 
 async function startWithOne(page: Page): Promise<Locator> {
@@ -99,7 +101,7 @@ test('the line shrinks, stops while the stack is held, and carries on after', as
   expect(released).toBeGreaterThan(held - 0.12);
 });
 
-test('folded, only the front line shows; the older one keeps its time after losing Undo', async ({
+test('only the front toast shows its line, folded or open; the one behind comes forward with its time used', async ({
   context,
   extensionId,
 }) => {
@@ -112,21 +114,25 @@ test('folded, only the front line shows; the older one keeps its time after losi
   const [older, front] = [toasts(page).nth(0), toasts(page).nth(1)];
   // PREMISE: the newer step took the older toast's Undo.
   await expect(older.getByRole('button')).toHaveCount(0);
-  await expect(front.getByRole('button', { name: 'Undo' })).toBeVisible();
 
   await page.waitForTimeout(400);
-  expect(await lineOpacity(older)).toBe('0');
-  expect(await lineOpacity(front)).toBe('1');
+  expect(await lineShows(older)).toBe(false);
+  expect(await lineShows(front)).toBe(true);
 
-  // Open the stack to read the older line: it has run ~2s of its 8s, not restarted.
+  // Open (the pointer on the stack): still only the front line.
   const box = await front.boundingBox();
   if (box === null) throw new Error('no toast box');
   await page.mouse.move(box.x + 30, box.y + box.height / 2);
   await page.waitForTimeout(400);
-  const olderLeft = await leftOf(older);
-  const used = 1 - olderLeft;
-  expect(used).toBeGreaterThan(1500 / NEEDS_YOU_TOAST_MS);
-  expect(olderLeft).toBeLessThan(await leftOf(front));
+  expect(await lineShows(older)).toBe(false);
+  expect(await lineShows(front)).toBe(true);
+
+  // Undo closes the front; the older one comes forward, ~2s of its 8s used, not restarted.
+  await front.getByRole('button', { name: 'Undo' }).click();
+  await expect(toasts(page)).toHaveCount(1);
+  await page.waitForTimeout(300);
+  expect(await lineShows(older)).toBe(true);
+  expect(1 - (await leftOf(older))).toBeGreaterThan(1500 / NEEDS_YOU_TOAST_MS);
 });
 
 test('with reduced motion there is no line, and the toast still leaves on time', async ({
