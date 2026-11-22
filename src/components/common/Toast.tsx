@@ -17,14 +17,17 @@ import type { StepPress } from '../../redux/undoHistory';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useTranslation } from 'react-i18next';
-import { CONTROL, RADIUS, TYPE } from '../../styles/scale';
+import { CONTROL, ICON, RADIUS, TYPE } from '../../styles/scale';
 import Button from './Button';
+import Icon from './Icon';
+import { isUnclaimedEscape } from './unclaimedEscape';
 import { ToastTimeLeft } from './ToastTimeLeft';
 import {
   TOAST_FADE_REDUCED,
   TOAST_GAP_PX,
   TOAST_LEAVE_MS,
   TOAST_MOVE,
+  TOAST_MOVE_MS,
   useToastStack,
 } from './useToastStack';
 import {
@@ -55,6 +58,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
   const dispatch: AppDispatch = useDispatch();
 
   const toasts = useSelector((state: RootState) => state.globalState.toasts);
+  const regionRef = useRef<HTMLDivElement>(null);
   // KAN-488. Open while held: the pointer on the stack or focus in it.
   const [open, setOpen] = useState(false);
   // An empty stack takes the hover with it (the effect below), so it is not open either.
@@ -118,6 +122,109 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     }
     if (hovered.current || focused.current) holdToasts();
   }, [toasts]);
+
+  // KAN-980. A click on a × takes its toast from under the pointer, and the
+  // next one only slides in after: for that moment the pointer is over
+  // nothing, and the stack would fold and open again. So a leave in that
+  // time is put off, and taken only if the pointer is not back on the stack.
+  const bridgingLeave = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bridgeLeave = () => {
+    if (bridgingLeave.current !== null) clearTimeout(bridgingLeave.current);
+    bridgingLeave.current = setTimeout(() => {
+      bridgingLeave.current = null;
+      if (regionRef.current?.matches(':hover') !== true)
+        setHold({ hovered: false });
+    }, TOAST_MOVE_MS);
+  };
+  useEffect(
+    () => () => {
+      if (bridgingLeave.current !== null) clearTimeout(bridgingLeave.current);
+    },
+    []
+  );
+
+  // KAN-980. Closes one toast. From the keyboard, focus first goes to the
+  // next front toast's ×, so pressing again clears the stack one by one; with
+  // none left, the leaving toast gives focus up (useToastStack).
+  const closeToast = (id: number, from: Element, byKeyboard: boolean) => {
+    if (byKeyboard && regionRef.current !== null) {
+      const closing = from.closest('[data-toast]');
+      const others = Array.from(
+        regionRef.current.querySelectorAll(
+          ':scope > [data-toast]:not([aria-hidden])'
+        )
+      ).filter((el) => el !== closing);
+      others[others.length - 1]
+        ?.querySelector<HTMLElement>('[data-toast-close] [role="button"]')
+        ?.focus();
+    } else {
+      bridgeLeave();
+    }
+    dispatch(toastsRemoved([id]));
+  };
+  // KAN-980 (pick A2). A circle over the toast's top-right corner, in the
+  // toast's own fill. Shown only while its toast is hovered or has focus in
+  // it, which opens the stack, so a folded older toast never shows one.
+  // Hidden by opacity, not visibility, so Tab still reaches it, and it keeps
+  // the pointer: the next toast's × sliding under a pointer that closed the
+  // last one shows, even where it overhangs its toast.
+  const closeSlotStyle = css`
+    position: absolute;
+    top: calc(-0.75rem + 1px);
+    right: calc(-0.75rem + 1px);
+    opacity: 0;
+    [data-stack='open'] [data-toast]:is(:hover, :focus-within) > & {
+      opacity: 1;
+    }
+  `;
+  const closeIconStyle = `
+    box-sizing: border-box;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    box-shadow: ${COLORS.FLOATING_SHADOW};
+    border-radius: 50%;
+    corner-shape: round;
+  `;
+  const closeLigatureStyle = css`
+    &::before {
+      content: 'close';
+    }
+  `;
+  const closeButton = (id: number) => (
+    <div data-toast-close css={closeSlotStyle}>
+      <Icon
+        type="close"
+        size={ICON.XSMALL}
+        ariaLabel={t('Close')}
+        tooltipText={t('Close')}
+        backgroundColor={COLORS.SECONDARY_COLOR}
+        style={closeIconStyle}
+        // The ligature comes from ::before, so the toast's text is its message alone.
+        renderGlyph={(glyphCss) => (
+          <span
+            data-icon="close"
+            aria-hidden="true"
+            className="material-symbols-outlined"
+            css={[glyphCss, closeLigatureStyle]}
+          />
+        )}
+        // An Enter or Space on it clicks it with no pointer: detail 0.
+        onClick={(event) =>
+          closeToast(id, event.currentTarget, event.detail === 0)
+        }
+      />
+    </div>
+  );
+  // KAN-980. Escape with focus in a toast closes that toast. Claimed, or
+  // Chrome would close the popup with it (KAN-426).
+  const onToastKeyDown =
+    (id: number) => (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!isUnclaimedEscape(event.nativeEvent)) return;
+      event.preventDefault();
+      closeToast(id, event.currentTarget, true);
+    };
 
   // Fixed at the bottom-left on every page (KAN-574), with no size of its own:
   // only the toasts take the pointer, so the page beside a narrow toast stays
@@ -268,10 +375,13 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
       // screen reader read out the whole stack again. Each is its own
       // message (KAN-349 A).
       aria-atomic="false"
+      ref={regionRef}
       data-stack={open ? 'open' : 'collapsed'}
       css={regionStyle}
       onMouseEnter={() => setHold({ hovered: true })}
-      onMouseLeave={() => setHold({ hovered: false })}
+      onMouseLeave={() => {
+        if (bridgingLeave.current === null) setHold({ hovered: false });
+      }}
       onFocus={() => setHold({ focused: true })}
       onBlur={(event) => {
         // Focus moving between controls inside the stack is not leaving.
@@ -313,9 +423,11 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
               data-front={isFront || undefined}
               css={[toastStyle, leaving && leavingStyle]}
               aria-hidden={leaving || undefined}
+              onKeyDown={onToastKeyDown(toast.id)}
             >
               <span>{message}</span>
               <ToastTimeLeft id={toast.id} />
+              {closeButton(toast.id)}
             </div>
           );
         }
@@ -335,6 +447,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
               leaving && leavingStyle,
             ]}
             aria-hidden={leaving || undefined}
+            onKeyDown={onToastKeyDown(toast.id)}
           >
             {/* KAN-906. The left-out count wraps rather than being cut, as Undo's message does. */}
             <span
@@ -399,6 +512,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
                 style={chipStyle}
               />
             )}
+            {closeButton(toast.id)}
           </div>
         );
       })}

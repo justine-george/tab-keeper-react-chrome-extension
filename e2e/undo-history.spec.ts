@@ -270,11 +270,15 @@ async function expectHistory(
   }
 }
 
-// The one toast on screen is the refused text, with no button (R10, R11).
+// The one toast on screen is the refused text, with no button (R10, R11)
+// but its Close (KAN-980).
 async function expectRefusedToast(page: Page, text: string): Promise<void> {
   await expect(toasts(page)).toHaveCount(1);
   await expect(toasts(page)).toContainText(text);
-  await expect(toasts(page).getByRole('button')).toHaveCount(0);
+  await expect(toasts(page).getByRole('button')).toHaveCount(1);
+  await expect(
+    toasts(page).getByRole('button', { name: 'Close', exact: true })
+  ).toHaveCount(1);
 }
 
 async function undoKey(page: Page) {

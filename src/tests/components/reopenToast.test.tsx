@@ -148,7 +148,10 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
 
     const plainToast = visibleToast();
     expect(plainToast.textContent).toBe(TOAST_MESSAGES.SYNC_MERGED);
-    expect(within(plainToast).queryByRole('button')).toBeNull();
+    // KAN-980. Its only button is its Close.
+    expect(
+      within(plainToast).queryByRole('button', { name: 'Reopen' })
+    ).toBeNull();
   });
 
   // Rule 10: nothing came back, and the toast says so.
