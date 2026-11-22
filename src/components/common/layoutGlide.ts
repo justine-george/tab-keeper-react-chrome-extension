@@ -103,6 +103,36 @@ export function clipAboveLine(
   return frames;
 }
 
+// EASE.OUT's control points: cubic-bezier(x1, y1, x2, y2).
+const OUT = EASE.OUT.match(/[\d.]+/g)?.map(Number) ?? [0.23, 1, 0.32, 1];
+const bezier = (a: number, b: number, t: number) =>
+  3 * a * t * (1 - t) ** 2 + 3 * b * t ** 2 * (1 - t) + t ** 3;
+
+/**
+ * When, as a share of the glide's time, a line moving from `lineFrom` to
+ * `lineTo` on EASE.OUT has passed `y`, counting it passed at 90% of the way
+ * (an ease-out spends its last tenth crawling). 0 when it starts past.
+ */
+export function uncoveredAt(
+  y: number,
+  lineFrom: number,
+  lineTo: number
+): number {
+  const travel = lineTo - lineFrom;
+  if (Math.abs(travel) < 1) return 0;
+  const share = Math.min(0.9, Math.max(0, (y - lineFrom) / travel));
+  if (share === 0) return 0;
+  // Along the curve's own parameter, both progress and time only grow.
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 30; i++) {
+    const mid = (lo + hi) / 2;
+    if (bezier(OUT[1], OUT[3], mid) < share) lo = mid;
+    else hi = mid;
+  }
+  return bezier(OUT[0], OUT[2], hi);
+}
+
 // Hooks code and specs find things by. A copy carries none of them.
 const isHook = (name: string) =>
   name === 'id' ||
@@ -301,14 +331,19 @@ function draw(
       fill: 'none',
     })
   );
+  // A row that comes back is never clipped: Chrome can draw a clip-path
+  // animation's first frame again as it ends, a one-frame flash of the rows
+  // hidden. It waits instead until the rows gliding down have all but passed it.
   arrivalBoxes.forEach(({ el, box }) => {
-    el.animate([{ opacity: 0 }, { opacity: 1 }], timing(t.in, t.inDelay));
     const line = lineBelow(box.bottom, false);
-    const clip =
+    const wait =
       line === null
-        ? null
-        : clipAboveLine(box.top, box.bottom, line.from, line.to);
-    if (clip !== null) el.animate(clip, { ...timing(GLIDE_MS), fill: 'none' });
+        ? 0
+        : uncoveredAt(box.bottom, line.from, line.to) * GLIDE_MS;
+    el.animate(
+      [{ opacity: 0 }, { opacity: 1 }],
+      timing(t.in, Math.max(t.inDelay, wait))
+    );
   });
   leaving.forEach(({ node, parent, next, path, box }) => {
     if (!parent.isConnected) return;

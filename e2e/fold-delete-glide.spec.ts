@@ -56,8 +56,9 @@ interface Samples {
   [name: string]: number[];
 }
 
-// Each animation frame for `ms`, from now: every named element's top (or, for
-// a name ending in ":h", its height), and how many leaving copies are drawn.
+// Each animation frame for `ms`, from now: every named element's top (for a
+// name ending in ":h", its height; ":clip", whether it is clipped), and how
+// many leaving copies are drawn.
 async function startSampling(
   page: Page,
   targets: Record<string, string>,
@@ -73,8 +74,17 @@ async function startSampling(
         for (const [name, sel] of Object.entries(targets)) {
           const el = document.querySelector(sel);
           const r = el?.getBoundingClientRect();
+          // ":clip": 1 while the element is clipped, else 0.
           out[name].push(
-            r === undefined ? NaN : name.endsWith(':h') ? r.height : r.top
+            el === null || r === undefined
+              ? NaN
+              : name.endsWith(':clip')
+                ? getComputedStyle(el).clipPath === 'none'
+                  ? 0
+                  : 1
+                : name.endsWith(':h')
+                  ? r.height
+                  : r.top
           );
         }
         out.copies.push(document.querySelectorAll('[data-leaving-row]').length);
@@ -168,6 +178,7 @@ test.describe('folding a saved group', () => {
 
     await startSampling(page, {
       next: '[data-pane="detail"] [data-band-id="g2"][role="group"]',
+      'returning:clip': '[data-pane="detail"] [data-drag-row-id="g1-t1"]',
     });
     await unfold(page, 'g1', 'Booked').click();
     const s = await samples(page);
@@ -175,6 +186,8 @@ test.describe('folding a saved group', () => {
 
     expect(to - from).toBeGreaterThan(40);
     expect(between(s.next, from, to).length).toBeGreaterThanOrEqual(3);
+    // Never clipped: Chrome can draw a clip animation's first frame again as it ends (a one-frame flash).
+    expect(s['returning:clip'].filter((v) => v === 1)).toEqual([]);
     // A returning row starts clear and ends opaque.
     const opacity = await tabRow(page, 'g1-t0').evaluate(
       (el) => getComputedStyle(el).opacity
@@ -291,6 +304,7 @@ test.describe('deleting a tab', () => {
 
     await startSampling(page, {
       next: '[data-pane="detail"] [data-drag-row-id="g1-t1"]',
+      'returning:clip': '[data-pane="detail"] [data-drag-row-id="g1-t0"]',
     });
     await page
       .getByRole('status')
@@ -300,6 +314,7 @@ test.describe('deleting a tab', () => {
     await expect(tabRow(page, 'g1-t0')).toBeVisible();
     expect(await topOf(below)).toBeCloseTo(from, 0);
     expect(between(back.next, to, from).length).toBeGreaterThanOrEqual(3);
+    expect(back['returning:clip'].filter((v) => v === 1)).toEqual([]);
   });
 
   test('with Reduce motion it is instant', async ({ context, extensionId }) => {

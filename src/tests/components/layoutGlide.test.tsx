@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { clipAboveLine, ownShifts } from '../../components/common/layoutGlide';
+import {
+  clipAboveLine,
+  ownShifts,
+  uncoveredAt,
+} from '../../components/common/layoutGlide';
 
 // KAN-984. The two sums a fold's or delete's glide is drawn from.
 
@@ -84,5 +88,24 @@ describe('clipAboveLine', () => {
     expect(clipAboveLine(100, 132, 200, 150)).toBeNull();
     expect(clipAboveLine(100, 132, 120, 120)).toBeNull();
     expect(clipAboveLine(100, 100, 132, 100)).toBeNull();
+  });
+});
+
+describe('uncoveredAt', () => {
+  it('is 0 for a row the line starts past, or a line that does not move', () => {
+    expect(uncoveredAt(100, 132, 196)).toBe(0);
+    expect(uncoveredAt(150, 132, 132)).toBe(0);
+  });
+
+  it('waits for the rows gliding down to all but pass a returning row', () => {
+    // EASE.OUT covers half the way in about a tenth of the time, nine tenths in about a third.
+    const half = uncoveredAt(164, 132, 196);
+    expect(half).toBeGreaterThan(0.05);
+    expect(half).toBeLessThan(0.15);
+    const last = uncoveredAt(196, 132, 196);
+    expect(last).toBeGreaterThan(0.25);
+    expect(last).toBeLessThan(0.45);
+    // Past 90% of the way it waits no longer.
+    expect(uncoveredAt(300, 132, 196)).toBeCloseTo(last, 5);
   });
 });
