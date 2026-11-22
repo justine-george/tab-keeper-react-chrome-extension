@@ -112,6 +112,7 @@ import {
   rowEndCorners,
   rowHighlightCss,
 } from '../../../styles/rowHighlight';
+import { panes, prepareLayoutGlide } from '../../common/layoutGlide';
 
 // WindowEntryContainer's GROUP_TITLE_SIZE, the one documented off-scale size
 // (scaleConformance.test.ts). Copied rather than exported from there, for the
@@ -268,6 +269,7 @@ export default function OpenNowWindow({
       ? group.collapsed === true
       : searchFoldedGroupIds.has(group.groupId);
   const toggleGroupFold = (group: chromeTabGroupData) => {
+    prepareLayoutGlide(panes('open-now'), 'fold');
     const folded = isGroupFolded(group);
     if (searchFoldedGroupIds === null) {
       void updateLiveGroup(Number(group.groupId), { collapsed: !folded });

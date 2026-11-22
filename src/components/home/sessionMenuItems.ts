@@ -37,6 +37,7 @@ import {
   sessionMenuOpenLabelKey,
   sessionOpenLabelKey,
 } from './openWhere';
+import { panes, prepareLayoutGlide } from '../common/layoutGlide';
 
 type DeleteKey = NonNullable<OverflowMenuItem['shortcut']>;
 
@@ -241,7 +242,10 @@ export function sessionMenuItems(
       icon: 'delete',
       danger: true,
       shortcut: deleteKey,
-      onSelect: () => void dispatch(deleteTabContainer(tabGroupId)),
+      onSelect: () => {
+        prepareLayoutGlide(panes('sessions'), 'delete');
+        void dispatch(deleteTabContainer(tabGroupId));
+      },
     },
   ];
 }

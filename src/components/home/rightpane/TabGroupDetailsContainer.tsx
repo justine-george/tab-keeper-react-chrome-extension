@@ -61,6 +61,7 @@ import { corners, trackClearOfCorners } from '../../../styles/corners';
 import { RADIUS } from '../../../styles/scale';
 import { ROW_GUTTER_PX } from '../../../styles/rowHighlight';
 import { useScrollbarWidthVar } from '../../../hooks/useScrollbarWidthVar';
+import { panes, prepareLayoutGlide } from '../../common/layoutGlide';
 
 // The trailing block with nothing resting in it: no title, no rows.
 const EMPTY_TRAILING_BLOCK: Pick<
@@ -320,7 +321,10 @@ export default function TabGroupDetailsContainer() {
       onAddCurrTabToWindowClick={() =>
         handleAddCurrTabToWindowClick(tabGroupId, windowId)
       }
-      onDeleteClick={() => dispatch(deleteWindow({ tabGroupId, windowId }))}
+      onDeleteClick={() => {
+        prepareLayoutGlide(panes('detail'), 'delete');
+        dispatch(deleteWindow({ tabGroupId, windowId }));
+      }}
       onOpenWindow={(where) => {
         const goToURLText: string = t('Go to URL');
         dispatch(
