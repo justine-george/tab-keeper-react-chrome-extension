@@ -332,13 +332,27 @@ test.describe('the pin guide (KAN-982)', () => {
       exact: true,
     });
     await expect(guide).toBeVisible();
-    const arriving = await boxOf(arrow);
-    expect(
-      (await motionsOf(guide)).find((m) => m.pseudo === null)
-    ).toMatchObject({
+    expect((await motionsOf(guide)).find((m) => m.pseudo === null)).toEqual({
       duration: 200,
-      keyframes: [{ opacity: '0' }, { opacity: '1' }],
+      pseudo: null,
+      keyframes: [
+        { opacity: '0', scale: undefined, translate: undefined },
+        { opacity: '1', scale: undefined, translate: undefined },
+      ],
     });
+    // Its first frame, held: where the arrow is as the guide starts to come in.
+    await page.evaluate(() =>
+      document.getAnimations().forEach((a) => {
+        a.pause();
+        a.currentTime = 0;
+      })
+    );
+    const arriving = await boxOf(arrow);
+    await page.evaluate(() =>
+      document.getAnimations().forEach((a) => {
+        if (a.effect?.getComputedTiming().endTime !== Infinity) a.finish();
+      })
+    );
     await documentLanded(page);
     const landed = await boxOf(arrow);
     expect(arriving.x).toBeCloseTo(landed.x, 0);
