@@ -1,3 +1,6 @@
+import { DIALOG_LEAVE, useLeaveRef } from '../common/popoverMotion';
+import { useHasRisen } from '../../hooks/useHasRisen';
+import { dialogRiseCss } from './dialogRise';
 import { useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
@@ -30,7 +33,7 @@ export const FocusConfirmModal: React.FC<FocusConfirmModalProps> = ({
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
 
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
 
   const focusRequest = useSelector(
     (state: RootState) => state.globalState.focusRequest
@@ -57,6 +60,9 @@ export const FocusConfirmModal: React.FC<FocusConfirmModalProps> = ({
 
   // Narrowing rather than asserting. A request naming a session that is no
   // longer there has nothing to confirm.
+  // KAN-982. On its way out a copy fades with its dim.
+  const leaveRef = useLeaveRef<HTMLDialogElement>(DIALOG_LEAVE, dialogRef);
+  const hasRisen = useHasRisen(dialogRef, Boolean(focusRequest && tabGroup));
   if (!focusRequest || !tabGroup) return null;
 
   const { windowCount, willSave } = focusRequest;
@@ -139,8 +145,8 @@ export const FocusConfirmModal: React.FC<FocusConfirmModalProps> = ({
 
   return (
     <dialog
-      ref={dialogRef}
-      css={dialogStyle}
+      ref={leaveRef}
+      css={[dialogStyle, dialogRiseCss(hasRisen)]}
       aria-labelledby={TITLE_ID}
       aria-describedby={BODY_ID}
       onCancel={handleCancel}

@@ -1,3 +1,4 @@
+import { endRises } from '../setup/endRises';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -23,15 +24,27 @@ const openWith =
   (count: number) => (store: { dispatch: (a: unknown) => void }) =>
     store.dispatch(openTabGroupsPrompt(count));
 
+// KAN-982. It rises in, and takes a press only once it has landed.
+const renderModal = async (
+  options?: Parameters<typeof renderWithProviders>[1]
+) => {
+  const rendered = await renderWithProviders(
+    <TabGroupsPermissionModal />,
+    options
+  );
+  endRises();
+  return rendered;
+};
+
 describe('TabGroupsPermissionModal', () => {
   test('renders nothing when no prompt is open', async () => {
-    await renderWithProviders(<TabGroupsPermissionModal />);
+    await renderModal();
 
     expect(screen.queryByText('Tab Keeper can save tab groups')).toBeNull();
   });
 
   test("the footer is the sync dialog's pair: Not now then a filled Turn on", async () => {
-    await renderWithProviders(<TabGroupsPermissionModal />, {
+    await renderModal({
       seedStore: openWith(2),
     });
 
@@ -57,7 +70,7 @@ describe('TabGroupsPermissionModal', () => {
   });
 
   test('one group reads as singular, with no count in the sentence', async () => {
-    await renderWithProviders(<TabGroupsPermissionModal />, {
+    await renderModal({
       seedStore: openWith(1),
     });
 
@@ -71,7 +84,7 @@ describe('TabGroupsPermissionModal', () => {
   // Paired with the singular test above: together they prove the ternary picks
   // a key rather than always landing on one of them.
   test('several groups read as plural and name the count', async () => {
-    await renderWithProviders(<TabGroupsPermissionModal />, {
+    await renderModal({
       seedStore: openWith(3),
     });
 
@@ -86,7 +99,7 @@ describe('TabGroupsPermissionModal', () => {
 describe('TabGroupsPermissionModal answers', () => {
   // KAN-732. No opt-out: Not now only closes, and the offer returns on the next open.
   test('Not now closes and writes nothing to settings', async () => {
-    const { store } = await renderWithProviders(<TabGroupsPermissionModal />, {
+    const { store } = await renderModal({
       seedStore: openWith(2),
     });
     const before = localStorage.getItem('settingsData');
@@ -106,7 +119,7 @@ describe('TabGroupsPermissionModal answers', () => {
       JSON.stringify({ isTabGroupsPromptAnsweredOnce: true })
     );
 
-    await renderWithProviders(<TabGroupsPermissionModal />, {
+    await renderModal({
       seedStore: openWith(2),
     });
 
@@ -124,7 +137,7 @@ describe('TabGroupsPermissionModal answers', () => {
     "Not now reads as the sync dialog's in %s",
     async (lang, bundle, label) => {
       // After render: renderWithProviders re-inits i18n with en only.
-      await renderWithProviders(<TabGroupsPermissionModal />, {
+      await renderModal({
         seedStore: openWith(2),
       });
       testI18n.addResourceBundle(lang, 'translation', bundle);
@@ -144,7 +157,7 @@ describe('TabGroupsPermissionModal answers', () => {
 
 describe('TabGroupsPermissionModal permission request', () => {
   test('the CTA asks Chrome for the permission', async () => {
-    await renderWithProviders(<TabGroupsPermissionModal />, {
+    await renderModal({
       seedStore: openWith(2),
     });
 
@@ -165,7 +178,7 @@ describe('TabGroupsPermissionModal permission request', () => {
   // models exactly that -- if the close were moved into a .then/await on the
   // request, this test would hang the modal open forever.
   test('closes even when the permission request never settles', async () => {
-    const { store } = await renderWithProviders(<TabGroupsPermissionModal />, {
+    const { store } = await renderModal({
       seed: { requestNeverSettles: true },
       seedStore: openWith(2),
     });
@@ -178,7 +191,7 @@ describe('TabGroupsPermissionModal permission request', () => {
   // Nothing may write a "granted" boolean into settings: the grant lives in
   // chrome.permissions and is re-read on the next mount.
   test('turning it on writes nothing to settings', async () => {
-    await renderWithProviders(<TabGroupsPermissionModal />, {
+    await renderModal({
       seedStore: openWith(2),
     });
     const before = localStorage.getItem('settingsData');
@@ -192,7 +205,7 @@ describe('TabGroupsPermissionModal permission request', () => {
 // and an icon-and-title row with the tab-group glyph.
 describe('TabGroupsPermissionModal in the dialog family', () => {
   test('is as wide as the confirm dialogs', async () => {
-    await renderWithProviders(<TabGroupsPermissionModal />, {
+    await renderModal({
       seedStore: openWith(2),
     });
     const dialog = document.querySelector('dialog');
@@ -201,7 +214,7 @@ describe('TabGroupsPermissionModal in the dialog family', () => {
   });
 
   test('the title carries the tab-group glyph, hidden from the name', async () => {
-    await renderWithProviders(<TabGroupsPermissionModal />, {
+    await renderModal({
       seedStore: openWith(2),
     });
     const title = screen.getByRole('heading', {

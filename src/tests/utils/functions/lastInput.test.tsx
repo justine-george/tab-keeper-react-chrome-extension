@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, test } from 'vitest';
 
-import { lastInputWasKey, trackLastInput } from '../../../utils/functions/lastInput';
+import {
+  lastInputWasKey,
+  trackLastInput,
+} from '../../../utils/functions/lastInput';
 
 describe('the last input, a key or a press (KAN-982)', () => {
   let undo: () => void = () => {};

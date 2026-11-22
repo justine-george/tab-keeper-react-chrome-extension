@@ -2,6 +2,7 @@ import React, { useLayoutEffect, useRef, useState } from 'react';
 
 import { css } from '@emotion/react';
 
+import { growMenuIn } from './popoverMotion';
 import Icon from './Icon';
 import type { IconName } from './iconNames';
 import { usePopoverList } from '../../hooks/usePopoverList';
@@ -138,8 +139,10 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
    * useLayoutEffect, so the correction lands in the same paint as the menu --
    * a useEffect would show the clipped position for a frame first.
    */
-  const menuRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const [shiftX, setShiftX] = useState(0);
+  // KAN-982. Whether this opening has grown in yet.
+  const grown = useRef(false);
   useLayoutEffect(() => {
     // Deliberately NOT cleared on close. A stale shift cannot mislead the next
     // open, because the measurement below takes the transform off first and so
@@ -147,7 +150,10 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
     // closed, so nothing wears it in the meantime. Resetting here instead
     // meant calling setState unconditionally from an effect, which is the
     // cascading-render the lint rule is there to stop.
-    if (!isOpen) return;
+    if (!isOpen) {
+      grown.current = false;
+      return;
+    }
     const element = menuRef.current;
     if (!element) return;
 
@@ -180,8 +186,16 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
     }
     // Converges on the second pass, which measures the same natural box and
     // agrees -- so this settles rather than looping.
-    if (next !== shiftX) setShiftX(next);
-  }, [isOpen, shiftX]);
+    if (next !== shiftX) {
+      setShiftX(next);
+      return;
+    }
+    // KAN-982. Settled: grow from the trigger's side, at the top. Only now, so
+    // no pass above ever measures it mid-grow; once per opening.
+    if (grown.current) return;
+    grown.current = true;
+    growMenuIn(element, align === 'start' ? '0 0' : '100% 0');
+  }, [isOpen, shiftX, align]);
 
   const positionCss = `
     position: absolute;

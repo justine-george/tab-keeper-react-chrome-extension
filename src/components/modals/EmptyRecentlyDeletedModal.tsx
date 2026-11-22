@@ -1,3 +1,6 @@
+import { DIALOG_LEAVE, useLeaveRef } from '../common/popoverMotion';
+import { useHasRisen } from '../../hooks/useHasRisen';
+import { dialogRiseCss } from './dialogRise';
 import { useEffect, useId, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -28,7 +31,10 @@ export function EmptyRecentlyDeletedModal({
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
+  // KAN-982. On its way out a copy fades with its dim.
+  const leaveRef = useLeaveRef<HTMLDialogElement>(DIALOG_LEAVE, dialogRef);
+  const hasRisen = useHasRisen(dialogRef);
   const titleId = useId();
   const bodyId = useId();
   const buttons = dialogButtonStyles(COLORS);
@@ -40,36 +46,39 @@ export function EmptyRecentlyDeletedModal({
 
   return (
     <dialog
-      ref={dialogRef}
+      ref={leaveRef}
       aria-labelledby={titleId}
       aria-describedby={bodyId}
       onCancel={onCancel}
-      css={css`
-        /* The UA gives <dialog> its own box; reset it back to the modal's geometry. */
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        margin: 0;
-        padding: 20px;
-        width: ${DIALOG.WIDTH};
-        max-width: none;
-        ${dialogFitsWindow()}
-        background-color: ${COLORS.PRIMARY_COLOR};
-        color: ${COLORS.LABEL_L1_COLOR};
-        border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
-        ${corners(RADIUS.DIALOG)}
-        font-family: ${FONT_FAMILY};
-        font-size: ${TYPE.BODY};
+      css={[
+        css`
+          /* The UA gives <dialog> its own box; reset it back to the modal's geometry. */
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          margin: 0;
+          padding: 20px;
+          width: ${DIALOG.WIDTH};
+          max-width: none;
+          ${dialogFitsWindow()}
+          background-color: ${COLORS.PRIMARY_COLOR};
+          color: ${COLORS.LABEL_L1_COLOR};
+          border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+          ${corners(RADIUS.DIALOG)}
+          font-family: ${FONT_FAMILY};
+          font-size: ${TYPE.BODY};
 
-        &[open] {
-          display: block;
-        }
+          &[open] {
+            display: block;
+          }
 
-        &::backdrop {
-          background: ${COLORS.MODAL_BACKDROP};
-        }
-      `}
+          &::backdrop {
+            background: ${COLORS.MODAL_BACKDROP};
+          }
+        `,
+        dialogRiseCss(hasRisen),
+      ]}
     >
       <h2
         id={titleId}

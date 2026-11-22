@@ -1,3 +1,4 @@
+import { endRises } from '../setup/endRises';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { toastTexts, newestToast } from '../setup/toasts';
 import { act, screen, waitFor, within } from '@testing-library/react';
@@ -92,7 +93,12 @@ const pickBackup = async (
 ) => {
   await userEvent.click(await screen.findByText('Load a backup'));
   dropFile(inputs[0], text, name);
-  return screen.findByRole('dialog', { name: /^Load .* from this backup\?$/ });
+  const dialog = await screen.findByRole('dialog', {
+    name: /^Load .* from this backup\?$/,
+  });
+  // KAN-982. It rises in, and takes a press only once it has landed.
+  endRises();
+  return dialog;
 };
 
 const titlesHere = (r: RenderWithProvidersResult) =>

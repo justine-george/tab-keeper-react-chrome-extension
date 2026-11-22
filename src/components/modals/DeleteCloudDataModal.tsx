@@ -1,3 +1,6 @@
+import { DIALOG_LEAVE, useLeaveRef } from '../common/popoverMotion';
+import { useHasRisen } from '../../hooks/useHasRisen';
+import { dialogRiseCss } from './dialogRise';
 import { useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
@@ -36,7 +39,7 @@ export const DeleteCloudDataModal: React.FC = () => {
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
 
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
 
   const isOpen = useSelector(
     (state: RootState) => state.globalState.isDeleteCloudDataModalOpen
@@ -49,6 +52,9 @@ export const DeleteCloudDataModal: React.FC = () => {
     }
   }, [isOpen]);
 
+  // KAN-982. On its way out a copy fades with its dim.
+  const leaveRef = useLeaveRef<HTMLDialogElement>(DIALOG_LEAVE, dialogRef);
+  const hasRisen = useHasRisen(dialogRef, isOpen);
   if (!isOpen) return null;
 
   const handleCancel = () => {
@@ -111,8 +117,8 @@ export const DeleteCloudDataModal: React.FC = () => {
 
   return (
     <dialog
-      ref={dialogRef}
-      css={dialogStyle}
+      ref={leaveRef}
+      css={[dialogStyle, dialogRiseCss(hasRisen)]}
       aria-labelledby={TITLE_ID}
       aria-describedby={BODY_ID}
       onCancel={handleCancel}

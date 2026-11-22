@@ -1,3 +1,4 @@
+import { endRises } from '../setup/endRises';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import {
   act,
@@ -91,14 +92,18 @@ describe('the Sync & Backup pane offers Delete cloud data (KAN-254)', () => {
 });
 
 describe('the Delete cloud data dialog (KAN-254)', () => {
-  const renderOpen = () =>
-    renderWithProviders(<DeleteCloudDataModal />, {
+  // KAN-982. It rises in, and takes a press only once it has landed.
+  const renderOpen = async () => {
+    const rendered = await renderWithProviders(<DeleteCloudDataModal />, {
       seedStore: (s) => {
         s.dispatch(setSignedIn());
         s.dispatch(setUserId('uuid-1'));
         s.dispatch(openDeleteCloudDataModal());
       },
     });
+    endRises();
+    return rendered;
+  };
 
   test('says what will happen, including the part the user cannot see', async () => {
     await renderOpen();
@@ -171,6 +176,7 @@ describe('after Delete cloud data, Sync Status (KAN-573, KAN-632)', () => {
       await user.click(
         screen.getByRole('button', { name: 'Delete cloud data' })
       );
+      endRises();
       await user.click(
         within(screen.getByRole('dialog')).getByRole('button', {
           name: 'Delete',

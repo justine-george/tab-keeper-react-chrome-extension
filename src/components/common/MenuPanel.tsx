@@ -8,6 +8,7 @@ import GroupColorSwatches, { SWATCH_COUNT } from './GroupColorSwatches';
 import { tooltipDescription } from './tooltipRules';
 import type { IconName } from './iconNames';
 import { useFontFamily } from '../../hooks/useFontFamily';
+import { MENU_LEAVE, useLeaveRef } from './popoverMotion';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { DURATION, RADIUS, TYPE } from '../../styles/scale';
 import { corners } from '../../styles/corners';
@@ -143,12 +144,14 @@ export function MenuPanel({
   handleKeyDown: (e: React.KeyboardEvent) => void;
   close: () => void;
   positionCss: string;
-  menuRef?: React.Ref<HTMLDivElement>;
+  menuRef?: React.MutableRefObject<HTMLDivElement | null>;
   dataRowMenu?: boolean;
   colorRow?: MenuColorRow;
 }): React.ReactElement {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
+  // KAN-982. Its caller grows it in; on its way out a copy fades where it stood.
+  const leaveRef = useLeaveRef<HTMLDivElement>(MENU_LEAVE, menuRef);
 
   // A menu whose items report a current selection is a radio group, not a list
   // of commands. Derived rather than a separate prop so the two cannot disagree.
@@ -271,7 +274,7 @@ export function MenuPanel({
 
   return (
     <div
-      ref={menuRef}
+      ref={leaveRef}
       role="menu"
       aria-label={ariaLabel}
       data-row-menu={dataRowMenu ? '' : undefined}

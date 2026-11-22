@@ -86,7 +86,10 @@ describe('a menu or dialog fading out (KAN-982)', () => {
     const el = menu();
     leaveCopy(el, MENU_LEAVE);
     expect(animate).toHaveBeenCalledWith(
-      [{ opacity: 1, scale: '1' }, { opacity: 0, scale: '0.98' }],
+      [
+        { opacity: 1, scale: '1' },
+        { opacity: 0, scale: '0.98' },
+      ],
       expect.objectContaining({ duration: 110 })
     );
     expect(copies()).toHaveLength(1);
@@ -99,7 +102,9 @@ describe('a menu or dialog fading out (KAN-982)', () => {
     expect(leaveCopy(menu(), MENU_LEAVE)).toBeNull();
 
     window.dispatchEvent(new Event('pointerdown'));
-    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('reduce') }));
+    vi.stubGlobal('matchMedia', (q: string) => ({
+      matches: q.includes('reduce'),
+    }));
     expect(leaveCopy(menu(), MENU_LEAVE)).toBeNull();
     vi.unstubAllGlobals();
 
@@ -126,7 +131,10 @@ describe('a menu growing in (KAN-982)', () => {
     growMenuIn(el, '12px 0px');
     expect(el.style.transformOrigin).toBe('12px 0px');
     expect(animate).toHaveBeenCalledWith(
-      [{ opacity: 0, scale: '0.96' }, { opacity: 1, scale: '1' }],
+      [
+        { opacity: 0, scale: '0.96' },
+        { opacity: 1, scale: '1' },
+      ],
       expect.objectContaining({ duration: MENU_IN_MS })
     );
   });

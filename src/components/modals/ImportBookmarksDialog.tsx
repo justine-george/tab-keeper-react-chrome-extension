@@ -1,3 +1,10 @@
+import {
+  DIALOG_LEAVE,
+  leaveCopy,
+  useLeaveRef,
+} from '../common/popoverMotion';
+import { useHasRisen } from '../../hooks/useHasRisen';
+import { dialogRiseCss } from './dialogRise';
 import React, {
   useCallback,
   useEffect,
@@ -338,7 +345,10 @@ export const ImportBookmarksDialog: React.FC = () => {
     [importedEntries, savedSessions]
   );
 
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
+  // KAN-982. On its way out a copy fades with its dim.
+  const leaveRef = useLeaveRef<HTMLDialogElement>(DIALOG_LEAVE, dialogRef);
+  const hasRisen = useHasRisen(dialogRef);
   const [root, setRoot] = useState<BookmarkNode | null>(null);
   const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set());
   const [unfolded, setUnfolded] = useState<ReadonlySet<string>>(new Set());
@@ -355,6 +365,8 @@ export const ImportBookmarksDialog: React.FC = () => {
       if (hasEnded.current) return;
       hasEnded.current = true;
       // The page behind a modal is inert, so the dialog closes before focus goes back.
+      // KAN-982. Closed by hand, its ref would see it already gone: the copy fades from here.
+      if (dialogRef.current) leaveCopy(dialogRef.current, DIALOG_LEAVE);
       dialogRef.current?.close();
       if (opener.current?.isConnected) opener.current.focus();
       if (unreadable) {
@@ -679,9 +691,9 @@ export const ImportBookmarksDialog: React.FC = () => {
 
   return (
     <dialog
-      ref={dialogRef}
+      ref={leaveRef}
       tabIndex={-1}
-      css={dialogStyle}
+      css={[dialogStyle, dialogRiseCss(hasRisen)]}
       aria-labelledby={TITLE_ID}
       aria-describedby={LEAD_ID}
       onCancel={(e) => {

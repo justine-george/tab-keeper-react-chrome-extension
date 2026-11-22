@@ -184,12 +184,16 @@ describe('right-click on a row', () => {
   });
 
   test('it is placed by its measured size, flipping back across the point at the edges', async () => {
-    const rect = vi
-      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+    // KAN-982. Layout sizes, which a menu still growing in does not shrink.
+    const width = vi
+      .spyOn(HTMLElement.prototype, 'offsetWidth', 'get')
       .mockImplementation(function (this: HTMLElement) {
-        return this.hasAttribute('data-row-menu')
-          ? new DOMRect(0, 0, 200, 100)
-          : new DOMRect();
+        return this.hasAttribute('data-row-menu') ? 200 : 0;
+      });
+    const height = vi
+      .spyOn(HTMLElement.prototype, 'offsetHeight', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        return this.hasAttribute('data-row-menu') ? 100 : 0;
       });
     try {
       await renderRows();
@@ -197,23 +201,24 @@ describe('right-click on a row', () => {
       fireEvent.contextMenu(row('a'), { clientX: 950, clientY: 700 });
       expect(rowMenu()).toHaveStyle({ left: '750px', top: '600px' });
     } finally {
-      rect.mockRestore();
+      width.mockRestore();
+      height.mockRestore();
     }
   });
 
   test('an item appearing while it is open near the bottom edge places it again, inside the gutter', async () => {
     // 50px per item, so the stub follows the live item count.
-    const rect = vi
-      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+    const width = vi
+      .spyOn(HTMLElement.prototype, 'offsetWidth', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        return this.hasAttribute('data-row-menu') ? 200 : 0;
+      });
+    const height = vi
+      .spyOn(HTMLElement.prototype, 'offsetHeight', 'get')
       .mockImplementation(function (this: HTMLElement) {
         return this.hasAttribute('data-row-menu')
-          ? new DOMRect(
-              0,
-              0,
-              200,
-              50 * this.querySelectorAll('[role="menuitem"]').length
-            )
-          : new DOMRect();
+          ? 50 * this.querySelectorAll('[role="menuitem"]').length
+          : 0;
       });
     try {
       const { rerenderExtra } = await renderRows();
@@ -225,7 +230,8 @@ describe('right-click on a row', () => {
       expect(itemsOf(rowMenu())).toHaveLength(3);
       expect(rowMenu()).toHaveStyle({ left: '50px', top: '490px' });
     } finally {
-      rect.mockRestore();
+      width.mockRestore();
+      height.mockRestore();
     }
   });
 

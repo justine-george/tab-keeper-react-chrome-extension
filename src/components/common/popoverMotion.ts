@@ -1,4 +1,4 @@
-import { useCallback, useRef, type MutableRefObject } from 'react';
+import { useMemo, type MutableRefObject } from 'react';
 
 import { EASE } from '../../styles/scale';
 import { canAnimate, prefersReducedMotion } from '../modals/getStartedMotion';
@@ -87,7 +87,10 @@ function stripHooks(root: Element): void {
  *
  * Returns the copy's removal, or null when there is no copy.
  */
-export function leaveCopy(el: HTMLElement, spec: LeaveSpec): (() => void) | null {
+export function leaveCopy(
+  el: HTMLElement,
+  spec: LeaveSpec
+): (() => void) | null {
   if (stillnessWanted(el) || !el.isConnected) return null;
   if (el.getAnimations().some((a) => a.playState === 'running')) return null;
   const rect = el.getBoundingClientRect();
@@ -154,7 +157,11 @@ export function leaveCopy(el: HTMLElement, spec: LeaveSpec): (() => void) | null
   };
   leaving.add(end);
   doc.body.append(...parts);
-  const timing = { duration: spec.ms, easing: EASE.OUT, fill: 'forwards' as const };
+  const timing = {
+    duration: spec.ms,
+    easing: EASE.OUT,
+    fill: 'forwards' as const,
+  };
   const fade = copy.animate([{ opacity: 1, scale: '1' }, spec.to], timing);
   for (const part of parts.slice(0, -1)) {
     part.animate([{ opacity: 1 }, { opacity: 0 }], timing);
@@ -167,26 +174,30 @@ export function leaveCopy(el: HTMLElement, spec: LeaveSpec): (() => void) | null
  * A callback ref that fades a copy out when its element leaves the page.
  * React calls a ref with null while the element is still attached, which is
  * the last moment it can be copied. `into` also receives the element, for a
- * component that keeps its own ref. A modal dialog already closed by hand
+ * component that keeps its own ref object. A modal dialog already closed by hand
  * (`open` false) is not copied: it has already gone from the screen.
  */
 export function useLeaveRef<T extends HTMLElement>(
   spec: LeaveSpec,
-  into?: MutableRefObject<T | null> | ((el: T | null) => void) | null
+  into?: MutableRefObject<T | null>
 ): (el: T | null) => void {
-  const current = useRef<T | null>(null);
-  return useCallback(
-    (el: T | null) => {
-      const prev = current.current;
-      current.current = el;
-      if (typeof into === 'function') into(el);
-      else if (into) into.current = el;
-      if (el !== null || prev === null) return;
-      if (prev instanceof HTMLDialogElement && !prev.open) return;
-      const end = leaveCopy(prev, spec);
-      // A ref let go of an element that stays (a remount in place): no fade.
-      if (end) queueMicrotask(() => prev.isConnected && end());
-    },
-    [spec, into]
-  );
+  return useMemo(() => leaveRefFor(spec, into), [spec, into]);
+}
+
+// The ref behind useLeaveRef: remembers its element, so the null call can copy it.
+function leaveRefFor<T extends HTMLElement>(
+  spec: LeaveSpec,
+  into: MutableRefObject<T | null> | undefined
+): (el: T | null) => void {
+  let current: T | null = null;
+  return (el) => {
+    const prev = current;
+    current = el;
+    if (into) into.current = el;
+    if (el !== null || prev === null) return;
+    if (prev instanceof HTMLDialogElement && !prev.open) return;
+    const end = leaveCopy(prev, spec);
+    // A ref let go of an element that stays (a remount in place): no fade.
+    if (end) queueMicrotask(() => prev.isConnected && end());
+  };
 }
