@@ -720,30 +720,24 @@ test.describe('the popup page and the tab view together (KAN-279 D8, D9, D12)', 
         };
         return;
       }
-      const swallowed: string[] = [];
       window.addEventListener('storage', (e) => {
-        if (e.key !== 'tabContainerData') return;
-        e.stopImmediatePropagation();
-        swallowed.push(e.newValue ?? '');
-        document.documentElement.dataset.swallowed = JSON.stringify(swallowed);
+        if (e.key === 'tabContainerData') e.stopImmediatePropagation();
       });
     });
     const { popup, tab, cloudRequests } = await openBoth(context, extensionId);
 
     await saveAs(popup, 'Saved in the popup');
-    // PREMISE: the tab view's storage holds it, and its event was swallowed.
+    // PREMISE: the tab view's storage holds it. Its event is swallowed if it
+    // comes; KAN-973: the premise must not wait for an event Chrome may skip.
     await expect
       .poll(() =>
-        tab.evaluate(() => ({
-          stored: (localStorage.getItem('tabContainerData') ?? '').includes(
+        tab.evaluate(() =>
+          (localStorage.getItem('tabContainerData') ?? '').includes(
             'Saved in the popup'
-          ),
-          swallowed: (
-            document.documentElement.dataset.swallowed ?? ''
-          ).includes('Saved in the popup'),
-        }))
+          )
+        )
       )
-      .toEqual({ stored: true, swallowed: true });
+      .toBe(true);
     await expect(row(tab, 'Saved in the popup')).toHaveCount(0);
 
     await saveAs(tab, 'Saved in the tab view');
@@ -770,9 +764,7 @@ test.describe('the popup page and the tab view together (KAN-279 D8, D9, D12)', 
         return;
       }
       window.addEventListener('storage', (e) => {
-        if (e.key !== 'settingsData') return;
-        e.stopImmediatePropagation();
-        document.documentElement.dataset.swallowed = e.newValue ?? '';
+        if (e.key === 'settingsData') e.stopImmediatePropagation();
       });
     });
     const { popup, tab, cloudRequests } = await openBoth(context, extensionId);
@@ -785,16 +777,15 @@ test.describe('the popup page and the tab view together (KAN-279 D8, D9, D12)', 
     await popup.locator('button[aria-label="Language"]').click();
     await popup.getByRole('button', { name: 'Deutsch', exact: true }).click();
     await expect(popup.locator('html')).toHaveAttribute('lang', 'de');
-    // PREMISE: the tab view's storage holds it, and its event was swallowed.
+    // PREMISE: the tab view's storage holds it. Its event is swallowed if it
+    // comes; KAN-973: Chrome sometimes never fires it (KAN-925, otherPageSignal.ts).
     await expect
       .poll(() =>
-        tab.evaluate(() => ({
-          stored: localStorage.getItem('settingsData')?.includes('"de"'),
-          swallowed:
-            document.documentElement.dataset.swallowed?.includes('"de"'),
-        }))
+        tab.evaluate(() =>
+          localStorage.getItem('settingsData')?.includes('"de"')
+        )
       )
-      .toEqual({ stored: true, swallowed: true });
+      .toBe(true);
     await expect(tab.locator('html')).toHaveAttribute('lang', 'en');
 
     await tab.getByRole('button', { name: 'Settings', exact: true }).click();
