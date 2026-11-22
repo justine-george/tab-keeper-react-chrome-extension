@@ -92,8 +92,9 @@ async function copyFromExportPage(
 }
 
 // KAN-401. The export page loads none of the popup's CSS, so the toast must
-// size itself: 300 x 48 as in the popup, not padded and bordered past that.
-test('the copy toast is as big as the popup toast: 300 wide, 48 tall', async ({
+// size itself: 300 x 52 as in the popup (48, and 4 for the front toast's
+// time-left line, KAN-979), not padded and bordered past that.
+test('the copy toast is as big as the popup toast: 300 wide, 52 tall', async ({
   context,
   extensionId,
 }) => {
@@ -113,7 +114,7 @@ test('the copy toast is as big as the popup toast: 300 wide, 48 tall', async ({
   const box = await toast.boundingBox();
   if (box === null) throw new Error('the toast has no box');
   expect(box.width).toBe(300);
-  expect(box.height).toBe(48);
+  expect(box.height).toBe(52);
 });
 
 // KAN-202. The clean-ups must reach the saved file, not just the clipboard.

@@ -6,6 +6,8 @@
 interface ToastTimer {
   // What the toast's time running out does: take it off the list.
   leave: () => void;
+  // Its whole length, for the time-left line (KAN-979).
+  duration: number;
   // Null while held; `timeLeft` is then what it resumes with.
   timeout: ReturnType<typeof setTimeout> | null;
   startedAt: number;
@@ -36,6 +38,7 @@ export function startToastTimer(
   if (timers.size === 0) held = false;
   const timer: ToastTimer = {
     leave,
+    duration,
     timeout: null,
     startedAt: 0,
     timeLeft: duration,
@@ -66,6 +69,20 @@ export function releaseToasts(): void {
   for (const timer of timers.values()) {
     if (timer.timeout === null) run(timer);
   }
+}
+
+// KAN-979. A toast's length and what is left of it now: counting down while
+// its timer runs, standing still while held. Null for a toast with no timer.
+export function toastTimeLeft(
+  id: number
+): { duration: number; left: number } | null {
+  const timer = timers.get(id);
+  if (timer === undefined) return null;
+  const left =
+    timer.timeout === null
+      ? timer.timeLeft
+      : Math.max(0, timer.timeLeft - (Date.now() - timer.startedAt));
+  return { duration: timer.duration, left };
 }
 
 // Timers for toasts no longer on screen stop and go.
