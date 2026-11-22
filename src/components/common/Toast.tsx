@@ -19,6 +19,7 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { useTranslation } from 'react-i18next';
 import { CONTROL, RADIUS, TYPE } from '../../styles/scale';
 import Button from './Button';
+import { ToastTimeLeft } from './ToastTimeLeft';
 import {
   TOAST_FADE_REDUCED,
   TOAST_GAP_PX,
@@ -282,6 +283,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
               aria-hidden={leaving || undefined}
             >
               <span>{message}</span>
+              <ToastTimeLeft id={toast.id} />
             </div>
           );
         }
@@ -309,6 +311,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
             >
               {message}
             </span>
+            <ToastTimeLeft id={toast.id} />
             {offer !== null && (
               <Button
                 variant="chip"

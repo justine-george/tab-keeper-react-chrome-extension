@@ -22,8 +22,12 @@ import {
   selectUndoKeyTarget,
   showToast,
 } from '../../redux/slices/globalStateSlice';
-import { holdToasts, releaseToasts } from '../../redux/toastTimers';
-import { TOAST_MS } from '../../redux/toastDuration';
+import {
+  holdToasts,
+  releaseToasts,
+  toastTimeLeft,
+} from '../../redux/toastTimers';
+import { NEEDS_YOU_TOAST_MS, TOAST_MS } from '../../redux/toastDuration';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 
 // KAN-349. Several toasts at once: each keeps its own timer (T3), a hold on
@@ -234,5 +238,66 @@ describe('which offer ⌘Z takes (Q1 C′)', () => {
       kind: 'offer',
       offerId: 8,
     });
+  });
+});
+
+// KAN-979. What the time-left line reads: each toast's length, and what is left of it.
+describe('toastTimeLeft', () => {
+  const idOf = (store: Store, i = 0) =>
+    store.getState().globalState.toasts[i].id;
+
+  test('counts down while the timer runs', async () => {
+    const { store } = makeTestStore();
+    await show(store, 'A');
+    expect(toastTimeLeft(idOf(store))).toEqual({
+      duration: TOAST_MS,
+      left: TOAST_MS,
+    });
+    vi.advanceTimersByTime(1200);
+    expect(toastTimeLeft(idOf(store))).toEqual({
+      duration: TOAST_MS,
+      left: TOAST_MS - 1200,
+    });
+  });
+
+  test('a toast that needs you has the longer length', async () => {
+    const { store } = makeTestStore();
+    await show(store, TOAST_MESSAGES.REOPEN_FAILED);
+    expect(toastTimeLeft(idOf(store))?.duration).toBe(NEEDS_YOU_TOAST_MS);
+  });
+
+  test('stops while held and carries on from there when released', async () => {
+    const { store } = makeTestStore();
+    await show(store, 'A');
+    vi.advanceTimersByTime(1000);
+    holdToasts();
+    vi.advanceTimersByTime(3000);
+    expect(toastTimeLeft(idOf(store))?.left).toBe(TOAST_MS - 1000);
+    releaseToasts();
+    vi.advanceTimersByTime(500);
+    expect(toastTimeLeft(idOf(store))?.left).toBe(TOAST_MS - 1500);
+  });
+
+  test('a toast arriving while held starts full and stays full', async () => {
+    const { store } = makeTestStore();
+    await show(store, 'A');
+    holdToasts();
+    await show(store, 'B');
+    vi.advanceTimersByTime(2000);
+    expect(toastTimeLeft(idOf(store, 1))?.left).toBe(TOAST_MS);
+    releaseToasts();
+  });
+
+  test('reads nothing left once its time has run out', async () => {
+    const { store } = makeTestStore();
+    await show(store, 'A');
+    const id = idOf(store);
+    vi.advanceTimersByTime(TOAST_MS);
+    expect(texts(store)).toEqual([]);
+    expect(toastTimeLeft(id)?.left ?? 0).toBe(0);
+  });
+
+  test('is null for a toast with no timer', () => {
+    expect(toastTimeLeft(987654)).toBeNull();
   });
 });
