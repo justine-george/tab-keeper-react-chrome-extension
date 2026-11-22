@@ -297,12 +297,17 @@ test('popup: Open from the row acts on that session; the selection stays', async
   });
   const before = context.pages().length;
   await rightClickTitle(page, sessionRow(page, 'S2'));
+  // KAN-977. A new window can take over 5 s on a loaded CI runner; a page event waits as other specs do.
+  const opened = context.waitForEvent('page');
   await actionRow(page)
     .getByRole('menuitem', { name: 'Open', exact: true })
     .click();
+  // The press landed: choosing an item closes the menu.
+  await expect(rowMenu(page)).toBeHidden();
 
   // S2's one saved tab opens in a new window.
-  await expect.poll(() => context.pages().length).toBe(before + 1);
+  await opened;
+  expect(context.pages().length).toBe(before + 1);
   expect((await stored(page)).selectedTabGroupId).toBe('S1');
   await expect(shownSession(page, 'Trip')).toBeVisible();
 });
