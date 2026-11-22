@@ -147,8 +147,11 @@ test('only the front toast shows its line, folded or open; the one behind comes 
   await deleteFocused(page);
   await expect(toasts(page)).toHaveCount(2);
   const [older, front] = [toasts(page).nth(0), toasts(page).nth(1)];
-  // PREMISE: the newer step took the older toast's Undo.
-  await expect(older.getByRole('button')).toHaveCount(0);
+  // PREMISE: the newer step took the older toast's Undo; its Close stays (KAN-980).
+  await expect(older.getByRole('button')).toHaveCount(1);
+  await expect(
+    older.getByRole('button', { name: 'Close', exact: true })
+  ).toHaveCount(1);
 
   await page.waitForTimeout(400);
   expect(await lineShows(older)).toBe(false);
