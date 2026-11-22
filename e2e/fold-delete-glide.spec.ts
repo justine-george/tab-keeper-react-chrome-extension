@@ -58,8 +58,8 @@ interface Samples {
 
 // Each animation frame for `ms`, from now: every named element's top (for a
 // name ending in ":h", its height; ":clip", whether it is clipped; ":copy",
-// the top of the text in a leaving copy that reads its value), and how many
-// leaving copies are drawn.
+// the top of the text in a leaving copy that reads its value; ":sh", its
+// scroll height), and how many leaving copies are drawn.
 async function startSampling(
   page: Page,
   targets: Record<string, string>,
@@ -89,7 +89,9 @@ async function startSampling(
                   : 1
                 : name.endsWith(':h')
                   ? r.height
-                  : r.top
+                  : name.endsWith(':sh')
+                    ? el.scrollHeight
+                    : r.top
           );
         }
         out.copies.push(document.querySelectorAll('[data-leaving-row]').length);
@@ -554,4 +556,111 @@ test('Collapse all in Currently open glides the windows below up', async ({
 
   expect(from - to).toBeGreaterThan(20);
   expect(between(s.next, from, to).length).toBeGreaterThanOrEqual(3);
+});
+
+test.describe('the scroll range while a fold glides (KAN-985)', () => {
+  const LONG = session(
+    'L',
+    'Long',
+    Array.from({ length: 8 }, (_, i) => savedWindow(`l${i}`, `W${i}`, 6))
+  );
+
+  async function openLong(
+    context: Parameters<typeof openSaved>[0],
+    extensionId: string
+  ) {
+    const page = await openSaved(context, extensionId, 'popup', {
+      sessions: [LONG],
+      selected: 'L',
+    });
+    await expect(header(page, 'l7')).toBeVisible();
+    await documentLanded(page);
+    // The detail pane's scroll area, named for the sampler.
+    await page.evaluate(() => {
+      const pane = document.querySelector('[data-pane="detail"]');
+      const sc = [...(pane?.querySelectorAll('*') ?? [])].find(
+        (e) => getComputedStyle(e).overflowY === 'auto'
+      );
+      sc?.setAttribute('data-test-scroller', '');
+    });
+    const scroller = page.locator('[data-test-scroller]');
+    // PREMISE: the list scrolls.
+    expect(
+      await scroller.evaluate((e) => e.scrollHeight - e.clientHeight)
+    ).toBeGreaterThan(400);
+    await scroller.evaluate((e) => (e.scrollTop = e.scrollHeight));
+    return { page, scroller };
+  }
+
+  test('folding a window at the bottom: the range is the landed one from the first frame', async ({
+    context,
+    extensionId,
+  }) => {
+    const { page, scroller } = await openLong(context, extensionId);
+
+    await startSampling(page, { 'range:sh': '[data-test-scroller]' });
+    await header(page, 'l6')
+      .getByRole('button', { name: /^Collapse/ })
+      .first()
+      .click();
+    const s = await samples(page);
+    const landed = await scroller.evaluate((e) => e.scrollHeight);
+
+    // PREMISE: it glided, and the range shrank.
+    expect(Math.max(...s.copies)).toBeGreaterThan(0);
+    expect(s['range:sh'][0]).toBeGreaterThan(landed + 100);
+    // Straight from the old range to the landed one: no frame in between.
+    expect(between(s['range:sh'], landed, s['range:sh'][0])).toEqual([]);
+    expect(s['range:sh'][s['range:sh'].length - 1]).toBe(landed);
+  });
+
+  test('Collapse all from the bottom: no scroll bar comes and goes', async ({
+    context,
+    extensionId,
+  }) => {
+    const { page, scroller } = await openLong(context, extensionId);
+    const client = await scroller.evaluate((e) => e.clientHeight);
+
+    await startSampling(page, { 'range:sh': '[data-test-scroller]' });
+    await page
+      .getByRole('button', { name: 'Collapse all windows', exact: true })
+      .click();
+    const s = await samples(page);
+
+    expect(Math.max(...s.copies)).toBeGreaterThan(0);
+    const after = s['range:sh'].slice(
+      s['range:sh'].findIndex((v) => v <= client)
+    );
+    expect(after.length).toBeGreaterThan(5);
+    expect(Math.max(...after)).toBe(client);
+  });
+
+  test('holding the range cuts nothing on screen', async ({
+    context,
+    extensionId,
+  }) => {
+    const { page, scroller } = await openLong(context, extensionId);
+    await page
+      .getByRole('button', { name: 'Collapse all windows', exact: true })
+      .click();
+    // Mid-glide, with copies fading below the list's new end.
+    await expect(page.locator('[data-leaving-row]').first()).toBeAttached();
+    await page.evaluate(() =>
+      document.getAnimations().forEach((a) => {
+        a.pause();
+        a.currentTime = 60;
+      })
+    );
+    const content = scroller.locator('> *');
+    expect(await content.evaluate((e) => getComputedStyle(e).overflow)).toBe(
+      'clip'
+    );
+    const held = await scroller.screenshot({ animations: 'allow' });
+    await content.evaluate((e) => {
+      e.style.overflow = '';
+      e.style.overflowClipMargin = '';
+    });
+    const free = await scroller.screenshot({ animations: 'allow' });
+    expect(held.equals(free)).toBe(true);
+  });
 });
