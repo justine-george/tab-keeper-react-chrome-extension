@@ -106,6 +106,47 @@ test.describe('menus (KAN-982)', () => {
     expect(origin.oy).toBeCloseTo(at.y - origin.top, 0);
   });
 
+  test('a right-click menu that must open upward still grows from the pointer', async ({
+    context,
+    extensionId,
+  }) => {
+    const many = Array.from({ length: 9 }, (_, i) =>
+      session(`S${i + 1}`, `Session ${i + 1}`, [savedWindow(`w${i}`, 'W', 1)])
+    );
+    const page = await openSaved(context, extensionId, 'popup', {
+      sessions: many,
+    });
+    // The lowest row in view: the menu cannot fit below it, so it ends at the point.
+    const rows = await page
+      .locator('[data-pane="sessions"] [data-drag-handle-row]')
+      .evaluateAll((els) =>
+        els
+          .map((el) => el.getBoundingClientRect())
+          .filter((r) => r.bottom <= innerHeight)
+          .map((r) => ({ x: r.x, y: r.y + r.height / 2 }))
+      );
+    const low = rows[rows.length - 1];
+    const at = { x: Math.round(low.x + 60), y: Math.round(low.y) };
+    await page.mouse.click(at.x, at.y, { button: 'right' });
+    const menu = rowMenu(page);
+    await expect(menu).toBeVisible();
+    const placed = await menu.evaluate((el) => {
+      const [ox, oy] = getComputedStyle(el)
+        .transformOrigin.split(' ')
+        .map(parseFloat);
+      return {
+        ox,
+        oy,
+        left: parseFloat(el.style.left),
+        top: parseFloat(el.style.top),
+      };
+    });
+    // PREMISE: it did open upward.
+    expect(placed.top).toBeLessThan(at.y - 100);
+    expect(placed.ox).toBeCloseTo(at.x - placed.left, 0);
+    expect(placed.oy).toBeCloseTo(at.y - placed.top, 0);
+  });
+
   test("a button's menu grows from the button's side, at its top", async ({
     context,
     extensionId,
