@@ -673,6 +673,14 @@ test.describe('the scroll range while a fold glides (KAN-985)', () => {
       e.style.overflowClipMargin = '';
     });
     const free = await settledShot(scroller);
+    if (!held.equals(free)) {
+      await test
+        .info()
+        .attach('held', { body: held, contentType: 'image/png' });
+      await test
+        .info()
+        .attach('free', { body: free, contentType: 'image/png' });
+    }
     expect(held.equals(free)).toBe(true);
   });
 });
