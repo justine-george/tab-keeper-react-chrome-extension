@@ -15,6 +15,7 @@ import Divider from '../../common/Divider';
 import TabGroupEntry from './TabGroupEntry';
 import EmptyListLine from '../../common/EmptyListLine';
 import { SPRING_OPEN_MS } from '../../common/springOpen';
+import { othersCameOrWent } from '../../../utils/functions/othersCameOrWent';
 import {
   SAVED_SEARCH_GLASS_INSET,
   SAVED_SEARCH_TEXT_PADDING,
@@ -224,8 +225,27 @@ export default function TabGroupEntryContainer() {
   // read only as a dependency.
   const selectedIndex =
     selectedTabGroupId === null ? -1 : sessionIds.indexOf(selectedTabGroupId);
+  // KAN-992. Whether this commit only had sessions come or go around the
+  // selected one, from another page or device: its index moved, it did not.
+  // Chrome's scroll anchoring keeps a hand-scrolled list still then, and
+  // following would yank it back. Runs every commit, before the follow.
+  const drawn = useRef<{
+    ids: readonly string[];
+    selected: string | null;
+  } | null>(null);
+  const othersOnly = useRef(false);
+  const storedIds = tabContainerDataList.tabGroups.map((g) => g.tabGroupId);
   useEffect(() => {
-    if (selectedTabGroupId === null) return;
+    const before = drawn.current;
+    othersOnly.current =
+      before !== null &&
+      selectedTabGroupId !== null &&
+      before.selected === selectedTabGroupId &&
+      othersCameOrWent(before.ids, storedIds, selectedTabGroupId);
+    drawn.current = { ids: storedIds, selected: selectedTabGroupId };
+  });
+  useEffect(() => {
+    if (selectedTabGroupId === null || othersOnly.current) return;
     // Missing whenever the selection is not on screen -- filtered out by a
     // search, or already gone. There is nothing to scroll to, and skipping is
     // the whole handling. An index guard here would be dead code: it can only

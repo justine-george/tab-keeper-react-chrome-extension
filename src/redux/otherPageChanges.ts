@@ -1,6 +1,7 @@
 import type { ThunkAction, UnknownAction } from '@reduxjs/toolkit';
 import type { RootState } from './store';
 import { isDragHeld, whenDragReleases } from './dragHold';
+import { prepareArrivalGlide } from './arrivalGlide';
 import { hydrateFromOtherPage } from './slices/tabContainerDataStateSlice';
 import {
   asCloudDeletedElsewhere,
@@ -58,6 +59,7 @@ export const hydrateSessionsFromStorage =
     if (sameContainerData(incoming, current)) return;
 
     const next = withOwnSelection(incoming, current.selectedTabGroupId);
+    prepareArrivalGlide(getState(), next);
     // Also ends this page's placeholder sessions (KAN-294, globalState's
     // extraReducers): from here its selection is its own, so a later sync
     // or startup load keeps it rather than taking the last writer's.
