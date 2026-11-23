@@ -202,6 +202,10 @@ test.describe('Currently open saves', () => {
         })
         .click()
     );
+    await expect(page.locator(FIRST_ROW).first()).not.toHaveAttribute(
+      'data-drag-row-id',
+      /^S[1-4]$/
+    );
   });
 
   test("a live group's Save", async ({
