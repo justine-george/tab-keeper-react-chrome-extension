@@ -13,7 +13,9 @@ import { LANDING_SLIDE } from '../home/rightpane/rowDrag/landingSlides';
 //   by the rows gliding up over its place;
 // - what arrived fades in, uncovered as the rows below glide down;
 // - a group's colour strip keeps its old length and moves its end with the
-//   rows below, instead of jumping to its new length.
+//   rows below, instead of jumping to its new length;
+// - the scroll range is the landed one from the first frame (KAN-985): what
+//   glides or fades past the end would otherwise stretch it.
 // From the keyboard, under Reduce motion, or with no Web Animations (jsdom),
 // nothing moves.
 
@@ -164,10 +166,43 @@ function stripHooks(root: Element): void {
 
 const copies = new Set<HTMLElement>();
 let pending: (() => void) | null = null;
+// Each held scroll content and its own inline overflow, put back when the glide ends.
+const held = new Map<HTMLElement, { overflow: string; margin: string }>();
+let holdId = 0;
+
+function releaseScrollRange(): void {
+  held.forEach(({ overflow, margin }, content) => {
+    content.style.overflow = overflow;
+    content.style.overflowClipMargin = margin;
+  });
+  held.clear();
+}
+
+// The scroll areas holding `els` that have a single child: the list they scroll.
+function scrolledContents(root: Element, els: Iterable<Element>): Element[] {
+  const scrollers: Element[] = [];
+  for (const el of els) {
+    if (scrollers.some((sc) => sc.contains(el))) continue;
+    for (let up = el.parentElement; up !== null; up = up.parentElement) {
+      const o = getComputedStyle(up).overflowY;
+      if (o === 'auto' || o === 'scroll') {
+        scrollers.push(up);
+        break;
+      }
+      if (up === root) break;
+    }
+  }
+  return scrollers.flatMap((sc) =>
+    sc.childElementCount === 1 && sc.firstElementChild !== null
+      ? [sc.firstElementChild]
+      : []
+  );
+}
 
 /** Ends every glide, fade and copy now: a drag measures the list at rest. */
 export function cutLayoutGlides(): void {
   pending?.();
+  releaseScrollRange();
   for (const copy of [...copies]) copy.remove();
   copies.clear();
   for (const a of globalThis.document?.getAnimations?.() ?? []) {
@@ -293,6 +328,18 @@ function draw(
     }
     return true;
   };
+  // Where each scrolled list is clipped while things glide: its end, or the
+  // visible bottom when it ends above that, so nothing on screen is cut.
+  const holds = scrolledContents(root, [...tops.keys(), ...arrived]).flatMap(
+    (content) => {
+      const sc = content.parentElement;
+      if (!(content instanceof HTMLElement) || sc === null) return [];
+      const visibleBottom =
+        sc.getBoundingClientRect().top + sc.clientTop + sc.clientHeight;
+      const end = content.getBoundingClientRect().bottom;
+      return [{ content, margin: Math.max(0, Math.ceil(visibleBottom - end)) }];
+    }
+  );
   const arrivalBoxes = arrived
     .filter(outermost)
     .map((el) => ({ el, box: boxOf(el) }))
@@ -340,6 +387,16 @@ function draw(
   };
 
   // 2. Then every move.
+  const hold = ++holdId;
+  holds.forEach(({ content, margin }) => {
+    if (!held.has(content))
+      held.set(content, {
+        overflow: content.style.overflow,
+        margin: content.style.overflowClipMargin,
+      });
+    content.style.overflow = 'clip';
+    content.style.overflowClipMargin = `${margin}px`;
+  });
   own.forEach((by, el) =>
     el.animate([{ transform: `translateY(${by}px)` }, { transform: 'none' }], {
       duration: GLIDE_MS,
@@ -427,6 +484,14 @@ function draw(
         : copy.animate(clip, { ...timing(GLIDE_MS), fill: 'forwards' });
     Promise.all([fade.finished, cut?.finished]).then(end, end);
   });
+  // The range is let go once everything this glide drew has landed (or a newer glide took over).
+  const drawn = root
+    .getAnimations({ subtree: true })
+    .filter((a) => a.id === LAYOUT_GLIDE || a.id === LANDING_SLIDE);
+  const release = () => {
+    if (hold === holdId) releaseScrollRange();
+  };
+  Promise.all(drawn.map((a) => a.finished)).then(release, release);
 }
 
 // The child indexes from `root` down to `el`.
