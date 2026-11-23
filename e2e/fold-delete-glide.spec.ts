@@ -12,6 +12,7 @@ import {
 } from './fixtures/savedWindows';
 import { elementLanded, documentLanded } from './fixtures/landed';
 import { standIn } from './fixtures/standInPages';
+import { differingPixels } from './fixtures/pixels';
 
 // KAN-984 on the real artifact (picks fold B, delete C). A fold or a delete
 // draws its layout change as motion: the rows below glide to their place,
@@ -119,43 +120,6 @@ const between = (values: number[], from: number, to: number): number[] =>
   values.filter(
     (v) => v > Math.min(from, to) + 2 && v < Math.max(from, to) - 2
   );
-
-// How many pixels of two same-size screenshots differ, leaving out a ring
-// `ring` pixels wide along their edges. Decoded in the page, so no image library is needed.
-async function pixelsApart(
-  page: Page,
-  a: Buffer,
-  b: Buffer,
-  ring: number
-): Promise<number> {
-  return page.evaluate(
-    async ({ a, b, ring }) => {
-      const read = async (png: string) => {
-        const img = new Image();
-        img.src = `data:image/png;base64,${png}`;
-        await img.decode();
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        if (!ctx) throw new Error('no 2d context');
-        ctx.drawImage(img, 0, 0);
-        return ctx.getImageData(0, 0, img.width, img.height);
-      };
-      const [ia, ib] = await Promise.all([read(a), read(b)]);
-      if (ia.width !== ib.width || ia.height !== ib.height)
-        throw new Error('the shots differ in size');
-      let apart = 0;
-      for (let y = ring; y < ia.height - ring; y++)
-        for (let x = ring; x < ia.width - ring; x++) {
-          const i = (y * ia.width + x) * 4;
-          if ([0, 1, 2].some((c) => ia.data[i + c] !== ib.data[i + c])) apart++;
-        }
-      return apart;
-    },
-    { a: a.toString('base64'), b: b.toString('base64'), ring }
-  );
-}
 
 async function topOf(loc: Locator): Promise<number> {
   return (await loc.boundingBox())?.y ?? NaN;
@@ -707,7 +671,11 @@ test.describe('the scroll range while a fold glides (KAN-985)', () => {
       )
     );
     expect(ring).toBeGreaterThan(0);
-    const apart = await pixelsApart(page, held, free, ring);
+    // A PNG's width and height sit at bytes 16 and 20 of its header.
+    const [w, h] = [held.readUInt32BE(16), held.readUInt32BE(20)];
+    const apart = (await differingPixels(page, held, free)).filter(
+      ([x, y]) => x >= ring && x < w - ring && y >= ring && y < h - ring
+    ).length;
     if (apart > 0) {
       await test
         .info()
