@@ -237,10 +237,11 @@ const wantsStillness = (source: ChangeSource): boolean =>
   typeof Element.prototype.animate !== 'function' ||
   (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
 
-/** Every pane named `name` ([data-pane]): the popup and the tab view each draw their own. */
-export const panes = (name: 'detail' | 'sessions' | 'open-now'): Element[] => [
-  ...document.querySelectorAll(`[data-pane="${name}"]`),
-];
+/** Every pane named `name` ([data-pane]): the popup and the tab view each draw their own. None without a document. */
+export const panes = (name: 'detail' | 'sessions' | 'open-now'): Element[] =>
+  typeof document === 'undefined'
+    ? []
+    : [...document.querySelectorAll(`[data-pane="${name}"]`)];
 
 /** Measures `roots` now and draws the next commit that changes them as a glide. */
 export function prepareLayoutGlide(
@@ -250,9 +251,8 @@ export function prepareLayoutGlide(
 ): void {
   // A newer press wins; what is still moving keeps moving until its commit (step 0 below).
   pending?.();
-  if (wantsStillness(source)) return;
   const live = roots.filter((r) => r.isConnected);
-  if (live.length === 0) return;
+  if (live.length === 0 || wantsStillness(source)) return;
   const watches = live.map((root) => {
     const before = snapshot(root);
     const removed: { node: Element; parent: Node; next: Node | null }[] = [];

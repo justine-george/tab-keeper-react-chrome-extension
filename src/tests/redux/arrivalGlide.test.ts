@@ -42,7 +42,10 @@ import {
   syncStateWithFirestore,
 } from '../../redux/slices/globalStateSlice';
 import { grantCloudConsent } from '../../redux/slices/settingsDataStateSlice';
-import { hydrateSessionsFromStorage } from '../../redux/otherPageChanges';
+import {
+  applyOtherPageSessions,
+  hydrateSessionsFromStorage,
+} from '../../redux/otherPageChanges';
 import { beginDragHold, endDragHold } from '../../redux/dragHold';
 import { makeTestStore } from '../setup/makeStore';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
@@ -144,6 +147,42 @@ describe('another open page', () => {
       store.getState().tabContainerDataState.tabGroups.map((g) => g.title)
     ).toEqual(['renamed', 'b']);
     expect(mocks.prepare).not.toHaveBeenCalled();
+  });
+});
+
+describe('a change that waited for a held row', () => {
+  // The release (a drop or a cancel) draws its own motion; the change lands with it.
+  test('lands with the release, still', () => {
+    const { store } = openPage();
+    beginDragHold();
+    localStorage.setItem(
+      'tabContainerData',
+      JSON.stringify(
+        buildContainer([session('n', T0), session('a'), session('b')])
+      )
+    );
+    store.dispatch(applyOtherPageSessions());
+    expect(mocks.prepare).not.toHaveBeenCalled();
+
+    endDragHold();
+
+    expect(
+      store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
+    ).toEqual(['n', 'a', 'b']);
+    expect(mocks.prepare).not.toHaveBeenCalled();
+  });
+
+  // CONTROL: the same write, with no row held, glides.
+  test('with nothing held, the same write glides', () => {
+    const { store } = openPage();
+    localStorage.setItem(
+      'tabContainerData',
+      JSON.stringify(
+        buildContainer([session('n', T0), session('a'), session('b')])
+      )
+    );
+    store.dispatch(applyOtherPageSessions());
+    expect(mocks.prepare.mock.calls).toEqual([ARRIVAL]);
   });
 });
 
