@@ -22,11 +22,11 @@ import {
 } from './fixtures/run';
 import { buildContainer, buildSession } from './fixtures/seed';
 
-// KAN-988 (his pick B1, and B for a drop): every new session arrives the same
-// way. The sessions below glide down, and the new row fades in as they clear
-// it, as Undo of a delete draws it. A drop on New session keeps its preview
-// (the gap opens on hover) and ends the same way. From the keyboard and under
-// Reduce motion it is instant.
+// KAN-988: every new session arrives the same way. His pick B (round 4): the
+// new row comes down from under the list's top edge with the sessions below
+// it; nothing fades, so it never reads as a flash. A drop on New session keeps
+// its preview (the gap opens on hover, round 3 B) and the row fades into that
+// gap. From the keyboard and under Reduce motion it is instant.
 
 const SESSIONS = [
   session('S1', 'Trip', [
@@ -43,6 +43,10 @@ const rowOf = (id: string) =>
 
 // The first row's opacity in between fully hidden and fully shown: it faded in.
 const faded = (ops: number[]) => ops.some((v) => v > 0.05 && v < 0.95);
+
+// The new row's top on each frame strictly between a row above its place and its place: it slid in.
+const slidIn = (tops: number[], place: number, by: number) =>
+  between(tops, place - by, place).length >= 3;
 
 async function popupOverATab(
   context: Parameters<typeof openSaved>[0],
@@ -87,21 +91,26 @@ const saveAll = (page: Page) =>
   });
 
 test.describe('saving a new session', () => {
-  test('the sessions below glide down and the new row fades in', async ({
+  test('the new row slides in from the top with the sessions below, without a fade', async ({
     context,
     extensionId,
   }) => {
     const page = await popupOverATab(context, extensionId);
     const from = await topOf(page.locator(rowOf('S1')));
 
-    await startSampling(page, { next: rowOf('S1'), 'new:op': FIRST_ROW });
+    await startSampling(page, {
+      next: rowOf('S1'),
+      new: FIRST_ROW,
+      'new:op': FIRST_ROW,
+    });
     await saveAll(page).click();
     const s = await samples(page);
     const to = await topOf(page.locator(rowOf('S1')));
 
     expect(to - from).toBeGreaterThan(40);
     expect(between(s.next, from, to).length).toBeGreaterThanOrEqual(3);
-    expect(faded(s['new:op'])).toBe(true);
+    expect(slidIn(s.new, from, to - from)).toBe(true);
+    expect(faded(s['new:op'])).toBe(false);
   });
 
   test('with Enter in the name field it is instant', async ({
@@ -114,7 +123,11 @@ test.describe('saving a new session', () => {
       .getByRole('textbox', { name: 'Name the new session' })
       .fill('Lisbon');
 
-    await startSampling(page, { next: rowOf('S1'), 'new:op': FIRST_ROW });
+    await startSampling(page, {
+      next: rowOf('S1'),
+      new: FIRST_ROW,
+      'new:op': FIRST_ROW,
+    });
     await page.keyboard.press('Enter');
     const s = await samples(page);
     const to = await topOf(page.locator(rowOf('S1')));
@@ -129,7 +142,11 @@ test.describe('saving a new session', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const from = await topOf(page.locator(rowOf('S1')));
 
-    await startSampling(page, { next: rowOf('S1'), 'new:op': FIRST_ROW });
+    await startSampling(page, {
+      next: rowOf('S1'),
+      new: FIRST_ROW,
+      'new:op': FIRST_ROW,
+    });
     await saveAll(page).click();
     const s = await samples(page);
     const to = await topOf(page.locator(rowOf('S1')));
@@ -150,7 +167,11 @@ test.describe('saving a new session', () => {
     await documentLanded(page);
     const from = await topOf(page.locator(rowOf('S1')));
 
-    await startSampling(page, { next: rowOf('S1'), 'new:op': FIRST_ROW });
+    await startSampling(page, {
+      next: rowOf('S1'),
+      new: FIRST_ROW,
+      'new:op': FIRST_ROW,
+    });
     await page
       .locator('[data-pane="open-now"]')
       .getByRole('button', { name: /^Save window as a session: / })
@@ -161,7 +182,8 @@ test.describe('saving a new session', () => {
 
     expect(to - from).toBeGreaterThan(40);
     expect(between(s.next, from, to).length).toBeGreaterThanOrEqual(3);
-    expect(faded(s['new:op'])).toBe(true);
+    expect(slidIn(s.new, from, to - from)).toBe(true);
+    expect(faded(s['new:op'])).toBe(false);
   });
 });
 
@@ -178,16 +200,21 @@ async function tabViewOverATab(
   return page;
 }
 
-// Clicks `press` and checks the saved list: S1 glides down a row, the new row fades in.
+// Clicks `press` and checks the saved list: the new row slides in from the top with S1 below it.
 async function arrivesAsASave(page: Page, press: () => Promise<void>) {
   const from = await topOf(page.locator(rowOf('S1')));
-  await startSampling(page, { next: rowOf('S1'), 'new:op': FIRST_ROW });
+  await startSampling(page, {
+    next: rowOf('S1'),
+    new: FIRST_ROW,
+    'new:op': FIRST_ROW,
+  });
   await press();
   const s = await samples(page);
   const to = await topOf(page.locator(rowOf('S1')));
   expect(to - from).toBeGreaterThan(40);
   expect(between(s.next, from, to).length).toBeGreaterThanOrEqual(3);
-  expect(faded(s['new:op'])).toBe(true);
+  expect(slidIn(s.new, from, to - from)).toBe(true);
+  expect(faded(s['new:op'])).toBe(false);
 }
 
 test.describe('Currently open saves', () => {
@@ -302,13 +329,18 @@ freshTest.describe("the tour's example session", () => {
     await documentLanded(popup);
     const from = await topOf(kept);
 
-    await startSampling(popup, { next: rowOf('kept'), 'new:op': FIRST_ROW });
+    await startSampling(popup, {
+      next: rowOf('kept'),
+      new: FIRST_ROW,
+      'new:op': FIRST_ROW,
+    });
     await cardButton(popup, 'Use an example').click();
     const s = await samples(popup);
     const to = await topOf(kept);
 
     expect(to - from).toBeGreaterThan(40);
     expect(between(s.next, from, to).length).toBeGreaterThanOrEqual(3);
-    expect(faded(s['new:op'])).toBe(true);
+    expect(slidIn(s.new, from, to - from)).toBe(true);
+    expect(faded(s['new:op'])).toBe(false);
   });
 });
