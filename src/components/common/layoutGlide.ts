@@ -427,11 +427,11 @@ function draw(
       fill: 'none',
     })
   );
+  // The tops of the rows that were there before, where they are now.
+  const stayers = [...tops.values()].map(({ to }) => to);
   // A row that comes back is never clipped: Chrome can draw a clip-path
   // animation's first frame again as it ends, a one-frame flash of the rows
   // hidden. It waits instead until the rows gliding down have all but passed it.
-  // The tops of the rows that were there before, where they are now.
-  const stayers = [...tops.values()].map(({ to }) => to);
   arrivalBoxes.forEach(({ el, box }) => {
     const line = lineBelow(box.bottom, false);
     // KAN-988 (his picks B, rounds 4 and 5). A new session at the top of its
