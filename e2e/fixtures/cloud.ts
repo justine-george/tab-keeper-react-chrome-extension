@@ -35,6 +35,59 @@ export async function putDeviceId(worker: Worker): Promise<void> {
   );
 }
 
+export const SIGN_UP = /identitytoolkit\.googleapis\.com\/v1\/accounts:signUp/;
+
+// KAN-983. Sign-ups the dev cloud refused in this test, from every profile it opened, as "status message".
+// Module state is per worker, and a worker runs one test at a time.
+const refusedSignUps: Promise<string>[] = [];
+
+export function recordRefusedSignUps(context: BrowserContext): void {
+  context.on('response', (response) => {
+    if (!SIGN_UP.test(response.url()) || response.ok()) return;
+    const status = response.status();
+    // Read at once: the body is gone once the profile closes.
+    refusedSignUps.push(
+      response.json().then(
+        (body: unknown) => `${status} ${errorMessageOf(body)}`.trim(),
+        () => `${status}`
+      )
+    );
+  });
+}
+
+// Google's `{ error: { message } }`; '' for any other body.
+function errorMessageOf(body: unknown): string {
+  if (typeof body !== 'object' || body === null || !('error' in body)) {
+    return '';
+  }
+  const { error } = body;
+  return typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof error.message === 'string'
+    ? error.message
+    : '';
+}
+
+// Empties the record.
+export function takeRefusedSignUps(): Promise<string[]> {
+  return Promise.all(refusedSignUps.splice(0));
+}
+
+// The error a failed test gets when a sign-up was refused; null when there is nothing to say.
+export function refusedSignUpsError(
+  refused: string[],
+  failed: boolean
+): Error | null {
+  if (!failed || refused.length === 0) return null;
+  const count = `${refused.length} sign-up${refused.length === 1 ? '' : 's'}`;
+  return new Error(
+    `The dev cloud refused ${count} (${refused.join('; ')}). ` +
+      'Firebase allows 100 anonymous sign-ups an hour per IP, so this failure ' +
+      'may say nothing about the app: run it again after the hour (KAN-983).'
+  );
+}
+
 // Each boot signs up an anonymous account; Firebase allows 100 an hour per IP (KAN-383).
 export async function blockCloud(context: BrowserContext): Promise<void> {
   await context.route(CLOUD, (route) => route.abort());
@@ -115,6 +168,7 @@ export async function launchProfile(headless: boolean): Promise<Profile> {
     channel: 'chromium',
     args: [`--disable-extensions-except=${DIST}`, `--load-extension=${DIST}`],
   });
+  recordRefusedSignUps(context);
   return {
     context,
     close: async () => {

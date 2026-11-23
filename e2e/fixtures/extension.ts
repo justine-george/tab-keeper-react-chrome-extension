@@ -9,7 +9,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { blockCloud } from './cloud';
+import {
+  blockCloud,
+  recordRefusedSignUps,
+  refusedSignUpsError,
+  takeRefusedSignUps,
+} from './cloud';
 import {
   REUSE_BROWSER,
   ReusedBrowser,
@@ -163,16 +168,22 @@ export const test = base.extend<
     if (!freshProfile) {
       await seedCloudConsentIfSettingsAbsent(context);
     }
-    if (!cloud) await blockCloud(context);
+    if (cloud) recordRefusedSignUps(context);
+    else await blockCloud(context);
 
     await use(context);
 
+    const refused = refusedSignUpsError(
+      await takeRefusedSignUps(),
+      testInfo.status !== testInfo.expectedStatus
+    );
     if (launched) {
       await context.close();
       launched.removeFiles();
     } else {
       await reused.giveBack(testInfo.status === testInfo.expectedStatus);
     }
+    if (refused) throw refused;
   },
 
   serviceWorker: async ({ context }, use) => {
