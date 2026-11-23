@@ -16,6 +16,7 @@ import {
   copyToSpot,
   copyWindowTo,
 } from './copyToSession';
+import { noteSessionSaved } from './slices/globalStateSlice';
 import type { RootState } from './store';
 
 // Whether the receiver took the carry.
@@ -28,12 +29,17 @@ export const carryToSessionRow =
       ? dispatch(dropOnSessionRow(item.ref, tabGroupId))
       : dispatch(copyOnSessionRow(item.live, tabGroupId));
 
+// KAN-988. A new session like any other: the header mark's shutter slides (KAN-388).
 export const carryToNewSession =
   (item: CarriedItem, fallbackTitle: string, typedTitle: string = ''): Took =>
-  (dispatch) =>
-    item.source === 'saved'
-      ? dispatch(moveToNewSession(item.ref, fallbackTitle, typedTitle))
-      : dispatch(copyToNewSession(item.live, fallbackTitle, typedTitle));
+  (dispatch) => {
+    const took =
+      item.source === 'saved'
+        ? dispatch(moveToNewSession(item.ref, fallbackTitle, typedTitle))
+        : dispatch(copyToNewSession(item.live, fallbackTitle, typedTitle));
+    if (took) dispatch(noteSessionSaved());
+    return took;
+  };
 
 // A tab or group let go inside a window; a window never lands there.
 export const carryToSpot =

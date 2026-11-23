@@ -17,6 +17,11 @@ import {
   openNewSessionSlot,
 } from './newSessionSlot';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
+import {
+  cutLayoutGlides,
+  panes,
+  prepareLayoutGlide,
+} from '../../common/layoutGlide';
 
 // Returns whether the row takes a carry now, which is when it draws a target.
 export function useNewSessionReceiver(
@@ -75,13 +80,15 @@ export function useNewSessionReceiver(
         const carried = currentCarry()?.item;
         if (carried === undefined) return false;
         const name = typedRef.current;
+        // KAN-988. The new row fades into its place as a saved one arrives.
+        prepareLayoutGlide(panes('sessions'), 'arrive');
         const moved = dispatch(
           carryToNewSession(carried, t('New Tab Group'), name)
         );
         if (moved) {
           consumeName(name);
           fillNewSessionSlot();
-        }
+        } else cutLayoutGlides();
         return moved;
       },
     };

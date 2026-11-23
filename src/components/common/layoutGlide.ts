@@ -19,12 +19,14 @@ import { LANDING_SLIDE } from '../home/rightpane/rowDrag/landingSlides';
 // From the keyboard, under Reduce motion, or with no Web Animations (jsdom),
 // nothing moves.
 
-export type GlideKind = 'fold' | 'delete';
+// 'arrive': a new session's row (KAN-988), timed as Undo of a delete draws one.
+export type GlideKind = 'fold' | 'delete' | 'arrive';
 
 const TIMING: Record<GlideKind, { out: number; in: number; inDelay: number }> =
   {
     fold: { out: 120, in: 160, inDelay: 40 },
     delete: { out: 150, in: 150, inDelay: 50 },
+    arrive: { out: 150, in: 150, inDelay: 50 },
   };
 const GLIDE_MS = parseInt(DURATION.MOVE, 10);
 

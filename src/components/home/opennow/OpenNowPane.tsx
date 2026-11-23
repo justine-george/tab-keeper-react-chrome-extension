@@ -710,6 +710,7 @@ export default function OpenNowPane({
       t('New Tab Group')
     );
     if (container !== null) {
+      prepareLayoutGlide(panes('sessions'), 'arrive');
       void dispatch(saveToTabContainer({ container, scope: 'one-group' }));
     }
   };
@@ -739,6 +740,8 @@ export default function OpenNowPane({
       t('New Tab Group')
     );
     const recentTabsOf = await readRecentTabs([openWindow.id]);
+    // KAN-988. The new session arrives as every new session does.
+    prepareLayoutGlide(panes('sessions'), 'arrive');
     void dispatch(
       saveToTabContainer({
         container: openWindowsToSession(
@@ -770,6 +773,7 @@ export default function OpenNowPane({
     const recentTabsOf = await readRecentTabs(listed.map((w) => w.id));
     // KAN-476. Place and state as Chrome has them now.
     const current = await Promise.all(listed.map(withCurrentPlacement));
+    prepareLayoutGlide(panes('sessions'), 'arrive');
     void dispatch(
       saveToTabContainer({
         container: openWindowsToSession(

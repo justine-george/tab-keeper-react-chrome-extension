@@ -63,7 +63,7 @@ import { sessionMenuItems, useSessionDeleteKey } from '../sessionMenuItems';
 import { selectRunHere, selectRunHoldsDelete } from '../../../redux/firstRun';
 import { dropBoxStyle } from '../../common/dropBoxStyle';
 import { corners, trackClearOfCorners } from '../../../styles/corners';
-import { DURATION, RADIUS } from '../../../styles/scale';
+import { DURATION, EASE, RADIUS } from '../../../styles/scale';
 import {
   newSessionPitch,
   settleNewSessionSlot,
@@ -517,7 +517,7 @@ export default function TabGroupEntryContainer() {
        the row gutter above the list's edge, as it does from the sides. On the
        rows, not the scroller, so an empty list's message stays centred. */
     padding-bottom: ${ROW_GUTTER_PX}px;
-    transition: transform ${DURATION.MOVE} ease;
+    transition: transform ${DURATION.MOVE} ${EASE.OUT};
     &[data-new-session-slot='open'] {
       transform: translateY(var(--new-session-pitch, 0px));
     }

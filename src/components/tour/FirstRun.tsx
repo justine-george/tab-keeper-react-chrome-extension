@@ -55,6 +55,7 @@ import {
   type RunStepKind,
 } from '../../utils/functions/firstRun';
 import { hasCompactViewButton } from '../../utils/functions/openInPopup';
+import { panes, prepareLayoutGlide } from '../common/layoutGlide';
 
 interface Card {
   text: ReactNode;
@@ -152,10 +153,11 @@ export default function FirstRun() {
   const skip = useCallback(() => dispatch(skipRun()), [dispatch]);
   const finish = useCallback(() => void dispatch(finishRunHere()), [dispatch]);
   const pin = useCallback(() => void dispatch(pinThisTab()), [dispatch]);
-  const example = useCallback(
-    () => dispatch(takeExampleForRun(names)),
-    [dispatch, names]
-  );
+  // KAN-988. The example arrives as every new session does.
+  const example = useCallback(() => {
+    prepareLayoutGlide(panes('sessions'), 'arrive');
+    dispatch(takeExampleForRun(names));
+  }, [dispatch, names]);
 
   if (run === null || kind === null) return null;
   if (kind === 'hello') {
