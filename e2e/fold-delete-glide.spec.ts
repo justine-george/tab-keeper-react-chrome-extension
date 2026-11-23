@@ -120,16 +120,41 @@ const between = (values: number[], from: number, to: number): number[] =>
     (v) => v > Math.min(from, to) + 2 && v < Math.max(from, to) - 2
   );
 
-// A screenshot taken again until two in a row match: a paused animation can
-// still paint a frame or two from before the pause on a slow machine.
-async function settledShot(loc: Locator): Promise<Buffer> {
-  let last = await loc.screenshot({ animations: 'allow' });
-  for (let i = 0; i < 10; i++) {
-    const next = await loc.screenshot({ animations: 'allow' });
-    if (next.equals(last)) return next;
-    last = next;
-  }
-  throw new Error('the screenshot never settled');
+// How many pixels of two same-size screenshots differ, leaving out a ring
+// `ring` pixels wide along their edges. Decoded in the page, so no image library is needed.
+async function pixelsApart(
+  page: Page,
+  a: Buffer,
+  b: Buffer,
+  ring: number
+): Promise<number> {
+  return page.evaluate(
+    async ({ a, b, ring }) => {
+      const read = async (png: string) => {
+        const img = new Image();
+        img.src = `data:image/png;base64,${png}`;
+        await img.decode();
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) throw new Error('no 2d context');
+        ctx.drawImage(img, 0, 0);
+        return ctx.getImageData(0, 0, img.width, img.height);
+      };
+      const [ia, ib] = await Promise.all([read(a), read(b)]);
+      if (ia.width !== ib.width || ia.height !== ib.height)
+        throw new Error('the shots differ in size');
+      let apart = 0;
+      for (let y = ring; y < ia.height - ring; y++)
+        for (let x = ring; x < ia.width - ring; x++) {
+          const i = (y * ia.width + x) * 4;
+          if ([0, 1, 2].some((c) => ia.data[i + c] !== ib.data[i + c])) apart++;
+        }
+      return apart;
+    },
+    { a: a.toString('base64'), b: b.toString('base64'), ring }
+  );
 }
 
 async function topOf(loc: Locator): Promise<number> {
@@ -667,13 +692,23 @@ test.describe('the scroll range while a fold glides (KAN-985)', () => {
     expect(await content.evaluate((e) => getComputedStyle(e).overflow)).toBe(
       'clip'
     );
-    const held = await settledShot(scroller);
+    const held = await scroller.screenshot({ animations: 'allow' });
     await content.evaluate((e) => {
       e.style.overflow = '';
       e.style.overflowClipMargin = '';
     });
-    const free = await settledShot(scroller);
-    if (!held.equals(free)) {
+    const free = await scroller.screenshot({ animations: 'allow' });
+    // The panel's rounded border is antialiased a little differently with and
+    // without the clip on CI's renderer: only what is inside it must match.
+    const ring = await scroller.evaluate((e) =>
+      Math.ceil(
+        parseFloat(getComputedStyle(e).borderBottomRightRadius) *
+          devicePixelRatio
+      )
+    );
+    expect(ring).toBeGreaterThan(0);
+    const apart = await pixelsApart(page, held, free, ring);
+    if (apart > 0) {
       await test
         .info()
         .attach('held', { body: held, contentType: 'image/png' });
@@ -681,6 +716,6 @@ test.describe('the scroll range while a fold glides (KAN-985)', () => {
         .info()
         .attach('free', { body: free, contentType: 'image/png' });
     }
-    expect(held.equals(free)).toBe(true);
+    expect(apart).toBe(0);
   });
 });
