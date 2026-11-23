@@ -373,6 +373,15 @@ function draw(
     ];
   });
 
+  // From a row's top to the top of the next row below it, where it is now; its own height when none.
+  const pitchAt = (box: Box): number => {
+    let next = Infinity;
+    for (const { to } of tops.values()) {
+      if (to >= box.bottom - 1 && to < next) next = to;
+    }
+    return (Number.isFinite(next) ? next : box.bottom) - box.top;
+  };
+
   // The rows that close over (or open from) a region: the nearest mover below it.
   const lineBelow = (
     bottom: number,
@@ -418,15 +427,14 @@ function draw(
   // hidden. It waits instead until the rows gliding down have all but passed it.
   arrivalBoxes.forEach(({ el, box }) => {
     const line = lineBelow(box.bottom, false);
-    // KAN-988 (his pick B). A new session at the top of its list comes down
-    // with the rows below it, out from under the list's top edge: never half
-    // there, so it cannot read as a flash. Anywhere else it fades.
-    if (kind === 'arrive' && line !== null && atListTop(el, box)) {
+    // KAN-988 (his picks B, rounds 4 and 5). A new session at the top of its
+    // list comes down out from under the list's top edge: with the rows below
+    // it, or, when they made room already (a drop's open gap), into that room.
+    // Never half there, so it cannot read as a flash. Anywhere else it fades.
+    const by = line !== null ? line.to - line.from : pitchAt(box);
+    if (kind === 'arrive' && by >= 1 && atListTop(el, box)) {
       el.animate(
-        [
-          { transform: `translateY(${line.from - line.to}px)` },
-          { transform: 'none' },
-        ],
+        [{ transform: `translateY(${-by}px)` }, { transform: 'none' }],
         { duration: GLIDE_MS, easing: EASE.OUT, id: LANDING_SLIDE }
       );
       return;

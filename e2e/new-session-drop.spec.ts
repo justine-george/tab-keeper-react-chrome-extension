@@ -1,6 +1,7 @@
 // KAN-394 P3 on the real artifact: a saved tab, group or window dropped on the save row becomes a new session.
 // Split from drag-between-sessions.spec.ts (KAN-480); shared helpers in fixtures/betweenSessions.ts.
 
+import { documentLanded } from './fixtures/landed';
 import {
   type tabContainerData,
   type TabMasterContainer,
@@ -642,6 +643,23 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
   });
 
   // N1 (revised): the list slides down to a place on the target, back on leaving; a release fills it.
+  // KAN-988 (his pick B, round 5). A row's top on each frame from when it comes in:
+  // from under the list's top edge (at most a pitch above the place), down into
+  // the place, never back up, and through frames in between.
+  function expectSlidIntoThePlace(
+    tops: number[],
+    place: number,
+    pitch: number
+  ) {
+    expect(tops[0]).toBeLessThan(place - 0.5);
+    expect(tops[0]).toBeGreaterThanOrEqual(place - pitch - 0.5);
+    expect(tops.filter((t, i) => i > 0 && t < tops[i - 1] - 0.5)).toEqual([]);
+    expect(tops[tops.length - 1]).toBeCloseTo(place, 0);
+    expect(
+      tops.filter((t) => t > place - pitch + 2 && t < place - 2).length
+    ).toBeGreaterThanOrEqual(3);
+  }
+
   const PLACE = '[data-new-session-place]';
 
   // Each frame until read: every session row's top, the place's box (or null) and the list's scroll.
@@ -769,7 +787,7 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
     await page.mouse.up();
   });
 
-  test('N1: a release on it puts the new session first and selected in the place, with no frame that jumps', async ({
+  test('N1: a release on it puts the new session first and selected, sliding into the place, and nothing else moves', async ({
     context,
     extensionId,
   }) => {
@@ -804,6 +822,8 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
         )
       )
       .toBe(true);
+    // The slide lands before the log is read (KAN-988).
+    await documentLanded(page);
     const frames = await listLog(page);
 
     // The new row is first, and selected.
@@ -815,15 +835,15 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
     expect(
       s1Tops.filter((t) => Math.abs((t ?? NaN) - (rest.s1 + rest.pitch)) > 0.5)
     ).toEqual([]);
-    // From its first frame, the new row stands where the place stood.
+    // KAN-988 (his pick B, round 5): the new row slides down into the place.
     const first = frames.findIndex((f) => f.rows[id] !== undefined);
     // PREMISE: the log spans the drop.
     expect(first).toBeGreaterThan(0);
-    expect(
-      frames
-        .slice(first)
-        .filter((f) => Math.abs((f.rows[id] ?? NaN) - rest.s1) > 0.5)
-    ).toEqual([]);
+    expectSlidIntoThePlace(
+      frames.slice(first).map((f) => f.rows[id] ?? NaN),
+      rest.s1,
+      rest.pitch
+    );
     // The place is gone in the frame the row comes in.
     expect(frames[first]?.place).toBeNull();
     expect(frames[first - 1]?.place).not.toBeNull();
@@ -886,7 +906,7 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
     box: { y: number; height: number }
   ) => b.y >= box.y - 0.5 && b.y + b.height <= box.y + box.height + 0.5;
 
-  test('N1, scrolled list: on the target it jumps to its top with the place in view; the release lands first, selected, in view, and the list never moves', async ({
+  test('N1, scrolled list: on the target it jumps to its top with the place in view; the release slides in first, selected, in view, and the list never moves', async ({
     context,
     extensionId,
   }) => {
@@ -926,6 +946,8 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
     await expect(
       page.locator('[data-pane="sessions"] [data-drag-row-id]').first()
     ).toHaveAttribute('data-drag-row-id', id);
+    // Where it lands, once its slide has (KAN-988).
+    await documentLanded(page);
     expect(inBox(await boxOf(row), box)).toBe(true);
     // Past KAN-143's follow-up frame.
     await page.waitForTimeout(300);
@@ -939,11 +961,11 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
     const first = frames.findIndex((f) => f.rows[id] !== undefined);
     // PREMISE: the log spans the drop.
     expect(first).toBeGreaterThan(0);
-    expect(
-      frames
-        .slice(first)
-        .filter((f) => Math.abs((f.rows[id] ?? NaN) - rest.s1) > 0.5)
-    ).toEqual([]);
+    expectSlidIntoThePlace(
+      frames.slice(first).map((f) => f.rows[id] ?? NaN),
+      rest.s1,
+      rest.pitch
+    );
   });
 
   test('N1, scrolled list: from the place straight onto S2, the list aims at S2 where it now is, and the drop lands there', async ({

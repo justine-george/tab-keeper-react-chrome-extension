@@ -25,8 +25,8 @@ import { buildContainer, buildSession } from './fixtures/seed';
 // KAN-988: every new session arrives the same way. His pick B (round 4): the
 // new row comes down from under the list's top edge with the sessions below
 // it; nothing fades, so it never reads as a flash. A drop on New session keeps
-// its preview (the gap opens on hover, round 3 B) and the row fades into that
-// gap. From the keyboard and under Reduce motion it is instant.
+// its preview (the gap opens on hover, round 3 B) and the row slides into that
+// gap (round 5 B). From the keyboard and under Reduce motion it is instant.
 
 const SESSIONS = [
   session('S1', 'Trip', [
@@ -270,7 +270,7 @@ test.describe('Currently open saves', () => {
 });
 
 test.describe('a drop on New session', () => {
-  test('the gap opens on the ease-out curve, and the new row fades into it', async ({
+  test('the gap opens on the ease-out curve, and the new row slides into it', async ({
     context,
     extensionId,
   }) => {
@@ -290,17 +290,20 @@ test.describe('a drop on New session', () => {
     await documentLanded(page);
 
     await watchShutter(page);
-    await startSampling(page, { 'new:op': FIRST_ROW });
+    await startSampling(page, { new: FIRST_ROW, 'new:op': FIRST_ROW });
     await page.mouse.up();
     const s = await samples(page);
     // The header mark's shutter slides, as for every new session (KAN-388).
     await expect.poll(() => shutterSlid(page)).toBe(true);
+    const place = await topOf(page.locator(FIRST_ROW).first());
+    const pitch = (await topOf(page.locator(rowOf('S1')))) - place;
 
     await expect(page.locator(FIRST_ROW).first()).not.toHaveAttribute(
       'data-drag-row-id',
       /^S[1-4]$/
     );
-    expect(faded(s['new:op'])).toBe(true);
+    expect(slidIn(s.new, place, pitch)).toBe(true);
+    expect(faded(s['new:op'])).toBe(false);
   });
 });
 
