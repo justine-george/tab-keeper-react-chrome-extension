@@ -11,7 +11,8 @@ export interface Samples {
 // Each animation frame for `ms`, from now: every named element's top (for a
 // name ending in ":h", its height; ":clip", whether it is clipped; ":copy",
 // the top of the text in a leaving copy that reads its value; ":sh", its
-// scroll height; ":op", its opacity), and how many leaving copies are drawn.
+// scroll height; ":op", its opacity; ":ov", 1 while its overflow clips, else
+// 0), and how many leaving copies are drawn.
 export async function startSampling(
   page: Page,
   targets: Record<string, string>,
@@ -39,13 +40,17 @@ export async function startSampling(
                 ? getComputedStyle(el).clipPath === 'none'
                   ? 0
                   : 1
-                : name.endsWith(':op')
-                  ? Number(getComputedStyle(el).opacity)
-                  : name.endsWith(':h')
-                    ? r.height
-                    : name.endsWith(':sh')
-                      ? el.scrollHeight
-                      : r.top
+                : name.endsWith(':ov')
+                  ? getComputedStyle(el).overflowY === 'clip'
+                    ? 1
+                    : 0
+                  : name.endsWith(':op')
+                    ? Number(getComputedStyle(el).opacity)
+                    : name.endsWith(':h')
+                      ? r.height
+                      : name.endsWith(':sh')
+                        ? el.scrollHeight
+                        : r.top
           );
         }
         out.copies.push(document.querySelectorAll('[data-leaving-row]').length);

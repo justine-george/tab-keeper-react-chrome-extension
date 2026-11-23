@@ -9,6 +9,7 @@ import {
 } from '../../redux/slices/globalStateSlice';
 import {
   deleteTabContainerInternal,
+  hydrateFromOtherPage,
   restoreContainer,
   saveToTabContainerInternal,
   selectTabContainer,
@@ -295,5 +296,64 @@ describe('NOT following when nothing moved under the selection', () => {
     ).toBeNull();
     expect(renderedOrder(container)).toEqual([]);
     expect(scrollCalls).toEqual([]);
+  });
+});
+
+// KAN-992. Another page or device adds or removes sessions around the
+// selected one: its index changes, but it did not move against anything that
+// stayed. Chrome's scroll anchoring keeps a hand-scrolled list still then, and
+// following would yank the list back to the selection.
+describe('NOT following when sessions only come or go around the selection', () => {
+  const fromElsewhere = (
+    store: Awaited<ReturnType<typeof render>>['store'],
+    ids: readonly string[],
+    arriving: ReturnType<typeof session>[] = []
+  ) => {
+    const before = store.getState().tabContainerDataState;
+    const byId = new Map(
+      [...before.tabGroups, ...arriving].map((g) => [g.tabGroupId, g])
+    );
+    act(() => {
+      store.dispatch(
+        hydrateFromOtherPage({
+          ...before,
+          tabGroups: ids.flatMap((id) => byId.get(id) ?? []),
+        })
+      );
+    });
+  };
+
+  test('a session arriving above it scrolls nothing', async () => {
+    const { container, store } = await render('a');
+    scrollCalls.length = 0;
+
+    fromElsewhere(store, ['n', 'c', 'b', 'a'], [session('n', 'NEW', T0)]);
+
+    expect(renderedOrder(container)).toEqual(['n', 'c', 'b', 'a']);
+    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe('a');
+    expect(scrollCalls).toEqual([]);
+  });
+
+  test('a session deleted elsewhere above it scrolls nothing', async () => {
+    const { container, store } = await render('a');
+    scrollCalls.length = 0;
+
+    fromElsewhere(store, ['b', 'a']);
+
+    expect(renderedOrder(container)).toEqual(['b', 'a']);
+    expect(scrollCalls).toEqual([]);
+  });
+
+  // CONTROL: the same route in, with the selection moving past one that stayed, still follows.
+  test('an arrival that also moves it past another still follows', async () => {
+    const { container, store } = await render('a');
+    scrollCalls.length = 0;
+
+    fromElsewhere(store, ['n', 'a', 'c', 'b'], [session('n', 'NEW', T0)]);
+
+    expect(renderedOrder(container)).toEqual(['n', 'a', 'c', 'b']);
+    expect(scrollCalls).toEqual([
+      { rowId: 'a', options: { block: 'nearest' } },
+    ]);
   });
 });

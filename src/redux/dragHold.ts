@@ -7,12 +7,18 @@
 type Apply = () => void;
 let held = false;
 let queue: Apply[] = [];
+// While the changes that waited are being applied, by a drop or a release.
+let applyingHeld = false;
 
 export function beginDragHold(): void {
   held = true;
 }
 export function isDragHeld(): boolean {
   return held;
+}
+// KAN-991. A change that waited for the release is landing now, with it.
+export function isApplyingHeldChanges(): boolean {
+  return applyingHeld;
 }
 export function whenDragReleases(apply: Apply): void {
   if (!held) {
@@ -39,13 +45,18 @@ export function flushHeldChanges(): FlushResult {
   const pending = queue;
   queue = [];
   let allApplied = true;
-  for (const apply of pending) {
-    try {
-      apply();
-    } catch (error) {
-      allApplied = false;
-      console.error('A change held during a drag failed to apply: ', error);
+  applyingHeld = true;
+  try {
+    for (const apply of pending) {
+      try {
+        apply();
+      } catch (error) {
+        allApplied = false;
+        console.error('A change held during a drag failed to apply: ', error);
+      }
     }
+  } finally {
+    applyingHeld = false;
   }
   return { ran: pending.length > 0, allApplied };
 }

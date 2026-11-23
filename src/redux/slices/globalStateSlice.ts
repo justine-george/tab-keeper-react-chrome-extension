@@ -57,6 +57,7 @@ import {
   withASelection,
   withOwnSelection,
 } from '../../utils/functions/withOwnSelection';
+import { prepareArrivalGlide } from '../arrivalGlide';
 import { sameContainerData } from '../../utils/functions/sameContainerData';
 import { isSampleSession } from '../../utils/functions/sampleSession';
 import {
@@ -487,6 +488,7 @@ export const loadSessionsIntoPage =
     const next = globalState.holdsPlaceholderSessions
       ? withASelection(loaded)
       : withOwnSelection(loaded, tabContainerDataState.selectedTabGroupId);
+    prepareArrivalGlide(getState(), next);
     dispatch(replaceState(next));
     return next;
   };

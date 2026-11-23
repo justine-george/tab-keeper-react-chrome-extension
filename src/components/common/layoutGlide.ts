@@ -22,6 +22,10 @@ import { LANDING_SLIDE } from '../home/rightpane/rowDrag/landingSlides';
 // 'arrive': a new session's row (KAN-988), timed as Undo of a delete draws one.
 export type GlideKind = 'fold' | 'delete' | 'arrive';
 
+// Who made the change: a press here, or another page or device (KAN-991).
+// Only a press here can have come from the keyboard.
+export type ChangeSource = 'this page' | 'elsewhere';
+
 const TIMING: Record<GlideKind, { out: number; in: number; inDelay: number }> =
   {
     fold: { out: 120, in: 160, inDelay: 40 },
@@ -228,26 +232,27 @@ function snapshot(root: Element): Snapshot {
   return { boxes, strips };
 }
 
-const wantsStillness = (): boolean =>
-  lastInputWasKey() ||
+const wantsStillness = (source: ChangeSource): boolean =>
+  (source === 'this page' && lastInputWasKey()) ||
   typeof Element.prototype.animate !== 'function' ||
   (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
 
-/** Every pane named `name` ([data-pane]): the popup and the tab view each draw their own. */
-export const panes = (name: 'detail' | 'sessions' | 'open-now'): Element[] => [
-  ...document.querySelectorAll(`[data-pane="${name}"]`),
-];
+/** Every pane named `name` ([data-pane]): the popup and the tab view each draw their own. None without a document. */
+export const panes = (name: 'detail' | 'sessions' | 'open-now'): Element[] =>
+  typeof document === 'undefined'
+    ? []
+    : [...document.querySelectorAll(`[data-pane="${name}"]`)];
 
 /** Measures `roots` now and draws the next commit that changes them as a glide. */
 export function prepareLayoutGlide(
   roots: readonly Element[],
-  kind: GlideKind
+  kind: GlideKind,
+  source: ChangeSource = 'this page'
 ): void {
   // A newer press wins; what is still moving keeps moving until its commit (step 0 below).
   pending?.();
-  if (wantsStillness()) return;
   const live = roots.filter((r) => r.isConnected);
-  if (live.length === 0) return;
+  if (live.length === 0 || wantsStillness(source)) return;
   const watches = live.map((root) => {
     const before = snapshot(root);
     const removed: { node: Element; parent: Node; next: Node | null }[] = [];
@@ -422,6 +427,8 @@ function draw(
       fill: 'none',
     })
   );
+  // The tops of the rows that were there before, where they are now.
+  const stayers = [...tops.values()].map(({ to }) => to);
   // A row that comes back is never clipped: Chrome can draw a clip-path
   // animation's first frame again as it ends, a one-frame flash of the rows
   // hidden. It waits instead until the rows gliding down have all but passed it.
@@ -430,13 +437,20 @@ function draw(
     // KAN-988 (his picks B, rounds 4 and 5). A new session at the top of its
     // list comes down out from under the list's top edge: with the rows below
     // it, or, when they made room already (a drop's open gap), into that room.
-    // Never half there, so it cannot read as a flash. Anywhere else it fades.
+    // Never half there, so it cannot read as a flash. Several new at the top
+    // come down together, as one (KAN-991 pick A).
     const by = line !== null ? line.to - line.from : pitchAt(box);
-    if (kind === 'arrive' && by >= 1 && atListTop(el, box)) {
+    if (kind === 'arrive' && by >= 1 && onlyArrivalsAbove(el, box, stayers)) {
       el.animate(
         [{ transform: `translateY(${-by}px)` }, { transform: 'none' }],
         { duration: GLIDE_MS, easing: EASE.OUT, id: LANDING_SLIDE }
       );
+      return;
+    }
+    // KAN-991 (pick C). Lower down, the row above is the edge it comes out
+    // from under, as the list's top edge is above.
+    if (kind === 'arrive' && el instanceof HTMLElement) {
+      slideOutFromUnder(el, box.bottom - box.top);
       return;
     }
     const wait =
@@ -518,16 +532,43 @@ function draw(
   Promise.all(drawn.map((a) => a.finished)).then(release, release);
 }
 
-// Whether `box` starts where its scroll area's visible part does: nothing shows above it there.
-function atListTop(el: Element, box: Box): boolean {
+// Whether nothing but new rows shows between `box` and its scroll area's
+// visible top: none of the rows that were there (`stayers`, their tops now).
+function onlyArrivalsAbove(
+  el: Element,
+  box: Box,
+  stayers: readonly number[]
+): boolean {
   for (let up = el.parentElement; up !== null; up = up.parentElement) {
     const o = getComputedStyle(up).overflowY;
     if (o === 'auto' || o === 'scroll') {
       const top = up.getBoundingClientRect().top + up.clientTop;
-      return Math.abs(box.top - top) < 1;
+      if (box.top < top - 1) return false;
+      return !stayers.some((y) => y >= top - 1 && y < box.top - 1);
     }
   }
   return false;
+}
+
+// A new row below the top of its list: its own box clips it, as the list's
+// top edge clips a row at the top, while what it holds comes down into it,
+// out from under the row above. The clip is a style held for the glide, not
+// an animated clip-path: Chrome can redraw such an animation's first frame as
+// it ends, and on a row that stays that is a flash (KAN-984).
+function slideOutFromUnder(row: HTMLElement, by: number): void {
+  if (by < 1) return;
+  const overflow = row.style.overflow;
+  row.style.overflow = 'clip';
+  const slides = [...row.children].map((child) =>
+    child.animate(
+      [{ transform: `translateY(${-by}px)` }, { transform: 'none' }],
+      { duration: GLIDE_MS, easing: EASE.OUT, id: LANDING_SLIDE }
+    )
+  );
+  const end = () => {
+    row.style.overflow = overflow;
+  };
+  Promise.all(slides.map((a) => a.finished)).then(end, end);
 }
 
 // The child indexes from `root` down to `el`.
