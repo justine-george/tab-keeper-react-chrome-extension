@@ -46,6 +46,7 @@ import SaveInvite, {
   SAVE_SEGMENT_WIDTH,
 } from './SaveInvite';
 import { onFirstClickOnly } from '../../common/firstClickOnly';
+import { panes, prepareLayoutGlide } from '../../common/layoutGlide';
 
 export default function UserInputContainer() {
   const { t, i18n } = useTranslation();
@@ -237,6 +238,8 @@ export default function UserInputContainer() {
     }
 
     const popsBefore = store.getState().globalState.firstSavePops;
+    // KAN-988. The new row fades in as the sessions below glide down.
+    prepareLayoutGlide(panes('sessions'), 'arrive');
     await dispatch(saveToTabContainer({ container: containerData, scope }));
     consumeName(typed);
     // KAN-875. The tour's next card waits for the first save's pop (his pick, option 4).

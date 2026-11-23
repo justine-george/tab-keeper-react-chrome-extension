@@ -19,12 +19,14 @@ import { LANDING_SLIDE } from '../home/rightpane/rowDrag/landingSlides';
 // From the keyboard, under Reduce motion, or with no Web Animations (jsdom),
 // nothing moves.
 
-export type GlideKind = 'fold' | 'delete';
+// 'arrive': a new session's row (KAN-988), timed as Undo of a delete draws one.
+export type GlideKind = 'fold' | 'delete' | 'arrive';
 
 const TIMING: Record<GlideKind, { out: number; in: number; inDelay: number }> =
   {
     fold: { out: 120, in: 160, inDelay: 40 },
     delete: { out: 150, in: 150, inDelay: 50 },
+    arrive: { out: 150, in: 150, inDelay: 50 },
   };
 const GLIDE_MS = parseInt(DURATION.MOVE, 10);
 
@@ -371,6 +373,15 @@ function draw(
     ];
   });
 
+  // From a row's top to the top of the next row below it, where it is now; its own height when none.
+  const pitchAt = (box: Box): number => {
+    let next = Infinity;
+    for (const { to } of tops.values()) {
+      if (to >= box.bottom - 1 && to < next) next = to;
+    }
+    return (Number.isFinite(next) ? next : box.bottom) - box.top;
+  };
+
   // The rows that close over (or open from) a region: the nearest mover below it.
   const lineBelow = (
     bottom: number,
@@ -416,6 +427,18 @@ function draw(
   // hidden. It waits instead until the rows gliding down have all but passed it.
   arrivalBoxes.forEach(({ el, box }) => {
     const line = lineBelow(box.bottom, false);
+    // KAN-988 (his picks B, rounds 4 and 5). A new session at the top of its
+    // list comes down out from under the list's top edge: with the rows below
+    // it, or, when they made room already (a drop's open gap), into that room.
+    // Never half there, so it cannot read as a flash. Anywhere else it fades.
+    const by = line !== null ? line.to - line.from : pitchAt(box);
+    if (kind === 'arrive' && by >= 1 && atListTop(el, box)) {
+      el.animate(
+        [{ transform: `translateY(${-by}px)` }, { transform: 'none' }],
+        { duration: GLIDE_MS, easing: EASE.OUT, id: LANDING_SLIDE }
+      );
+      return;
+    }
     const wait =
       line === null
         ? 0
@@ -493,6 +516,18 @@ function draw(
     if (hold === holdId) releaseScrollRange();
   };
   Promise.all(drawn.map((a) => a.finished)).then(release, release);
+}
+
+// Whether `box` starts where its scroll area's visible part does: nothing shows above it there.
+function atListTop(el: Element, box: Box): boolean {
+  for (let up = el.parentElement; up !== null; up = up.parentElement) {
+    const o = getComputedStyle(up).overflowY;
+    if (o === 'auto' || o === 'scroll') {
+      const top = up.getBoundingClientRect().top + up.clientTop;
+      return Math.abs(box.top - top) < 1;
+    }
+  }
+  return false;
 }
 
 // The child indexes from `root` down to `el`.
