@@ -231,9 +231,8 @@ test.describe('scrolled down when a session arrives above', () => {
     extensionId,
   }) => {
     const page = await popup(context, extensionId, MANY, 'S2');
-    const list = page.locator(rowOf('S1')).locator('xpath=..');
-    await list.evaluate((el) => {
-      let sc: HTMLElement | null = el;
+    await page.locator(rowOf('S1')).evaluate((el) => {
+      let sc: HTMLElement | null = el.parentElement;
       while (
         sc !== null &&
         !/(auto|scroll)/.test(getComputedStyle(sc).overflowY)
