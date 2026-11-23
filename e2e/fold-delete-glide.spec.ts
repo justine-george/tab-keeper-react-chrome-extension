@@ -13,6 +13,10 @@ import {
 import { elementLanded, documentLanded } from './fixtures/landed';
 import { standIn } from './fixtures/standInPages';
 import { differingPixels } from './fixtures/pixels';
+import {
+  closeOpenNowWindowFromMenu,
+  openNowWindowMenu,
+} from './fixtures/menus';
 
 // KAN-984 on the real artifact (picks fold B, delete C). A fold or a delete
 // draws its layout change as motion: the rows below glide to their place,
@@ -685,5 +689,323 @@ test.describe('the scroll range while a fold glides (KAN-985)', () => {
         .attach('free', { body: free, contentType: 'image/png' });
     }
     expect(apart).toBe(0);
+  });
+});
+
+// KAN-987 (motion round 3, pick B): closing in Currently open and Restore in
+// Recently deleted close up the way a saved delete does. The list going empty
+// stays instant (his pick A on the add-on).
+
+const openNowBlock = (page: Page, windowId: number): Locator =>
+  page.locator(`[data-pane="open-now"] [data-open-window-id="${windowId}"]`);
+const liveRow = (windowId: number, tabId: number): string =>
+  `[data-pane="open-now"] [data-open-window-id="${windowId}"] [data-open-tab-id="${tabId}"]`;
+
+// Unfocused windows of stand-in pages, one per list of titles, in order; a
+// group over the first `grouped` tabs when asked.
+async function openLive(
+  worker: Worker,
+  windows: { titles: string[]; grouped?: { n: number; title: string } }[]
+): Promise<{ windowId: number; tabIds: number[] }[]> {
+  const made: { windowId: number; tabIds: number[] }[] = [];
+  for (const w of windows) {
+    made.push(
+      await worker.evaluate(
+        async ({ urls, grouped }) => {
+          const win = await chrome.windows.create({
+            url: urls,
+            focused: false,
+          });
+          const tabIds = (win?.tabs ?? []).map((t) => t.id ?? -1);
+          const [first, ...rest] = tabIds.slice(0, grouped?.n ?? 0);
+          if (grouped && first !== undefined) {
+            const g = await chrome.tabs.group({
+              tabIds: [first, ...rest],
+              createProperties: { windowId: win?.id },
+            });
+            await chrome.tabGroups.update(g, {
+              title: grouped.title,
+              color: 'blue',
+            });
+          }
+          return { windowId: win?.id ?? -1, tabIds };
+        },
+        { urls: w.titles.map(standIn), grouped: w.grouped }
+      )
+    );
+  }
+  return made;
+}
+
+async function tabView(
+  context: Parameters<typeof openSaved>[0],
+  extensionId: string
+) {
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
+  await page.locator('[data-tour-anchor="save"]').waitFor();
+  return page;
+}
+
+test.describe('closing in Currently open', () => {
+  test('a tab: the rows below close up as the toast arrives, and Reopen opens the gap again', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await tabView(context, extensionId);
+    const [w] = await openLive(serviceWorker, [
+      { titles: ['One', 'Two', 'Three', 'Four'] },
+    ]);
+    const block = openNowBlock(page, w.windowId);
+    await expect(block.locator('[data-open-tab-id]')).toHaveCount(4);
+    const below = page.locator(liveRow(w.windowId, w.tabIds[2]));
+    await elementLanded(below, 'ancestors');
+    const from = await topOf(below);
+
+    await startSampling(page, { next: liveRow(w.windowId, w.tabIds[2]) }, 1200);
+    await page.locator(liveRow(w.windowId, w.tabIds[1])).hover();
+    await block
+      .getByRole('button', { name: 'Close tab: Two', exact: true })
+      .click();
+    const s = await samples(page);
+    const to = await topOf(below);
+
+    await expect(toasts(page)).toContainText('Tab closed.');
+    expect(from - to).toBeGreaterThan(20);
+    expect(between(s.next, from, to).length).toBeGreaterThanOrEqual(3);
+    expect(Math.max(...s.copies)).toBeGreaterThan(0);
+    await expect(page.locator('[data-leaving-row]')).toHaveCount(0);
+
+    await startSampling(page, { next: liveRow(w.windowId, w.tabIds[2]) }, 1200);
+    await page
+      .getByRole('status')
+      .getByRole('button', { name: 'Reopen', exact: true })
+      .click();
+    const back = await samples(page);
+    await expect(block.locator('[data-open-tab-id]')).toHaveCount(4);
+    expect(await topOf(below)).toBeCloseTo(from, 0);
+    expect(between(back.next, to, from).length).toBeGreaterThanOrEqual(3);
+  });
+
+  test('a window from its menu: the window below glides up', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await tabView(context, extensionId);
+    const [upper, lower] = await openLive(serviceWorker, [
+      { titles: ['Inbox', 'Calendar', 'Plan'] },
+      { titles: ['Recipe', 'Groceries'] },
+    ]);
+    const below = openNowBlock(page, lower.windowId);
+    await expect(below.locator('[data-open-tab-id]')).toHaveCount(2);
+    await elementLanded(below, 'ancestors');
+    const from = await topOf(below);
+
+    await startSampling(
+      page,
+      {
+        next: `[data-pane="open-now"] [data-open-window-id="${lower.windowId}"]`,
+      },
+      1200
+    );
+    await closeOpenNowWindowFromMenu(page, openNowBlock(page, upper.windowId));
+    const s = await samples(page);
+    const to = await topOf(below);
+
+    await expect(toasts(page)).toContainText('Window closed');
+    expect(from - to).toBeGreaterThan(60);
+    expect(between(s.next, from, to).length).toBeGreaterThanOrEqual(3);
+    expect(Math.max(...s.copies)).toBeGreaterThan(0);
+  });
+
+  test('a group from its menu: the rows below close up', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await tabView(context, extensionId);
+    const [w] = await openLive(serviceWorker, [
+      {
+        titles: ['Temples', 'Gardens', 'Loose'],
+        grouped: { n: 2, title: 'Kyoto' },
+      },
+    ]);
+    const block = openNowBlock(page, w.windowId);
+    await expect(block.locator('[data-open-tab-id]')).toHaveCount(3);
+    const below = page.locator(liveRow(w.windowId, w.tabIds[2]));
+    await elementLanded(below, 'ancestors');
+    const from = await topOf(below);
+
+    await startSampling(page, { next: liveRow(w.windowId, w.tabIds[2]) }, 1200);
+    const kyoto = block.getByRole('group', { name: 'Kyoto', exact: true });
+    await kyoto.locator('[data-group-drag-handle]').hover();
+    await kyoto
+      .locator('[data-group-drag-handle] [data-row-actions]')
+      .getByRole('button', { name: 'More actions: Kyoto', exact: true })
+      .click();
+    await page
+      .getByRole('menuitem', { name: 'Close group', exact: true })
+      .click();
+    const s = await samples(page);
+    const to = await topOf(below);
+
+    expect(from - to).toBeGreaterThan(40);
+    expect(between(s.next, from, to).length).toBeGreaterThanOrEqual(3);
+    expect(Math.max(...s.copies)).toBeGreaterThan(0);
+  });
+
+  test('Remove duplicates: the rows below close up', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await tabView(context, extensionId);
+    const [w] = await openLive(serviceWorker, [
+      { titles: ['Docs', 'Mail', 'Docs', 'Tail'] },
+    ]);
+    const block = openNowBlock(page, w.windowId);
+    await expect(block.locator('[data-open-tab-id]')).toHaveCount(4);
+    const below = page.locator(liveRow(w.windowId, w.tabIds[3]));
+    await elementLanded(below, 'ancestors');
+    const from = await topOf(below);
+
+    await startSampling(page, { next: liveRow(w.windowId, w.tabIds[3]) }, 1200);
+    await block.locator('[data-window-row]').hover();
+    await openNowWindowMenu(block).click();
+    await page
+      .getByRole('menuitem', { name: 'Remove 1 duplicate tab', exact: true })
+      .click();
+    const s = await samples(page);
+    const to = await topOf(below);
+
+    expect(from - to).toBeGreaterThan(20);
+    expect(between(s.next, from, to).length).toBeGreaterThanOrEqual(3);
+    expect(Math.max(...s.copies)).toBeGreaterThan(0);
+  });
+
+  test('from the keyboard it is instant', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await tabView(context, extensionId);
+    const [w] = await openLive(serviceWorker, [
+      { titles: ['One', 'Two', 'Three'] },
+    ]);
+    const block = openNowBlock(page, w.windowId);
+    await expect(block.locator('[data-open-tab-id]')).toHaveCount(3);
+    const below = page.locator(liveRow(w.windowId, w.tabIds[2]));
+    await elementLanded(below, 'ancestors');
+    const from = await topOf(below);
+    await block
+      .getByRole('button', { name: 'Close tab: Two', exact: true })
+      .focus();
+
+    await startSampling(page, { next: liveRow(w.windowId, w.tabIds[2]) }, 1200);
+    await page.keyboard.press('Enter');
+    const s = await samples(page);
+    const to = await topOf(below);
+
+    expect(from - to).toBeGreaterThan(20);
+    expect(between(s.next, from, to)).toEqual([]);
+    expect(Math.max(...s.copies)).toBe(0);
+  });
+});
+
+test.describe('Restore in Recently deleted', () => {
+  const deletedRow = (id: string): string =>
+    `[data-deleted-session-id="${id}"]`;
+
+  // Trip plus S2-S5 saved; `ids` deleted with the Delete key (instant), oldest first; Settings › Recently deleted open.
+  async function recentlyDeleted(
+    context: Parameters<typeof openSaved>[0],
+    extensionId: string,
+    ids: string[]
+  ) {
+    const page = await openTrip(context, extensionId);
+    for (const id of ids) {
+      await sessionRow(page, id)
+        .getByRole('button', { name: `Session ${id}`, exact: true })
+        .focus();
+      await page.keyboard.press('Delete');
+      await expect(sessionRow(page, id)).toHaveCount(0);
+    }
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await page
+      .getByRole('button', { name: 'Recently deleted', exact: true })
+      .click();
+    await expect(page.getByTestId('recently-deleted-row')).toHaveCount(
+      ids.length
+    );
+    await page.mouse.move(400, 2);
+    await documentLanded(page);
+    return page;
+  }
+
+  test('the rows below close up', async ({ context, extensionId }) => {
+    // Newest first: S5, S4, S3.
+    const page = await recentlyDeleted(context, extensionId, [
+      'S3',
+      'S4',
+      'S5',
+    ]);
+    const below = page.locator(deletedRow('S4'));
+    const from = await topOf(below);
+
+    await startSampling(page, { next: deletedRow('S4') });
+    await page
+      .getByRole('button', { name: 'Restore Session S5', exact: true })
+      .click();
+    const s = await samples(page);
+    const to = await topOf(below);
+
+    await expect(toasts(page)).toContainText('Session restored.');
+    expect(from - to).toBeGreaterThan(30);
+    expect(between(s.next, from, to).length).toBeGreaterThanOrEqual(3);
+    expect(Math.max(...s.copies)).toBeGreaterThan(0);
+    await expect(page.locator('[data-leaving-row]')).toHaveCount(0);
+  });
+
+  test('the last row going is instant: the list is empty at once', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await recentlyDeleted(context, extensionId, ['S3']);
+
+    await startSampling(page, {});
+    await page
+      .getByRole('button', { name: 'Restore Session S3', exact: true })
+      .click();
+    const s = await samples(page);
+
+    await expect(
+      page.getByText('No sessions deleted in the last 30 days.')
+    ).toBeVisible();
+    expect(Math.max(...s.copies)).toBe(0);
+  });
+
+  test('from the keyboard it is instant', async ({ context, extensionId }) => {
+    const page = await recentlyDeleted(context, extensionId, [
+      'S3',
+      'S4',
+      'S5',
+    ]);
+    const below = page.locator(deletedRow('S4'));
+    const from = await topOf(below);
+    await page
+      .getByRole('button', { name: 'Restore Session S5', exact: true })
+      .focus();
+
+    await startSampling(page, { next: deletedRow('S4') });
+    await page.keyboard.press('Enter');
+    const s = await samples(page);
+    const to = await topOf(below);
+
+    expect(from - to).toBeGreaterThan(30);
+    expect(between(s.next, from, to)).toEqual([]);
+    expect(Math.max(...s.copies)).toBe(0);
   });
 });

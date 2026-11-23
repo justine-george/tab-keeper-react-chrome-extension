@@ -28,9 +28,9 @@ const TIMING: Record<GlideKind, { out: number; in: number; inDelay: number }> =
   };
 const GLIDE_MS = parseInt(DURATION.MOVE, 10);
 
-// What moves: a window block, a group band, a saved row (sessions too), a live tab row.
+// What moves: a window block, a group band, a saved row (sessions too), a live tab row, a Recently deleted row.
 const GLIDERS =
-  '[data-drop-window-id], [data-band-id], [data-drag-row-id], [data-open-tab-id]';
+  '[data-drop-window-id], [data-band-id], [data-drag-row-id], [data-open-tab-id], [data-deleted-session-id]';
 const STRIP = '[data-group-color-strip]';
 // An intent no commit answers (a refused delete) is dropped after this.
 const WAIT_MS = 1500;
@@ -149,6 +149,7 @@ const isHook = (name: string) =>
   name === 'data-band-id' ||
   name === 'data-drag-row-id' ||
   name === 'data-open-tab-id' ||
+  name === 'data-deleted-session-id' ||
   name === 'data-saved-tab-row' ||
   name === 'data-window-tabs' ||
   name === 'data-group-color-strip' ||

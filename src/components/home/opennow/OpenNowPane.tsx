@@ -657,14 +657,17 @@ export default function OpenNowPane({
   useArrival(paneRef, scrollerRef, windows);
 
   // A null close means the tab or window was already gone -- a second press
-  // before the re-read, say -- so there is nothing to offer (O8a).
+  // before the re-read, say -- so there is nothing to offer (O8a). Each close
+  // closes up as a saved delete does (KAN-987) once Chrome's change is read.
   const handleCloseTab = async (openWindow: OpenWindow, tab: OpenTab) => {
+    prepareLayoutGlide(panes('open-now'), 'delete');
     focusAfterTabCloses(openWindow, tab);
     const item = await closeOpenTab(openWindow, tab);
     if (item) void dispatch(offerReopen(item));
   };
 
   const handleCloseWindow = async (openWindow: OpenWindow) => {
+    prepareLayoutGlide(panes('open-now'), 'delete');
     focusAfterWindowCloses(openWindow.id);
     const item = await closeOpenWindow(openWindow);
     if (item) void dispatch(offerReopen(item));
@@ -672,6 +675,7 @@ export default function OpenNowPane({
 
   // KAN-867. Each window's extra copies close; one toast offers Reopen for all.
   const handleRemoveDuplicates = async (windows: readonly OpenWindow[]) => {
+    prepareLayoutGlide(panes('open-now'), 'delete');
     const item = await closeDuplicateTabs(windows);
     if (item) void dispatch(offerReopen(item));
   };
@@ -679,6 +683,7 @@ export default function OpenNowPane({
   // KAN-696. Moves focus first, as a window's close does: to the window's chevron,
   // or, when the group is every listed tab, the window goes with it, so to where a window close sends it.
   const handleCloseGroup = async (openWindow: OpenWindow, groupId: number) => {
+    prepareLayoutGlide(panes('open-now'), 'delete');
     if (openWindow.tabs.every((tab) => tab.groupId === groupId)) {
       focusAfterWindowCloses(openWindow.id);
     } else {
