@@ -36,6 +36,7 @@ import {
   ThemeColorsOverride,
 } from '../../hooks/useThemeColors';
 import { rgb } from '../setup/hexColor';
+import { syncMeasuresLanded } from '../../components/settings/rightpane/Account/syncMeasures';
 
 // KAN-596. How much of the 1 MB the sync may write, under Sync Status.
 
@@ -65,10 +66,11 @@ const containerOf = async (bytes: number): Promise<TabMasterContainer> => {
   return withUrlPad(incompressible(length));
 };
 
-// Long enough for any measure in these tests to land (gzip of ~1 MB is a few ms).
+// Until every size measure started so far has landed (KAN-990): a fixed 150 ms
+// lost to a busy runner's gzip of ~1 MB, and let a "hidden" check pass unmeasured.
 const measured = () =>
   act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    await syncMeasuresLanded();
   });
 
 const renderSync = async (bytes?: number, theme = LIGHT_THEME) => {

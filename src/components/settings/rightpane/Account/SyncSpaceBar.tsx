@@ -9,6 +9,7 @@ import { RootState } from '../../../../redux/store';
 import { DURATION, RADIUS, TYPE } from '../../../../styles/scale';
 import { FIRESTORE_MAX_DOCUMENT_BYTES } from '../../../../utils/functions/local';
 import { syncBytes } from '../../../../utils/functions/cloudDocument';
+import { trackSyncMeasure } from './syncMeasures';
 import { withoutSamples } from '../../../../utils/functions/sampleSession';
 import type { TabMasterContainer } from '../../../../redux/slices/tabContainerDataStateSlice';
 import {
@@ -34,7 +35,7 @@ function useSyncBytes(container: TabMasterContainer): number | null {
   const [bytes, setBytes] = useState<number | null>(null);
   useEffect(() => {
     let current = true;
-    void syncBytes(container).then(
+    void trackSyncMeasure(syncBytes(container)).then(
       (measured) => {
         // A measure of a container that has since changed never shows.
         if (current) setBytes(measured);

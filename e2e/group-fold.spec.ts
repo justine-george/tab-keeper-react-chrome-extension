@@ -2616,6 +2616,21 @@ test.describe('a group in Currently open', () => {
       groupId: -1,
     });
     expect(await chromeCollapsed(serviceWorker, w.groupId)).toBe(true);
+    // KAN-989. The drop is held until Currently open reads Chrome again; Tea's
+    // landing glide starts in the frame that read is drawn, when its row comes
+    // to follow Nara's band. Waiting on animations before then finds none.
+    const band = await naraBand.elementHandle();
+    await expect
+      .poll(() =>
+        tea.evaluate(
+          (row, b) =>
+            (b.compareDocumentPosition(row) &
+              Node.DOCUMENT_POSITION_FOLLOWING) !==
+            0,
+          band
+        )
+      )
+      .toBe(true);
     await elementLanded(tea, 'ancestors');
     const title = await boxOf(naraTitle);
     const rested = (await boxOf(tea)).y - (title.y + title.height);
