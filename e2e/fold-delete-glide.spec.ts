@@ -120,6 +120,18 @@ const between = (values: number[], from: number, to: number): number[] =>
     (v) => v > Math.min(from, to) + 2 && v < Math.max(from, to) - 2
   );
 
+// A screenshot taken again until two in a row match: a paused animation can
+// still paint a frame or two from before the pause on a slow machine.
+async function settledShot(loc: Locator): Promise<Buffer> {
+  let last = await loc.screenshot({ animations: 'allow' });
+  for (let i = 0; i < 10; i++) {
+    const next = await loc.screenshot({ animations: 'allow' });
+    if (next.equals(last)) return next;
+    last = next;
+  }
+  throw new Error('the screenshot never settled');
+}
+
 async function topOf(loc: Locator): Promise<number> {
   return (await loc.boundingBox())?.y ?? NaN;
 }
@@ -655,12 +667,12 @@ test.describe('the scroll range while a fold glides (KAN-985)', () => {
     expect(await content.evaluate((e) => getComputedStyle(e).overflow)).toBe(
       'clip'
     );
-    const held = await scroller.screenshot({ animations: 'allow' });
+    const held = await settledShot(scroller);
     await content.evaluate((e) => {
       e.style.overflow = '';
       e.style.overflowClipMargin = '';
     });
-    const free = await scroller.screenshot({ animations: 'allow' });
+    const free = await settledShot(scroller);
     expect(held.equals(free)).toBe(true);
   });
 });
