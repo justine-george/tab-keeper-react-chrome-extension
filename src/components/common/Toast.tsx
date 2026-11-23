@@ -470,7 +470,11 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
                 iconType="undo"
                 text={t('Reopen')}
                 keyHint={keyTakesOffer(offer.id) ? undoKeyHint : undefined}
-                onClick={() => void dispatch(reopenFromOffer(offer.id))}
+                // Every offer is a close in Currently open: the gap opens again (KAN-987).
+                onClick={() => {
+                  prepareLayoutGlide(panes('open-now'), 'delete');
+                  void dispatch(reopenFromOffer(offer.id));
+                }}
                 style={chipStyle}
               />
             )}

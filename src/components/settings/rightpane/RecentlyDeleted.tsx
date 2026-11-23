@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 
 import { css } from '@emotion/react';
 
 import Button from '../../common/Button';
+import { prepareLayoutGlide } from '../../common/layoutGlide';
 import { EmptyRecentlyDeletedModal } from '../../modals/EmptyRecentlyDeletedModal';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useRecentlyDeleted } from '../../../hooks/useRecentlyDeleted';
@@ -36,6 +37,14 @@ export function RecentlyDeleted() {
   );
   const { shown, now, empty } = useRecentlyDeleted();
   const [confirming, setConfirming] = useState(false);
+  const columnRef = useRef<HTMLDivElement>(null);
+  // KAN-987. Restore closes up the rows below as a saved delete does; the last row
+  // going leaves the list empty at once (his pick A), as Empty does.
+  const restore = (session: (typeof shown)[number]['session']) => {
+    if (shown.length > 1 && columnRef.current !== null)
+      prepareLayoutGlide([columnRef.current], 'delete');
+    void dispatch(restoreDeletedSession(session));
+  };
 
   const text = (size: string, color: string) => css`
     font-family: ${FONT_FAMILY};
@@ -71,6 +80,7 @@ export function RecentlyDeleted() {
     >
       {/* The settings reading width: a wide full view must not put Restore a screen away from its session. */}
       <div
+        ref={columnRef}
         data-recently-deleted-column
         css={css`
           width: 100%;
@@ -149,6 +159,7 @@ export function RecentlyDeleted() {
               <div
                 key={session.tabGroupId}
                 data-testid="recently-deleted-row"
+                data-deleted-session-id={session.tabGroupId}
                 css={css`
                   display: grid;
                   grid-template-columns: minmax(0, 1fr) auto;
@@ -195,7 +206,7 @@ export function RecentlyDeleted() {
                   iconType="undo"
                   variant="chip"
                   style={SAME_WIDTH}
-                  onClick={() => void dispatch(restoreDeletedSession(session))}
+                  onClick={() => restore(session)}
                 />
               </div>
             ))}
