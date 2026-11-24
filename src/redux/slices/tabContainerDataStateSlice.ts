@@ -110,6 +110,7 @@ import {
   partitionTabsIntoItems,
   type TabGroupColor,
 } from '../../utils/functions/tabGroups';
+import { noteStep } from '../stepGlides';
 import type { chromeTabGroupData } from '../../utils/functions/tabGroups';
 import {
   forgetMissingActiveTab,
@@ -1041,6 +1042,7 @@ export const saveToTabContainer = createAsyncThunk(
     const step = recordedStep(thunkAPI.getState as () => RootState, () =>
       thunkAPI.dispatch(saveToTabContainerInternal(container))
     );
+    noteStep(step, 'sessions', 'add');
 
     // KAN-653. The first session kept is a payoff of its own, whatever its
     // size. The sample is no session of the user's (KAN-7), so it neither
@@ -1114,6 +1116,7 @@ export const addCurrWindowToTabGroup = createAsyncThunk(
     const step = recordedStep(thunkAPI.getState as () => RootState, () =>
       thunkAPI.dispatch(addCurrWindowToTabGroupInternal({ ...params, window }))
     );
+    noteStep(step, 'detail', 'add');
 
     thunkAPI.dispatch(
       showToast({
@@ -1389,6 +1392,7 @@ export const addCurrTabToWindow =
     const step = recordedStep(getState, () =>
       dispatch(addCurrTabToWindowInternal(params))
     );
+    noteStep(step, 'detail', 'add');
 
     dispatch(
       showToast({
@@ -1413,7 +1417,10 @@ export const addCurrTabToChromeGroup =
       return false;
     }
     const before = getState().tabContainerDataState;
-    dispatch(addCurrTabToChromeGroupInternal(params));
+    const step = recordedStep(getState, () =>
+      dispatch(addCurrTabToChromeGroupInternal(params))
+    );
+    noteStep(step, 'detail', 'add');
     return getState().tabContainerDataState !== before;
   };
 
@@ -1426,6 +1433,7 @@ export const deleteTabContainer = createAsyncThunk<
   const step = recordedStep(thunkAPI.getState, () =>
     thunkAPI.dispatch(deleteTabContainerInternal(toBeDeletedTabGroupId))
   );
+  noteStep(step, 'sessions', 'delete');
 
   thunkAPI.dispatch(
     showToast({
@@ -1464,6 +1472,7 @@ export const deleteWindow = createAsyncThunk<
   const step = recordedStep(thunkAPI.getState, () =>
     thunkAPI.dispatch(deleteWindowInternal(params))
   );
+  noteStep(step, 'detail', 'delete');
 
   thunkAPI.dispatch(
     showToast({
@@ -1484,6 +1493,7 @@ export const deleteTab = createAsyncThunk<
   const step = recordedStep(thunkAPI.getState, () =>
     thunkAPI.dispatch(deleteTabInternal(params))
   );
+  noteStep(step, 'detail', 'delete');
 
   thunkAPI.dispatch(
     showToast({
@@ -1504,6 +1514,7 @@ export const deleteChromeTabGroup = createAsyncThunk<
   const step = recordedStep(thunkAPI.getState, () =>
     thunkAPI.dispatch(deleteChromeTabGroupInternal(params))
   );
+  noteStep(step, 'detail', 'delete');
 
   thunkAPI.dispatch(
     showToast({

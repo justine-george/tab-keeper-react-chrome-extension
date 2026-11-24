@@ -2,6 +2,7 @@ import { createAsyncThunk } from '@reduxjs/toolkit';
 
 import { nextActionNumber } from './actionOrder';
 import { showToast, stepToastsClosed } from './slices/globalStateSlice';
+import { prepareStepGlide } from './stepGlides';
 import {
   liveStepDropped,
   liveStepRedone,
@@ -120,6 +121,10 @@ async function takeStep(
 
   if (next === 'saved') {
     const undone = state.undoRedo.present.savedStepId;
+    prepareStepGlide(
+      direction === 'undo' ? undone : state.undoRedo.future[0]?.savedStepId,
+      direction
+    );
     dispatch(direction === 'undo' ? undo() : redo());
     closeToastsOf(direction, undone, dispatch);
     return 'saved';

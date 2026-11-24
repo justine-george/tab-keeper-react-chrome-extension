@@ -20,7 +20,8 @@ import { LANDING_SLIDE } from '../home/rightpane/rowDrag/landingSlides';
 // nothing moves.
 
 // 'arrive': a new session's row (KAN-988), timed as Undo of a delete draws one.
-export type GlideKind = 'fold' | 'delete' | 'arrive';
+// 'depart': an arrival taken back (KAN-993): what left goes up the way it came.
+export type GlideKind = 'fold' | 'delete' | 'arrive' | 'depart';
 
 // Who made the change: a press here, or another page or device (KAN-991).
 // Only a press here can have come from the keyboard.
@@ -31,6 +32,7 @@ const TIMING: Record<GlideKind, { out: number; in: number; inDelay: number }> =
     fold: { out: 120, in: 160, inDelay: 40 },
     delete: { out: 150, in: 150, inDelay: 50 },
     arrive: { out: 150, in: 150, inDelay: 50 },
+    depart: { out: 150, in: 150, inDelay: 50 },
   };
 const GLIDE_MS = parseInt(DURATION.MOVE, 10);
 
@@ -507,13 +509,28 @@ function draw(
       copies.delete(copy);
       copy.remove();
     };
+    const top = at[i].copy.top + dy;
+    const bottom = at[i].copy.bottom + dy;
+    const line = lineBelow(bottom, true);
+    // KAN-993 (his pick B, round 1b). An add taken back goes up under the row
+    // above, as far as the rows below come up, and never fades: its arrival
+    // played backwards.
+    if (kind === 'depart') {
+      copy.style.overflow = 'clip';
+      const by = line === null ? bottom - top : line.from - line.to;
+      const slides = [...copy.children].map((child) =>
+        child.animate(
+          [{ transform: 'none' }, { transform: `translateY(${-by}px)` }],
+          { ...timing(GLIDE_MS), fill: 'forwards' }
+        )
+      );
+      Promise.all(slides.map((a) => a.finished)).then(end, end);
+      return;
+    }
     const fade = copy.animate([{ opacity: 1 }, { opacity: 0 }], {
       ...timing(t.out),
       fill: 'forwards',
     });
-    const top = at[i].copy.top + dy;
-    const bottom = at[i].copy.bottom + dy;
-    const line = lineBelow(bottom, true);
     const clip =
       line === null ? null : clipAboveLine(top, bottom, line.from, line.to);
     const cut =
