@@ -7,6 +7,7 @@ import {
   type tabContainerData,
 } from '../slices/tabContainerDataStateSlice';
 import { isApplyingHeldChanges, isDragHeld } from '../dragHold';
+import { redo, undo } from '../slices/undoRedoSlice';
 import { panes, prepareLayoutGlide } from '../../components/common/layoutGlide';
 
 type State = StateFromReducersMapObject<typeof rootReducer>;
@@ -58,7 +59,11 @@ export const reorderGlideMiddleware: Middleware<object, State> =
       prepareLayoutGlide(
         panes('sessions'),
         'reorder',
-        fromElsewhere ? 'elsewhere' : 'this page',
+        fromElsewhere
+          ? 'elsewhere'
+          : undo.match(action) || redo.match(action)
+            ? 'undo or redo'
+            : 'this page',
         { alongside: true }
       );
     }

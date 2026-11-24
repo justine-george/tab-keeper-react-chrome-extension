@@ -140,12 +140,13 @@ async function takeStep(
   try {
     closeToastsOf(direction, step.id, dispatch);
     const { drop } = step;
-    // KAN-996. A live sort or End split goes back, and again, as it went.
-    if (
-      !isOpenedCopy(drop) &&
-      (isSortKind(drop.kind) || drop.kind === 'endSplit')
-    )
-      prepareLayoutGlide(panes('open-now'), 'reorder');
+    // KAN-996. Every live step goes back, and again, as it went, from the keys too:
+    // tabs a drop opened leave and come back as a close does; anything moved glides.
+    prepareLayoutGlide(
+      panes('open-now'),
+      isOpenedCopy(drop) ? 'delete' : 'reorder',
+      'undo or redo'
+    );
     const hasTabGroups = getState().globalState.hasTabGroupsPermission;
     const run = await whileMovingTabs<LiveRun<LiveDrop>>(() =>
       isOpenedCopy(drop)

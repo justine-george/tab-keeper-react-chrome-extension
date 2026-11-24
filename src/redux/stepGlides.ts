@@ -65,14 +65,14 @@ export function prepareStepGlide(
   const roots = note.panes.flatMap((pane) => panes(pane));
   const kind = MOTION[note.action][direction];
   if (note.action !== 'dedupe') {
-    prepareLayoutGlide(roots, kind);
+    prepareLayoutGlide(roots, kind, 'undo or redo');
     return;
   }
   // Remove duplicates: its copies come back lit; again, the kept ones light up.
   prepareLayoutGlide(
     roots,
     kind,
-    'this page',
+    'undo or redo',
     direction === 'undo' ? { lightReturns: true } : { light: note.kept }
   );
 }

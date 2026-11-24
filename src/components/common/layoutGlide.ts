@@ -28,9 +28,10 @@ import { LANDING_SLIDE } from '../home/rightpane/rowDrag/landingSlides';
 // 'reorder': rows that only changed places (KAN-994); a long way takes FOLD's time.
 export type GlideKind = 'fold' | 'delete' | 'arrive' | 'depart' | 'reorder';
 
-// Who made the change: a press here, or another page or device (KAN-991).
-// Only a press here can have come from the keyboard.
-export type ChangeSource = 'this page' | 'elsewhere';
+// Who made the change: a press here, another page or device (KAN-991), or an
+// undo or redo. Only a press here is instant from the keyboard: his rule
+// (KAN-996) is that every undo and redo plays its motion, ⌘Z and ⌘⇧Z too.
+export type ChangeSource = 'this page' | 'elsewhere' | 'undo or redo';
 
 const TIMING: Record<GlideKind, { out: number; in: number; inDelay: number }> =
   {

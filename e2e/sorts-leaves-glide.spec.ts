@@ -149,7 +149,36 @@ test.describe('Sort tabs by site, saved', () => {
     expect(glided(again.a2, from, to)).toBe(true);
   });
 
-  test('from the keyboard it is instant', async ({ context, extensionId }) => {
+  test('⌘Z and ⌘⇧Z glide as the buttons do', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await popup(context, extensionId, [SITES]);
+    const a2 = page.locator(savedRow('a2'));
+    const from = await topOf(a2);
+    await windowMenu(page, 'w1').click();
+    await item(page, 'Sort tabs by site').click();
+    await expect.poll(() => topOf(a2)).toBeLessThan(from - 30);
+    await documentLanded(page);
+    const to = await topOf(a2);
+
+    const back = await sampled(page, { a2: savedRow('a2') }, () =>
+      page.keyboard.press('ControlOrMeta+z')
+    );
+    expect(await topOf(a2)).toBeCloseTo(from, 0);
+    expect(glided(back.a2, to, from)).toBe(true);
+
+    const again = await sampled(page, { a2: savedRow('a2') }, () =>
+      page.keyboard.press('ControlOrMeta+Shift+z')
+    );
+    expect(await topOf(a2)).toBeCloseTo(to, 0);
+    expect(glided(again.a2, from, to)).toBe(true);
+  });
+
+  test('pressing it from the keyboard is instant', async ({
+    context,
+    extensionId,
+  }) => {
     const page = await popup(context, extensionId, [SITES]);
     const a2 = page.locator(savedRow('a2'));
     const from = await topOf(a2);
@@ -481,6 +510,26 @@ test.describe('in Currently open', () => {
     const back = await sampled(page, { a2 }, () => undo(page).click(), 1500);
     await expect.poll(() => topOf(page.locator(a2))).toBeCloseTo(from, 0);
     expect(glided(back.a2, to, from)).toBe(true);
+
+    // The keys too (his rule): ⌘⇧Z sorts again with the glide, ⌘Z puts it back with it.
+    await documentLanded(page);
+    const again = await sampled(
+      page,
+      { a2 },
+      () => page.keyboard.press('ControlOrMeta+Shift+z'),
+      1500
+    );
+    await expect.poll(() => topOf(page.locator(a2))).toBeCloseTo(to, 0);
+    expect(glided(again.a2, from, to)).toBe(true);
+    await documentLanded(page);
+    const keyBack = await sampled(
+      page,
+      { a2 },
+      () => page.keyboard.press('ControlOrMeta+z'),
+      1500
+    );
+    await expect.poll(() => topOf(page.locator(a2))).toBeCloseTo(from, 0);
+    expect(glided(keyBack.a2, to, from)).toBe(true);
   });
 
   test('Ungroup: the tabs glide out, up and left', async ({
