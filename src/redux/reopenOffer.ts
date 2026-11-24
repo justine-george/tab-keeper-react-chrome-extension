@@ -1,10 +1,16 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
+import type { ThunkAction, UnknownAction } from '@reduxjs/toolkit';
 
 import { closeOfferToast, showToast } from './slices/globalStateSlice';
 import { expectReopenedRow } from './reopenFocus';
-import { storeReopenOffer, takeReopenOffer } from './reopenOfferStore';
+import {
+  reopenOfferKind,
+  storeReopenOffer,
+  takeReopenOffer,
+} from './reopenOfferStore';
 import type { RootState } from './store';
 import { reopenClosed } from '../utils/functions/reopen';
+import { panes, prepareLayoutGlide } from '../components/common/layoutGlide';
 import type { ClosedItem } from '../utils/functions/reopen';
 import {
   GROUP_CLOSED_FRAME,
@@ -77,3 +83,18 @@ export const reopenFromOffer = createAsyncThunk(
     expectReopenedRow(reopened);
   }
 );
+
+// A pointer's Reopen: the toast's chip, or the header Undo while ⌘Z would take
+// the offer (KAN-997). Every offer is a close in Currently open, so its gap
+// opens again as it closed (KAN-987). ⌘Z itself is the keyboard's: no glide.
+export const pressReopen =
+  (
+    offerId: number
+  ): ThunkAction<Promise<unknown>, RootState, undefined, UnknownAction> =>
+  (dispatch) => {
+    // An undo, so it plays from the keys too; closed duplicates come back lit (KAN-996).
+    prepareLayoutGlide(panes('open-now'), 'delete', 'undo or redo', {
+      lightReturns: reopenOfferKind(offerId) === 'duplicateTabs',
+    });
+    return dispatch(reopenFromOffer(offerId));
+  };

@@ -1,4 +1,4 @@
-import { useDispatch, useSelector } from 'react-redux';
+import { shallowEqual, useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
 
@@ -28,12 +28,14 @@ import {
   closeFullViewCallout,
   openCloudConsentModal,
   selectAwaitsBootSync,
+  selectUndoKeyTarget,
 } from '../../../redux/slices/globalStateSlice';
 import {
   isRedoableSelector,
   isUndoableSelector,
 } from '../../../redux/slices/undoRedoSlice';
 import { redoStep, undoStep } from '../../../redux/undoHistory';
+import { pressReopen } from '../../../redux/reopenOffer';
 import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSlice';
 import {
   markFullViewCalloutSeen,
@@ -120,6 +122,9 @@ export default function MenuContainer() {
   const dispatch: AppDispatch = useDispatch();
 
   const isUndoable = useSelector(isUndoableSelector);
+  // KAN-997 (his pick B). What ⌘Z would take: while it is a Reopen offer, the button reopens too.
+  const undoTarget = useSelector(selectUndoKeyTarget, shallowEqual);
+  const reopens = undoTarget?.kind === 'offer';
   const defaultView = useSelector(
     (state: RootState) => state.settingsDataState.defaultView
   );
@@ -131,8 +136,12 @@ export default function MenuContainer() {
     backPlan?.kind === 'none' ? t('BackNowhereToGo') : t('Back to your tab');
   const isRedoable = useSelector(isRedoableSelector);
 
-  // KAN-744 R15. The same history as ⌘Z / ⌘⇧Z, saved and live steps alike; never a Reopen offer.
+  // KAN-744 R15, KAN-997. Whatever ⌘Z takes: the Reopen offer while it holds the key, else the history, saved and live steps alike.
   function handleClickUndo() {
+    if (undoTarget?.kind === 'offer') {
+      void dispatch(pressReopen(undoTarget.offerId));
+      return;
+    }
     void dispatch(undoStep());
   }
 
@@ -510,12 +519,12 @@ export default function MenuContainer() {
       </div>
       <div css={pairStyle}>
         <Icon
-          ariaLabel={t('Undo')}
-          tooltipText={t('Undo')}
+          ariaLabel={reopens ? t('Reopen') : t('Undo')}
+          tooltipText={reopens ? t('Reopen') : t('Undo')}
           type="undo"
           onClick={handleClickUndo}
-          style={isUndoable ? 'opacity: 1;' : 'opacity: 0.3;'}
-          disable={!isUndoable}
+          style={isUndoable || reopens ? 'opacity: 1;' : 'opacity: 0.3;'}
+          disable={!isUndoable && !reopens}
         />
         <Icon
           ariaLabel={t('Redo')}

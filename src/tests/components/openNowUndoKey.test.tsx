@@ -24,7 +24,7 @@ import type { RenderWithProvidersResult } from '../setup/renderWithProviders';
 // KAN-280 Part E Task 7 (spec O11f, U1), KAN-744. Open now drags and saved
 // changes are steps in one history: ⌘Z / Ctrl+Z undoes the newest, ⌘⇧Z /
 // Ctrl+Y redoes. A Reopen offer (O8c) is taken first while it came after the
-// newest drag (R17); the menu's buttons walk the history and never take it (R15).
+// newest drag (R17); the menu's Undo takes whatever ⌘Z would (R15, KAN-997).
 
 const UNDO = 'undoRedo/undo';
 const REDO = 'undoRedo/redo';
@@ -175,8 +175,8 @@ async function saveAnotherSession(store: Store): Promise<void> {
   });
 }
 
-// The menu's Undo or Redo, not a toast's chip of the same name.
-function menuButton(name: 'Undo' | 'Redo'): HTMLElement {
+// The menu's Undo (named Reopen while it reopens) or Redo, not a toast's chip of the same name.
+function menuButton(name: 'Undo' | 'Redo' | 'Reopen'): HTMLElement {
   const button = screen
     .getAllByRole('button', { name })
     .find((b) => b.closest('[role="status"]') === null);
@@ -720,7 +720,8 @@ describe('the menu Undo and Redo (KAN-744 R15)', () => {
     expect(undoRedoIn(seen.slice(before))).toEqual([]);
   });
 
-  test('the menu Undo never takes an offer', async () => {
+  // KAN-997 (his pick B). The button follows ⌘Z: the offer while it holds the key, then the history.
+  test('the menu Undo reopens while ⌘Z would, then walks the history', async () => {
     const user = userEvent.setup();
     const { store } = await renderWithProviders(<MainContainer />, {
       seed,
@@ -728,13 +729,56 @@ describe('the menu Undo and Redo (KAN-744 R15)', () => {
     await dragAToTheMiddle(store);
     await closeCWithOffer(store);
 
+    await user.click(menuButton('Reopen'));
+
+    // c comes back after [b, a]; the drag stays; the offer is taken.
+    await waitFor(async () => {
+      expect(await urlsIn(2)).toEqual([url('b'), url('a'), url('c')]);
+    });
+    await waitFor(() => expect(offerShows()).toBe(false));
+
     await user.click(menuButton('Undo'));
 
-    // The drag is undone in [b, a]; c stays closed, its offer still up.
+    await aIsBack();
+  });
+
+  test('a step after the offer takes the button, as it takes ⌘Z', async () => {
+    const user = userEvent.setup();
+    const { store } = await renderWithProviders(<MainContainer />, {
+      seed,
+    });
+    await closeCWithOffer(store);
+    await dragAToTheMiddle(store);
+    // Only the toast's chip says Reopen.
+    expect(screen.queryAllByRole('button', { name: 'Reopen' })).toHaveLength(1);
+
+    await user.click(menuButton('Undo'));
+
+    // The drag is undone; c stays closed, its offer still up.
     await waitFor(async () => {
       expect(await urlsIn(2)).toEqual([url('a'), url('b')]);
     });
     expect(offerShows()).toBe(true);
+  });
+
+  test('with nothing in the history, an offer alone lights the button', async () => {
+    const user = userEvent.setup();
+    const { store } = await renderWithProviders(<MainContainer />, {
+      seed,
+    });
+    expect(menuButton('Undo')).toHaveAttribute('aria-disabled', 'true');
+    await closeCWithOffer(store);
+
+    const reopen = menuButton('Reopen');
+    expect(reopen).not.toHaveAttribute('aria-disabled', 'true');
+    await user.click(reopen);
+
+    await waitFor(async () => {
+      expect(await urlsIn(2)).toEqual([url('a'), url('b'), url('c')]);
+    });
+    await waitFor(() =>
+      expect(menuButton('Undo')).toHaveAttribute('aria-disabled', 'true')
+    );
   });
 });
 
