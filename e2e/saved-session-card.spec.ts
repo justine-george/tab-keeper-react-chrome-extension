@@ -169,3 +169,60 @@ test('a session row carried over the card: the card is no drop target', async ({
     page.locator('[data-pane="sessions"] [data-drag-row-id]').first()
   ).toHaveAttribute('data-drag-row-id', 'S1');
 });
+
+// KAN-999 (his round 4). Wherever Currently open folds to its rail, the rail is
+// the same outlined card: 44px, the list card's border and corners, 8px in
+// from the window's frame, from the panes' top inset to the list's bottom.
+const railCard = (page: Page) => page.locator('[data-open-now-rail]');
+
+for (const [name, viewport, settings] of [
+  ['narrow', SHORT, {}],
+  ['wide, folded by hand', WIDE, { foldOpenNowInTabView: true }],
+] as const) {
+  test(`${name}: Currently open's rail is the same card`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openTabView(
+      context,
+      extensionId,
+      false,
+      SESSIONS(),
+      viewport,
+      settings
+    );
+    await expect(railCard(page)).toBeVisible();
+
+    const r = await edges(railCard(page));
+    const pane = await edges(page.locator('[data-pane="open-now"]'));
+    const l = await edges(listCard(page));
+    expect(r.right - r.left).toBeCloseTo(44, 0);
+    expect(pane.right - pane.left).toBeCloseTo(53, 0);
+    // 8px inside the window's 1px frame, top and right; the list's bottom.
+    expect(Math.abs(r.top - pane.top - 9)).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(pane.right - r.right - 9)).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(r.bottom - l.bottom)).toBeLessThanOrEqual(0.5);
+    const look = (el: Locator) =>
+      el.evaluate((e) => {
+        const s = getComputedStyle(e);
+        return [s.borderTopWidth, s.borderTopColor, s.borderTopLeftRadius];
+      });
+    expect(await look(railCard(page))).toEqual(await look(listCard(page)));
+  });
+}
+
+test('narrow and folded, then shown: the rail card in a 53px column', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openTabView(context, extensionId, true, SESSIONS(), SHORT);
+  await card(page).click();
+
+  await expect(railCard(page)).toBeVisible();
+  await expect(card(page)).toHaveCount(0);
+  const pane = await edges(page.locator('[data-pane="open-now"]'));
+  expect(pane.right - pane.left).toBeCloseTo(53, 0);
+  expect(
+    (await edges(railCard(page))).right - (await edges(railCard(page))).left
+  ).toBeCloseTo(44, 0);
+});

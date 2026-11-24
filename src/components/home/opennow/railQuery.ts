@@ -8,8 +8,9 @@ export const OPEN_NOW_RAIL_QUERY = '(max-width: 1099px)';
 // folded saved session's.
 export const RAIL_CARD_PX = 44;
 
-// The rail's column: below 1100px, and folded by the saved session's button (KAN-808).
-export const OPEN_NOW_RAIL_PX = 44;
+// The rail's column: below 1100px, and folded by the saved session's button
+// (KAN-808). KAN-999: its card, 8px to the window's frame, and the frame.
+export const OPEN_NOW_RAIL_PX = RAIL_CARD_PX + 8 + 1;
 
 // KAN-999. The folded saved session's column: its card and the 8px gap to
 // Currently open (the list's own padding is the gap on its left).

@@ -474,7 +474,7 @@ test.describe('Open now in the tab view (KAN-280)', () => {
     await expectFolded(page);
   });
 
-  test('6. below 1100px, side by side, a 44px rail opens a 480px drawer that Esc closes', async ({
+  test('6. below 1100px, side by side, a 53px rail opens a 480px drawer that Esc closes', async ({
     context,
     extensionId,
   }, testInfo) => {
@@ -490,7 +490,7 @@ test.describe('Open now in the tab view (KAN-280)', () => {
     await expect(rail).toBeVisible();
     await expect
       .poll(async () => Math.round((await need(page, OPEN_NOW)).width))
-      .toBe(44);
+      .toBe(53);
 
     await rail.click();
     const drawer = page.getByRole('dialog', { name: 'Currently open' });

@@ -43,7 +43,7 @@ import {
   tabRow,
 } from '../setup/openNowDragHarness';
 
-// KAN-280 O2. Below 1100px, side by side, Open now's column is a 44px rail
+// KAN-280 O2. Below 1100px, side by side, Open now's column is a 53px rail column
 // with one button, and the button opens Open now as a drawer over the right
 // side. Folded, Open now is in the detail column at any width, so no rail.
 
@@ -385,10 +385,10 @@ describe('the rail is only for side by side (O2)', () => {
 });
 
 // jsdom evaluates no media query, so this reads the rule the grid emits. It
-// pins that the 44px track and the rail answer the one query: were the two
+// pins that the 53px track and the rail answer the one query: were the two
 // written apart, one could be edited without the other.
 describe('the grid and the rail share one query (O2)', () => {
-  test("the grid's 44px last track sits under the rail's query", async () => {
+  test("the grid's 53px last track sits under the rail's query", async () => {
     installMatchMedia(true);
     await renderHome(false);
     await railButton();
@@ -400,7 +400,7 @@ describe('the grid and the rail share one query (O2)', () => {
       `@media ${OPEN_NOW_RAIL_QUERY.replace(
         /[()]/g,
         '\\$&'
-      )}\\s*\\{[^}]*grid-template-columns:\\s*356px 0 minmax\\(0, 1fr\\) 44px`
+      )}\\s*\\{[^}]*grid-template-columns:\\s*356px 0 minmax\\(0, 1fr\\) 53px`
     );
     expect(css).toMatch(railRule);
   });

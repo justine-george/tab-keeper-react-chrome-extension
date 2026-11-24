@@ -41,6 +41,7 @@ import { COACH_CARD_SHOWN } from '../paneMotion';
 import { springSweepStyle } from '../../common/springOpen';
 import { useRailSpring } from './useRailSpring';
 import RailLabel from '../RailLabel';
+import { railCardStyle } from '../railCard';
 import {
   DRAWER_CARRY_START,
   DRAWER_SPRUNG,
@@ -349,12 +350,12 @@ export default function OpenNowRail({
           t
         );
 
+  // KAN-999 (his round 4). The rail is an outlined card like the folded saved
+  // session's: 8px in from the window's frame, top, right and bottom.
   const railStyle = css`
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    height: 100%;
-    padding-top: 8px;
+    ${railCardStyle(COLORS)}
+    height: calc(100% - 16px);
+    margin: 8px 8px 8px 0;
     /* KAN-820 E. The session row's carry-target look; its button shows no hover or press fill under it. */
     &[data-carry-target] {
       background-color: ${COLORS.ACTIVE_COLOR};

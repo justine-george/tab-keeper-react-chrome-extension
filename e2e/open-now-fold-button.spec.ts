@@ -10,7 +10,7 @@ import {
 } from './fixtures/seed';
 
 // KAN-808 on the real artifact. In the full view, the saved session's
-// title-line button folds Open now to its 44px rail, so the saved session
+// title-line button folds Open now to its 53px rail column (KAN-999: a 44px card in it), so the saved session
 // takes the width, and shows it again. What jsdom cannot show: the grid's
 // real widths, the drawer over a wide window, the choice surviving a reload,
 // the window crossing 1100px, and a long title stopping before the button.
@@ -58,7 +58,7 @@ const detail = (page: Page) => page.locator(DETAIL);
 const rail = (page: Page) =>
   page.getByRole('button', { name: /^Currently open/ });
 
-test('the button folds Currently open to its 44px rail and shows it again; the saved session takes the width', async ({
+test('the button folds Currently open to its rail (a 53px column) and shows it again; the saved session takes the width', async ({
   context,
   extensionId,
 }, testInfo) => {
@@ -79,7 +79,7 @@ test('the button folds Currently open to its 44px rail and shows it again; the s
 
   await fold.click();
   await expect(rail(page)).toBeVisible();
-  await expect.poll(() => widthOf(page, OPEN_NOW)).toBe(44);
+  await expect.poll(() => widthOf(page, OPEN_NOW)).toBe(53);
   expect(await widthOf(page, DETAIL)).toBeGreaterThan(sideBySide + 250);
   await page.screenshot({ path: testInfo.outputPath('open-now-folded.png') });
 
@@ -98,7 +98,7 @@ test('the choice survives a reload', async ({ context, extensionId }) => {
   await page.getByRole('button', { name: 'Sort sessions' }).waitFor();
   await expect(rail(page)).toBeVisible();
   await expect(detail(page).getByRole('button', { name: SHOW })).toBeVisible();
-  expect(await widthOf(page, OPEN_NOW)).toBe(44);
+  expect(await widthOf(page, OPEN_NOW)).toBe(53);
 });
 
 test('folded, the rail opens its drawer over the saved session, and Esc leaves it folded', async ({
@@ -121,7 +121,7 @@ test('folded, the rail opens its drawer over the saved session, and Esc leaves i
   await page.keyboard.press('Escape');
   await expect(drawer).toHaveCount(0);
   await expect(rail(page)).toBeFocused();
-  expect(await widthOf(page, OPEN_NOW)).toBe(44);
+  expect(await widthOf(page, OPEN_NOW)).toBe(53);
 });
 
 test('below 1100px the pencil is back; wide again, Currently open is still folded', async ({
@@ -142,7 +142,7 @@ test('below 1100px the pencil is back; wide again, Currently open is still folde
 
   await page.setViewportSize(WIDE);
   await expect(detail(page).getByRole('button', { name: SHOW })).toBeVisible();
-  expect(await widthOf(page, OPEN_NOW)).toBe(44);
+  expect(await widthOf(page, OPEN_NOW)).toBe(53);
 });
 
 test('the popup keeps the pencil', async ({ context, extensionId }) => {

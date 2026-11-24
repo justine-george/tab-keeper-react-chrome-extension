@@ -171,7 +171,7 @@ describe('where the button shows', () => {
 });
 
 describe('the press', () => {
-  test('folds Open now to its 44px rail, and the next press shows it again', async () => {
+  test('folds Open now to its rail's 53px column, and the next press shows it again', async () => {
     const { store } = await renderHome();
     await mounted();
     expect(within(openNowSlot()).getByText(PANE_ONLY)).toBeInTheDocument();
@@ -184,7 +184,7 @@ describe('the press', () => {
       await screen.findByRole('button', { name: RAIL_NAME })
     ).toBeInTheDocument();
     expect(within(openNowSlot()).queryByText(PANE_ONLY)).toBeNull();
-    expect(openNowTrack()).toBe('44px');
+    expect(openNowTrack()).toBe('53px');
     // The saved session stays, and the button now says what it will do.
     expect(screen.getByRole('button', { name: HERO_ONLY })).toBeInTheDocument();
     const show = within(detail()).getByRole('button', { name: SHOW_OPEN_NOW });
@@ -195,7 +195,7 @@ describe('the press', () => {
     fireEvent.click(show);
     expect(folds(store)).toEqual({ saved: false, openNow: false });
     expect(within(openNowSlot()).getByText(PANE_ONLY)).toBeInTheDocument();
-    expect(openNowTrack()).not.toBe('44px');
+    expect(openNowTrack()).not.toBe('53px');
   });
 
   test('is remembered on this device', async () => {
