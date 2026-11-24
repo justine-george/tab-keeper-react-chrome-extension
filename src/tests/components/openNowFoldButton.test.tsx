@@ -171,7 +171,7 @@ describe('where the button shows', () => {
 });
 
 describe('the press', () => {
-  test('folds Open now to its rail's 53px column, and the next press shows it again', async () => {
+  test('folds Open now to its rail (a 53px column), and the next press shows it again', async () => {
     const { store } = await renderHome();
     await mounted();
     expect(within(openNowSlot()).getByText(PANE_ONLY)).toBeInTheDocument();

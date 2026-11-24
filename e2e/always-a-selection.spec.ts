@@ -125,8 +125,6 @@ test.describe('the tab view folded draws the selection (KAN-390, KAN-999)', () =
     ).toBeVisible();
     return page;
   };
-  const bg = (page: Page, title: string) =>
-    row(page, title).evaluate((el) => getComputedStyle(el).backgroundColor);
 
   test('folded the selected row is drawn selected, with Open and Replace; unfolding and folding keep it', async ({
     context,
