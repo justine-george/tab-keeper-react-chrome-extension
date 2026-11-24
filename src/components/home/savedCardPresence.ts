@@ -1,4 +1,4 @@
-import { RefObject, useLayoutEffect, useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
 
 import { DURATION, EASE } from '../../styles/scale';
@@ -25,8 +25,10 @@ const ms = (duration: string) => parseFloat(duration);
 // with no input here and change at once.
 const AFTER_INPUT_MS = 2000;
 
-// A fold's change is the fold's view transition; the rest as runPaneMotion has it.
-const changesAtOnce = () =>
+// A fold's change is the fold's view transition; with no grid (Settings has
+// it) there is nothing to move; the rest as runPaneMotion has it.
+const changesAtOnce = (grid: HTMLElement | null) =>
+  grid === null ||
   typeof Element.prototype.animate !== 'function' ||
   !hadUserInputWithin(AFTER_INPUT_MS) ||
   document.documentElement.dataset.paneMove !== undefined ||
@@ -40,11 +42,12 @@ const changesAtOnce = () =>
  * fold to move it, so it moves here: its column grows or shrinks over FOLD as
  * Currently open glides beside it, and the card fades in at the end or out at
  * the start, as in a fold. At once during a fold, under reduced motion, or
- * while a tour card is on screen.
+ * while a tour card is on screen, or while the grid is not attached.
  */
 export function useSavedCardPresence(
   shows: boolean,
-  grid: RefObject<HTMLElement | null>
+  // The tab view's grid, as its callback ref last set it; null in Settings.
+  grid: HTMLElement | null
 ): boolean {
   const [drawn, setDrawn] = useState(shows);
   const [phase, setPhase] = useState<Phase>('still');
@@ -54,7 +57,7 @@ export function useSavedCardPresence(
   // changes unrendered (openNowFoldButton's peek test).
   useLayoutEffect(() => {
     if (shows === seen) return;
-    const atOnce = changesAtOnce();
+    const atOnce = changesAtOnce(grid);
     /* eslint-disable react-hooks/set-state-in-effect -- see above */
     setSeen(shows);
     if (shows && drawn) {
@@ -70,15 +73,22 @@ export function useSavedCardPresence(
       setPhase('leaving');
     }
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [shows, seen, drawn]);
+  }, [shows, seen, drawn, grid]);
 
   useLayoutEffect(() => {
-    const el = grid.current;
-    if (phase === 'still' || el === null) return;
-    const card = el.querySelector('[data-saved-session-card]');
-    const now = getComputedStyle(el).gridTemplateColumns;
+    if (phase === 'still') return;
+    if (grid === null) {
+      // Detached mid-move (Settings): the move was cancelled; land at once.
+      /* eslint-disable react-hooks/set-state-in-effect -- as above */
+      if (phase === 'leaving') setDrawn(false);
+      setPhase('still');
+      /* eslint-enable react-hooks/set-state-in-effect */
+      return;
+    }
+    const card = grid.querySelector('[data-saved-session-card]');
+    const now = getComputedStyle(grid).gridTemplateColumns;
     const arriving = phase === 'arriving';
-    const column = el.animate(
+    const column = grid.animate(
       {
         gridTemplateColumns: arriving
           ? [tracksWithCard(now, 0), tracksWithCard(now, SAVED_CARD_COLUMN_PX)]

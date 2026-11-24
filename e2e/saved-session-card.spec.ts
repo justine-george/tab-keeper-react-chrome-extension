@@ -280,3 +280,72 @@ test('folded, deleting the last session: the card leaves and Currently open glid
   ).toBeGreaterThanOrEqual(3);
   await expect(card(page)).toBeVisible();
 });
+
+// KAN-999. A load is no user action: the card is there from its first frame,
+// at full width and opacity, not moving in.
+test('folded, on load: the card is drawn whole from its first frame', async ({
+  context,
+  extensionId,
+}) => {
+  await context.addInitScript(() => {
+    const frames: [number, number][] = [];
+    Object.defineProperty(window, '__cardFrames', { value: frames });
+    const sample = () => {
+      const card = document.querySelector('[data-saved-session-card]');
+      if (card !== null) {
+        frames.push([
+          card.getBoundingClientRect().width,
+          Number(getComputedStyle(card).opacity),
+        ]);
+      }
+      if (frames.length < 20) requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
+  const page = await openTabView(context, extensionId, true, SESSIONS(), WIDE);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (Reflect.get(window, '__cardFrames') as unknown[]).length
+      )
+    )
+    .toBe(20);
+  const frames = (await page.evaluate(() =>
+    Reflect.get(window, '__cardFrames')
+  )) as [number, number][];
+  for (const [width, opacity] of frames) {
+    expect(width).toBeCloseTo(44, 0);
+    expect(opacity).toBe(1);
+  }
+});
+
+// KAN-999. Another page's write is no action on this one: deleting the last
+// session there takes the card away here at once, with no glide.
+test('folded, another page deletes the last session: the card goes at once', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openTabView(
+    context,
+    extensionId,
+    true,
+    [session('S1', 'Trip', [win('w1', [tab('a0')])])],
+    WIDE
+  );
+  await expect(card(page)).toBeVisible();
+  const from = (await edges(page.locator('[data-pane="open-now"]'))).left;
+  await startSampling(page, { 'openNow:x': '[data-pane="open-now"]' }, 700);
+  // As another page writes: storage, then the shared channel (KAN-925).
+  await page.evaluate(() => {
+    const stored = JSON.parse(localStorage.getItem('tabContainerData') ?? '');
+    stored.tabGroups = [];
+    localStorage.setItem('tabContainerData', JSON.stringify(stored));
+    new BroadcastChannel('tab-keeper-stored').postMessage('tabContainerData');
+  });
+  await page.waitForTimeout(750);
+  const xs = (await samples(page))['openNow:x'];
+  // PREMISE: it moved into the card's column.
+  expect(xs[xs.length - 1]).toBeCloseTo(from - 52, 0);
+  expect(xs.filter((x) => x < from - 2 && x > from - 50)).toEqual([]);
+  await expect(card(page)).toHaveCount(0);
+});

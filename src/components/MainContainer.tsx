@@ -137,7 +137,8 @@ export default function MainContainer() {
   // KAN-999. Folded with a session to show, the saved session keeps its card.
   const showsSavedCard = useSelector(selectShowsSavedSessionCard);
   // Drawn while it leaves too: a first save or last delete moves it (KAN-999).
-  const gridEl = useRef<HTMLDivElement | null>(null);
+  // State, not a ref: Settings detaches it, and the presence must know.
+  const [gridEl, setGridEl] = useState<HTMLDivElement | null>(null);
   const savedCardDrawn = useSavedCardPresence(
     showsSavedCard && isTabView(),
     gridEl
@@ -191,7 +192,7 @@ export default function MainContainer() {
   // paint. The popup never attaches it.
   const tabGridRef = useCallback(
     (grid: HTMLDivElement | null) => {
-      gridEl.current = grid;
+      setGridEl(grid);
       grid?.style.setProperty('--list-width', `${drawn.list}px`);
       grid?.style.setProperty('--open-now-width', `${drawn.openNow}px`);
     },
