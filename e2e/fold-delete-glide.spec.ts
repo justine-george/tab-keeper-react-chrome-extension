@@ -943,3 +943,172 @@ test.describe('Restore in Recently deleted', () => {
     expect(Math.max(...s.copies)).toBe(0);
   });
 });
+
+// KAN-998 (his pick C). A deleted group or window is taller than a row, so a
+// fade the rows below cut off as they come up cuts its text mid-line. It goes
+// up under the row above instead, moving with the rows below, and never fades;
+// Undo and Reopen bring it back out from under, the same way.
+
+// How far apart two sampled tops stay on the frames that drew both.
+function apart(a: number[], b: number[]): { frames: number; spread: number } {
+  const d = a.flatMap((v, i) =>
+    Number.isFinite(v) && Number.isFinite(b[i]) ? [b[i] - v] : []
+  );
+  return {
+    frames: d.length,
+    spread: d.length === 0 ? NaN : Math.max(...d) - Math.min(...d),
+  };
+}
+const moved = (values: number[]): number => {
+  const seen = values.filter(Number.isFinite);
+  return seen.length === 0 ? 0 : Math.max(...seen) - Math.min(...seen);
+};
+const opacities = (values: number[]): number[] =>
+  values.filter(Number.isFinite);
+
+test.describe('a group or window deleted tucks under the row above', () => {
+  test('a saved group: it goes up with the group below and never fades; Undo brings it back out the same way', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openTrip(context, extensionId);
+    const next = '[data-pane="detail"] [data-band-id="g2"][role="group"]';
+    const head = bandHandle(page, 'g1');
+    await head.hover();
+    await head.getByRole('button', { name: /^More actions/ }).click();
+
+    await startSampling(page, {
+      next,
+      'title:copy': 'Booked',
+      'copy:op': '[data-leaving-row]',
+    });
+    await page.getByRole('menuitem', { name: 'Delete tab group' }).click();
+    const s = await samples(page);
+
+    expect(moved(s['title:copy'])).toBeGreaterThan(60);
+    const held = apart(s['title:copy'], s.next);
+    expect(held.frames).toBeGreaterThanOrEqual(3);
+    expect(held.spread).toBeLessThan(1.5);
+    expect(opacities(s['copy:op']).length).toBeGreaterThanOrEqual(3);
+    expect(opacities(s['copy:op']).filter((v) => v < 1)).toEqual([]);
+    await expect(page.locator('[data-leaving-row]')).toHaveCount(0);
+
+    await startSampling(page, {
+      next,
+      returning:
+        '[data-pane="detail"] [data-band-id="g1"] [data-group-drag-handle]',
+    });
+    await page
+      .getByRole('status')
+      .getByRole('button', { name: 'Undo', exact: true })
+      .click();
+    const back = await samples(page);
+    await expect(band(page, 'g1')).toBeVisible();
+
+    expect(moved(back.returning)).toBeGreaterThan(60);
+    const kept = apart(back.returning, back.next);
+    expect(kept.frames).toBeGreaterThanOrEqual(3);
+    expect(kept.spread).toBeLessThan(1.5);
+  });
+
+  test('a saved window: it goes up with the window below and never fades', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openTrip(context, extensionId);
+    const head = header(page, 'gw');
+    await head.hover();
+    await head.getByRole('button', { name: /^More actions/ }).click();
+
+    await startSampling(page, {
+      next: '[data-pane="detail"] [data-drop-window-id="w2"]',
+      'title:copy': 'Booked',
+      'copy:op': '[data-leaving-row]',
+    });
+    await page.getByRole('menuitem', { name: 'Delete window' }).click();
+    const s = await samples(page);
+
+    expect(moved(s['title:copy'])).toBeGreaterThan(60);
+    const held = apart(s['title:copy'], s.next);
+    expect(held.frames).toBeGreaterThanOrEqual(3);
+    expect(held.spread).toBeLessThan(1.5);
+    expect(opacities(s['copy:op']).filter((v) => v < 1)).toEqual([]);
+  });
+
+  test('a single tab still fades where it stood', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openTrip(context, extensionId);
+    await startSampling(page, { 'copy:op': '[data-leaving-row]' });
+    await tabRow(page, 'g1-t0').hover();
+    await tabRow(page, 'g1-t0')
+      .getByRole('button', { name: 'Delete tab' })
+      .click();
+    const s = await samples(page);
+
+    expect(
+      opacities(s['copy:op']).filter((v) => v < 0.9).length
+    ).toBeGreaterThan(0);
+  });
+
+  test('a group closed in Currently open: it goes up with the row below; Reopen brings it back out the same way', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await tabView(context, extensionId);
+    const [w] = await openLive(serviceWorker, [
+      {
+        titles: ['Temples', 'Gardens', 'Loose'],
+        grouped: { n: 2, title: 'Kyoto' },
+      },
+    ]);
+    const block = openNowBlock(page, w.windowId);
+    await expect(block.locator('[data-open-tab-id]')).toHaveCount(3);
+    const next = liveRow(w.windowId, w.tabIds[2]);
+    await elementLanded(page.locator(next), 'ancestors');
+    const kyoto = block.getByRole('group', { name: 'Kyoto', exact: true });
+    await kyoto.locator('[data-group-drag-handle]').hover();
+    await kyoto
+      .locator('[data-group-drag-handle] [data-row-actions]')
+      .getByRole('button', { name: 'More actions: Kyoto', exact: true })
+      .click();
+
+    await startSampling(
+      page,
+      { next, 'title:copy': 'Kyoto', 'copy:op': '[data-leaving-row]' },
+      1200
+    );
+    await page
+      .getByRole('menuitem', { name: 'Close group', exact: true })
+      .click();
+    const s = await samples(page);
+
+    expect(moved(s['title:copy'])).toBeGreaterThan(40);
+    const held = apart(s['title:copy'], s.next);
+    expect(held.frames).toBeGreaterThanOrEqual(3);
+    expect(held.spread).toBeLessThan(1.5);
+    expect(opacities(s['copy:op']).filter((v) => v < 1)).toEqual([]);
+
+    await startSampling(
+      page,
+      {
+        next,
+        returning: `[data-pane="open-now"] [data-open-window-id="${w.windowId}"] [role="group"][aria-label="Kyoto"] [data-group-drag-handle]`,
+      },
+      1200
+    );
+    await page
+      .getByRole('status')
+      .getByRole('button', { name: 'Reopen', exact: true })
+      .click();
+    const back = await samples(page);
+    await expect(block.locator('[data-open-tab-id]')).toHaveCount(3);
+
+    expect(moved(back.returning)).toBeGreaterThan(40);
+    const kept = apart(back.returning, back.next);
+    expect(kept.frames).toBeGreaterThanOrEqual(3);
+    expect(kept.spread).toBeLessThan(1.5);
+  });
+});
