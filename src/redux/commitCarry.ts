@@ -18,7 +18,7 @@ import {
 } from './copyToSession';
 import { noteSessionSaved } from './slices/globalStateSlice';
 import { stepSince } from './slices/tabContainerDataStateSlice';
-import { noteAddStep } from './stepGlides';
+import { noteStep } from './stepGlides';
 import type { RootState } from './store';
 
 // Whether the receiver took the carry.
@@ -43,7 +43,7 @@ export const carryToNewSession =
     if (took) {
       dispatch(noteSessionSaved());
       // KAN-993. Its undo closes the list up, as a saved session's does.
-      noteAddStep(stepSince(getState, history), 'sessions');
+      noteStep(stepSince(getState, history), 'sessions', 'add');
     }
     return took;
   };

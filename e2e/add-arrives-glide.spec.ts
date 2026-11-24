@@ -79,10 +79,30 @@ const addTabToGroup = (page: Page, groupId: string) =>
     .getByRole('button', { name: 'Add current tab to group', exact: true });
 const addWindow = (page: Page) =>
   page.getByRole('button', { name: 'Add current window', exact: true });
-const undo = (page: Page) =>
-  page.getByRole('button', { name: 'Undo', exact: true });
-const redo = (page: Page) =>
-  page.getByRole('button', { name: 'Redo', exact: true });
+// The header's Undo and Redo, not a toast's Undo chip.
+const undo = (page: Page) => page.locator('[role="button"][aria-label="Undo"]');
+const redo = (page: Page) => page.locator('[role="button"][aria-label="Redo"]');
+
+// While a removed row leaves: the rows below, the copy's opacity, and the top of what it holds.
+const LEAVING_SAMPLES = (below: string) => ({
+  below,
+  'copy:op': '[data-leaving-row]',
+  'copy:ov': '[data-leaving-row]',
+  held: '[data-leaving-row] > *',
+});
+
+// It went back up the way it came: its content travelled up from `place` by `by`, and it never faded.
+function expectWentBackUp(
+  s: Record<string, number[]>,
+  place: number,
+  by: number
+): void {
+  expect(Math.max(...s.copies)).toBeGreaterThan(0);
+  expect(travelled(s.held, place - by, place)).toBe(true);
+  expect(faded(s['copy:op'])).toBe(false);
+  // Its own box clips it: it goes under the row above, never over it.
+  expect(s['copy:ov']).toContain(1);
+}
 
 test.describe('an add', () => {
   test('Add current tab: the row comes out from under the window row, with the rows below', async ({
@@ -270,8 +290,8 @@ test.describe('an add', () => {
   });
 });
 
-test.describe('undo and redo of an add', () => {
-  test('Undo closes up like a delete; Redo comes out from under the row above again', async ({
+test.describe('undo plays the step backwards, redo plays it again', () => {
+  test('Undo of an added tab goes back up under the row above; Redo comes out again', async ({
     context,
     extensionId,
   }) => {
@@ -283,24 +303,24 @@ test.describe('undo and redo of an add', () => {
     await page.waitForTimeout(400);
     const added = await topOf(page.locator(below));
 
-    await startSampling(page, { below });
+    const place = await topOf(page.locator(NEW_TAB));
+
+    await startSampling(page, LEAVING_SAMPLES(below));
     await undo(page).click();
     const u = await samples(page);
     await expect(page.locator(NEW_TAB)).toHaveCount(0);
     expect(travelled(u.below, added, rest)).toBe(true);
-    // The row left as a copy that faded where it stood.
-    expect(Math.max(...u.copies)).toBeGreaterThan(0);
+    expectWentBackUp(u, place, added - rest);
 
     await startSampling(page, { below, inside: NEW_TAB_INSIDE });
     await redo(page).click();
     const r = await samples(page);
     await expect(page.locator(NEW_TAB)).toBeVisible();
     expect(travelled(r.below, rest, added)).toBe(true);
-    const place = await topOf(page.locator(NEW_TAB));
     expect(travelled(r.inside, place - (added - rest), place)).toBe(true);
   });
 
-  test('Undo of an added window closes up the same way', async ({
+  test("Undo of an added window goes back up under the pane's top edge", async ({
     context,
     extensionId,
   }) => {
@@ -311,16 +331,17 @@ test.describe('undo and redo of an add', () => {
     await expect(page.locator(NEW_WINDOW)).toBeVisible();
     await page.waitForTimeout(400);
     const added = await topOf(page.locator(below));
+    const place = await topOf(page.locator(NEW_WINDOW));
 
-    await startSampling(page, { below });
+    await startSampling(page, LEAVING_SAMPLES(below));
     await undo(page).click();
     const u = await samples(page);
     await expect(page.locator(NEW_WINDOW)).toHaveCount(0);
     expect(travelled(u.below, added, rest)).toBe(true);
-    expect(Math.max(...u.copies)).toBeGreaterThan(0);
+    expectWentBackUp(u, place, added - rest);
   });
 
-  test('Undo of a new session closes up the sessions list like a delete', async ({
+  test("Undo of a new session goes back up under the list's top edge", async ({
     context,
     extensionId,
   }) => {
@@ -339,15 +360,16 @@ test.describe('undo and redo of an add', () => {
     await page.waitForTimeout(400);
     const added = await topOf(page.locator(below));
     expect(added - rest).toBeGreaterThan(40);
+    const place = rest;
 
-    await startSampling(page, { below });
+    await startSampling(page, LEAVING_SAMPLES(below));
     await undo(page).click();
     const u = await samples(page);
     await expect(
       page.locator('[data-pane="sessions"] [data-drag-row-id]')
     ).toHaveCount(2);
     expect(travelled(u.below, added, rest)).toBe(true);
-    expect(Math.max(...u.copies)).toBeGreaterThan(0);
+    expectWentBackUp(u, place, added - rest);
   });
 
   test('⌘Z undoes an add at once', async ({ context, extensionId }) => {
@@ -365,5 +387,42 @@ test.describe('undo and redo of an add', () => {
     const u = await samples(page);
     await expect(page.locator(NEW_TAB)).toHaveCount(0);
     expect(between(u.below, added, rest)).toEqual([]);
+  });
+
+  test('header Undo of a deleted tab opens its gap and fades it back in; Redo takes it again', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await popup(context, extensionId);
+    const gone = tabRow('w2-t0');
+    const below = tabRow('w2-t1');
+    const rest = await topOf(page.locator(below));
+    await page.locator(gone).hover();
+    await page
+      .locator(gone)
+      .getByRole('button', { name: 'Delete tab', exact: true })
+      .click();
+    await expect(page.locator(gone)).toHaveCount(0);
+    await page.waitForTimeout(400);
+    const closed = await topOf(page.locator(below));
+    await page.mouse.move(0, 0);
+
+    // The outermost new box fades: the tab's own wrapper.
+    await startSampling(page, {
+      below,
+      'back:op': `${DETAIL} [data-drag-row-id="tab:w2-t0"]`,
+    });
+    await undo(page).click();
+    const u = await samples(page);
+    await expect(page.locator(gone)).toBeVisible();
+    expect(travelled(u.below, closed, rest)).toBe(true);
+    expect(faded(u['back:op'])).toBe(true);
+
+    await startSampling(page, { below, 'copy:op': '[data-leaving-row]' });
+    await redo(page).click();
+    const r = await samples(page);
+    await expect(page.locator(gone)).toHaveCount(0);
+    expect(travelled(r.below, rest, closed)).toBe(true);
+    expect(faded(r['copy:op'])).toBe(true);
   });
 });

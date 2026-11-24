@@ -37,15 +37,6 @@ import {
 import { isTabView } from '../../utils/functions/viewMode';
 import { corners } from '../../styles/corners';
 import { panes, prepareLayoutGlide } from './layoutGlide';
-import { TOAST_MESSAGES } from '../../utils/constants/common';
-
-// KAN-984. Undo on a delete's toast opens the gap the delete closed: the session list for a session, the shown session for a tab, window or group.
-const DELETE_TOASTS: Readonly<Record<string, 'sessions' | 'detail'>> = {
-  [TOAST_MESSAGES.DELETE_TAB_CONTAINER_SUCCESS]: 'sessions',
-  [TOAST_MESSAGES.DELETE_WINDOW_SUCCESS]: 'detail',
-  [TOAST_MESSAGES.DELETE_TAB_SUCCESS]: 'detail',
-  [TOAST_MESSAGES.DELETE_CHROME_GROUP_SUCCESS]: 'detail',
-};
 
 // The stack's distance from the window's left and bottom edges.
 const EDGE_PX = 20;
@@ -485,12 +476,8 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
                 text={t('Undo')}
                 keyHint={keyTakesStep ? undoKeyHint : undefined}
                 // Shown only while its step is the newest; undoing that step closes this toast (KAN-981).
-                onClick={() => {
-                  const pane = DELETE_TOASTS[toast.text];
-                  if (pane !== undefined)
-                    prepareLayoutGlide(panes(pane), 'delete');
-                  void dispatch(undoStep());
-                }}
+                // Its motion is the step's own, played backwards (KAN-993: prepareStepGlide).
+                onClick={() => void dispatch(undoStep())}
                 style={chipStyle}
               />
             )}
