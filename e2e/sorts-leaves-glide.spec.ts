@@ -406,9 +406,10 @@ async function liveWindow(
     async ({ urls, group, split }) => {
       const w = await chrome.windows.create({ url: urls, focused: false });
       const tabIds = (w?.tabs ?? []).map((t) => t.id ?? -1);
-      if (group) {
+      const [first, ...rest] = (group ?? []).map((i) => tabIds[i]);
+      if (first !== undefined) {
         const g = await chrome.tabs.group({
-          tabIds: group.map((i) => tabIds[i]),
+          tabIds: [first, ...rest],
           createProperties: { windowId: w?.id },
         });
         await chrome.tabGroups.update(g, { title: 'Food', color: 'yellow' });
