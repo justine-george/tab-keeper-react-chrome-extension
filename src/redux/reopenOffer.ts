@@ -84,9 +84,9 @@ export const reopenFromOffer = createAsyncThunk(
   }
 );
 
-// A pointer's Reopen: the toast's chip, or the header Undo while ⌘Z would take
+// Every Reopen: the toast's chip, ⌘Z, or the header Undo while ⌘Z would take
 // the offer (KAN-997). Every offer is a close in Currently open, so its gap
-// opens again as it closed (KAN-987). ⌘Z itself is the keyboard's: no glide.
+// opens again as it closed (KAN-987).
 export const pressReopen =
   (
     offerId: number
