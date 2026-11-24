@@ -8,7 +8,9 @@ import {
   findAndFitBox,
   rowFillBox,
   rowsBox,
+  visibleRowFill,
   type AnchorBox,
+  type Opening,
 } from './anchorBox';
 import type {
   RunSaveCard,
@@ -22,7 +24,7 @@ export interface RunStepPlan {
   anchors: readonly string[];
   boxOf?: AnchorBox;
   // KAN-900. Elements lit and reachable in holes of their own, outside the ring.
-  openings?: readonly string[];
+  openings?: readonly Opening[];
   // KAN-901. The corners of what the step lights, when not a CONTROL's.
   holeCorners?: HoleCorners;
   // 'pane': the popup's left pane, the notch pointing right.
@@ -70,7 +72,10 @@ export function runStepPlan(
   saveCard: RunSaveCard | null,
   sessionId: string | null,
   // KAN-623. Whether the full view draws ⤡ for the compact-view card to point at.
-  hasCompactButton: boolean
+  hasCompactButton: boolean,
+  // KAN-999. The selected session, while it is folded behind the Saved
+  // session card; null while no card is drawn.
+  foldedSessionId: string | null
 ): RunStepPlan | null {
   switch (kind) {
     case 'hello':
@@ -97,8 +102,21 @@ export function runStepPlan(
         anchors: [`${OPEN_NOW} [data-open-now-search]`, OPEN_NOW],
         boxOf: findAndFitBox,
         // KAN-900. The edge the card says to drag: lit, and reachable, outside the ring.
-        openings: ['[data-resize-grip]'],
-        sides: LEFT_OF,
+        // KAN-999. Folded, the card and the row it names too, and the step
+        // below the search row: left of it, it covered them.
+        openings: [
+          { selector: '[data-resize-grip]' },
+          ...(foldedSessionId === null
+            ? []
+            : [
+                {
+                  selector: '[data-saved-session-card]',
+                  corners: sameCorners(px(RADIUS.PANEL)),
+                },
+                { selector: row(foldedSessionId), boxOf: visibleRowFill },
+              ]),
+        ],
+        sides: foldedSessionId === null ? LEFT_OF : BELOW,
         isLive: true,
       };
     case 'save':

@@ -421,11 +421,12 @@ describe('clipPathWithHoles: more than one hole', () => {
 });
 
 describe('sameFrame', () => {
+  const C8 = sameCorners(8);
   const frame = {
     kind: 'anchored' as const,
     anchor: { left: 1, top: 2, width: 3, height: 4 },
     bright: { left: 1, top: 2, width: 3, height: 4 },
-    openings: [{ left: 9, top: 0, width: 2, height: 50 }],
+    openings: [{ box: { left: 9, top: 0, width: 2, height: 50 }, corners: C8 }],
     placement: { side: 'below' as const, left: 5, top: 6, notch: 24 },
   };
   // KAN-900. A moved or gone opening is a new frame, so the dim's holes follow it.
@@ -433,14 +434,26 @@ describe('sameFrame', () => {
     expect(
       sameFrame(frame, {
         ...frame,
-        openings: [{ left: 10, top: 0, width: 2, height: 50 }],
+        openings: [
+          { box: { left: 10, top: 0, width: 2, height: 50 }, corners: C8 },
+        ],
       })
     ).toBe(false);
     expect(sameFrame(frame, { ...frame, openings: [] })).toBe(false);
+    // KAN-999. Same box, other corners: the hole is drawn anew.
     expect(
       sameFrame(frame, {
         ...frame,
-        openings: [...frame.openings, { left: 0, top: 0, width: 1, height: 1 }],
+        openings: [{ ...frame.openings[0], corners: sameCorners(12) }],
+      })
+    ).toBe(false);
+    expect(
+      sameFrame(frame, {
+        ...frame,
+        openings: [
+          ...frame.openings,
+          { box: { left: 0, top: 0, width: 1, height: 1 }, corners: C8 },
+        ],
       })
     ).toBe(false);
   });

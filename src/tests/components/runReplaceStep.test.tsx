@@ -69,17 +69,19 @@ describe('the run’s Replace step (KAN-586)', () => {
   // KAN-901. The row step rings the row's fill, which sits in from the row's sides.
   test('the row step rings the session row’s fill, below it, in both views', () => {
     for (const view of ['popup', 'full'] as const)
-      expect(runStepPlan(view, 'row', null, SAMPLE, false)).toStrictEqual({
-        anchors: ['[data-pane="sessions"] [data-drag-row-id="sample\\:x"]'],
-        boxOf: rowFillBox,
-        sides: ['below', 'right', 'left'],
-        isLive: false,
-      });
+      expect(runStepPlan(view, 'row', null, SAMPLE, false, null)).toStrictEqual(
+        {
+          anchors: ['[data-pane="sessions"] [data-drag-row-id="sample\\:x"]'],
+          boxOf: rowFillBox,
+          sides: ['below', 'right', 'left'],
+          isLive: false,
+        }
+      );
   });
 
   test('it points at the engaged row’s Replace, below it, in both views', () => {
     for (const view of ['popup', 'full'] as const)
-      expect(runStepPlan(view, 'replace', null, SAMPLE, false)).toEqual({
+      expect(runStepPlan(view, 'replace', null, SAMPLE, false, null)).toEqual({
         anchors: [
           '[data-pane="sessions"] [data-drag-row-id="sample\\:x"] [data-run-engaged] [data-tour-anchor="row-replace"]',
         ],
@@ -87,7 +89,7 @@ describe('the run’s Replace step (KAN-586)', () => {
         isLive: false,
       });
     // No session yet: no card, as at Open and Switch.
-    expect(runStepPlan('popup', 'replace', null, null, false)).toBeNull();
+    expect(runStepPlan('popup', 'replace', null, null, false, null)).toBeNull();
   });
 
   test('at its step the row’s Replace is lit, still waiting; Open and Switch are dimmed', async () => {

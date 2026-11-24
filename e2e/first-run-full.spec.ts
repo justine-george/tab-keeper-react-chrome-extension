@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { BrowserContext, Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { showRowActions } from './fixtures/savedRow';
@@ -219,49 +219,27 @@ test('step 2 side by side: the edge only in a window wide enough for the grip', 
   await expect(card(page)).toContainText('Drag the edge');
 });
 
-test('step 2 in the default folded view names the fold button it shows, and pressing it unfolds with the card still at step 2', async ({
+// KAN-999. A first run has nothing saved, so the folded view draws no Saved
+// session card: step 2 names only the search box.
+test('step 2 on a first run, folded with nothing saved: the search sentence alone, and no card', async ({
   context,
   extensionId,
 }) => {
   const page = await openRunFromHelp(context, extensionId, FULL_RUN);
   await nextTo(page, 2);
-  const fold = page.locator('[data-pane="open-now"] [data-tour-anchor="fold"]');
-  const glyph = (name: string) =>
-    card(page).getByRole('img', { name, exact: true });
-  await expect(fold).toHaveAccessibleName('Show the saved session');
-  await expect(card(page)).toContainText(
-    'Type in the search box to find an open tab. Press'
+  await landedAt(page, 2);
+  // PREMISE: folded, the list empty.
+  expect((await storedSettings(page)).foldSavedSessionInTabView).toBe(true);
+  await expect(
+    page.locator('[data-pane="sessions"] [data-drag-row-id]')
+  ).toHaveCount(0);
+  await expect(page.locator('[data-saved-session-card]')).toHaveCount(0);
+  await expect(card(page).locator('p').first()).toHaveText(
+    'Type in the search box to find an open tab.'
   );
-  await expect(card(page)).not.toContainText('Search here');
-  await expect(card(page)).toContainText(
-    'to show the saved session beside it.'
-  );
-  await expect(card(page)).not.toContainText('Drag the edge');
-  await expect(glyph('Show the saved session')).toBeVisible();
-  expect(await glyph('Show the saved session').textContent()).toBe(
-    await fold.textContent()
-  );
-  const [x, y] = await centreOf(fold);
-  expect(['dim', 'still', 'nothing']).not.toContain(await hitAt(page, x, y));
-  await page.mouse.click(x, y);
-  await expect
-    .poll(async () => (await storedSettings(page)).foldSavedSessionInTabView)
-    .toBe(false);
-  await expect(page.locator('[data-pane="detail"]')).toBeVisible();
-  await expect(cardAt(page, 2)).toBeVisible();
-  // KAN-868. 1280px leaves a range to drag through: a grip, so the edge in the card.
-  await expect(page.locator('[data-resize-grip]')).toHaveCount(1);
-  await expect(card(page)).toContainText(
-    'Type in the search box to find an open tab. Drag the edge to make this wider, or press'
-  );
-  await expect(card(page)).not.toContainText('Search here');
-  await expect(card(page)).toContainText(
-    'to give Currently open the whole view.'
-  );
-  await expect(glyph('Fold the saved session away')).toBeVisible();
-  expect(await glyph('Fold the saved session away').textContent()).toBe(
-    await fold.textContent()
-  );
+  await expect(
+    card(page).getByRole('img', { name: 'Show the saved session' })
+  ).toHaveCount(0);
   expect(await storedRun(page)).toMatchObject({ step: 2, ended: null });
 });
 
@@ -581,7 +559,8 @@ test.describe('side by side', () => {
     await seedSettings(context, { foldSavedSessionInTabView: false });
   });
 
-  test('under 1100px, steps 1 and 2 light the 44px rail', async ({
+  // KAN-999. The rail's column is 53px: the 44px rail card and its margins.
+  test('under 1100px, steps 1 and 2 light the rail column', async ({
     context,
     extensionId,
   }) => {
@@ -591,10 +570,13 @@ test.describe('side by side', () => {
     });
     const rail = await page.locator('[data-pane="open-now"]').boundingBox();
     if (rail === null) throw new Error('no rail');
-    expect(rail.width).toBeLessThan(60);
-    await expect.poll(async () => (await ring(page)).width).toBeLessThan(60);
+    expect(rail.width).toBeCloseTo(53, 0);
+    // The ring sits 4px outside what it rings.
+    const ringsRail = async () =>
+      Math.abs((await ring(page)).width - (rail.width + 8));
+    await expect.poll(ringsRail).toBeLessThanOrEqual(1);
     await nextTo(page, 2);
-    await expect.poll(async () => (await ring(page)).width).toBeLessThan(60);
+    await expect.poll(ringsRail).toBeLessThanOrEqual(1);
   });
 
   // KAN-868. Side by side always has a grip now, down to 1100px.
@@ -661,6 +643,118 @@ test.describe('with saved sessions', () => {
         buildSession({ tabGroupId: 'new', title: 'Latest', createdAt: 2000 }),
       ])
     );
+  });
+
+  // KAN-999. Folded with sessions saved, step 2 lights the Saved session card
+  // and the selected row, each pressable in a hole of its own, and sits below
+  // the search row so it covers neither.
+  const savedCard = (page: Page) => page.locator('[data-saved-session-card]');
+  const sessionRow = (page: Page, id: string) =>
+    page.locator(`[data-pane="sessions"] [data-drag-row-id="${id}"]`);
+  const overlaps = async (a: Locator, b: Locator) => {
+    const [p, q] = [await a.boundingBox(), await b.boundingBox()];
+    if (p === null || q === null) throw new Error('not drawn');
+    return (
+      p.x < q.x + q.width &&
+      q.x < p.x + p.width &&
+      p.y < q.y + q.height &&
+      q.y < p.y + p.height
+    );
+  };
+  const reachable = async (page: Page, l: Locator) => {
+    const [x, y] = await centreOf(l);
+    return !['dim', 'still', 'nothing'].includes(await hitAt(page, x, y));
+  };
+  const atFoldedStep2 = async (
+    context: BrowserContext,
+    extensionId: string
+  ) => {
+    const page = await openRunFromHelp(context, extensionId, FULL_RUN);
+    await nextTo(page, 2);
+    await landedAt(page, 2);
+    // PREMISE: folded, the card drawn, a session selected.
+    await expect(savedCard(page)).toBeVisible();
+    const selected = await page.evaluate(
+      (): unknown =>
+        JSON.parse(localStorage.getItem('tabContainerData') ?? '{}')
+          .selectedTabGroupId
+    );
+    expect(['old', 'new']).toContain(selected);
+    const other = selected === 'old' ? 'new' : 'old';
+    return { page, selected: String(selected), other };
+  };
+
+  test('step 2, folded: the text names the card and a session; the card and the selected row are lit, the step below the search row covers neither', async ({
+    context,
+    extensionId,
+  }) => {
+    const { page, selected, other } = await atFoldedStep2(context, extensionId);
+    await expect(card(page).locator('p').first()).toHaveText(
+      'Type in the search box to find an open tab. To show the saved session beside it, press folder or click a session in the list.'
+    );
+    const glyph = card(page).getByRole('img', {
+      name: 'Show the saved session',
+      exact: true,
+    });
+    await expect(glyph).toBeVisible();
+    expect(await glyph.textContent()).toBe(
+      await savedCard(page)
+        .locator('[aria-hidden="true"]')
+        .first()
+        .textContent()
+    );
+    expect(await cardSide(page)).toBe('below');
+    expect(await overlaps(card(page), savedCard(page))).toBe(false);
+    expect(await overlaps(card(page), sessionRow(page, selected))).toBe(false);
+    expect(await reachable(page, savedCard(page))).toBe(true);
+    expect(await reachable(page, sessionRow(page, selected))).toBe(true);
+    // CONTROL: the row not selected stays dimmed.
+    expect(await reachable(page, sessionRow(page, other))).toBe(false);
+  });
+
+  test('step 2, folded: pressing the Saved session card unfolds; the step stays at 2 and names the edge', async ({
+    context,
+    extensionId,
+  }) => {
+    const { page } = await atFoldedStep2(context, extensionId);
+    await savedCard(page).click();
+    await expect
+      .poll(async () => (await storedSettings(page)).foldSavedSessionInTabView)
+      .toBe(false);
+    await expect(page.locator('[data-pane="detail"]')).toBeVisible();
+    await expect(cardAt(page, 2)).toBeVisible();
+    // KAN-868. 1280px leaves a range to drag through: a grip, so the edge in the card.
+    await expect(page.locator('[data-resize-grip]')).toHaveCount(1);
+    await expect(card(page)).toContainText(
+      'Type in the search box to find an open tab. Drag the edge to make this wider, or press'
+    );
+    const fold = page.locator(
+      '[data-pane="open-now"] [data-tour-anchor="fold"]'
+    );
+    const glyph = card(page).getByRole('img', {
+      name: 'Fold the saved session away',
+      exact: true,
+    });
+    await expect(glyph).toBeVisible();
+    expect(await glyph.textContent()).toBe(await fold.textContent());
+    expect(await storedRun(page)).toMatchObject({ step: 2, ended: null });
+  });
+
+  test('step 2, folded: clicking the lit row shows the saved session beside Currently open; the step stays at 2', async ({
+    context,
+    extensionId,
+  }) => {
+    const { page, selected } = await atFoldedStep2(context, extensionId);
+    const [x, y] = await centreOf(sessionRow(page, selected));
+    await page.mouse.click(x, y);
+    await expect(page.locator('[data-pane="detail"]')).toBeVisible();
+    await expect(page.locator('[data-pane="detail"]')).toContainText(
+      selected === 'old' ? 'Older' : 'Latest'
+    );
+    await expect(savedCard(page)).toHaveCount(0);
+    await expect(cardAt(page, 2)).toBeVisible();
+    await expect(page.locator('[data-coach-nudge]')).toHaveCount(0);
+    expect(await storedRun(page)).toMatchObject({ step: 2, ended: null });
   });
 
   // KAN-736. The ⋮ step is look-only: a right-click on the dimmed title or the lit ⋮ opens no menu, Chrome's included.

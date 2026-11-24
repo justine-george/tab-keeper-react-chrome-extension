@@ -275,7 +275,8 @@ test.describe('resizing the saved list (KAN-687)', () => {
     await expect(page.locator(LIST_GRIP)).toHaveCount(1);
     await dragGrip(page, 400);
     await expectList(page, 600);
-    expect(await widthOf(page, OPEN_NOW)).toBe(1280 - 600);
+    // KAN-999. Less the Saved session card's 52px column beside the list.
+    expect(await widthOf(page, OPEN_NOW)).toBe(1280 - 600 - 52);
   });
 
   test('6. a press on the list grip never starts a row drag', async ({
