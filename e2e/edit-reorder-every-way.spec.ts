@@ -349,4 +349,230 @@ test.describe('every way an edit moves a session up glides', () => {
     expect(to).toBeCloseTo(top, 0);
     expect(travelled(s.edited, from, to)).toBe(true);
   });
+
+  // His demo: a live tab dropped on the session's header made a new first
+  // window, sliding down; its undo and redo drew nothing.
+  test("a live tab dropped on the session's header: Undo takes the new window back up, Redo brings it down again", async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openSaved(context, extensionId, 'tab view', {
+      sessions: SESSIONS,
+      selected: 'S3',
+    });
+    await documentLanded(page);
+    const tabId = await serviceWorker.evaluate(async () => {
+      const win = await chrome.windows.create({
+        focused: false,
+        url: 'data:text/html,<title>Live A</title>',
+      });
+      return win?.tabs?.[0]?.id ?? -1;
+    });
+    const live = page.locator(`[data-open-tab-id="${tabId}"]`);
+    await expect(live).toBeVisible();
+    const b = await live.boundingBox();
+    if (b === null) throw new Error('no live row');
+    const x = b.x + Math.min(60, b.width / 2);
+    await page.mouse.move(x, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(x, b.y + b.height / 2 + 10, { steps: 3 });
+    const header = page.locator(`${DETAIL} [data-new-window-target="first"]`);
+    await page.mouse.move(x - 200, b.y + 40, { steps: 6 });
+    const h = await header.boundingBox();
+    if (h === null) throw new Error('no header target');
+    await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2, { steps: 10 });
+    await page.waitForTimeout(200);
+    await page.mouse.up();
+    const NEW_WINDOW = `${DETAIL} [data-drop-window-id]:not([data-drop-window-id^="w"]):not([data-drop-window-id^="new-window"])`;
+    await expect(page.locator(NEW_WINDOW)).toHaveCount(1);
+    await page.waitForTimeout(500);
+    await page.mouse.move(0, 0);
+    const place = await topOf(page.locator(NEW_WINDOW));
+    const w1 = `${DETAIL} [data-drop-window-id="w1"]`;
+    const w1Down = await topOf(page.locator(w1));
+
+    await startSampling(page, {
+      w1,
+      'copy:op': '[data-leaving-row]',
+      held: '[data-leaving-row] > *',
+    });
+    await page.locator('[role="button"][aria-label="Undo"]').click();
+    const u = await samples(page);
+    await expect(page.locator(NEW_WINDOW)).toHaveCount(0);
+    const w1Up = await topOf(page.locator(w1));
+    expect(travelled(u.w1, w1Down, w1Up)).toBe(true);
+    // Went back up under the edge it came from, and never faded.
+    expect(Math.max(...u.copies)).toBeGreaterThan(0);
+    expect(travelled(u.held, place - (w1Down - w1Up), place)).toBe(true);
+    expect(u['copy:op'].some((v) => v > 0.05 && v < 0.95)).toBe(false);
+
+    await startSampling(page, { w1, arrived: NEW_WINDOW });
+    await page.locator('[role="button"][aria-label="Redo"]').click();
+    const r = await samples(page);
+    await expect(page.locator(NEW_WINDOW)).toHaveCount(1);
+    expect(travelled(r.w1, w1Up, w1Down)).toBe(true);
+    expect(travelled(r.arrived, place - (w1Down - w1Up), place)).toBe(true);
+  });
+
+  test('a tab dragged within the session: Undo glides it back to its place', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await popup(context, extensionId);
+    const tabRow = (id: string) =>
+      page.locator(`${DETAIL} [data-drag-row-id="${id}"]`).first();
+    const home = await topOf(tabRow('t-a'));
+    const moving = await tabRow('t-a').boundingBox();
+    const upper = await tabRow('t-b').boundingBox();
+    if (moving === null || upper === null) throw new Error('no tab rows');
+    const x = moving.x + 60;
+    await page.mouse.move(x, moving.y + moving.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(x, moving.y + moving.height / 2 - 8);
+    await page.mouse.move(x, upper.y + 3, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+    const moved = await topOf(tabRow('t-a'));
+    expect(home - moved).toBeGreaterThan(20);
+    await page.mouse.move(0, 0);
+
+    await startSampling(page, { moved: `${DETAIL} [data-drag-row-id="t-a"]` });
+    await page.locator('[role="button"][aria-label="Undo"]').click();
+    const u = await samples(page);
+    expect(await topOf(tabRow('t-a'))).toBeCloseTo(home, 0);
+    expect(travelled(u.moved, moved, home)).toBe(true);
+  });
+
+  test('a session dragged up the list: Undo glides it back', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await popup(context, extensionId);
+    const home = await topOf(page.locator(row('S5')));
+    const s5 = await page.locator(row('S5')).boundingBox();
+    const s1 = await page.locator(row('S1')).boundingBox();
+    if (s5 === null || s1 === null) throw new Error('no session rows');
+    const x = s5.x + 60;
+    await page.mouse.move(x, s5.y + s5.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(x, s5.y + s5.height / 2 - 8);
+    await page.mouse.move(x, s1.y + 4, { steps: 10 });
+    await page.mouse.up();
+    await expect(
+      page.locator('[data-pane="sessions"] [data-drag-row-id]').first()
+    ).toHaveAttribute('data-drag-row-id', 'S5');
+    await page.waitForTimeout(500);
+    const up = await topOf(page.locator(row('S5')));
+    await page.mouse.move(0, 0);
+
+    await startSampling(page, { s5: row('S5') });
+    await page.locator('[role="button"][aria-label="Undo"]').click();
+    const u = await samples(page);
+    expect(await topOf(page.locator(row('S5')))).toBeCloseTo(home, 0);
+    expect(travelled(u.s5, up, home)).toBe(true);
+  });
+
+  // His demo: an undo that left the shown session as it was kept its glide
+  // waiting, and the next session picked was drawn as that glide, ghost rows
+  // and all. It now stops waiting at the next frame.
+  test('an undo that changes nothing on screen leaves the next pick of a session still', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await popup(context, extensionId);
+    const moving = await page
+      .locator(`${DETAIL} [data-drag-row-id="t-a"]`)
+      .boundingBox();
+    const target = await page.locator(row('S5')).boundingBox();
+    if (moving === null || target === null) throw new Error('no rows');
+    const x = moving.x + 60;
+    await page.mouse.move(x, moving.y + moving.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(x - 8, moving.y + moving.height / 2);
+    await page.mouse.move(target.x + 80, target.y + target.height / 2, {
+      steps: 12,
+    });
+    await page.waitForTimeout(150);
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    // Show S6, then undo: the undo puts S3 back on screen, a swap drawn at
+    // once; then pick S2 at once, another swap.
+    await page.locator(row('S6')).click({ position: { x: 40, y: 12 } });
+    await page.waitForTimeout(400);
+    await page.evaluate(() => {
+      const seen = { copies: 0, slides: 0 };
+      (window as unknown as { __still: typeof seen }).__still = seen;
+      const t0 = performance.now();
+      const tick = () => {
+        seen.copies = Math.max(
+          seen.copies,
+          document.querySelectorAll('[data-pane="detail"] [data-leaving-row]')
+            .length
+        );
+        const pane = document.querySelector('[data-pane="detail"]');
+        seen.slides = Math.max(
+          seen.slides,
+          (pane?.getAnimations({ subtree: true }) ?? []).filter(
+            (a) => a.id === 'landing-slide' || a.id === 'layout-glide'
+          ).length
+        );
+        if (performance.now() - t0 < 900) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    await page.locator('[role="button"][aria-label="Undo"]').click();
+    await page.waitForTimeout(100);
+    await page.locator(row('S2')).click({ position: { x: 40, y: 12 } });
+    await page.waitForTimeout(800);
+    const still = await page.evaluate(
+      () =>
+        (window as unknown as { __still: { copies: number; slides: number } })
+          .__still
+    );
+    expect(still).toEqual({ copies: 0, slides: 0 });
+  });
+
+  test('the moving row is drawn over the rows it passes', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await popup(context, extensionId);
+    await page.evaluate(() => {
+      const hits: string[] = [];
+      (window as unknown as { __hits: string[] }).__hits = hits;
+      const t0 = performance.now();
+      const tick = () => {
+        const el = document.querySelector(
+          '[data-pane="sessions"] [data-drag-row-id="S3"]'
+        );
+        const r = el?.getBoundingClientRect();
+        if (r) {
+          const top = document.elementFromPoint(
+            r.left + 30,
+            r.top + r.height / 2
+          );
+          hits.push(
+            top
+              ?.closest('[data-drag-row-id]')
+              ?.getAttribute('data-drag-row-id') ?? ''
+          );
+        }
+        if (performance.now() - t0 < 700) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    const doomed = page.locator(`${DETAIL} [data-drag-row-id="t-b"]`);
+    await doomed.hover();
+    await doomed
+      .getByRole('button', { name: 'Delete tab', exact: true })
+      .click();
+    await page.waitForTimeout(900);
+    const hits = await page.evaluate(
+      () => (window as unknown as { __hits: string[] }).__hits
+    );
+    // On every frame, the point at the middle of S3's row is S3's.
+    expect(hits.length).toBeGreaterThan(20);
+    expect(hits.filter((h) => h !== 'S3')).toEqual([]);
+  });
 });

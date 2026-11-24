@@ -311,6 +311,7 @@ export function prepareLayoutGlide(
       }
       if (!changed(root, before)) return;
       stop();
+      if (swapped(root, before)) return;
       draw(root, before, removed, kind);
     });
     observer.observe(root, { childList: true, subtree: true });
@@ -326,6 +327,19 @@ export function prepareLayoutGlide(
 }
 
 // Whether the commit moved, removed or added anything that glides.
+// KAN-994 (his demo). Whether the pane now shows something else altogether
+// (another session picked, or an undo putting another back on screen):
+// nothing that was there is left and new rows are. That is a swap, drawn at
+// once, never as this glide's arrivals and leavings.
+function swapped(root: Element, before: Snapshot): boolean {
+  if (before.boxes.size === 0) return false;
+  // The New window drop target stays from session to session: it is no row.
+  const row = (el: Element) => !el.matches('[data-new-window-target]');
+  for (const el of before.boxes.keys())
+    if (el.isConnected && row(el)) return false;
+  return [...root.querySelectorAll(GLIDERS)].some(row);
+}
+
 function changed(root: Element, before: Snapshot): boolean {
   for (const [el, box] of before.boxes) {
     if (!el.isConnected) return true;
@@ -467,6 +481,7 @@ function draw(
       id: LANDING_SLIDE,
     })
   );
+  liftTheMover(own);
   strips.forEach(({ el, by }) =>
     el.animate([{ marginBottom: `${by}px` }, { marginBottom: '0px' }], {
       ...timing(moveMs),
@@ -647,4 +662,36 @@ function follow(root: Element, path: readonly number[]): Element | null {
   let at: Element | undefined = root;
   for (const i of path) at = at?.children.item(i) ?? undefined;
   return at ?? null;
+}
+
+// KAN-994 (his demo). The row that changed places against the rest (an edited
+// session going up, a moved one coming back) glides over the rows it passes,
+// not under: the one whose move is furthest from everyone else's, by more
+// than a row, is drawn on top until it lands.
+const LIFT_PX = 20;
+function liftTheMover(own: ReadonlyMap<Element, number>): void {
+  if (own.size < 2) return;
+  const sorted = [...own.values()].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  let mover: Element | null = null;
+  let far = 0;
+  for (const [el, by] of own) {
+    const off = Math.abs(by - median);
+    if (off > far) {
+      far = off;
+      mover = el;
+    }
+  }
+  if (!(mover instanceof HTMLElement) || far < LIFT_PX) return;
+  const lifted = mover;
+  const was = { position: lifted.style.position, zIndex: lifted.style.zIndex };
+  if (getComputedStyle(lifted).position === 'static')
+    lifted.style.position = 'relative';
+  lifted.style.zIndex = '1';
+  const end = () => {
+    lifted.style.position = was.position;
+    lifted.style.zIndex = was.zIndex;
+  };
+  const glides = lifted.getAnimations().filter((a) => a.id === LANDING_SLIDE);
+  Promise.all(glides.map((a) => a.finished)).then(end, end);
 }

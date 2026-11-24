@@ -1,6 +1,10 @@
 import type { ThunkAction, UnknownAction } from '@reduxjs/toolkit';
 import type { RootState } from './store';
-import type { TabMasterContainer } from './slices/tabContainerDataStateSlice';
+import {
+  stepSince,
+  type TabMasterContainer,
+} from './slices/tabContainerDataStateSlice';
+import { noteStep } from './stepGlides';
 import { flushHeldChanges } from './dragHold';
 import { hydrateSessionsFromStorage } from './otherPageChanges';
 import { reaimIndex } from '../utils/functions/reaimIndex';
@@ -41,14 +45,28 @@ export const dropOnTop =
     dispatch(hydrateSessionsFromStorage());
     const now = getState().tabContainerDataState;
     if (!flushed.ran && now === start) {
-      dispatch(drop.move(drop.toIndex));
+      dropNoted(() => dispatch(drop.move(drop.toIndex)), getState);
       return;
     }
     const after = drop.targetIds(now);
     // The change deleted the row or its destination: the deletion stands.
     if (before === null || after === null || !drop.rowExists(now)) return;
-    dispatch(drop.move(reaimIndex(before, after, drop.rowId, drop.toIndex)));
+    dropNoted(
+      () =>
+        dispatch(
+          drop.move(reaimIndex(before, after, drop.rowId, drop.toIndex))
+        ),
+      getState
+    );
   };
+
+// KAN-994. Every drop's undo leaves its landing the way it came, and its redo
+// lands again (his rule from round 1b), in either pane.
+function dropNoted(move: () => void, getState: () => RootState): void {
+  const history = getState().undoRedo.present;
+  move();
+  noteStep(stepSince(getState, history), ['detail', 'sessions'], 'drop');
+}
 
 // A drop that says whether it moved anything (KAN-350): a carry that ends
 // with nothing moved is a cancel, and puts its source's view back. Read off
