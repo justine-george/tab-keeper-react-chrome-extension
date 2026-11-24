@@ -26,6 +26,8 @@ vi.mock('../../components/common/layoutGlide', () => ({
 import { redoStep, undoStep } from '../../redux/undoHistory';
 import { noteStep, prepareStepGlide } from '../../redux/stepGlides';
 import { carryToNewSession } from '../../redux/commitCarry';
+import { dropOnTop } from '../../redux/dropOnTop';
+import { sessionDrop } from '../../redux/dropSpecs';
 import { liveItem } from '../../redux/carriedItem';
 import { live } from '../fixtures/liveSnapshotFixture';
 import {
@@ -176,6 +178,32 @@ describe('undo and redo play the step backwards and again', () => {
 
     await store.dispatch(undoStep());
     expect(mocks.prepare).toHaveBeenLastCalledWith(['pane:sessions'], 'delete');
+  });
+
+  test('a drop: undo leaves its landing the way it came, redo lands again, in either pane', async () => {
+    const { store } = makeTestStore();
+    const two = buildContainer([
+      buildSession({ tabGroupId: 'a', title: 'a' }),
+      buildSession({ tabGroupId: 'b', title: 'b' }),
+    ]);
+    store.dispatch(replaceState(two));
+    store.dispatch(setPresentStartup({ tabContainerDataState: two }));
+    store.dispatch(dropOnTop(sessionDrop('b', 0)));
+    expect(
+      store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
+    ).toEqual(['b', 'a']);
+    mocks.prepare.mockClear();
+
+    await store.dispatch(undoStep());
+    expect(mocks.prepare).toHaveBeenLastCalledWith(
+      ['pane:detail', 'pane:sessions'],
+      'depart'
+    );
+    await store.dispatch(redoStep());
+    expect(mocks.prepare).toHaveBeenLastCalledWith(
+      ['pane:detail', 'pane:sessions'],
+      'arrive'
+    );
   });
 
   test('a step no add noted asks for nothing', async () => {

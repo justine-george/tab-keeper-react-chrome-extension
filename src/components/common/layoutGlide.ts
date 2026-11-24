@@ -21,7 +21,8 @@ import { LANDING_SLIDE } from '../home/rightpane/rowDrag/landingSlides';
 
 // 'arrive': a new session's row (KAN-988), timed as Undo of a delete draws one.
 // 'depart': an arrival taken back (KAN-993): what left goes up the way it came.
-export type GlideKind = 'fold' | 'delete' | 'arrive' | 'depart';
+// 'reorder': rows that only changed places (KAN-994); a long way takes FOLD's time.
+export type GlideKind = 'fold' | 'delete' | 'arrive' | 'depart' | 'reorder';
 
 // Who made the change: a press here, or another page or device (KAN-991).
 // Only a press here can have come from the keyboard.
@@ -33,8 +34,12 @@ const TIMING: Record<GlideKind, { out: number; in: number; inDelay: number }> =
     delete: { out: 150, in: 150, inDelay: 50 },
     arrive: { out: 150, in: 150, inDelay: 50 },
     depart: { out: 150, in: 150, inDelay: 50 },
+    reorder: { out: 150, in: 150, inDelay: 50 },
   };
 const GLIDE_MS = parseInt(DURATION.MOVE, 10);
+// KAN-994 (his pick 2-B). A reorder moving a row further than this takes FOLD's time: big moves get more.
+const LONG_MOVE_PX = 200;
+const LONG_MOVE_MS = parseInt(DURATION.FOLD, 10);
 
 // What moves: a window block, a group band, a saved row (sessions too), a live tab row, a Recently deleted row.
 const GLIDERS =
@@ -174,17 +179,21 @@ function stripHooks(root: Element): void {
 }
 
 const copies = new Set<HTMLElement>();
-let pending: (() => void) | null = null;
+// Each prepared glide still waiting for its commit, with the panes it measured.
+const pending = new Map<() => void, readonly Element[]>();
 // Each held scroll content and its own inline overflow, put back when the glide ends.
 const held = new Map<HTMLElement, { overflow: string; margin: string }>();
-let holdId = 0;
+// The newest glide drawn in each pane: only it lets that pane's held range go.
+const holdIds = new WeakMap<Element, number>();
+let holdCount = 0;
 
-function releaseScrollRange(): void {
+function releaseScrollRangeIn(root: Element): void {
   held.forEach(({ overflow, margin }, content) => {
+    if (!root.contains(content)) return;
     content.style.overflow = overflow;
     content.style.overflowClipMargin = margin;
+    held.delete(content);
   });
-  held.clear();
 }
 
 // The scroll areas holding `els` that have a single child: the list they scroll.
@@ -210,11 +219,37 @@ function scrolledContents(root: Element, els: Iterable<Element>): Element[] {
 
 /** Ends every glide, fade and copy now: a drag measures the list at rest. */
 export function cutLayoutGlides(): void {
-  pending?.();
-  releaseScrollRange();
-  for (const copy of [...copies]) copy.remove();
-  copies.clear();
-  for (const a of globalThis.document?.getAnimations?.() ?? []) {
+  [...pending.keys()].forEach((stop) => stop());
+  cutGlidesIn(null);
+}
+
+/** As cutLayoutGlides, inside `root` only: a drag settles its own list, never another pane's glide (KAN-994). */
+export function cutLayoutGlidesIn(root: Element): void {
+  pending.forEach((roots, stop) => {
+    if (roots.some((r) => r.contains(root) || root.contains(r))) stop();
+  });
+  cutGlidesIn(root);
+}
+
+// Ends the fades, copies and held scroll ranges inside `root`, or everywhere.
+function cutGlidesIn(root: Element | null): void {
+  const inside = (el: Element) => root === null || root.contains(el);
+  held.forEach(({ overflow, margin }, content) => {
+    if (!inside(content)) return;
+    content.style.overflow = overflow;
+    content.style.overflowClipMargin = margin;
+    held.delete(content);
+  });
+  for (const copy of [...copies]) {
+    if (!inside(copy)) continue;
+    copy.remove();
+    copies.delete(copy);
+  }
+  const animations =
+    root === null
+      ? (globalThis.document?.getAnimations?.() ?? [])
+      : root.getAnimations({ subtree: true });
+  for (const a of animations) {
     if (a.id === LAYOUT_GLIDE) a.cancel();
   }
 }
@@ -245,14 +280,19 @@ export const panes = (name: 'detail' | 'sessions' | 'open-now'): Element[] =>
     ? []
     : [...document.querySelectorAll(`[data-pane="${name}"]`)];
 
-/** Measures `roots` now and draws the next commit that changes them as a glide. */
+/**
+ * Measures `roots` now and draws the next commit that changes them as a glide.
+ * `alongside`: another pane's part of the same change (KAN-994), so a glide
+ * already waiting for that commit is kept rather than dropped.
+ */
 export function prepareLayoutGlide(
   roots: readonly Element[],
   kind: GlideKind,
-  source: ChangeSource = 'this page'
+  source: ChangeSource = 'this page',
+  { alongside = false }: { alongside?: boolean } = {}
 ): void {
   // A newer press wins; what is still moving keeps moving until its commit (step 0 below).
-  pending?.();
+  if (!alongside) [...pending.keys()].forEach((stop) => stop());
   const live = roots.filter((r) => r.isConnected);
   if (live.length === 0 || wantsStillness(source)) return;
   const watches = live.map((root) => {
@@ -271,6 +311,7 @@ export function prepareLayoutGlide(
       }
       if (!changed(root, before)) return;
       stop();
+      if (swapped(root, before)) return;
       draw(root, before, removed, kind);
     });
     observer.observe(root, { childList: true, subtree: true });
@@ -280,12 +321,25 @@ export function prepareLayoutGlide(
   const stop = () => {
     watches.forEach((o) => o.disconnect());
     window.clearTimeout(timer);
-    if (pending === stop) pending = null;
+    pending.delete(stop);
   };
-  pending = stop;
+  pending.set(stop, live);
 }
 
 // Whether the commit moved, removed or added anything that glides.
+// KAN-994 (his demo). Whether the pane now shows something else altogether
+// (another session picked, or an undo putting another back on screen):
+// nothing that was there is left and new rows are. That is a swap, drawn at
+// once, never as this glide's arrivals and leavings.
+function swapped(root: Element, before: Snapshot): boolean {
+  if (before.boxes.size === 0) return false;
+  // The New window drop target stays from session to session: it is no row.
+  const row = (el: Element) => !el.matches('[data-new-window-target]');
+  for (const el of before.boxes.keys())
+    if (el.isConnected && row(el)) return false;
+  return [...root.querySelectorAll(GLIDERS)].some(row);
+}
+
 function changed(root: Element, before: Snapshot): boolean {
   for (const [el, box] of before.boxes) {
     if (!el.isConnected) return true;
@@ -312,8 +366,8 @@ function draw(
   kind: GlideKind
 ): void {
   const t = TIMING[kind];
-  // 0. A glide still running from the last press stops where the snapshot saw it, so this one starts there.
-  cutLayoutGlides();
+  // 0. A glide still running in this pane from the last press stops where the snapshot saw it, so this one starts there.
+  cutGlidesIn(root);
   for (const a of root.getAnimations({ subtree: true })) {
     if (a.id === LANDING_SLIDE) a.cancel();
   }
@@ -327,6 +381,9 @@ function draw(
   const parentOf = (el: Element): Element | null =>
     el.parentElement?.closest(GLIDERS) ?? null;
   const own = ownShifts(moved, parentOf);
+  const longest = Math.max(0, ...[...own.values()].map(Math.abs));
+  const moveMs =
+    kind === 'reorder' && longest > LONG_MOVE_PX ? LONG_MOVE_MS : GLIDE_MS;
   const arrived = [...root.querySelectorAll(GLIDERS)].filter(
     (el) => !before.boxes.has(el)
   );
@@ -406,7 +463,8 @@ function draw(
   };
 
   // 2. Then every move.
-  const hold = ++holdId;
+  const hold = ++holdCount;
+  holdIds.set(root, hold);
   holds.forEach(({ content, margin }) => {
     if (!held.has(content))
       held.set(content, {
@@ -418,14 +476,15 @@ function draw(
   });
   own.forEach((by, el) =>
     el.animate([{ transform: `translateY(${by}px)` }, { transform: 'none' }], {
-      duration: GLIDE_MS,
+      duration: moveMs,
       easing: EASE.OUT,
       id: LANDING_SLIDE,
     })
   );
+  liftTheMover(own);
   strips.forEach(({ el, by }) =>
     el.animate([{ marginBottom: `${by}px` }, { marginBottom: '0px' }], {
-      ...timing(GLIDE_MS),
+      ...timing(moveMs),
       fill: 'none',
     })
   );
@@ -445,7 +504,7 @@ function draw(
     if (kind === 'arrive' && by >= 1 && onlyArrivalsAbove(el, box, stayers)) {
       el.animate(
         [{ transform: `translateY(${-by}px)` }, { transform: 'none' }],
-        { duration: GLIDE_MS, easing: EASE.OUT, id: LANDING_SLIDE }
+        { duration: moveMs, easing: EASE.OUT, id: LANDING_SLIDE }
       );
       return;
     }
@@ -456,9 +515,7 @@ function draw(
       return;
     }
     const wait =
-      line === null
-        ? 0
-        : uncoveredAt(box.bottom, line.from, line.to) * GLIDE_MS;
+      line === null ? 0 : uncoveredAt(box.bottom, line.from, line.to) * moveMs;
     el.animate(
       [{ opacity: 0 }, { opacity: 1 }],
       timing(t.in, Math.max(t.inDelay, wait))
@@ -521,7 +578,7 @@ function draw(
       const slides = [...copy.children].map((child) =>
         child.animate(
           [{ transform: 'none' }, { transform: `translateY(${-by}px)` }],
-          { ...timing(GLIDE_MS), fill: 'forwards' }
+          { ...timing(moveMs), fill: 'forwards' }
         )
       );
       Promise.all(slides.map((a) => a.finished)).then(end, end);
@@ -536,7 +593,7 @@ function draw(
     const cut =
       clip === null
         ? null
-        : copy.animate(clip, { ...timing(GLIDE_MS), fill: 'forwards' });
+        : copy.animate(clip, { ...timing(moveMs), fill: 'forwards' });
     Promise.all([fade.finished, cut?.finished]).then(end, end);
   });
   // The range is let go once everything this glide drew has landed (or a newer glide took over).
@@ -544,7 +601,7 @@ function draw(
     .getAnimations({ subtree: true })
     .filter((a) => a.id === LAYOUT_GLIDE || a.id === LANDING_SLIDE);
   const release = () => {
-    if (hold === holdId) releaseScrollRange();
+    if (holdIds.get(root) === hold) releaseScrollRangeIn(root);
   };
   Promise.all(drawn.map((a) => a.finished)).then(release, release);
 }
@@ -605,4 +662,36 @@ function follow(root: Element, path: readonly number[]): Element | null {
   let at: Element | undefined = root;
   for (const i of path) at = at?.children.item(i) ?? undefined;
   return at ?? null;
+}
+
+// KAN-994 (his demo). The row that changed places against the rest (an edited
+// session going up, a moved one coming back) glides over the rows it passes,
+// not under: the one whose move is furthest from everyone else's, by more
+// than a row, is drawn on top until it lands.
+const LIFT_PX = 20;
+function liftTheMover(own: ReadonlyMap<Element, number>): void {
+  if (own.size < 2) return;
+  const sorted = [...own.values()].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  let mover: Element | null = null;
+  let far = 0;
+  for (const [el, by] of own) {
+    const off = Math.abs(by - median);
+    if (off > far) {
+      far = off;
+      mover = el;
+    }
+  }
+  if (!(mover instanceof HTMLElement) || far < LIFT_PX) return;
+  const lifted = mover;
+  const was = { position: lifted.style.position, zIndex: lifted.style.zIndex };
+  if (getComputedStyle(lifted).position === 'static')
+    lifted.style.position = 'relative';
+  lifted.style.zIndex = '1';
+  const end = () => {
+    lifted.style.position = was.position;
+    lifted.style.zIndex = was.zIndex;
+  };
+  const glides = lifted.getAnimations().filter((a) => a.id === LANDING_SLIDE);
+  Promise.all(glides.map((a) => a.finished)).then(end, end);
 }
