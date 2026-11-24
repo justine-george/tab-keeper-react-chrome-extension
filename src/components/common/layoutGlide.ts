@@ -15,7 +15,11 @@ import { LANDING_SLIDE } from '../home/rightpane/rowDrag/landingSlides';
 // - a group's colour strip keeps its old length and moves its end with the
 //   rows below, instead of jumping to its new length;
 // - the scroll range is the landed one from the first frame (KAN-985): what
-//   glides or fades past the end would otherwise stretch it.
+//   glides or fades past the end would otherwise stretch it;
+// - in a reorder, a tab row drawn anew in another place (Ungroup, End split)
+//   glides from its old box, up or down and sideways, and the split marks
+//   that went fade out where they were, those that came fade in (KAN-996);
+// - the rows asked for light up, and fade back (KAN-996, Remove duplicates).
 // From the keyboard, under Reduce motion, or with no Web Animations (jsdom),
 // nothing moves.
 
@@ -24,9 +28,10 @@ import { LANDING_SLIDE } from '../home/rightpane/rowDrag/landingSlides';
 // 'reorder': rows that only changed places (KAN-994); a long way takes FOLD's time.
 export type GlideKind = 'fold' | 'delete' | 'arrive' | 'depart' | 'reorder';
 
-// Who made the change: a press here, or another page or device (KAN-991).
-// Only a press here can have come from the keyboard.
-export type ChangeSource = 'this page' | 'elsewhere';
+// Who made the change: a press here, another page or device (KAN-991), or an
+// undo or redo. Only a press here is instant from the keyboard: his rule
+// (KAN-996) is that every undo and redo plays its motion, ⌘Z and ⌘⇧Z too.
+export type ChangeSource = 'this page' | 'elsewhere' | 'undo or redo';
 
 const TIMING: Record<GlideKind, { out: number; in: number; inDelay: number }> =
   {
@@ -45,6 +50,18 @@ const LONG_MOVE_MS = parseInt(DURATION.FOLD, 10);
 const GLIDERS =
   '[data-drop-window-id], [data-band-id], [data-drag-row-id], [data-open-tab-id], [data-deleted-session-id]';
 const STRIP = '[data-group-color-strip]';
+// A tab row, saved or live: found again by its tab, wherever it is drawn.
+const TAB_ROW = '[data-saved-tab-row], [data-open-tab-id]';
+const MARK = '[data-split]';
+const tabKeyOf = (el: Element): string | null => {
+  const saved = el.getAttribute('data-saved-tab-row');
+  if (saved !== null) return `saved:${saved}`;
+  const open = el.getAttribute('data-open-tab-id');
+  return open === null ? null : `open:${open}`;
+};
+// KAN-996 (pick G). A light-up: 100 ms in, 200 ms held, 500 ms out, in --row-light.
+const LIGHT_MS = 800;
+const ROW_LIGHT = 'row-light';
 // An intent no commit answers (a refused delete) is dropped after this.
 const WAIT_MS = 1500;
 
@@ -257,6 +274,9 @@ function cutGlidesIn(root: Element | null): void {
 interface Snapshot {
   boxes: Map<Element, Box>;
   strips: Map<Element, number>;
+  // Each tab row by its tab, and each split mark by its row's tab.
+  rows: Map<string, { el: Element; box: Box }>;
+  marks: Map<string, { el: Element; rect: DOMRect; color: string }>;
 }
 
 function snapshot(root: Element): Snapshot {
@@ -266,7 +286,37 @@ function snapshot(root: Element): Snapshot {
   root
     .querySelectorAll(STRIP)
     .forEach((el) => strips.set(el, el.getBoundingClientRect().height));
-  return { boxes, strips };
+  const rows = new Map<string, { el: Element; box: Box }>();
+  root.querySelectorAll(TAB_ROW).forEach((el) => {
+    const key = tabKeyOf(el);
+    if (key !== null) rows.set(key, { el, box: boxOf(el) });
+  });
+  const marks = new Map<
+    string,
+    { el: Element; rect: DOMRect; color: string }
+  >();
+  root.querySelectorAll(MARK).forEach((el) => {
+    const row = el.closest(TAB_ROW);
+    const key = row === null ? null : tabKeyOf(row);
+    if (key !== null)
+      marks.set(key, {
+        el,
+        rect: el.getBoundingClientRect(),
+        color: getComputedStyle(el).color,
+      });
+  });
+  return { boxes, strips, rows, marks };
+}
+
+// The split marks there now, by their row's tab.
+function marksNow(root: Element): Map<string, Element> {
+  const now = new Map<string, Element>();
+  root.querySelectorAll(MARK).forEach((el) => {
+    const row = el.closest(TAB_ROW);
+    const key = row === null ? null : tabKeyOf(row);
+    if (key !== null) now.set(key, el);
+  });
+  return now;
 }
 
 const wantsStillness = (source: ChangeSource): boolean =>
@@ -280,17 +330,23 @@ export const panes = (name: 'detail' | 'sessions' | 'open-now'): Element[] =>
     ? []
     : [...document.querySelectorAll(`[data-pane="${name}"]`)];
 
-/**
- * Measures `roots` now and draws the next commit that changes them as a glide.
- * `alongside`: another pane's part of the same change (KAN-994), so a glide
- * already waiting for that commit is kept rather than dropped.
- */
+export interface GlideOptions {
+  // Another pane's part of the same change (KAN-994): a glide already waiting for that commit is kept rather than dropped.
+  alongside?: boolean;
+  // KAN-996 (pick G). Tab rows to light up once the change lands, by tab id: the copies Remove duplicates kept.
+  light?: readonly string[];
+  // KAN-996. Light up every tab row that came back: the copies an undone Remove duplicates returns.
+  lightReturns?: boolean;
+}
+
+/** Measures `roots` now and draws the next commit that changes them as a glide. */
 export function prepareLayoutGlide(
   roots: readonly Element[],
   kind: GlideKind,
   source: ChangeSource = 'this page',
-  { alongside = false }: { alongside?: boolean } = {}
+  options: GlideOptions = {}
 ): void {
+  const { alongside = false } = options;
   // A newer press wins; what is still moving keeps moving until its commit (step 0 below).
   if (!alongside) [...pending.keys()].forEach((stop) => stop());
   const live = roots.filter((r) => r.isConnected);
@@ -312,7 +368,7 @@ export function prepareLayoutGlide(
       if (!changed(root, before)) return;
       stop();
       if (swapped(root, before)) return;
-      draw(root, before, removed, kind);
+      draw(root, before, removed, kind, options);
     });
     observer.observe(root, { childList: true, subtree: true });
     return observer;
@@ -343,11 +399,16 @@ function swapped(root: Element, before: Snapshot): boolean {
 function changed(root: Element, before: Snapshot): boolean {
   for (const [el, box] of before.boxes) {
     if (!el.isConnected) return true;
-    if (Math.abs(el.getBoundingClientRect().top - box.top) >= 1) return true;
+    const now = el.getBoundingClientRect();
+    if (Math.abs(now.top - box.top) >= 1) return true;
+    if (Math.abs(now.left - box.left) >= 1) return true;
   }
   for (const el of root.querySelectorAll(GLIDERS)) {
     if (!before.boxes.has(el)) return true;
   }
+  const marks = marksNow(root);
+  if (marks.size !== before.marks.size) return true;
+  for (const key of marks.keys()) if (!before.marks.has(key)) return true;
   return false;
 }
 
@@ -363,7 +424,8 @@ function draw(
   root: Element,
   before: Snapshot,
   removed: readonly { node: Element; parent: Node; next: Node | null }[],
-  kind: GlideKind
+  kind: GlideKind,
+  options: GlideOptions
 ): void {
   const t = TIMING[kind];
   // 0. A glide still running in this pane from the last press stops where the snapshot saw it, so this one starts there.
@@ -373,19 +435,49 @@ function draw(
   }
   // 1. Every read first: a glide moves its element from its first frame.
   const tops = new Map<Element, { from: number; to: number }>();
+  const lefts = new Map<Element, number>();
   before.boxes.forEach((box, el) => {
-    if (el.isConnected)
-      tops.set(el, { from: box.top, to: el.getBoundingClientRect().top });
+    if (!el.isConnected) return;
+    const now = el.getBoundingClientRect();
+    tops.set(el, { from: box.top, to: now.top });
+    lefts.set(el, box.left - now.left);
   });
   const moved = new Map([...tops].map(([el, { from, to }]) => [el, from - to]));
   const parentOf = (el: Element): Element | null =>
     el.parentElement?.closest(GLIDERS) ?? null;
   const own = ownShifts(moved, parentOf);
+  // KAN-996. Only a reorder moves sideways, finds rows drawn anew, or fades split marks: every other glide stays as approved.
+  const reorder = kind === 'reorder';
+  const ownX = reorder
+    ? ownShifts(lefts, parentOf)
+    : new Map<Element, number>();
+  // KAN-996. A tab row drawn anew (its group gone, its split ended): found by its tab, it glides from its old box, less what carries it.
+  const carried = (el: Element, by: ReadonlyMap<Element, number>): number => {
+    for (let p = parentOf(el); p !== null; p = parentOf(p)) {
+      const shift = by.get(p);
+      if (shift !== undefined && Math.abs(shift) >= 1) return shift;
+    }
+    return 0;
+  };
+  const rejoined = new Map<Element, Element>();
+  (reorder ? root.querySelectorAll(TAB_ROW) : []).forEach((el) => {
+    const key = tabKeyOf(el);
+    const old = key === null ? undefined : before.rows.get(key);
+    if (old === undefined || old.el === el || old.el.isConnected) return;
+    rejoined.set(el, old.el);
+    const now = el.getBoundingClientRect();
+    const dy = old.box.top - now.top - carried(el, moved);
+    const dx = old.box.left - now.left - carried(el, lefts);
+    if (Math.abs(dy) >= 1) own.set(el, dy);
+    if (Math.abs(dx) >= 1) ownX.set(el, dx);
+  });
+  const holdsRejoined = (el: Element): boolean =>
+    [...rejoined.keys()].some((row) => el.contains(row));
   const longest = Math.max(0, ...[...own.values()].map(Math.abs));
   const moveMs =
     kind === 'reorder' && longest > LONG_MOVE_PX ? LONG_MOVE_MS : GLIDE_MS;
   const arrived = [...root.querySelectorAll(GLIDERS)].filter(
-    (el) => !before.boxes.has(el)
+    (el) => !before.boxes.has(el) && !rejoined.has(el)
   );
   // Only the outermost arrival fades; its rows come with it.
   const arrivedSet = new Set(arrived);
@@ -425,17 +517,41 @@ function draw(
     const [first, box] = inside.reduce((a, b) => (b[1].top < a[1].top ? b : a));
     const bottom = Math.max(...inside.map(([, b]) => b.bottom));
     if (!inView(box.top, bottom)) return [];
+    // The rows that glide to their new place leave no copy behind.
+    const hide = [...rejoined.values()]
+      .filter((old) => node.contains(old))
+      .map((old) => pathTo(node, old));
     return [
       {
         node,
         parent,
         next,
         path: pathTo(node, first),
+        hide,
         box,
         width: parent.clientWidth,
       },
     ];
   });
+
+  // KAN-996. The split marks that went, and those that came, by their row's tab.
+  const marks = reorder ? marksNow(root) : new Map<string, Element>();
+  const marksGone = reorder
+    ? [...before.marks]
+        .filter(
+          ([key, m]) => !marks.has(key) && inView(m.rect.top, m.rect.bottom)
+        )
+        .map(([, m]) => m)
+    : [];
+  const marksCome = [...marks]
+    .filter(([key]) => !before.marks.has(key))
+    .map(([, el]) => el);
+  const returns = options.lightReturns
+    ? [...root.querySelectorAll(TAB_ROW)].filter((el) => {
+        const key = tabKeyOf(el);
+        return key !== null && !before.rows.has(key);
+      })
+    : [];
 
   // From a row's top to the top of the next row below it, where it is now; its own height when none.
   const pitchAt = (box: Box): number => {
@@ -474,12 +590,16 @@ function draw(
     content.style.overflow = 'clip';
     content.style.overflowClipMargin = `${margin}px`;
   });
-  own.forEach((by, el) =>
-    el.animate([{ transform: `translateY(${by}px)` }, { transform: 'none' }], {
-      duration: moveMs,
-      easing: EASE.OUT,
-      id: LANDING_SLIDE,
-    })
+  new Set([...own.keys(), ...ownX.keys()]).forEach((el) =>
+    el.animate(
+      [
+        {
+          transform: `translate(${ownX.get(el) ?? 0}px, ${own.get(el) ?? 0}px)`,
+        },
+        { transform: 'none' },
+      ],
+      { duration: moveMs, easing: EASE.OUT, id: LANDING_SLIDE }
+    )
   );
   liftTheMover(own);
   strips.forEach(({ el, by }) =>
@@ -516,36 +636,86 @@ function draw(
     }
     const wait =
       line === null ? 0 : uncoveredAt(box.bottom, line.from, line.to) * moveMs;
-    el.animate(
-      [{ opacity: 0 }, { opacity: 1 }],
-      timing(t.in, Math.max(t.inDelay, wait))
+    // A band that comes back holding rows gliding into it: everything but those rows fades in.
+    const fading = (at: Element): Element[] =>
+      rejoined.has(at)
+        ? []
+        : holdsRejoined(at)
+          ? [...at.children].flatMap(fading)
+          : [at];
+    fading(el).forEach((part) =>
+      part.animate(
+        [{ opacity: 0 }, { opacity: 1 }],
+        timing(t.in, Math.max(t.inDelay, wait))
+      )
     );
   });
+  marksCome.forEach((el) =>
+    el.animate([{ opacity: 0 }, { opacity: 1 }], timing(t.out))
+  );
   // Copies in three passes (insert, measure, place) so a Collapse all lays out twice, not per copy.
-  const placed = leaving.flatMap(({ node, parent, next, path, box, width }) => {
-    if (!parent.isConnected) return [];
-    const copy = node.cloneNode(true);
-    const twin = copy instanceof Element ? follow(copy, path) : null;
-    if (!(copy instanceof HTMLElement) || twin === null) return [];
+  const placed = leaving.flatMap(
+    ({ node, parent, next, path, hide, box, width }) => {
+      if (!parent.isConnected) return [];
+      const copy = node.cloneNode(true);
+      const twin = copy instanceof Element ? follow(copy, path) : null;
+      if (!(copy instanceof HTMLElement) || twin === null) return [];
+      hide.forEach((at) => {
+        const row = follow(copy, at);
+        if (row instanceof HTMLElement) row.style.visibility = 'hidden';
+      });
+      stripHooks(copy);
+      copy.inert = true;
+      copy.setAttribute('aria-hidden', 'true');
+      copy.dataset.leavingRow = '';
+      Object.assign(copy.style, {
+        position: 'absolute',
+        left: '0px',
+        top: '0px',
+        width: `${width}px`,
+        margin: '0',
+        pointerEvents: 'none',
+        transform: 'none',
+      });
+      parent.insertBefore(
+        copy,
+        next !== null && next.parentNode === parent ? next : null
+      );
+      copies.add(copy);
+      return [{ copy, twin, box, width }];
+    }
+  );
+  // A split mark that went fades out where it was, over whatever row is there now.
+  marksGone.forEach(({ el, rect, color }) => {
+    const copy = el.cloneNode(true);
+    if (!(copy instanceof HTMLElement)) return;
     stripHooks(copy);
+    copy.removeAttribute('data-split');
     copy.inert = true;
     copy.setAttribute('aria-hidden', 'true');
-    copy.dataset.leavingRow = '';
+    copy.dataset.leavingMark = '';
     Object.assign(copy.style, {
-      position: 'absolute',
-      left: '0px',
-      top: '0px',
-      width: `${width}px`,
+      position: 'fixed',
+      left: `${rect.left}px`,
+      top: `${rect.top}px`,
+      width: `${rect.width}px`,
+      height: `${rect.height}px`,
       margin: '0',
+      color,
       pointerEvents: 'none',
-      transform: 'none',
     });
-    parent.insertBefore(
-      copy,
-      next !== null && next.parentNode === parent ? next : null
-    );
+    root.appendChild(copy);
     copies.add(copy);
-    return [{ copy, twin, box, width }];
+    const end = () => {
+      copies.delete(copy);
+      copy.remove();
+    };
+    copy
+      .animate([{ opacity: 1 }, { opacity: 0 }], {
+        ...timing(t.out),
+        fill: 'forwards',
+      })
+      .finished.then(end, end);
   });
   // Laid out where it lands, widened so its first row is as wide as that row was.
   const widths = placed.map(({ twin }) => twin.getBoundingClientRect().width);
@@ -604,6 +774,38 @@ function draw(
     if (holdIds.get(root) === hold) releaseScrollRangeIn(root);
   };
   Promise.all(drawn.map((a) => a.finished)).then(release, release);
+  // Last, and apart from the glide: a light-up holds no scroll range.
+  const lit = [
+    ...(options.light ?? []).flatMap((id) => [
+      ...root.querySelectorAll(
+        `[data-saved-tab-row="${CSS.escape(id)}"], [data-open-tab-id="${CSS.escape(id)}"]`
+      ),
+    ]),
+    ...returns,
+  ];
+  lightUp(lit, options.lightReturns ? t.inDelay : 0);
+}
+
+// KAN-996 (pick G). Each row's own fill turns --row-light and back: the start and end are the row's own (its hover, say).
+function lightUp(rows: readonly Element[], delay: number): void {
+  if (rows.length === 0) return;
+  const color = getComputedStyle(document.documentElement)
+    .getPropertyValue('--row-light')
+    .trim();
+  if (color === '') return;
+  rows.forEach((row) =>
+    row.animate(
+      [
+        { backgroundColor: color, offset: 100 / LIGHT_MS },
+        {
+          backgroundColor: color,
+          offset: 300 / LIGHT_MS,
+          easing: 'ease-in-out',
+        },
+      ],
+      { duration: LIGHT_MS, delay, id: ROW_LIGHT }
+    )
+  );
 }
 
 // Whether nothing but new rows shows between `box` and its scroll area's

@@ -21,6 +21,15 @@ export function liveDuplicatesToClose(window: OpenWindow): OpenTab[] {
   );
 }
 
+// KAN-996. The tabs that stay in one window while a copy of theirs closes: the rows that light up.
+export function liveKeptCopies(window: OpenWindow): OpenTab[] {
+  const closing = liveDuplicatesToClose(window);
+  const urls = new Set(closing.map((tab) => tab.url));
+  return window.tabs.filter(
+    (tab) => urls.has(tab.url) && !closing.includes(tab)
+  );
+}
+
 // Every window's own copies, summed: the header's count.
 export function countLiveDuplicates(windows: readonly OpenWindow[]): number {
   return windows.reduce((n, w) => n + liveDuplicatesToClose(w).length, 0);

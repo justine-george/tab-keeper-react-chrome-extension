@@ -73,7 +73,10 @@ import {
   withCurrentPlacement,
 } from '../../../utils/functions/reopen';
 import { offerReopen } from '../../../redux/reopenOffer';
-import { countLiveDuplicates } from '../../../utils/functions/liveDuplicates';
+import {
+  countLiveDuplicates,
+  liveKeptCopies,
+} from '../../../utils/functions/liveDuplicates';
 import {
   clearReopenFocus,
   pendingReopenFocus,
@@ -675,7 +678,10 @@ export default function OpenNowPane({
 
   // KAN-867. Each window's extra copies close; one toast offers Reopen for all.
   const handleRemoveDuplicates = async (windows: readonly OpenWindow[]) => {
-    prepareLayoutGlide(panes('open-now'), 'delete');
+    // KAN-996 (pick G). The tabs the copies copied light up.
+    prepareLayoutGlide(panes('open-now'), 'delete', 'this page', {
+      light: windows.flatMap(liveKeptCopies).map((tab) => String(tab.id)),
+    });
     const item = await closeDuplicateTabs(windows);
     if (item) void dispatch(offerReopen(item));
   };
@@ -718,6 +724,8 @@ export default function OpenNowPane({
   // KAN-696. The tabs stay where they are; a group Chrome no longer has changes nothing.
   // Focus moves to the window's chevron first: the ⋮ goes with the strip on the re-read.
   const handleUngroup = (openWindow: OpenWindow, groupId: number) => {
+    // KAN-996 (pick 5-B). The header and strip fade, the tabs glide out.
+    prepareLayoutGlide(panes('open-now'), 'reorder');
     firstControlIn(
       paneRef.current?.querySelector(`[data-open-window-id="${openWindow.id}"]`)
     )?.focus();

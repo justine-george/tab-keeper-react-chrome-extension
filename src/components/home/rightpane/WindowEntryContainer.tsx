@@ -79,7 +79,7 @@ import {
   tabData,
   updateChromeTabGroupTitle,
   addCurrTabToChromeGroup,
-  ungroupChromeTabGroup,
+  ungroupSavedGroup,
   deleteChromeTabGroup,
   updateChromeTabGroupColor,
   setChromeTabGroupCollapsed,
@@ -88,7 +88,7 @@ import {
   sortGroupTabsBySite,
   sortTabsBySite,
   sortWindowGroupsByName,
-  endSavedSplitInternal,
+  endSavedSplit,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import {
   isSavedGroupSortedBySite,
@@ -546,7 +546,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       label: t('Ungroup'),
       icon: 'label_off',
       onSelect: () =>
-        dispatch(ungroupChromeTabGroup({ tabGroupId, windowId, groupId })),
+        void dispatch(ungroupSavedGroup({ tabGroupId, windowId, groupId })),
     },
     // KAN-616 (2A). Lighter than Delete group, heavier than Ungroup.
     ...groupDuplicateItem(groupId),
@@ -1267,9 +1267,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 label: t('End split view'),
                 icon: 'view_column_2' as const,
                 onSelect: () =>
-                  dispatch(
-                    endSavedSplitInternal({ tabGroupId, windowId, tabId })
-                  ),
+                  void dispatch(endSavedSplit({ tabGroupId, windowId, tabId })),
               },
             ]
           : []),

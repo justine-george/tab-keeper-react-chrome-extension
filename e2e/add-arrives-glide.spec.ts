@@ -372,7 +372,11 @@ test.describe('undo plays the step backwards, redo plays it again', () => {
     expectWentBackUp(u, place, added - rest);
   });
 
-  test('⌘Z undoes an add at once', async ({ context, extensionId }) => {
+  // KAN-996 (his rule): every undo plays its motion, from the keys too.
+  test('⌘Z undoes an add with the same motion as the button', async ({
+    context,
+    extensionId,
+  }) => {
     const page = await popup(context, extensionId);
     const below = tabRow('g1-t0');
     const rest = await topOf(page.locator(below));
@@ -386,7 +390,7 @@ test.describe('undo plays the step backwards, redo plays it again', () => {
     await page.keyboard.press('ControlOrMeta+z');
     const u = await samples(page);
     await expect(page.locator(NEW_TAB)).toHaveCount(0);
-    expect(between(u.below, added, rest)).toEqual([]);
+    expect(travelled(u.below, added, rest)).toBe(true);
   });
 
   test('header Undo of a deleted tab opens its gap and fades it back in; Redo takes it again', async ({

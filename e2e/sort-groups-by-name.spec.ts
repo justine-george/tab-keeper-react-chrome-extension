@@ -2,6 +2,7 @@ import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { standIn } from './fixtures/standInPages';
+import { documentLanded } from './fixtures/landed';
 import {
   VIEWS,
   boxOf,
@@ -84,15 +85,17 @@ const storedGroups = async (page: Page) =>
       .windows[0].tabs.map((t) => [t.tabId, t.chromeGroupId ?? null])
   );
 
-// The tab rows top to bottom, as drawn.
-const screenOrder = (page: Page): Promise<string[]> =>
-  page.evaluate((ids) => {
+// The tab rows top to bottom, as drawn once the sort's glide has landed (KAN-996).
+const screenOrder = async (page: Page): Promise<string[]> => {
+  await documentLanded(page);
+  return page.evaluate((ids) => {
     const y = (id: string) =>
       document
         .querySelector(`[data-pane="detail"] [data-drag-row-id="${id}"]`)!
         .getBoundingClientRect().top;
     return [...ids].sort((a, b) => y(a) - y(b));
   }, SAVED_BEFORE);
+};
 
 async function openSavedMenu(page: Page): Promise<void> {
   await header(page, 'w1').hover();

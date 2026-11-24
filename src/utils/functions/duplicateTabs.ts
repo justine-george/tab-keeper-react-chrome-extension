@@ -47,6 +47,24 @@ export function duplicateTabsIn(
   return tabsInScope(session, scope).filter((t) => !isFirst(t));
 }
 
+// KAN-996. The tabs Remove duplicate tabs keeps that have a copy taken out, in reading order: the rows that light up.
+export function keptCopiesIn(
+  session: WithWindows,
+  scope?: DuplicateScope
+): tabData[] {
+  const isFirst = firstCopyFilter();
+  const first = new Map<string, tabData>();
+  const kept = new Set<tabData>();
+  for (const t of tabsInScope(session, scope)) {
+    if (isFirst(t)) first.set(t.url, t);
+    else {
+      const f = first.get(t.url);
+      if (f !== undefined) kept.add(f);
+    }
+  }
+  return [...kept];
+}
+
 // KAN-824. The name each kept copy takes so a rename is not lost: the first removed copy's, when the kept one has none.
 export function namesKeptCopiesTake(
   session: WithWindows,

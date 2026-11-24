@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import {
   countLiveDuplicates,
   liveDuplicatesToClose,
+  liveKeptCopies,
 } from '../../../utils/functions/liveDuplicates';
 import type { OpenTab, OpenWindow } from '../../../utils/functions/openNow';
 
@@ -100,5 +101,18 @@ describe('countLiveDuplicates', () => {
     expect(countLiveDuplicates([one])).toBe(1);
     expect(countLiveDuplicates([one, two])).toBe(3);
     expect(countLiveDuplicates([win(3, [tab(A)]), win(4, [tab(A)])])).toBe(0);
+  });
+});
+
+// KAN-996. The rows that light up: each copy that stays while another of its address closes.
+describe('liveKeptCopies', () => {
+  test('the copy that stays, once, and no tab without a copy', () => {
+    const w = win(1, [tab(A), tab(B), tab(A, { active: true }), tab(A)]);
+    expect(urls(liveKeptCopies(w))).toEqual([`${A}#2`]);
+  });
+
+  test('none when nothing repeats, and a tab with no address is never kept', () => {
+    expect(liveKeptCopies(win(1, [tab(A), tab(B)]))).toEqual([]);
+    expect(liveKeptCopies(win(1, [tab(''), tab('')]))).toEqual([]);
   });
 });
