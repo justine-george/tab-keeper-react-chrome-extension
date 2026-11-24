@@ -9,8 +9,7 @@ import {
   toastsRemoved,
 } from '../../redux/slices/globalStateSlice';
 import { holdToasts, releaseToasts } from '../../redux/toastTimers';
-import { reopenFromOffer } from '../../redux/reopenOffer';
-import { reopenOfferKind } from '../../redux/reopenOfferStore';
+import { pressReopen } from '../../redux/reopenOffer';
 import { showSession } from '../../redux/showSession';
 import { selectLiveStepOnTop } from '../../redux/slices/undoRedoSlice';
 import { undoStep } from '../../redux/undoHistory';
@@ -37,7 +36,6 @@ import {
 } from '../../utils/constants/common';
 import { isTabView } from '../../utils/functions/viewMode';
 import { corners } from '../../styles/corners';
-import { panes, prepareLayoutGlide } from './layoutGlide';
 
 // The stack's distance from the window's left and bottom edges.
 const EDGE_PX = 20;
@@ -462,14 +460,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
                 iconType="undo"
                 text={t('Reopen')}
                 keyHint={keyTakesOffer(offer.id) ? undoKeyHint : undefined}
-                // Every offer is a close in Currently open: the gap opens again (KAN-987).
-                // Closed duplicates come back lit (KAN-996).
-                onClick={() => {
-                  prepareLayoutGlide(panes('open-now'), 'delete', 'this page', {
-                    lightReturns: reopenOfferKind(offer.id) === 'duplicateTabs',
-                  });
-                  void dispatch(reopenFromOffer(offer.id));
-                }}
+                onClick={() => void dispatch(pressReopen(offer.id))}
                 style={chipStyle}
               />
             )}

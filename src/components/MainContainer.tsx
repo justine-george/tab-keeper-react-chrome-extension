@@ -43,7 +43,7 @@ import { paneMotionCss } from './home/paneMotion';
 import LeftPaneSettings from './settings/leftpane/LeftPaneSettings';
 import RightPaneSettings from './settings/rightpane/RightPaneSettings';
 import { selectUndoKeyTarget } from '../redux/slices/globalStateSlice';
-import { reopenFromOffer } from '../redux/reopenOffer';
+import { pressReopen } from '../redux/reopenOffer';
 import { ReviewCard } from './reviewCard/ReviewCard';
 import { FocusConfirmModal } from './modals/FocusConfirmModal';
 import { CloudDeletedNoticeModal } from './modals/CloudDeletedNoticeModal';
@@ -285,7 +285,8 @@ export default function MainContainer() {
         return;
       }
       if (target?.kind === 'offer') {
-        void dispatch(reopenFromOffer(target.offerId));
+        // The same Reopen as the toast's and the header's: an undo, with its motion (KAN-996).
+        void dispatch(pressReopen(target.offerId));
         repeatsDropped.current = true;
         return;
       }
