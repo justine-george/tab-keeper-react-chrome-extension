@@ -10,7 +10,8 @@ import { LANDING_SLIDE } from '../home/rightpane/rowDrag/landingSlides';
 //   (the drop glides' own animation, so a drag starting mid-glide finishes
 //   it first: settleSlides);
 // - what left fades out where it stood, as a copy no code can find, cut off
-//   by the rows gliding up over its place;
+//   by the rows gliding up over its place; a group or window goes up under
+//   the row above instead, and comes back out from under it (KAN-998);
 // - what arrived fades in, uncovered as the rows below glide down;
 // - a group's colour strip keeps its old length and moves its end with the
 //   rows below, instead of jumping to its new length;
@@ -50,6 +51,12 @@ const LONG_MOVE_MS = parseInt(DURATION.FOLD, 10);
 const GLIDERS =
   '[data-drop-window-id], [data-band-id], [data-drag-row-id], [data-open-tab-id], [data-deleted-session-id]';
 const STRIP = '[data-group-color-strip]';
+// KAN-998 (his pick C). A deleted group or window is taller than a row: a fade
+// the rows below cut off as they come up cuts its text mid-line, so it tucks
+// under the row above instead.
+const GROUP_OR_WINDOW = '[data-band-id], [data-drop-window-id]';
+const isGroupOrWindow = (el: Element): boolean =>
+  el.matches(GROUP_OR_WINDOW) || el.querySelector(GROUP_OR_WINDOW) !== null;
 // A tab row, saved or live: found again by its tab, wherever it is drawn.
 const TAB_ROW = '[data-saved-tab-row], [data-open-tab-id]';
 const MARK = '[data-split]';
@@ -529,6 +536,7 @@ function draw(
         path: pathTo(node, first),
         hide,
         box,
+        tucksUnder: kind === 'delete' && isGroupOrWindow(node),
         width: parent.clientWidth,
       },
     ];
@@ -634,6 +642,16 @@ function draw(
       slideOutFromUnder(el, box.bottom - box.top);
       return;
     }
+    // KAN-998. A group or window a delete took back comes out from under the
+    // row above as far as the rows below go down, so the gap between them
+    // holds on every frame.
+    if (kind === 'delete' && el instanceof HTMLElement && isGroupOrWindow(el)) {
+      slideOutFromUnder(
+        el,
+        line !== null ? line.to - line.from : box.bottom - box.top
+      );
+      return;
+    }
     const wait =
       line === null ? 0 : uncoveredAt(box.bottom, line.from, line.to) * moveMs;
     // A band that comes back holding rows gliding into it: everything but those rows fades in.
@@ -655,7 +673,7 @@ function draw(
   );
   // Copies in three passes (insert, measure, place) so a Collapse all lays out twice, not per copy.
   const placed = leaving.flatMap(
-    ({ node, parent, next, path, hide, box, width }) => {
+    ({ node, parent, next, path, hide, box, tucksUnder, width }) => {
       if (!parent.isConnected) return [];
       const copy = node.cloneNode(true);
       const twin = copy instanceof Element ? follow(copy, path) : null;
@@ -682,7 +700,7 @@ function draw(
         next !== null && next.parentNode === parent ? next : null
       );
       copies.add(copy);
-      return [{ copy, twin, box, width }];
+      return [{ copy, twin, box, tucksUnder, width }];
     }
   );
   // A split mark that went fades out where it was, over whatever row is there now.
@@ -726,7 +744,7 @@ function draw(
     twin: twin.getBoundingClientRect(),
     copy: copy.getBoundingClientRect(),
   }));
-  placed.forEach(({ copy, box }, i) => {
+  placed.forEach(({ copy, box, tucksUnder }, i) => {
     // Then moved so its first row sits on that row's old box.
     const dx = box.left - at[i].twin.left;
     const dy = box.top - at[i].twin.top;
@@ -741,8 +759,8 @@ function draw(
     const line = lineBelow(bottom, true);
     // KAN-993 (his pick B, round 1b). An add taken back goes up under the row
     // above, as far as the rows below come up, and never fades: its arrival
-    // played backwards.
-    if (kind === 'depart') {
+    // played backwards. A deleted group or window leaves the same way (KAN-998).
+    if (kind === 'depart' || tucksUnder) {
       copy.style.overflow = 'clip';
       const by = line === null ? bottom - top : line.from - line.to;
       const slides = [...copy.children].map((child) =>
