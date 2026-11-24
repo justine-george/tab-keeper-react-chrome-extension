@@ -9,6 +9,7 @@ import { rootReducer } from '../../redux/storeConfig';
 import { customMiddleware } from '../../redux/middleware/customMiddleware';
 import { toastMiddleware } from '../../redux/middleware/toastMiddleware';
 import { storageFullMiddleware } from '../../redux/middleware/storageFullMiddleware';
+import { reorderGlideMiddleware } from '../../redux/middleware/reorderGlideMiddleware';
 import { otherPageWriteMiddleware } from '../../redux/middleware/otherPageWriteMiddleware';
 import { initialState } from '../../redux/slices/settingsDataStateSlice';
 import { Theme } from '../../utils/constants/theme';
@@ -40,14 +41,14 @@ export function makeTestStore() {
       settingsDataState: { ...initialState, theme: Theme.LIGHT },
     },
     middleware: (g) =>
-      g({ serializableCheck: false })
-        .prepend(recorder)
-        .concat(
-          otherPageWriteMiddleware,
-          customMiddleware,
-          toastMiddleware,
-          storageFullMiddleware
-        ),
+      g({ serializableCheck: false }).prepend(recorder).concat(
+        otherPageWriteMiddleware,
+        customMiddleware,
+        toastMiddleware,
+        storageFullMiddleware,
+        // Innermost: it sees every change to the list, a nested dispatch's too.
+        reorderGlideMiddleware
+      ),
   });
   // KAN-661. As a page's load does: its saves merge against what it loaded.
   noteStoredSettingsSeen(store.getState().settingsDataState);

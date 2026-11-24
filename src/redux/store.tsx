@@ -6,6 +6,7 @@ import { rootReducer } from './storeConfig';
 import { customMiddleware } from './middleware/customMiddleware';
 import { toastMiddleware } from './middleware/toastMiddleware';
 import { storageFullMiddleware } from './middleware/storageFullMiddleware';
+import { reorderGlideMiddleware } from './middleware/reorderGlideMiddleware';
 import { otherPageWriteMiddleware } from './middleware/otherPageWriteMiddleware';
 import { setCloudConfigured } from './slices/globalStateSlice';
 
@@ -16,7 +17,9 @@ export const store = configureStore({
       otherPageWriteMiddleware,
       customMiddleware,
       toastMiddleware,
-      storageFullMiddleware
+      storageFullMiddleware,
+      // Innermost: it sees every change to the list, a nested dispatch's too.
+      reorderGlideMiddleware
     ),
 });
 
