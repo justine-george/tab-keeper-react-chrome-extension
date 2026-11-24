@@ -179,8 +179,8 @@ function stripHooks(root: Element): void {
 }
 
 const copies = new Set<HTMLElement>();
-// Each prepared glide still waiting for its commit.
-const pending = new Set<() => void>();
+// Each prepared glide still waiting for its commit, with the panes it measured.
+const pending = new Map<() => void, readonly Element[]>();
 // Each held scroll content and its own inline overflow, put back when the glide ends.
 const held = new Map<HTMLElement, { overflow: string; margin: string }>();
 // The newest glide drawn in each pane: only it lets that pane's held range go.
@@ -219,8 +219,16 @@ function scrolledContents(root: Element, els: Iterable<Element>): Element[] {
 
 /** Ends every glide, fade and copy now: a drag measures the list at rest. */
 export function cutLayoutGlides(): void {
-  [...pending].forEach((stop) => stop());
+  [...pending.keys()].forEach((stop) => stop());
   cutGlidesIn(null);
+}
+
+/** As cutLayoutGlides, inside `root` only: a drag settles its own list, never another pane's glide (KAN-994). */
+export function cutLayoutGlidesIn(root: Element): void {
+  pending.forEach((roots, stop) => {
+    if (roots.some((r) => r.contains(root) || root.contains(r))) stop();
+  });
+  cutGlidesIn(root);
 }
 
 // Ends the fades, copies and held scroll ranges inside `root`, or everywhere.
@@ -284,7 +292,7 @@ export function prepareLayoutGlide(
   { alongside = false }: { alongside?: boolean } = {}
 ): void {
   // A newer press wins; what is still moving keeps moving until its commit (step 0 below).
-  if (!alongside) [...pending].forEach((stop) => stop());
+  if (!alongside) [...pending.keys()].forEach((stop) => stop());
   const live = roots.filter((r) => r.isConnected);
   if (live.length === 0 || wantsStillness(source)) return;
   const watches = live.map((root) => {
@@ -314,7 +322,7 @@ export function prepareLayoutGlide(
     window.clearTimeout(timer);
     pending.delete(stop);
   };
-  pending.add(stop);
+  pending.set(stop, live);
 }
 
 // Whether the commit moved, removed or added anything that glides.

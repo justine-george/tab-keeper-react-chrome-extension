@@ -1,7 +1,12 @@
 import type { Middleware, StateFromReducersMapObject } from '@reduxjs/toolkit';
 
 import { rootReducer } from '../storeConfig';
-import type { tabContainerData } from '../slices/tabContainerDataStateSlice';
+import {
+  hydrateFromOtherPage,
+  replaceState,
+  type tabContainerData,
+} from '../slices/tabContainerDataStateSlice';
+import { isApplyingHeldChanges, isDragHeld } from '../dragHold';
 import { panes, prepareLayoutGlide } from '../../components/common/layoutGlide';
 
 type State = StateFromReducersMapObject<typeof rootReducer>;
@@ -41,10 +46,21 @@ export const reorderGlideMiddleware: Middleware<object, State> =
     const before = api.getState().tabContainerDataState.tabGroups;
     const result = next(action);
     const after = api.getState().tabContainerDataState.tabGroups;
-    if (editMovedASession(before, after)) {
-      prepareLayoutGlide(panes('sessions'), 'reorder', 'this page', {
-        alongside: true,
-      });
+    if (!editMovedASession(before, after)) return result;
+    // A sync or another page's write, as an arrival from elsewhere is
+    // (KAN-991): never while a row is held or as a change that waited for its
+    // release lands, and not made instant by a key last pressed here. A drop
+    // here is committed while its own row is still held, so the hold stops
+    // only changes from elsewhere.
+    const fromElsewhere =
+      hydrateFromOtherPage.match(action) || replaceState.match(action);
+    if (!fromElsewhere || (!isDragHeld() && !isApplyingHeldChanges())) {
+      prepareLayoutGlide(
+        panes('sessions'),
+        'reorder',
+        fromElsewhere ? 'elsewhere' : 'this page',
+        { alongside: true }
+      );
     }
     return result;
   };

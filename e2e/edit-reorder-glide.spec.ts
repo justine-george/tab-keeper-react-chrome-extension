@@ -179,6 +179,32 @@ test.describe('an edit moves its session up', () => {
     expect(travelled(r.edited, home, up)).toBe(true);
   });
 
+  test('a tab dragged to another place in the session moves it the same way', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await popup(context, extensionId, 'S3');
+    const s3 = await topOf(page.locator(row('S3')));
+    const tab = (id: string) =>
+      page.locator(`[data-pane="detail"] [data-drag-row-id="${id}"]`).first();
+    const lower = await tab('S3-w-t1').boundingBox();
+    const upper = await tab('S3-w-t0').boundingBox();
+    if (lower === null || upper === null) throw new Error('no tab rows');
+    const x = lower.x + 60;
+    await page.mouse.move(x, lower.y + lower.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(x, lower.y + lower.height / 2 - 8);
+    await page.mouse.move(x, upper.y + 3, { steps: 8 });
+
+    await startSampling(page, { edited: row('S3') });
+    await page.mouse.up();
+    const s = await samples(page);
+    const to = await topOf(page.locator(row('S3')));
+
+    expect(s3 - to).toBeGreaterThan(40);
+    expect(travelled(s.edited, s3, to)).toBe(true);
+  });
+
   test('from the keyboard it is instant', async ({ context, extensionId }) => {
     const page = await popup(context, extensionId, 'S3');
     const s3 = await topOf(page.locator(row('S3')));

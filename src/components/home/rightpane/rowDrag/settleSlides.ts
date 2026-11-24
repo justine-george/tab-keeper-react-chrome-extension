@@ -1,4 +1,7 @@
-import { cutLayoutGlides } from '../../../common/layoutGlide';
+import {
+  cutLayoutGlides,
+  cutLayoutGlidesIn,
+} from '../../../common/layoutGlide';
 import { LANDING_SLIDE } from './landingSlides';
 
 // KAN-280 Part F (Justine, 2026-10-15 02:25). A drag measures its list at rest. Rows step aside with an eased
@@ -19,8 +22,11 @@ interface HasAnimations {
 }
 
 export function settleSlides(root: HasAnimations | null): void {
-  // KAN-984. A fold's or delete's fading copies and reveals end too.
-  cutLayoutGlides();
+  // KAN-984. A fold's or delete's fading copies and reveals end too, in this
+  // list only: the sessions list may be gliding from the same drop (KAN-994).
+  if (typeof Element !== 'undefined' && root instanceof Element)
+    cutLayoutGlidesIn(root);
+  else cutLayoutGlides();
   // jsdom has no animations, and neither does a list not drawn yet.
   const animations = root?.getAnimations?.({ subtree: true }) ?? [];
   for (const a of animations) {
