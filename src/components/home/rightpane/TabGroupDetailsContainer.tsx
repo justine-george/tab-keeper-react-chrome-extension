@@ -25,7 +25,10 @@ import {
   openTabsInAWindow,
   updateWindowGroupTitle,
 } from '../../../redux/slices/tabContainerDataStateSlice';
-import { expandWindow } from '../../../redux/slices/globalStateSlice';
+import {
+  collapsedWindowIdsOf,
+  expandWindow,
+} from '../../../redux/slices/globalStateSlice';
 import { useTranslation } from 'react-i18next';
 import { isTabKeeperPage, toStoredTab } from '../../../utils/functions/capture';
 import {
@@ -61,7 +64,12 @@ import { corners, trackClearOfCorners } from '../../../styles/corners';
 import { RADIUS } from '../../../styles/scale';
 import { ROW_GUTTER_PX } from '../../../styles/rowHighlight';
 import { useScrollbarWidthVar } from '../../../hooks/useScrollbarWidthVar';
-import { panes, prepareLayoutGlide } from '../../common/layoutGlide';
+import {
+  cutLayoutGlides,
+  panes,
+  prepareLayoutGlide,
+} from '../../common/layoutGlide';
+import { prepareAddLanding, windowTitleRow } from './addLanding';
 
 // The trailing block with nothing resting in it: no title, no rows.
 const EMPTY_TRAILING_BLOCK: Pick<
@@ -80,6 +88,9 @@ export default function TabGroupDetailsContainer() {
 
   const { text: searchText, isSearching } = useSavedSearch();
 
+  const collapsedWindows = useSelector(
+    (state: RootState) => state.globalState.collapsedWindows
+  );
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
   );
@@ -268,8 +279,18 @@ export default function TabGroupDetailsContainer() {
     // KAN-211. See toStoredTab: the normalising is done in one place so the
     // three ways to save a tab cannot disagree about what a tab is.
     const tabData = toStoredTab(tab);
-    if (!dispatch(addCurrTabToWindow({ tabGroupId, windowId, tabData })))
+    // KAN-993. A folded window's rows, the new one first, come in as its unfold does.
+    const folded = collapsedWindowIdsOf(collapsedWindows, tabGroupId).includes(
+      windowId
+    );
+    await prepareAddLanding(
+      windowTitleRow(windowId),
+      folded ? 'fold' : 'arrive'
+    );
+    if (!dispatch(addCurrTabToWindow({ tabGroupId, windowId, tabData }))) {
+      cutLayoutGlides();
       return;
+    }
     // KAN-821. Show what was added: open a folded window, follow the new row.
     dispatch(expandWindow({ tabGroupId, windowId }));
     bringRowIntoView(tabData.tabId);

@@ -1,6 +1,11 @@
 import type { ThunkAction, UnknownAction } from '@reduxjs/toolkit';
 
 import { addCurrWindowToTabGroup } from './slices/tabContainerDataStateSlice';
+import { cutLayoutGlides } from '../components/common/layoutGlide';
+import {
+  nextFrame,
+  prepareAddLanding,
+} from '../components/home/rightpane/addLanding';
 import { showSession } from './showSession';
 import type { RootState } from './store';
 import {
@@ -15,7 +20,7 @@ export const showSessionAndAddCurrentWindow =
   (
     tabGroupId: string
   ): ThunkAction<Promise<void>, RootState, unknown, UnknownAction> =>
-  async (dispatch) => {
+  async (dispatch, getState) => {
     const windowData = await new Promise<chrome.windows.Window>((resolve) =>
       chrome.windows.getCurrent({ populate: true }, (result) => resolve(result))
     );
@@ -37,6 +42,13 @@ export const showSessionAndAddCurrentWindow =
       recentTabsOf(windowData.id)
     );
 
+    const shownAlready =
+      getState().tabContainerDataState.selectedTabGroupId === tabGroupId;
     dispatch(showSession(tabGroupId));
+    // KAN-993. Another session is put on screen at once; the window then comes down into it.
+    if (!shownAlready) await nextFrame();
+    await prepareAddLanding(null);
+    const before = getState().tabContainerDataState;
     await dispatch(addCurrWindowToTabGroup({ tabGroupId, window }));
+    if (getState().tabContainerDataState === before) cutLayoutGlides();
   };

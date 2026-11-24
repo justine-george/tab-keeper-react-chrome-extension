@@ -150,7 +150,12 @@ import {
   rowHighlightCss,
 } from '../../../styles/rowHighlight';
 import { useNativeMouseLeave } from '../../../hooks/useNativeMouseLeave';
-import { panes, prepareLayoutGlide } from '../../common/layoutGlide';
+import {
+  cutLayoutGlides,
+  panes,
+  prepareLayoutGlide,
+} from '../../common/layoutGlide';
+import { bandTitleRow, prepareAddLanding } from './addLanding';
 
 /**
  * The Chrome group title, and the editor that replaces it (KAN-205).
@@ -1102,7 +1107,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     // (TabGroupDetailsContainer): a Tab Keeper page must never be added to
     // a group as if it were a saved tab.
     if (!tab || isTabKeeperPage(tab)) return;
-    dispatch(
+    await prepareAddLanding(bandTitleRow(group.groupId));
+    const added = dispatch(
       addCurrTabToChromeGroup({
         tabGroupId,
         windowId,
@@ -1113,6 +1119,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         tabData: toStoredTab(tab),
       })
     );
+    if (!added) cutLayoutGlides();
   };
 
   // Same DRAFT discipline as the window title above (KAN-51): seeded when

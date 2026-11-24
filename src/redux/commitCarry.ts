@@ -17,6 +17,8 @@ import {
   copyWindowTo,
 } from './copyToSession';
 import { noteSessionSaved } from './slices/globalStateSlice';
+import { stepSince } from './slices/tabContainerDataStateSlice';
+import { noteAddStep } from './stepGlides';
 import type { RootState } from './store';
 
 // Whether the receiver took the carry.
@@ -32,12 +34,17 @@ export const carryToSessionRow =
 // KAN-988. A new session like any other: the header mark's shutter slides (KAN-388).
 export const carryToNewSession =
   (item: CarriedItem, fallbackTitle: string, typedTitle: string = ''): Took =>
-  (dispatch) => {
+  (dispatch, getState) => {
+    const history = getState().undoRedo.present;
     const took =
       item.source === 'saved'
         ? dispatch(moveToNewSession(item.ref, fallbackTitle, typedTitle))
         : dispatch(copyToNewSession(item.live, fallbackTitle, typedTitle));
-    if (took) dispatch(noteSessionSaved());
+    if (took) {
+      dispatch(noteSessionSaved());
+      // KAN-993. Its undo closes the list up, as a saved session's does.
+      noteAddStep(stepSince(getState, history), 'sessions');
+    }
     return took;
   };
 
