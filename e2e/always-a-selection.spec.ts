@@ -105,9 +105,10 @@ test.describe('a session is always selected (KAN-390)', () => {
   });
 });
 
-// Folded, the selected row is kept in state but not drawn: no saved session is
-// shown. Unfolding draws it; a peek lights the row that is then shown.
-test.describe('the tab view folded does not draw the selection (KAN-390)', () => {
+// KAN-999 (his pick D4). Folded, the selected row stays drawn selected, with
+// Open and Replace, as unfolded: the saved session's card says where it went.
+// A peek lights the row that is then shown.
+test.describe('the tab view folded draws the selection (KAN-390, KAN-999)', () => {
   const openTabView = async (
     context: BrowserContext,
     extensionId: string
@@ -127,42 +128,55 @@ test.describe('the tab view folded does not draw the selection (KAN-390)', () =>
   const bg = (page: Page, title: string) =>
     row(page, title).evaluate((el) => getComputedStyle(el).backgroundColor);
 
-  test('folded the selected row looks like an unselected one; unfolding draws it; folding again removes it', async ({
+  test('folded the selected row is drawn selected, with Open and Replace; unfolding and folding keep it', async ({
     context,
     extensionId,
   }) => {
     const page = await openTabView(context, extensionId);
     await page.mouse.move(0, 0);
 
-    await expect(row(page, 'First session')).toHaveCSS(
-      'background-color',
-      NO_FILL
-    );
-    expect(await bg(page, 'First session')).toBe(
-      await bg(page, 'Second session')
-    );
+    const drawnSelected = async () => {
+      await expect(row(page, 'First session')).not.toHaveCSS(
+        'background-color',
+        NO_FILL
+      );
+      await expect(row(page, 'Second session')).toHaveCSS(
+        'background-color',
+        NO_FILL
+      );
+      const actions = row(page, 'First session').locator('..');
+      await expect(
+        actions.getByRole('button', { name: /^Open/ }).first()
+      ).toBeVisible();
+      await expect(
+        actions.getByRole('button', { name: /^Replace/ }).first()
+      ).toBeVisible();
+    };
+    await drawnSelected();
 
     await page
       .getByRole('button', { name: 'Show the saved session', exact: true })
       .click();
     await page.mouse.move(0, 0);
-    await expect(row(page, 'First session')).not.toHaveCSS(
-      'background-color',
-      NO_FILL
-    );
-    await expect(row(page, 'Second session')).toHaveCSS(
-      'background-color',
-      NO_FILL
-    );
+    await drawnSelected();
 
     await page
       .getByRole('button', { name: 'Fold the saved session away', exact: true })
       .click();
     await page.mouse.move(0, 0);
-    await expect(row(page, 'First session')).toHaveCSS(
-      'background-color',
-      NO_FILL
-    );
+    await drawnSelected();
+  });
+
+  test('folded, clicking the drawn-selected row still peeks', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openTabView(context, extensionId);
+
+    await row(page, 'First session').click({ position: { x: 20, y: 20 } });
+
+    await expect(page.getByText('First window')).toBeVisible();
+    await expect(page.locator('[data-saved-session-card]')).toHaveCount(0);
   });
 
   test('a peek lights the peeked row', async ({ context, extensionId }) => {

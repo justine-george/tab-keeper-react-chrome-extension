@@ -24,7 +24,6 @@ import {
   sessionDateLabel,
   sessionDateTitle,
 } from '../../../utils/functions/sessionDate';
-import { selectIsSavedSessionFolded } from '../../../redux/savedSessionFold';
 import { isTabView } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
 import { corners } from '../../../styles/corners';
@@ -145,9 +144,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     t
   );
 
-  // Folded, no session is shown: the selection is kept, not drawn.
-  const folded = useSelector(selectIsSavedSessionFolded);
-  const drawsSelection = tabGroupData.isSelected && !(isTabView() && folded);
+  // KAN-999. Folded too: the saved session's card says where it went.
+  const drawsSelection = tabGroupData.isSelected;
 
   // KAN-413. Open and Switch on the tour's sample wait for it; a filter dims them, since the row's reveal owns their opacity.
   const isOpenBlocked = useIsOpenBlockedByTour(tabGroupData.tabGroupId);

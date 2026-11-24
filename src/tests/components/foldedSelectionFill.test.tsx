@@ -11,10 +11,10 @@ import {
 import { buildSession } from '../fixtures/sessionFixture';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 
-// Folded, Open now fills the tab view and no saved session is shown, so the
-// selected row does not draw its selection fill: the selection stays in state,
-// it is just not drawn. A peek shows the clicked session, and so lights it.
-// The selected row carries no ARIA state, so there is nothing else to follow.
+// KAN-999 (his pick D4). Folded, the selected row still draws its selection,
+// hover included, as unfolded: the saved session's card says where its
+// session went. The selected row carries no ARIA state, so there is nothing
+// else to follow.
 
 const goToTabView = () => history.replaceState(null, '', '?view=tab');
 
@@ -59,12 +59,23 @@ afterEach(() => {
   localStorage.clear();
 });
 
-describe('the selected row draws its fill only while its session is shown', () => {
-  test('folded: hover still fills the selected row', async () => {
+describe('the selected row draws its fill folded too', () => {
+  // CONTROL: an unselected row does get the hover fill.
+  test('folded: hover fills an unselected row', async () => {
     await renderHome();
     await mounted();
 
-    expect(hoverRulesFor(rowOf('First session'))).toMatch(
+    expect(hoverRulesFor(rowOf('Second session'))).toMatch(
+      new RegExp(`inset 0 0 0 100vw ${LIGHT_THEME.HOVER_COLOR}`, 'i')
+    );
+  });
+
+  test('folded: hover draws no fill over the selected row', async () => {
+    await renderHome();
+    await mounted();
+
+    // No hover fill over it: its selection fill stays (the e2e reads the color).
+    expect(hoverRulesFor(rowOf('First session'))).not.toMatch(
       new RegExp(`inset 0 0 0 100vw ${LIGHT_THEME.HOVER_COLOR}`, 'i')
     );
   });
