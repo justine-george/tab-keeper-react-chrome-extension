@@ -6,6 +6,7 @@ import { seed, session, tab, win } from './fixtures/betweenSessions';
 import { seedSettings } from './fixtures/seed';
 import { boxOf, pickUp } from './fixtures/sessionDrag';
 import { carryTo } from './fixtures/liveWindows';
+import { samples, startSampling } from './fixtures/glideSamples';
 
 // KAN-999 on the real artifact. Folded, the saved session keeps an outlined
 // card between the list and Currently open: 44px wide, from the top of
@@ -225,4 +226,57 @@ test('narrow and folded, then shown: the rail card in a 53px column', async ({
   expect(
     (await edges(railCard(page))).right - (await edges(railCard(page))).left
   ).toBeCloseTo(44, 0);
+});
+
+// KAN-999. Nothing snaps after a user action: folded, deleting the last
+// session takes the card away and Currently open glides into its column;
+// Undo brings the card back the same way.
+test('folded, deleting the last session: the card leaves and Currently open glides; Undo brings both back', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openTabView(
+    context,
+    extensionId,
+    true,
+    [session('S1', 'Trip', [win('w1', [tab('a0')])])],
+    WIDE
+  );
+  await expect(card(page)).toBeVisible();
+  const from = (await edges(page.locator('[data-pane="open-now"]'))).left;
+
+  const SAMPLE = {
+    'openNow:x': '[data-pane="open-now"]',
+    'card:op': '[data-saved-session-card]',
+  };
+  const row = page.locator('[data-drag-row-id="S1"]');
+  const rb = await boxOf(row);
+  await page.mouse.click(rb.x + 60, rb.y + 16, { button: 'right' });
+  const del = page.getByRole('menuitem', { name: 'Delete session' });
+  await expect(del).toBeVisible();
+  await startSampling(page, SAMPLE, 700);
+  await del.click();
+  await page.waitForTimeout(750);
+  const out = await samples(page);
+  const xs = out['openNow:x'];
+  // Lands 52px left, in the column the card had.
+  expect(xs[xs.length - 1]).toBeCloseTo(from - 52, 0);
+  // A glide: frames in between, not a jump.
+  const between = xs.filter((x) => x < from - 2 && x > from - 50);
+  expect(between.length).toBeGreaterThanOrEqual(3);
+  // The card fades before it goes.
+  const ops = out['card:op'].filter((o) => !Number.isNaN(o));
+  expect(ops.some((o) => o > 0.05 && o < 0.95)).toBe(true);
+  await expect(card(page)).toHaveCount(0);
+
+  await startSampling(page, SAMPLE, 700);
+  await page.keyboard.press('ControlOrMeta+z');
+  await page.waitForTimeout(750);
+  const back = await samples(page);
+  const bx = back['openNow:x'];
+  expect(bx[bx.length - 1]).toBeCloseTo(from, 0);
+  expect(
+    bx.filter((x) => x < from - 2 && x > from - 50).length
+  ).toBeGreaterThanOrEqual(3);
+  await expect(card(page)).toBeVisible();
 });

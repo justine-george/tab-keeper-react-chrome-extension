@@ -22,6 +22,7 @@ import {
   SAVED_CARD_COLUMN_PX,
 } from './home/opennow/railQuery';
 import SavedSessionCard from './home/SavedSessionCard';
+import { useSavedCardPresence } from './home/savedCardPresence';
 import { paneWidths } from './home/paneWidths';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { useViewportWidth } from '../hooks/useViewportWidth';
@@ -135,7 +136,13 @@ export default function MainContainer() {
   const openNowFolded = useSelector(selectIsOpenNowFolded);
   // KAN-999. Folded with a session to show, the saved session keeps its card.
   const showsSavedCard = useSelector(selectShowsSavedSessionCard);
-  const savedCardTrack = showsSavedCard ? `${SAVED_CARD_COLUMN_PX}px` : '0';
+  // Drawn while it leaves too: a first save or last delete moves it (KAN-999).
+  const gridEl = useRef<HTMLDivElement | null>(null);
+  const savedCardDrawn = useSavedCardPresence(
+    showsSavedCard && isTabView(),
+    gridEl
+  );
+  const savedCardTrack = savedCardDrawn ? `${SAVED_CARD_COLUMN_PX}px` : '0';
   // Settings needs no test here: it renders its own grid, with no Open now and no grip.
   const showResizeGrip = useIsOpenNowGripShown();
   const showListGrip = useIsListGripShown();
@@ -184,6 +191,7 @@ export default function MainContainer() {
   // paint. The popup never attaches it.
   const tabGridRef = useCallback(
     (grid: HTMLDivElement | null) => {
+      gridEl.current = grid;
       grid?.style.setProperty('--list-width', `${drawn.list}px`);
       grid?.style.setProperty('--open-now-width', `${drawn.openNow}px`);
     },
@@ -480,7 +488,7 @@ export default function MainContainer() {
             />
           )}
           {/* KAN-999. Folded, the saved session's card; a false slot otherwise. */}
-          {isTab && showsSavedCard && <SavedSessionCard />}
+          {isTab && savedCardDrawn && <SavedSessionCard />}
           {/* KAN-280 O4. Folded, the saved detail is not rendered at all.
               This slot stays in place either way, so Open now keeps its
               position among the children and is not remounted by a fold. */}

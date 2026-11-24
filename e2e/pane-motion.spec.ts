@@ -176,6 +176,8 @@ test('each fold starts a transition that moves its layers, from the drawer too; 
       'pane-open-now',
       'pane-open-now-fold',
       'pane-open-now-back',
+      // KAN-999. The saved session's card appears where it lives.
+      'pane-saved-card',
     ])
   );
 
@@ -187,6 +189,8 @@ test('each fold starts a transition that moves its layers, from the drawer too; 
     dir: 'unfold',
     ready: 'started',
   });
+  // KAN-999. The card the press was on fades as Currently open slides back.
+  expect(showSaved.layers).toEqual(expect.arrayContaining(['pane-saved-card']));
 
   await press(page, () =>
     detail.getByRole('button', { name: FOLD_OPEN_NOW }).click()
