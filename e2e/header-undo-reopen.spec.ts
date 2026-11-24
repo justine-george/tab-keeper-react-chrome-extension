@@ -97,3 +97,38 @@ test('after a close, the header Undo reopens it with the gap opening; once the t
     'true'
   );
 });
+
+// KAN-996 (his rule): every undo plays its motion, so ⌘Z's Reopen opens the gap too.
+test('⌘Z reopens a close with the same glide', async ({
+  context,
+  extensionId,
+  serviceWorker,
+}) => {
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
+  await page.locator('[data-tour-anchor="save"]').waitFor();
+  const w = await liveWindow(serviceWorker, ['One', 'Two', 'Three', 'Four']);
+  const block = page.locator(
+    `${OPEN_NOW} [data-open-window-id="${w.windowId}"]`
+  );
+  await expect(block.locator('[data-open-tab-id]')).toHaveCount(4);
+  const three = `${OPEN_NOW} [data-open-tab-id="${w.tabIds[2]}"]`;
+  await elementLanded(page.locator(three), 'ancestors');
+  const from = await topOf(page.locator(three));
+  await page.locator(`${OPEN_NOW} [data-open-tab-id="${w.tabIds[1]}"]`).hover();
+  await block
+    .getByRole('button', { name: 'Close tab: Two', exact: true })
+    .click();
+  await expect(block.locator('[data-open-tab-id]')).toHaveCount(3);
+  await elementLanded(page.locator(three), 'ancestors');
+  const to = await topOf(page.locator(three));
+  await page.mouse.move(700, 790);
+
+  await startSampling(page, { three }, 1500);
+  await page.keyboard.press('ControlOrMeta+z');
+  const s = await samples(page);
+  await expect(block.locator('[data-open-tab-id]')).toHaveCount(4);
+  await expect.poll(() => topOf(page.locator(three))).toBeCloseTo(from, 0);
+  expect(between(s.three, to, from).length).toBeGreaterThanOrEqual(3);
+});
