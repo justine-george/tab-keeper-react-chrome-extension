@@ -19,7 +19,9 @@ import PaneResizeGrip from './home/PaneResizeGrip';
 import {
   OPEN_NOW_RAIL_PX,
   OPEN_NOW_RAIL_QUERY,
+  SAVED_CARD_COLUMN_PX,
 } from './home/opennow/railQuery';
+import SavedSessionCard from './home/SavedSessionCard';
 import { paneWidths } from './home/paneWidths';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { useViewportWidth } from '../hooks/useViewportWidth';
@@ -37,6 +39,7 @@ import { redoStep, undoStep } from '../redux/undoHistory';
 import {
   selectIsOpenNowFolded,
   selectIsSavedSessionFolded,
+  selectShowsSavedSessionCard,
 } from '../redux/savedSessionFold';
 import { useOpenNowPlace } from '../hooks/useOpenNowPlace';
 import { paneMotionCss } from './home/paneMotion';
@@ -130,6 +133,9 @@ export default function MainContainer() {
   // saved session's button), or the saved session's column (folded).
   const place = useOpenNowPlace();
   const openNowFolded = useSelector(selectIsOpenNowFolded);
+  // KAN-999. Folded with a session to show, the saved session keeps its card.
+  const showsSavedCard = useSelector(selectShowsSavedSessionCard);
+  const savedCardTrack = showsSavedCard ? `${SAVED_CARD_COLUMN_PX}px` : '0';
   // Settings needs no test here: it renders its own grid, with no Open now and no grip.
   const showResizeGrip = useIsOpenNowGripShown();
   const showListGrip = useIsListGripShown();
@@ -360,26 +366,27 @@ export default function MainContainer() {
   // (paneWidths.ts), never under 356px, the popup's own 45% of 790px;
   // Settings' 14.875rem is its 30% at 16px text, and grows with the text (KAN-754).
   //
-  // KAN-280 O1/O4. The third column is Open now's, side by side: its width
+  // KAN-280 O1/O4. The last column is Open now's, side by side: its width
   // is --open-now-width (openNowTrackWidth above). Below 1100px it is the
-  // 44px rail's (O2), and at any width while the saved session's button has
+  // rail's (O2), and at any width while the saved session's button has
   // folded Open now (KAN-808). Folded it is 0 at every width, and Open now
   // sits in `detail` instead: the same grid either way, so nothing changes sides.
+  // KAN-999. Folded, the saved session's card has the second column.
   const tabContainerStyle = css`
     display: grid;
-    grid-template-columns: var(--list-width) minmax(0, 1fr) ${
+    grid-template-columns: var(--list-width) ${savedCardTrack} minmax(0, 1fr) ${
         folded
           ? '0'
           : openNowFolded
             ? `${OPEN_NOW_RAIL_PX}px`
             : 'var(--open-now-width)'
       };
-    grid-template-areas: 'sessions detail active-session';
+    grid-template-areas: 'sessions saved-card detail active-session';
     ${
       !folded &&
       css`
         @media ${OPEN_NOW_RAIL_QUERY} {
-          grid-template-columns: 356px minmax(0, 1fr) ${OPEN_NOW_RAIL_PX}px;
+          grid-template-columns: 356px 0 minmax(0, 1fr) ${OPEN_NOW_RAIL_PX}px;
         }
       `
     }
@@ -472,6 +479,8 @@ export default function MainContainer() {
               onLiveWidth={setLiveListWidth}
             />
           )}
+          {/* KAN-999. Folded, the saved session's card; a false slot otherwise. */}
+          {isTab && showsSavedCard && <SavedSessionCard />}
           {/* KAN-280 O4. Folded, the saved detail is not rendered at all.
               This slot stays in place either way, so Open now keeps its
               position among the children and is not remounted by a fold. */}

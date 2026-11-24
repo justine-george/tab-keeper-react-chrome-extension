@@ -2,6 +2,7 @@ import type { BrowserContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { elementLanded } from './fixtures/landed';
+import { S1, seed as seedSaved } from './fixtures/betweenSessions';
 import {
   buildContainer,
   buildSession,
@@ -366,6 +367,8 @@ test.describe('during the tour', () => {
     context,
     extensionId,
   }) => {
+    // KAN-999. A saved session, so folding draws its card: the press that shows it again.
+    await seedSaved(context, [S1()], 'S1');
     const page = await openRunFromHelp(context, extensionId, {
       ...FULL_RUN,
       viewport: WIDE,
@@ -377,7 +380,9 @@ test.describe('during the tour', () => {
     await expect(fold).toHaveAccessibleName(FOLD_SAVED);
     const [x, y] = await centreOf(fold);
     await page.mouse.click(x, y);
-    await expect(fold).toHaveAccessibleName(SHOW_SAVED);
+    // KAN-999. Folded, the saved session's card shows it again.
+    const savedCard = page.locator('[data-saved-session-card]');
+    await expect(savedCard).toHaveAccessibleName(SHOW_SAVED);
     await expect(cardAt(page, 2)).toBeVisible();
     expect(await runs(page)).toEqual([]);
 
@@ -385,7 +390,7 @@ test.describe('during the tour', () => {
     await cardButton(page, 'Skip tutorial').click();
     await closeReplayNote(page);
     await expect(card(page)).toHaveCount(0);
-    const unfold = await press(page, () => fold.click());
+    const unfold = await press(page, () => savedCard.click());
     expect(unfold).toMatchObject({
       move: 'saved',
       dir: 'unfold',

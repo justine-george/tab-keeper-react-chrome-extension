@@ -35,11 +35,12 @@ import {
 } from '../../../redux/carry';
 import type { CarriedItem } from '../../../redux/carriedItem';
 import { corners } from '../../../styles/corners';
-import { DURATION, EASE, RADIUS, TYPE } from '../../../styles/scale';
+import { DURATION, EASE, RADIUS } from '../../../styles/scale';
 import { isUnclaimedEscape } from '../../common/unclaimedEscape';
 import { COACH_CARD_SHOWN } from '../paneMotion';
 import { springSweepStyle } from '../../common/springOpen';
 import { useRailSpring } from './useRailSpring';
+import RailLabel from '../RailLabel';
 import {
   DRAWER_CARRY_START,
   DRAWER_SPRUNG,
@@ -92,7 +93,7 @@ export default function OpenNowRail({
   searchInputRef,
 }: OpenNowRailProps) {
   const COLORS = useThemeColors();
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const drawerId = useId();
   const headingId = useId();
 
@@ -400,35 +401,6 @@ export default function OpenNowRail({
     }
   `;
 
-  // KAN-776 C. Read top to bottom; CJK stands upright. Set, not inherited:
-  // inherited, it drew black on Charcoal.
-  const labelStyle = css`
-    color: ${COLORS.TEXT_COLOR};
-    font-size: ${TYPE.SECONDARY};
-    padding: 6px 0 4px;
-  `;
-  const verticalStyle = css`
-    writing-mode: vertical-rl;
-    line-height: 1.25;
-    white-space: nowrap;
-  `;
-  // Upright CJK in vertical-rl advances by the font's vertical metrics, and
-  // WenQuanYi Zen Hei's are zero: the label drew on one spot. Stacked one
-  // character per line, each takes its horizontal advance; a word per block
-  // keeps Korean's spaces.
-  const stacksUpright = /^(ja|zh|ko)\b/i.test(i18n.language);
-  const stackedStyle = css`
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.35em;
-    line-height: 1;
-    & > span {
-      width: 1em;
-      text-align: center;
-    }
-  `;
-
   // z-index 900: over the panes, and under the toast (1050), which must stay
   // readable while the drawer is open. The modals are <dialog>s in the top
   // layer, above any z-index, so they need no room here.
@@ -494,18 +466,7 @@ export default function OpenNowRail({
       >
         <Icon type="tab" />
         {/* Named by aria-label, which holds this text and the count. */}
-        {stacksUpright ? (
-          <span css={[labelStyle, stackedStyle]}>
-            {t('Open now')
-              .split(' ')
-              .flatMap((word, i) => [
-                i > 0 ? ' ' : null,
-                <span key={i}>{word}</span>,
-              ])}
-          </span>
-        ) : (
-          <span css={[labelStyle, verticalStyle]}>{t('Open now')}</span>
-        )}
+        <RailLabel text={t('Open now')} />
         {showsShortcut && (
           <span aria-hidden="true">
             <Tag value={SEARCH_SHORTCUT_KEY} />

@@ -159,7 +159,8 @@ export function isListResizable(
 }
 
 // The width Open now's column takes beside the saved session: its own, the
-// rail's, or none in the saved session's column.
+// rail's, or none in the saved session's column. (There, the saved session's
+// 52px card never binds: the list stops at 600, and 1100 - 52 - 340 > 600.)
 function besideList(place: OpenNowPlace, openNowWidth: number): number {
   if (place === 'beside') return openNowWidth;
   return place === 'rail' ? OPEN_NOW_RAIL_PX : 0;

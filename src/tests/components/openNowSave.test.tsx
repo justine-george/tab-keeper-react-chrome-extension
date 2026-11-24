@@ -300,8 +300,7 @@ describe('saving from the Open now pane (KAN-280 O13)', () => {
       .filter((button) => !button.closest('[data-open-window-id]'))
       .map((button) => button.getAttribute('aria-label'));
     expect(headerNames).toEqual([
-      // KAN-794. On the heading's line.
-      'Show the saved session',
+      // KAN-999. Folded, Show the saved session is the saved session's card, not here.
       'Collapse all windows',
       'Save all open windows as a session',
       // KAN-780. Its own button; the header's ⋮ is gone.

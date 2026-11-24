@@ -1,5 +1,6 @@
 import type { Global } from './slices/globalStateSlice';
 import type { SettingsData } from './slices/settingsDataStateSlice';
+import type { TabMasterContainer } from './slices/tabContainerDataStateSlice';
 
 // The two fields the answer reads. RootState satisfies it, so useSelector
 // takes the selector as is.
@@ -31,3 +32,17 @@ export const selectIsSavedSessionFolded = (
 export const selectIsOpenNowFolded = (state: OpenNowFoldState): boolean =>
   state.settingsDataState.foldOpenNowInTabView &&
   !selectIsSavedSessionFolded(state);
+
+export interface SavedSessionCardState extends SavedSessionFoldState {
+  tabContainerDataState: Pick<TabMasterContainer, 'tabGroups'>;
+}
+
+export const selectHasSavedSessions = (state: SavedSessionCardState): boolean =>
+  state.tabContainerDataState.tabGroups.length > 0;
+
+// KAN-999. Whether the folded saved session draws its card: folded, with a
+// session to show. With none, the list's empty line already explains.
+export const selectShowsSavedSessionCard = (
+  state: SavedSessionCardState
+): boolean =>
+  selectIsSavedSessionFolded(state) && selectHasSavedSessions(state);

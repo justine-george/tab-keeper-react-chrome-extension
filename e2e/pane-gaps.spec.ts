@@ -101,7 +101,7 @@ test('tab view: both lines go, each gap is 8px, and the session is 540px at 1440
   expect(p['open-now'].borderRight).toBe('1px');
 });
 
-test('folded: no line between the list and Open now, an 8px gap', async ({
+test("folded: no line between the list, the saved session's card and Open now, 8px gaps", async ({
   context,
   extensionId,
 }) => {
@@ -115,7 +115,11 @@ test('folded: no line between the list and Open now, an 8px gap', async ({
   const p = await panes(page);
   expect(p.detail).toBeUndefined();
   expect(p['open-now'].borderLeft).toBe('0px');
-  expect(p['open-now'].contentLeft - p.sessions.contentRight).toBe(GAP);
+  // KAN-999. The saved session's card sits between them, 8px from each.
+  const card = await page.locator('[data-saved-session-card]').boundingBox();
+  if (card === null) throw new Error('no saved session card');
+  expect(card.x - p.sessions.contentRight).toBe(GAP);
+  expect(p['open-now'].contentLeft - (card.x + card.width)).toBe(GAP);
   expect(p['open-now'].borderRight).toBe('1px');
 });
 

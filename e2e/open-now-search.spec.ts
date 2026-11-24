@@ -1509,10 +1509,9 @@ test.describe('Open now’s header with nothing listed (KAN-491)', () => {
           return {
             saved: top('input[aria-label="Search saved tabs"]'),
             open: top('input[aria-label="Search open tabs"]'),
-            // The » (Show the saved session), the one button drawn either way.
-            buttons: top(
-              '[data-open-now-header] [aria-label="Show the saved session"]'
-            ),
+            // The heading's line, drawn either way. (KAN-999: folded, its
+            // fold button moved to the saved session's card.)
+            buttons: top('[data-open-now-header] h2'),
           };
         });
       // PREMISE: something is listed (the launch window's about:blank).
