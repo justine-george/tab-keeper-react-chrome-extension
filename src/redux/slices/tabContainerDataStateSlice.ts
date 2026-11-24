@@ -21,6 +21,7 @@ import type { RootState } from '../store';
 import {
   countDuplicateTabs,
   duplicateTabsIn,
+  keptCopiesIn,
   namesKeptCopiesTake,
   type DuplicateScope,
 } from '../../utils/functions/duplicateTabs';
@@ -111,6 +112,7 @@ import {
   type TabGroupColor,
 } from '../../utils/functions/tabGroups';
 import { noteStep } from '../stepGlides';
+import { panes, prepareLayoutGlide } from '../../components/common/layoutGlide';
 import type { chromeTabGroupData } from '../../utils/functions/tabGroups';
 import {
   forgetMissingActiveTab,
@@ -947,9 +949,12 @@ export const sortSessions = createAsyncThunk(
   async (params: sortSessionsParams, thunkAPI) => {
     const getState = thunkAPI.getState as () => RootState;
     const before = sessionOrder(getState());
+    // KAN-996 (pick 1-B). Every row glides to its place, and back on undo.
+    prepareLayoutGlide(panes('sessions'), 'reorder');
     const step = recordedStep(getState, () =>
       thunkAPI.dispatch(sortSessionsInternal(params))
     );
+    noteStep(step, 'sessions', 'reorder');
     announceIfReordered(thunkAPI, before, step);
   }
 );
@@ -959,9 +964,11 @@ export const resetSessionOrder = createAsyncThunk(
   async (_: void, thunkAPI) => {
     const getState = thunkAPI.getState as () => RootState;
     const before = sessionOrder(getState());
+    prepareLayoutGlide(panes('sessions'), 'reorder');
     const step = recordedStep(getState, () =>
       thunkAPI.dispatch(clearSessionOrder())
     );
+    noteStep(step, 'sessions', 'reorder');
     announceIfReordered(thunkAPI, before, step);
   }
 );
@@ -1246,12 +1253,16 @@ export const removeDuplicateTabs = createAsyncThunk<
     .getState()
     .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === tabGroupId);
   const count = session ? countDuplicateTabs(session, within) : 0;
-  if (count === 0) return;
+  if (count === 0 || !session) return;
+  // KAN-996 (pick G). The copies leave as a delete does, and the tabs they copied light up.
+  const kept = keptCopiesIn(session, within).map((tab) => tab.tabId);
+  prepareLayoutGlide(panes('detail'), 'delete', 'this page', { light: kept });
   const step = recordedStep(thunkAPI.getState, () =>
     thunkAPI.dispatch(
       removeDuplicateTabsInternal({ tabGroupId, within, now: Date.now() })
     )
   );
+  noteStep(step, 'detail', 'dedupe', kept);
   thunkAPI.dispatch(
     showToast({
       toastText: TOAST_MESSAGES.DUPLICATE_TABS_REMOVED,
@@ -1274,11 +1285,14 @@ export const sortTabsBySite = createAsyncThunk<
     .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === tabGroupId)
     ?.windows.find((w) => w.windowId === windowId);
   if (!window || isSavedWindowSortedBySite(window)) return;
+  // KAN-996 (pick 2-B). Every row glides to its place, and back on undo.
+  prepareLayoutGlide(panes('detail'), 'reorder');
   const step = recordedStep(thunkAPI.getState, () =>
     thunkAPI.dispatch(
       sortTabsBySiteInternal({ tabGroupId, windowId, now: Date.now() })
     )
   );
+  noteStep(step, 'detail', 'reorder');
   thunkAPI.dispatch(
     showToast({
       toastText: TOAST_MESSAGES.TABS_SORTED_BY_SITE,
@@ -1302,6 +1316,7 @@ export const sortGroupTabsBySite = createAsyncThunk<
       .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === tabGroupId)
       ?.windows.find((w) => w.windowId === windowId);
     if (!window || isSavedGroupSortedBySite(window, groupId)) return;
+    prepareLayoutGlide(panes('detail'), 'reorder');
     const step = recordedStep(thunkAPI.getState, () =>
       thunkAPI.dispatch(
         sortGroupTabsBySiteInternal({
@@ -1312,6 +1327,7 @@ export const sortGroupTabsBySite = createAsyncThunk<
         })
       )
     );
+    noteStep(step, 'detail', 'reorder');
     thunkAPI.dispatch(
       showToast({
         toastText: TOAST_MESSAGES.TABS_SORTED_BY_SITE,
@@ -1336,6 +1352,8 @@ export const sortWindowGroupsByName = createAsyncThunk<
       .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === tabGroupId)
       ?.windows.find((w) => w.windowId === windowId);
     if (!window || isSavedWindowGroupsSortedByName(window, locale)) return;
+    // KAN-996 (pick 3-B). Each group glides to its place as one.
+    prepareLayoutGlide(panes('detail'), 'reorder');
     const step = recordedStep(thunkAPI.getState, () =>
       thunkAPI.dispatch(
         sortWindowGroupsByNameInternal({
@@ -1346,6 +1364,7 @@ export const sortWindowGroupsByName = createAsyncThunk<
         })
       )
     );
+    noteStep(step, 'detail', 'reorder');
     thunkAPI.dispatch(
       showToast({
         toastText: TOAST_MESSAGES.GROUPS_SORTED_BY_NAME,
@@ -1356,6 +1375,33 @@ export const sortWindowGroupsByName = createAsyncThunk<
     );
   }
 );
+
+// KAN-996 (pick 5-B). The saved group menu's Ungroup: the header and strip
+// fade, the tabs glide out to their place in the window; undo and redo glide.
+export const ungroupSavedGroup = createAsyncThunk<
+  void,
+  chromeTabGroupTargetParams,
+  { state: RootState }
+>('global/ungroupSavedGroup', async (params, thunkAPI) => {
+  prepareLayoutGlide(panes('detail'), 'reorder');
+  const step = recordedStep(thunkAPI.getState, () =>
+    thunkAPI.dispatch(ungroupChromeTabGroup(params))
+  );
+  noteStep(step, 'detail', 'reorder');
+});
+
+// KAN-996 (pick 6-B). A saved tab's End split view: the split marks fade; undo and redo fade them too.
+export const endSavedSplit = createAsyncThunk<
+  void,
+  endSavedSplitParams,
+  { state: RootState }
+>('global/endSavedSplit', async (params, thunkAPI) => {
+  prepareLayoutGlide(panes('detail'), 'reorder');
+  const step = recordedStep(thunkAPI.getState, () =>
+    thunkAPI.dispatch(endSavedSplitInternal(params))
+  );
+  noteStep(step, 'detail', 'reorder');
+});
 
 // KAN-906. Whether Skip duplicates when saving leaves this tab out: the session already has its address.
 function leavesOutTab(

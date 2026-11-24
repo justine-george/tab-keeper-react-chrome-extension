@@ -12,7 +12,8 @@ export interface Samples {
 // name ending in ":h", its height; ":clip", whether it is clipped; ":copy",
 // the top of the text in a leaving copy that reads its value; ":sh", its
 // scroll height; ":op", its opacity; ":ov", 1 while its overflow clips, else
-// 0), and how many leaving copies are drawn.
+// 0; ":x", its left; ":lit", 1 while its fill is --row-light, else 0), and
+// how many leaving copies are drawn.
 export async function startSampling(
   page: Page,
   targets: Record<string, string>,
@@ -24,6 +25,14 @@ export async function startSampling(
       Object.keys(targets).forEach((k) => (out[k] = []));
       (window as unknown as { __samples: typeof out }).__samples = out;
       const end = performance.now() + ms;
+      // --row-light as the computed fill reads it: rgb(r, g, b).
+      const probe = document.createElement('i');
+      probe.style.color = getComputedStyle(document.documentElement)
+        .getPropertyValue('--row-light')
+        .trim();
+      document.body.append(probe);
+      const light = getComputedStyle(probe).color;
+      probe.remove();
       const tick = () => {
         for (const [name, sel] of Object.entries(targets)) {
           const el = name.endsWith(':copy')
@@ -46,11 +55,17 @@ export async function startSampling(
                     : 0
                   : name.endsWith(':op')
                     ? Number(getComputedStyle(el).opacity)
-                    : name.endsWith(':h')
-                      ? r.height
-                      : name.endsWith(':sh')
-                        ? el.scrollHeight
-                        : r.top
+                    : name.endsWith(':x')
+                      ? r.left
+                      : name.endsWith(':lit')
+                        ? getComputedStyle(el).backgroundColor === light
+                          ? 1
+                          : 0
+                        : name.endsWith(':h')
+                          ? r.height
+                          : name.endsWith(':sh')
+                            ? el.scrollHeight
+                            : r.top
           );
         }
         out.copies.push(document.querySelectorAll('[data-leaving-row]').length);

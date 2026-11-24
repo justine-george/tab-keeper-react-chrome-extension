@@ -22,6 +22,7 @@ import {
   sameLiveOrder,
 } from '../utils/functions/openNowSort';
 import { byName } from '../utils/functions/sortGroupsByName';
+import { panes, prepareLayoutGlide } from '../components/common/layoutGlide';
 import { sanitizeTabGroupColor } from '../utils/functions/tabGroups';
 import { TOAST_MESSAGES } from '../utils/constants/common';
 
@@ -126,6 +127,8 @@ export const sortOpenWindowBySite = createAsyncThunk<
   { state: RootState; dispatch: AppDispatch }
 >('global/sortOpenWindowBySite', async (windowId, thunkAPI) => {
   const { hasTabGroupsPermission } = thunkAPI.getState().globalState;
+  // KAN-996 (picks 2-B, 3-B). Every row, or group, glides to its place once Open now reads the window again.
+  prepareLayoutGlide(panes('open-now'), 'reorder');
   const drop = await whileMovingTabs(() =>
     sortOpenWindow(windowId, hasTabGroupsPermission)
   );
@@ -182,6 +185,7 @@ export const sortOpenGroupBySite = createAsyncThunk<
   { state: RootState; dispatch: AppDispatch }
 >('global/sortOpenGroupBySite', async ({ windowId, groupId }, thunkAPI) => {
   const { hasTabGroupsPermission } = thunkAPI.getState().globalState;
+  prepareLayoutGlide(panes('open-now'), 'reorder');
   const drop = await whileMovingTabs(() =>
     sortOpenGroup(windowId, groupId, hasTabGroupsPermission)
   );
@@ -231,6 +235,7 @@ export const sortOpenWindowGroupsByName = createAsyncThunk<
   'global/sortOpenWindowGroupsByName',
   async ({ windowId, locale }, thunkAPI) => {
     const { hasTabGroupsPermission } = thunkAPI.getState().globalState;
+    prepareLayoutGlide(panes('open-now'), 'reorder');
     const drop = await whileMovingTabs(() =>
       sortOpenGroupsByName(windowId, locale, hasTabGroupsPermission)
     );

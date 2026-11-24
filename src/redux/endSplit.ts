@@ -5,6 +5,7 @@ import type { RootState } from './store';
 import { keepLiveStep, whileMovingTabs } from './undoHistory';
 import type { OpenTab } from '../utils/functions/openNow';
 import { endLiveSplit } from '../utils/functions/openNowMoves';
+import { panes, prepareLayoutGlide } from '../components/common/layoutGlide';
 
 // Says whether the split ended; never throws. Run as Tab Keeper's own move, so Open now reads again when it's over, a refused one too.
 export const endOpenSplit =
@@ -20,6 +21,8 @@ export const endOpenSplit =
     const withLook =
       getState().globalState.hasTabGroupsPermission &&
       Boolean(chrome.tabGroups);
+    // KAN-996 (pick 6-B). The split marks fade once Open now reads the window again.
+    prepareLayoutGlide(panes('open-now'), 'reorder');
     const moved = await whileMovingTabs(() =>
       endLiveSplit([first.id, second.id], splitViewId, withLook)
     );

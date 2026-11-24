@@ -25,6 +25,11 @@ export function takeReopenOffer(id: number): ClosedItem | null {
   return item;
 }
 
+// KAN-996. What offer `id` would reopen, left in place: Reopen of closed duplicates lights up the copies that come back.
+export function reopenOfferKind(id: number): ClosedItem['kind'] | null {
+  return current !== null && current.id === id ? current.item.kind : null;
+}
+
 // The offer's toast has left (timed out, pushed out by newer toasts, or
 // cleared), and the offer goes with it (KAN-280 O8a, KAN-349): no old close
 // can be reopened once nothing on screen offers it. toastMiddleware calls

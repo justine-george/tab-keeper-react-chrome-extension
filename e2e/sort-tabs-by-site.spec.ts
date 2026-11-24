@@ -3,6 +3,7 @@ import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 import { test as plainTest } from './fixtures/extension';
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { standIn } from './fixtures/standInPages';
+import { documentLanded } from './fixtures/landed';
 import {
   VIEWS,
   bandHandle,
@@ -86,15 +87,17 @@ const storedOrder = async (page: Page): Promise<string[]> =>
     .find((g) => g.tabGroupId === 'S1')!
     .windows[0].tabs.map((t) => t.tabId);
 
-// The tab rows top to bottom, as drawn.
-const screenOrder = (page: Page): Promise<string[]> =>
-  page.evaluate((ids) => {
+// The tab rows top to bottom, as drawn once the sort's glide has landed (KAN-996).
+const screenOrder = async (page: Page): Promise<string[]> => {
+  await documentLanded(page);
+  return page.evaluate((ids) => {
     const y = (id: string) =>
       document
         .querySelector(`[data-pane="detail"] [data-drag-row-id="${id}"]`)!
         .getBoundingClientRect().top;
     return [...ids].sort((a, b) => y(a) - y(b));
   }, BEFORE_IDS);
+};
 
 const sortItem = (page: Page): Locator =>
   page.getByRole('menuitem', { name: 'Sort tabs by site', exact: true });

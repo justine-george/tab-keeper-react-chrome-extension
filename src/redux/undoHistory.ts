@@ -3,6 +3,7 @@ import { createAsyncThunk } from '@reduxjs/toolkit';
 import { nextActionNumber } from './actionOrder';
 import { showToast, stepToastsClosed } from './slices/globalStateSlice';
 import { prepareStepGlide } from './stepGlides';
+import { panes, prepareLayoutGlide } from '../components/common/layoutGlide';
 import {
   liveStepDropped,
   liveStepRedone,
@@ -139,6 +140,12 @@ async function takeStep(
   try {
     closeToastsOf(direction, step.id, dispatch);
     const { drop } = step;
+    // KAN-996. A live sort or End split goes back, and again, as it went.
+    if (
+      !isOpenedCopy(drop) &&
+      (isSortKind(drop.kind) || drop.kind === 'endSplit')
+    )
+      prepareLayoutGlide(panes('open-now'), 'reorder');
     const hasTabGroups = getState().globalState.hasTabGroupsPermission;
     const run = await whileMovingTabs<LiveRun<LiveDrop>>(() =>
       isOpenedCopy(drop)

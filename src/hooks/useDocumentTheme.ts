@@ -56,6 +56,10 @@ export function useDocumentTheme(): void {
     //    did not cover.
     root.style.setProperty('--app-background', COLORS.PRIMARY_COLOR);
 
+    // KAN-996 (pick G). The fill a kept row lights up in after Remove
+    // duplicates (layoutGlide), a pressed row's: the glide code has no theme.
+    root.style.setProperty('--row-light', COLORS.ACTIVE_COLOR);
+
     // 4. The drag engine's landing slot (KAN-234). RowDragArea has no theme
     //    dependency and drew the slot in `currentColor`, believing that
     //    inherited the theme's text colour. It never did: no ancestor of a row
