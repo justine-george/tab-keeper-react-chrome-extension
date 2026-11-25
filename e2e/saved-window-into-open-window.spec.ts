@@ -1,7 +1,13 @@
 import type { Locator, Page, Worker } from '@playwright/test';
 
 import { expect, grantedTest as test } from './fixtures/grantedExtension';
-import { openTabView, session, tab, win } from './fixtures/betweenSessions';
+import {
+  openTabView,
+  session,
+  tab,
+  toasts,
+  win,
+} from './fixtures/betweenSessions';
 import { allowInIncognito } from './fixtures/incognito';
 import {
   carryTo,
@@ -77,11 +83,6 @@ const addresses = async (worker: Worker, windowId: number) =>
     t.url.startsWith(PLACEHOLDER) ? 'placeholder' : t.url
   );
 
-const toastCount = (page: Page) =>
-  page
-    .locator('[role="status"] [data-toast]:not([aria-hidden="true"])')
-    .count();
-
 async function middleOf(el: Locator) {
   const b = await boxOf(el);
   return { x: b.x + Math.min(80, b.width / 2), y: b.y + b.height / 2 };
@@ -137,7 +138,7 @@ test('held over an open window, that window lights and New window does not', asy
   expect(fill).not.toBe('rgba(0, 0, 0, 0)');
 });
 
-test('a release adds the tabs at its end, inactive; focus and the active tab are unchanged; the session is unchanged', async ({
+test('a release adds the tabs at its end, inactive; focus and the active tab are unchanged; the session is unchanged; a toast says where', async ({
   context,
   extensionId,
   serviceWorker: worker,
@@ -173,7 +174,10 @@ test('a release adds the tabs at its end, inactive; focus and the active tab are
   await page.waitForTimeout(1000);
   expect(await focusNow(worker)).toEqual(focus);
   expect(await stored(page)).toEqual(before);
-  expect(await toastCount(page)).toBe(0);
+  // KAN-1010. The one toast says where it opened.
+  expect((await toasts(page)).map((t) => t.text)).toEqual([
+    expect.stringMatching(/^Opened in Window \d+\.$/),
+  ]);
 });
 
 // The window's last tab is grouped: appended tabs must not join that group.

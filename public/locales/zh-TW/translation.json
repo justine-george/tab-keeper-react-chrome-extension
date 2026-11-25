@@ -155,6 +155,8 @@
   "Sort tabs by site": "依網站排序分頁",
   "Sort groups by name": "依名稱排序群組",
   "TabsSortedBySite": "已依網站排序分頁。",
+  "OpenedInWindow": "已在視窗 {{number}} 中開啟。",
+  "NewWindowOpened": "已在新視窗中開啟。",
   "GroupsSortedByName": "已依名稱排序群組。",
   "UndoRefusedSort": "無法復原排序。該視窗的分頁此後已有變動。",
   "UndoRefusedMove": "無法復原移動。這些分頁此後已被移動或關閉。",

@@ -158,6 +158,8 @@
   "Sort tabs by site": "Sort tabs by site",
   "Sort groups by name": "Sort groups by name",
   "TabsSortedBySite": "Sorted the tabs by site.",
+  "OpenedInWindow": "Opened in Window {{number}}.",
+  "NewWindowOpened": "New window opened.",
   "GroupsSortedByName": "Sorted the groups by name.",
   "UndoRefusedSort": "Couldn't undo the sort. That window's tabs changed since.",
   "UndoRefusedMove": "Couldn't undo the move. Those tabs moved or closed since.",

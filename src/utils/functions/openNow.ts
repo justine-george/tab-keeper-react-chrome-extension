@@ -178,6 +178,19 @@ export function toOpenWindows(
   return result;
 }
 
+// KAN-1010. The N of "Window N" Open now shows for `windowId`: its place among
+// the windows toOpenWindows lists, in Chrome's order; null when it lists none.
+export function openWindowNumber(
+  windows: readonly chrome.windows.Window[],
+  windowId: number
+): number | null {
+  const listed = windows.filter(
+    (w) => typeof w.id === 'number' && (w.tabs ?? []).some(isListableTab)
+  );
+  const index = listed.findIndex((w) => w.id === windowId);
+  return index === -1 ? null : index + 1;
+}
+
 // KAN-472. Open now's drawing order: This window first, the rest in Chrome's
 // order. Display only: no Chrome window moves, and "Window N" still counts
 // Chrome's order (KAN-394 P1), so This window keeps its number.

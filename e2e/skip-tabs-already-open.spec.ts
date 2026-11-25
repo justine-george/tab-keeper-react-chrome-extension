@@ -437,7 +437,7 @@ async function dropWindowOn(page: Page, windowId: number, rowTabId: number) {
 }
 
 test.describe('drops into an open window, On', () => {
-  test('a saved window dropped on an open window: toast "2 duplicate tabs left out." and only new rows', async ({
+  test('a saved window dropped on an open window: toast "Opened in Window 2. 2 duplicate tabs left out." and only new rows', async ({
     context,
     extensionId,
     serviceWorker: worker,
@@ -459,7 +459,9 @@ test.describe('drops into an open window, On', () => {
       ]);
     await expect
       .poll(() => toasts(page))
-      .toEqual([{ text: '2 duplicate tabs left out.', show: false }]);
+      .toEqual([
+        { text: 'Opened in Window 2. 2 duplicate tabs left out.', show: false },
+      ]);
     const tabs = await liveTabs(worker, live.windowId);
     // The open copy stays in its own live group.
     expect(tabs.find((t) => t.id === live.idOf('B'))?.group).toBe('Live');
@@ -553,7 +555,9 @@ test.describe('drops into an open window, On', () => {
       ]);
     await expect
       .poll(() => toasts(page))
-      .toEqual([{ text: '1 duplicate tab left out.', show: false }]);
+      .toEqual([
+        { text: 'Opened in Window 2. 1 duplicate tab left out.', show: false },
+      ]);
     const tabs = await liveTabs(worker, live.windowId);
     // Untouched: the same tab, in the same live group.
     expect(tabs[1]?.id).toBe(live.idOf('G0'));

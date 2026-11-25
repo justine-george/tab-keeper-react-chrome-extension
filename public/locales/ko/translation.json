@@ -155,6 +155,8 @@
   "Sort tabs by site": "사이트별 탭 정렬",
   "Sort groups by name": "이름순 그룹 정렬",
   "TabsSortedBySite": "탭을 사이트별로 정렬했습니다.",
+  "OpenedInWindow": "창 {{number}}에서 열었습니다.",
+  "NewWindowOpened": "새 창에서 열었습니다.",
   "GroupsSortedByName": "그룹을 이름순으로 정렬했습니다.",
   "UndoRefusedSort": "정렬을 실행취소하지 못했습니다. 그 창의 탭이 그 사이 변경되었습니다.",
   "UndoRefusedMove": "이동을 실행취소하지 못했습니다. 해당 탭이 그 사이 이동되었거나 닫혔습니다.",
