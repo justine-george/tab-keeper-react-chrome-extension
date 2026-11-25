@@ -4211,8 +4211,15 @@ function reconcileAssertedContainer(
       ].filter((at): at is number => at !== undefined);
 
       // Neither buried nor superseded: this restore is not changing this
-      // session, so leave its timestamp exactly as it was.
-      if (mustOutrank.length === 0) return tabGroup;
+      // session, so leave its timestamp exactly as it was. As it is LIVE, not
+      // as the snapshot has it (KAN-1016): a redo since may have stamped it
+      // newer, the cloud holds that stamp, and an older one loses the merge.
+      if (mustOutrank.length === 0) {
+        const liveStamp = current?.lastModified;
+        return liveStamp === undefined || liveStamp === tabGroup.lastModified
+          ? tabGroup
+          : { ...tabGroup, lastModified: liveStamp };
+      }
 
       return {
         ...tabGroup,
