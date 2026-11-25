@@ -25,6 +25,7 @@ import {
   currentCarry,
   endCarry,
   startCarry,
+  setLiveCarrySaves,
 } from '../../redux/carry';
 import { liveItem } from '../../redux/carriedItem';
 import { live } from '../fixtures/liveSnapshotFixture';
@@ -361,7 +362,8 @@ describe('Open now hands its rows to the carry (KAN-280 Part F)', () => {
 
   // Justine's pick A (2026-10-15): back over Open now the card dims and loses its +; a release there cancels (N4 A).
   // The card itself stays opaque: see-through, the rows behind showed through it like a glitch (his 02:09 capture).
-  test('back over Open now the card dims and loses its +, and gets both back outside it', async () => {
+  // KAN-1005: outside it, the + shows only where letting go saves it.
+  test('back over Open now the card dims and loses its +; outside it the name is whole, and the + only where it saves', async () => {
     const { top } = await renderPane(groupSeed());
     const region = document.querySelector<HTMLElement>('[role="region"]');
     if (region === null) throw new Error('no Open now region');
@@ -371,20 +373,27 @@ describe('Open now hands its rows to the carry (KAN-280 Part F)', () => {
     moveTo(10, y + 8);
     moveTo(ON_LIST, y + 8);
     const card = find('[data-carry-card]');
-    const badge = find('[data-carry-card-badge]');
     const name = find('[data-carry-card] [data-carry-card-name]');
+    // Shown, not just present: over Open now its CSS hides it.
+    const badgeShown = () => {
+      const badge = document.querySelector('[data-carry-card-badge]');
+      return badge !== null && getComputedStyle(badge).display !== 'none';
+    };
     expect(getComputedStyle(card).opacity).toBe('1');
     expect(getComputedStyle(name).opacity).toBe('1');
-    expect(getComputedStyle(badge).display).not.toBe('none');
+    // Nothing on the saved side takes it here.
+    expect(badgeShown()).toBe(false);
+    // A saved-side target that would save it says so.
+    act(() => setLiveCarrySaves(true));
+    expect(badgeShown()).toBe(true);
 
     moveTo(10, y + 8);
     expect(getComputedStyle(card).opacity).toBe('1');
     expect(getComputedStyle(name).opacity).toBe('0.45');
-    expect(getComputedStyle(badge).display).toBe('none');
+    expect(badgeShown()).toBe(false);
 
     moveTo(ON_LIST, y + 8);
     expect(getComputedStyle(name).opacity).toBe('1');
-    expect(getComputedStyle(badge).display).not.toBe('none');
 
     moveTo(10, y + 8);
     fireEvent.pointerUp(document, { clientX: 10, clientY: y + 8 });

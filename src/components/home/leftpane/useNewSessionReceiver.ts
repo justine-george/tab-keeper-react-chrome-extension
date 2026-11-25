@@ -7,6 +7,7 @@ import type { AppDispatch } from '../../../redux/store';
 import {
   currentCarry,
   registerCarryReceiver,
+  setLiveCarrySaves,
   type CarryReceiver,
 } from '../../../redux/carry';
 import { carryToNewSession } from '../../../redux/commitCarry';
@@ -54,6 +55,8 @@ export function useNewSessionReceiver(
     // Lit, the session list opens its place for the new session.
     const light = (on: boolean) => {
       lit = on;
+      // KAN-1005. Lit, a live carry let go here is saved: it wears the +.
+      setLiveCarrySaves(on);
       if (on) target.current?.setAttribute('data-landing', '');
       else target.current?.removeAttribute('data-landing');
       if (on) openNewSessionSlot();

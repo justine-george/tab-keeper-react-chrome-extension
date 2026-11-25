@@ -19,6 +19,7 @@ import type { AppDispatch, RootState } from '../../../redux/store';
 import {
   currentCarry,
   registerCarryReceiver,
+  setLiveCarrySaves,
   useCarried,
   type CarryReceiver,
 } from '../../../redux/carry';
@@ -63,6 +64,8 @@ export function useNewFirstWindowReceiver(
     let lit = false;
     const light = (on: boolean) => {
       lit = on;
+      // KAN-1005. Lit, a live carry let go here is saved: it wears the +.
+      setLiveCarrySaves(on);
       if (on) target.current?.setAttribute('data-landing', '');
       else target.current?.removeAttribute('data-landing');
     };

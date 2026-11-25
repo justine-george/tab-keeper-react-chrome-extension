@@ -130,6 +130,24 @@ export function useCarryOpens(): boolean {
   return useSyncExternalStore(subscribeCarry, currentOpens);
 }
 
+// KAN-1005 (his rule). On while letting a live carry go here saves it: the
+// saved side's target it is over lights, or a saved list lands it at a slot.
+// The live card wears the + then, as a saved one does over Currently open.
+// Only a live carry sets it; endCarry ends it.
+let saves = false;
+
+export function setLiveCarrySaves(on: boolean): void {
+  const next = on && carry?.item.source === 'live';
+  if (next === saves) return;
+  saves = next;
+  notify();
+}
+
+const currentSaves = (): boolean => saves;
+export function useLiveCarrySaves(): boolean {
+  return useSyncExternalStore(subscribeCarry, currentSaves);
+}
+
 // KAN-815, demo D3 (his pick). Whether this carry has been over Currently
 // open. From then on a release there copies and nothing else takes it: only
 // Currently open's receivers are asked, and the saved source keeps its row.
@@ -179,6 +197,8 @@ export function rerouteCarry(): void {
 export function setCarryOwner(owner: CarryOwner): void {
   if (carry === null || carry.owner === owner) return;
   carry = { ...carry, owner };
+  // KAN-1005. Whoever takes it over says afresh whether a release saves it.
+  saves = false;
   notify();
 }
 
@@ -232,6 +252,7 @@ export function endCarry(outcome: CarryOutcome): void {
     setDragNewSession(false);
     setCarrying(false);
     opens = false;
+    saves = false;
     document.documentElement.removeAttribute('data-carry-opens');
     // The engine's order at a drop: unpublish, then apply held changes.
     setDragging(false);

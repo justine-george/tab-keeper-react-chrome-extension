@@ -6,6 +6,7 @@
 // Written straight to the DOM, as a band's drop-target mark is
 // (useTabDropGeometry's onDropTargetChange): it changes as the pointer moves,
 // and React never renders this attribute, so a re-render cannot drop it.
+import { setLiveCarrySaves } from '../../../redux/carry';
 import type { NewWindowPlace } from '../../../redux/slices/tabContainerDataStateSlice';
 
 // The window a landing names when it makes a new window: placed first, by
@@ -82,4 +83,15 @@ export function markNewWindowTarget(
     if (windowId === target.windowId) el?.setAttribute('data-landing', '');
     else el?.removeAttribute('data-landing');
   }
+}
+
+// A saved list's onLandingWindowChange: lights the New window target it names
+// (markNewWindowTarget), and, for a live carry the list adopted, says whether a
+// release saves it: any landing window does (KAN-1005).
+export function markSavedListLanding(
+  windowId: string | undefined,
+  list: HTMLElement | null
+): void {
+  markNewWindowTarget(windowId, list);
+  setLiveCarrySaves(windowId !== undefined);
 }
