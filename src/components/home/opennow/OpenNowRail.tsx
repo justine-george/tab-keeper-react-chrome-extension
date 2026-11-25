@@ -53,16 +53,16 @@ import {
 } from './drawerCarry';
 
 // What showed Currently open beside the saved session: where focus goes next.
-export type ShowBesideBy = 'press' | 'shortcut';
+export type ShowBesideBy = 'press' | 'shortcut' | 'spring';
 
 interface OpenNowRailProps {
   windows: OpenWindow[] | null;
   // The fold button, shown in the drawer's header before its close button.
   foldAction: OpenNowHeaderAction;
   // KAN-1002. Wide, the rail is there only because Currently open was folded
-  // by hand, so its press and / show it beside the saved session, as the saved
-  // session's card does; a resting carry still springs the drawer. Narrow,
-  // null: there is no room, so both open the drawer.
+  // by hand, so its press, / and a resting carry (KAN-1008) show it beside the
+  // saved session, as the saved session's card does. Narrow, null: there is
+  // no room, so all three open the drawer.
   showBeside: { label: string; show: (by: ShowBesideBy) => void } | null;
   // The rail's button. The caller holds it so an unfold that brings the rail
   // back can focus it (OpenNowColumn).
@@ -261,6 +261,10 @@ export default function OpenNowRail({
     drawerRef,
     drawerOver: !isOpen || away ? 'none' : isSettling ? 'settling' : 'settled',
     onSpring: () => {
+      if (showBeside !== null) {
+        showBeside.show('spring');
+        return;
+      }
       // Only a closed drawer opens: set on an open one, the flag would outlive this open (R1).
       if (isOpen) {
         setAway(false);

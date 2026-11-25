@@ -260,6 +260,8 @@ export interface Global {
   // beside Open now until the fold button is next pressed. Session-only, so
   // a new page opens as the stored setting says.
   isPeekingSavedSession: boolean;
+  // KAN-1008. Wide, a saved carry resting on folded Currently open's rail shows it beside until the carry ends. Session-only.
+  isPeekingOpenNow: boolean;
   // KAN-805. A menu's Rename session, for the header to open that session's title once it shows it.
   sessionRenameRequest: string | null;
   // The run shows in this page, which holds its lock; a reload shows it only by resuming.
@@ -398,6 +400,7 @@ export const initialState: Global = {
   deletingStartedAt: null,
   hasAuthListenerSignInFailed: false,
   isPeekingSavedSession: false,
+  isPeekingOpenNow: false,
   sessionRenameRequest: null,
   isRunHere: false,
   hasRunShownHere: false,
@@ -1671,6 +1674,14 @@ export const globalStateSlice = createSlice({
       state.isPeekingSavedSession = false;
     },
 
+    peekOpenNow: (state) => {
+      state.isPeekingOpenNow = true;
+    },
+
+    endOpenNowPeek: (state) => {
+      state.isPeekingOpenNow = false;
+    },
+
     requestSessionRename: (state, action: PayloadAction<string>) => {
       state.sessionRenameRequest = action.payload;
     },
@@ -1886,6 +1897,8 @@ export const {
   setAllWindowsCollapsed,
   peekSavedSession,
   endSavedSessionPeek,
+  peekOpenNow,
+  endOpenNowPeek,
   requestSessionRename,
   clearSessionRenameRequest,
   runShownHere,

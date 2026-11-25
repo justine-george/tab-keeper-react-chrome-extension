@@ -14,6 +14,7 @@ export interface OpenNowFoldState extends SavedSessionFoldState {
     SettingsData,
     'foldSavedSessionInTabView' | 'foldOpenNowInTabView'
   >;
+  globalState: Pick<Global, 'isPeekingSavedSession' | 'isPeekingOpenNow'>;
 }
 
 // KAN-280 O4/O5. Whether the tab view has the saved session folded away right
@@ -27,10 +28,11 @@ export const selectIsSavedSessionFolded = (
   !state.globalState.isPeekingSavedSession;
 
 // KAN-808. Whether the tab view has Open now folded to its rail: the stored
-// choice, never while the saved session is folded, so Open now is not left
-// with no column.
+// choice, unless a carry peeks it (KAN-1008), never while the saved session
+// is folded, so Open now is not left with no column.
 export const selectIsOpenNowFolded = (state: OpenNowFoldState): boolean =>
   state.settingsDataState.foldOpenNowInTabView &&
+  !state.globalState.isPeekingOpenNow &&
   !selectIsSavedSessionFolded(state);
 
 export interface SavedSessionCardState extends SavedSessionFoldState {
