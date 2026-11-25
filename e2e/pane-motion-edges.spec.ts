@@ -306,3 +306,116 @@ test("folding and showing the saved session, Currently open's card corners draw 
     await release(page);
   }
 });
+
+test("folding and showing Currently open, the saved session's card corners draw whole at the motion's ends", async ({
+  context,
+  extensionId,
+}) => {
+  const page = await open(context, extensionId);
+  // The saved session's list card: its bottom-right corner, clear of every control.
+  const cornerClip = () =>
+    page.evaluate(() => {
+      const detail = document.querySelector('[data-pane="detail"]');
+      const cards = [...(detail?.querySelectorAll('*') ?? [])].filter(
+        (e) =>
+          getComputedStyle(e).borderBottomRightRadius !== '0px' &&
+          e.getBoundingClientRect().height > 200
+      );
+      const r = cards[0]?.getBoundingClientRect();
+      return r === undefined
+        ? null
+        : {
+            x: Math.round(r.right) - 11,
+            y: Math.round(r.bottom) - 11,
+            width: 17,
+            height: 12,
+          };
+    });
+  const before = await cornerClip();
+  if (before === null) throw new Error('no list card');
+  const atRestBefore = await region(page, before);
+
+  // The motion's first frame: the edge is where it rests, so the corner must be too.
+  await pressAndFreeze(
+    page,
+    () =>
+      page
+        .locator('[data-pane="detail"]')
+        .getByRole('button', { name: FOLD_OPEN_NOW })
+        .click(),
+    0.001
+  );
+  expect(
+    furthest(await region(page, before), atRestBefore),
+    'fold, first frame'
+  ).toBeLessThan(20);
+  await release(page);
+
+  const after = await cornerClip();
+  if (after === null) throw new Error('no list card, folded');
+  const atRestAfter = await region(page, after);
+  await pressAndFreeze(
+    page,
+    () =>
+      page
+        .locator('[data-pane="detail"]')
+        .getByRole('button', { name: SHOW_OPEN_NOW })
+        .click(),
+    0.001
+  );
+  expect(
+    furthest(await region(page, after), atRestAfter),
+    'unfold, first frame'
+  ).toBeLessThan(20);
+  await release(page);
+});
+
+test("either pane folding or coming back, the window's frame lines run unbroken across both", async ({
+  context,
+  extensionId,
+}) => {
+  const page = await open(context, extensionId);
+  // The panes' own top and bottom borders, end to end across both.
+  const rows = await page.evaluate(() => {
+    const detail = document
+      .querySelector('[data-pane="detail"]')!
+      .getBoundingClientRect();
+    return {
+      x: Math.round(detail.left) + 20,
+      width: Math.round(window.innerWidth - detail.left) - 40,
+      top: Math.round(detail.top),
+      bottom: Math.round(detail.bottom) - 1,
+    };
+  });
+  const line = (y: number) => ({ x: rows.x, y, width: rows.width, height: 1 });
+  const restTop = await region(page, line(rows.top));
+  const restBottom = await region(page, line(rows.bottom));
+  // PREMISE: at rest each row is a line, darker than the page.
+  expect(Math.max(...restTop.filter((_, i) => i % 4 === 0))).toBeLessThan(250);
+
+  const detail = page.locator('[data-pane="detail"]');
+  const openNow = page.locator('[data-pane="open-now"]');
+  for (const fraction of FRACTIONS) {
+    for (const [what, pane, name] of [
+      ['Currently open folds', detail, FOLD_OPEN_NOW],
+      ['Currently open comes back', detail, SHOW_OPEN_NOW],
+      ['the saved session folds', openNow, FOLD_SAVED],
+      ['the saved session comes back', openNow, SHOW_SAVED_BESIDE],
+    ] as const) {
+      await pressAndFreeze(
+        page,
+        () => pane.getByRole('button', { name }).click(),
+        fraction
+      );
+      expect(
+        furthest(await region(page, line(rows.top)), restTop),
+        `${what} at ${fraction}, top`
+      ).toBeLessThan(20);
+      expect(
+        furthest(await region(page, line(rows.bottom)), restBottom),
+        `${what} at ${fraction}, bottom`
+      ).toBeLessThan(20);
+      await release(page);
+    }
+  }
+});

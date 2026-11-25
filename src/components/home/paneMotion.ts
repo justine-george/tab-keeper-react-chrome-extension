@@ -31,10 +31,13 @@ const MOVE = `${FOLD} ${EASE.IN_OUT}`;
 const LAST = `calc(${FOLD} - ${HANDOFF})`;
 const NEXT_TO_LAST = `calc(${FOLD} - 2 * ${HANDOFF})`;
 // A pane's box borders, kept by a strip of its other picture that rides its edge.
-const STRIP = '10px';
-// KAN-1004. Currently open's, in a saved move: its gutter and its card's whole corner
-// curve, so each corner draws from one picture, not cut where two meet.
-const OPEN_NOW_STRIP = `calc(${PANE_SIDE} + ${RADIUS.PANEL} + 1px)`;
+// KAN-1004: the gutter and a card's whole corner curve, so each corner draws from
+// one picture, not cut where two meet.
+const STRIP = `calc(${PANE_SIDE} + ${RADIUS.PANEL} + 1px)`;
+// KAN-1004. The page behind a moving pane, as the panes draw it: the window's frame lines,
+// their top and bottom borders, run across it, so a sliver a picture leaves keeps them.
+const LINE = 'linear-gradient(var(--pane-frame-line), var(--pane-frame-line))';
+const PAGE = `${LINE} top / 100% 1px no-repeat, ${LINE} bottom / 100% 1px no-repeat, var(--app-background)`;
 
 // The latest motion's token: a press during a motion skips the first, whose
 // end must not clear the second's attributes.
@@ -124,7 +127,7 @@ export const paneMotionCss = `
   }
 
   /* An explicit stack: a layer that exists only after the change would otherwise land on top. */
-  ${on('saved')}::view-transition-group(pane-open-now) { z-index: 1; background: var(--app-background); }
+  ${on('saved')}::view-transition-group(pane-open-now) { z-index: 1; background: ${PAGE}; }
   ::view-transition-group(pane-saved-title-action), ::view-transition-group(pane-saved-add-window),
   ::view-transition-group(pane-open-now-fold), ::view-transition-group(pane-open-now-back),
   ::view-transition-group(pane-open-now-close), ::view-transition-group(pane-open-now-chip),
@@ -135,11 +138,16 @@ export const paneMotionCss = `
   ${on('openNow', 'fold')}::view-transition-old(pane-detail),
   ${on('openNow', 'unfold')}::view-transition-new(pane-detail) {
     opacity: 1; z-index: 1; mask-image: linear-gradient(to left, #000 ${STRIP}, transparent ${STRIP});
+    /* KAN-1004. Past its card's rounded corners the picture is clear: the page, so the
+       other picture's border does not show through under the curve. */
+    background: ${PAGE};
   }
   /* Its right edge: a strip of its other picture rides the edge. Beside the rail the
      session sits ${PANE_SIDE} in from its column's edge, beside Currently open flush, so
      the strip slides that far, and the sliver it leaves is page, not pane. */
-  ${on('openNow')}::view-transition-group(pane-detail) { background: var(--app-background); }
+  ${on('openNow')}::view-transition-group(pane-detail) { background: ${PAGE}; }
+  /* KAN-1004. While a pane's pictures fade or hand off, the frame lines over it stay drawn. */
+  ${on('openNow')}::view-transition-group(pane-open-now), ${on('saved')}::view-transition-group(pane-detail) { background: ${PAGE}; }
   ${on('openNow', 'fold')}::view-transition-old(pane-detail) { animation: pane-edge-in ${MOVE} both; }
   ${on('openNow', 'unfold')}::view-transition-new(pane-detail) { animation: pane-edge-out ${MOVE} both; }
   ${on('openNow', 'fold')}::view-transition-new(pane-detail) {
@@ -168,8 +176,8 @@ export const paneMotionCss = `
      gets the page behind it; else the moving picture's fill shows through, past the border. */
   ${on('saved', 'fold')}::view-transition-old(pane-open-now),
   ${on('saved', 'unfold')}::view-transition-new(pane-open-now) {
-    z-index: 1; object-position: right top; mask-image: linear-gradient(to left, #000 ${OPEN_NOW_STRIP}, transparent ${OPEN_NOW_STRIP}); animation: none;
-    background: var(--app-background);
+    z-index: 1; object-position: right top; mask-image: linear-gradient(to left, #000 ${STRIP}, transparent ${STRIP}); animation: none;
+    background: ${PAGE};
   }
 
   ${on('saved', 'fold')}::view-transition-new(pane-saved-card) { animation: pane-fade-in ${HANDOFF} ${LAST} ease-out both; }
