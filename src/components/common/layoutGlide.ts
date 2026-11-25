@@ -302,6 +302,8 @@ interface Snapshot {
   // Each tab row by its tab, and each split mark by its row's tab.
   rows: Map<string, { el: Element; box: Box }>;
   marks: Map<string, { el: Element; rect: DOMRect; color: string }>;
+  // KAN-1013. Each scrolled list's scroll, by its scroller.
+  scrolls: Map<Element, number>;
 }
 
 function snapshot(root: Element): Snapshot {
@@ -330,7 +332,12 @@ function snapshot(root: Element): Snapshot {
         color: getComputedStyle(el).color,
       });
   });
-  return { boxes, strips, rows, marks };
+  const scrolls = new Map<Element, number>();
+  scrolledContents(root, boxes.keys()).forEach((content) => {
+    const sc = content.parentElement;
+    if (sc !== null) scrolls.set(sc, sc.scrollTop);
+  });
+  return { boxes, strips, rows, marks, scrolls };
 }
 
 // The split marks there now, by their row's tab.
@@ -768,6 +775,24 @@ function draw(
     const dy = box.top - at[i].twin.top;
     copy.style.left = `${dx}px`;
     copy.style.top = `${dy}px`;
+    // KAN-1013. The commit pulled its list's scroll back (a shorter list at
+    // its end): every row there glides down that far, and so does the copy,
+    // so it leaves with them rather than under them.
+    const scroller = [...before.scrolls.keys()].find((sc) => sc.contains(copy));
+    const pulled =
+      scroller === undefined
+        ? 0
+        : (before.scrolls.get(scroller) ?? 0) - scroller.scrollTop;
+    if (Math.abs(pulled) >= 1)
+      copy.animate(
+        [{ transform: 'none' }, { transform: `translateY(${pulled}px)` }],
+        {
+          duration: moveMs,
+          easing: EASE.OUT,
+          fill: 'forwards',
+          id: LANDING_SLIDE,
+        }
+      );
     const end = () => {
       copies.delete(copy);
       copy.remove();
