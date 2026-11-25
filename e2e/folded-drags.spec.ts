@@ -96,7 +96,7 @@ test.describe('the saved session folded', () => {
     expect(await chromeNow(serviceWorker)).toBe(chromeBefore);
   });
 
-  test('wide: a live tab let go on the card saves nothing and moves nothing; the card shows no fill', async ({
+  test('wide: a live tab let go on the card saves nothing and moves nothing; the card shows the spring target (KAN-1006)', async ({
     context,
     extensionId,
     serviceWorker,
@@ -113,10 +113,10 @@ test.describe('the saved session folded', () => {
     await carryTo(page, await centre(page, '[data-saved-session-card]'));
     // PREMISE: carried out of Currently open, over the card.
     await expect(page.locator(CARD)).toHaveCount(1);
-    expect(await carryTargets(page)).toEqual([]);
-    expect(
-      await card(page).evaluate((el) => getComputedStyle(el).backgroundColor)
-    ).toBe('rgba(0, 0, 0, 0)');
+    // No session row is a target; the card is (it has no row id, so '?').
+    expect(await carryTargets(page)).toEqual(['?']);
+    // KAN-1006. Resting here peeks the saved session, so the card wears the carry target's look; let go before that.
+    await expect(card(page)).toHaveAttribute('data-carry-target', '');
     await page.mouse.up();
 
     await expect(page.locator(CARD)).toHaveCount(0);
