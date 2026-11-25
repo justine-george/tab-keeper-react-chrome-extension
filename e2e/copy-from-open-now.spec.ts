@@ -1021,99 +1021,118 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
 // list to it; ⌘Z takes it out, the list's end comes up and Chrome pulls the
 // scroll back at once. The window leaves with the list, never under rows
 // sliding over it.
-test('the last window copied in, scrolled to, then undone: it leaves with the list, under no row', async ({
-  context,
-  extensionId,
-  serviceWorker,
-}) => {
-  const page = await openTabView(context, extensionId, false, undefined, {
-    width: 1280,
-    height: 560,
-  });
-  const live = await openLiveWindow(serviceWorker, [
-    'W A',
-    'W B',
-    'W C',
-    'W D',
-  ]);
-  await expect(openNowWindowHandle(page, live.windowId)).toBeVisible();
-  const at = await press(page, openNowWindowHandle(page, live.windowId));
-  await expect(page.locator(CARD)).toHaveCount(1);
-  await page.mouse.move(at.x - 300, at.y, { steps: 6 });
-  await settled(page);
-  // Carried, the saved windows show folded: the room below the last one is the end.
-  const lb = await boxOf(page.locator('[data-drag-row-id="w2"]'));
-  await page.mouse.move(lb.x + 60, lb.y + lb.height + 60, { steps: 8 });
-  await settled(page);
-  await page.mouse.up();
-  await expect
-    .poll(async () =>
-      sessionOf(await stored(page), 'S1').windows.map((w) => w.tabs.length)
-    )
-    .toEqual([5, 2, 4]);
-  await page.mouse.move(640, 5);
-  const scrollTop = () =>
-    page.evaluate(() => {
-      const pane = document.querySelector('[data-pane="detail"]');
-      const sc = [...(pane?.querySelectorAll<HTMLElement>('*') ?? [])].find(
-        (e) => /auto|scroll/.test(getComputedStyle(e).overflowY)
-      );
-      return sc?.scrollTop ?? 0;
+test.describe('scrollbars shown', () => {
+  test.use({ showScrollbars: true });
+  test('the last window copied in, scrolled to, then undone: it leaves with the list, under no row, and the page never scrolls', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openTabView(context, extensionId, false, undefined, {
+      width: 1280,
+      height: 560,
     });
-  // PREMISE: the list followed the copy down.
-  await expect.poll(scrollTop, { timeout: 5000 }).toBeGreaterThan(40);
-  await page.waitForTimeout(1200);
-
-  await page.evaluate(() => {
-    const pane = document.querySelector('[data-pane="detail"]');
-    const frames: { copies: number; hits: string[] }[] = [];
-    Object.assign(window, { __frames: frames });
-    const t0 = performance.now();
-    const tick = () => {
-      const copies = [
-        ...(pane?.querySelectorAll<HTMLElement>('[data-leaving-row]') ?? []),
-      ];
-      const hits: string[] = [];
-      for (const copy of copies) {
-        const c = copy.getBoundingClientRect();
-        const kids = [...copy.children].map((k) => k.getBoundingClientRect());
-        const top = Math.max(c.top, ...kids.map((k) => k.top));
-        const bottom = Math.min(
-          c.bottom,
-          Math.max(...kids.map((k) => k.bottom))
+    const live = await openLiveWindow(serviceWorker, [
+      'W A',
+      'W B',
+      'W C',
+      'W D',
+    ]);
+    await expect(openNowWindowHandle(page, live.windowId)).toBeVisible();
+    const at = await press(page, openNowWindowHandle(page, live.windowId));
+    await expect(page.locator(CARD)).toHaveCount(1);
+    await page.mouse.move(at.x - 300, at.y, { steps: 6 });
+    await settled(page);
+    // Carried, the saved windows show folded: the room below the last one is the end.
+    const lb = await boxOf(page.locator('[data-drag-row-id="w2"]'));
+    await page.mouse.move(lb.x + 60, lb.y + lb.height + 60, { steps: 8 });
+    await settled(page);
+    await page.mouse.up();
+    await expect
+      .poll(async () =>
+        sessionOf(await stored(page), 'S1').windows.map((w) => w.tabs.length)
+      )
+      .toEqual([5, 2, 4]);
+    await page.mouse.move(640, 5);
+    const scrollTop = () =>
+      page.evaluate(() => {
+        const pane = document.querySelector('[data-pane="detail"]');
+        const sc = [...(pane?.querySelectorAll<HTMLElement>('*') ?? [])].find(
+          (e) => /auto|scroll/.test(getComputedStyle(e).overflowY)
         );
-        if (bottom - top < 1) continue;
-        for (const row of pane?.querySelectorAll('[data-drag-row-id]') ?? []) {
-          if (row.closest('[data-leaving-row]') !== null) continue;
-          const r = row.getBoundingClientRect();
-          const over = Math.min(bottom, r.bottom) - Math.max(top, r.top);
-          if (over > 1)
-            hits.push(
-              `${row.getAttribute('data-drag-row-id')} ${Math.round(over)}px`
-            );
-        }
-      }
-      frames.push({ copies: copies.length, hits });
-      if (performance.now() - t0 < 1200) requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  });
-  await page.keyboard.press('ControlOrMeta+z');
-  await page.waitForTimeout(1400);
-  const frames = await page.evaluate(
-    () =>
-      (window as unknown as { __frames: { copies: number; hits: string[] }[] })
-        .__frames
-  );
+        return sc?.scrollTop ?? 0;
+      });
+    // PREMISE: the list followed the copy down.
+    await expect.poll(scrollTop, { timeout: 5000 }).toBeGreaterThan(40);
+    await page.waitForTimeout(1200);
 
-  await expect
-    .poll(async () =>
-      sessionOf(await stored(page), 'S1').windows.map((w) => w.tabs.length)
-    )
-    .toEqual([5, 2]);
-  // PREMISE: the window left as a copy.
-  expect(frames.some((f) => f.copies > 0)).toBe(true);
-  expect(
-    frames.flatMap((f, i) => f.hits.map((h) => `frame ${i}: ${h}`))
-  ).toEqual([]);
+    await page.evaluate(() => {
+      const pane = document.querySelector('[data-pane="detail"]');
+      const frames: { copies: number; hits: string[]; pageOverflow: number }[] =
+        [];
+      Object.assign(window, { __frames: frames });
+      const t0 = performance.now();
+      const tick = () => {
+        const copies = [
+          ...(pane?.querySelectorAll<HTMLElement>('[data-leaving-row]') ?? []),
+        ];
+        const hits: string[] = [];
+        for (const copy of copies) {
+          const c = copy.getBoundingClientRect();
+          const kids = [...copy.children].map((k) => k.getBoundingClientRect());
+          const top = Math.max(c.top, ...kids.map((k) => k.top));
+          const bottom = Math.min(
+            c.bottom,
+            Math.max(...kids.map((k) => k.bottom))
+          );
+          if (bottom - top < 1) continue;
+          for (const row of pane?.querySelectorAll('[data-drag-row-id]') ??
+            []) {
+            if (row.closest('[data-leaving-row]') !== null) continue;
+            const r = row.getBoundingClientRect();
+            const over = Math.min(bottom, r.bottom) - Math.max(top, r.top);
+            if (over > 1)
+              hits.push(
+                `${row.getAttribute('data-drag-row-id')} ${Math.round(over)}px`
+              );
+          }
+        }
+        // The page itself never scrolls: a bar there would narrow every pane.
+        const html = document.documentElement;
+        frames.push({
+          copies: copies.length,
+          hits,
+          pageOverflow: html.scrollHeight - html.clientHeight,
+        });
+        if (performance.now() - t0 < 1200) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    await page.keyboard.press('ControlOrMeta+z');
+    await page.waitForTimeout(1400);
+    const frames = await page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            __frames: {
+              copies: number;
+              hits: string[];
+              pageOverflow: number;
+            }[];
+          }
+        ).__frames
+    );
+
+    await expect
+      .poll(async () =>
+        sessionOf(await stored(page), 'S1').windows.map((w) => w.tabs.length)
+      )
+      .toEqual([5, 2]);
+    // PREMISE: the window left as a copy.
+    expect(frames.some((f) => f.copies > 0)).toBe(true);
+    expect(
+      frames.flatMap((f, i) => f.hits.map((h) => `frame ${i}: ${h}`))
+    ).toEqual([]);
+    expect(Math.max(...frames.map((f) => f.pageOverflow))).toBe(0);
+  });
 });

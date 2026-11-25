@@ -223,17 +223,21 @@ export function glidesAt(el: Element): {
         : [],
   };
 }
-// Each held scroll content and its own inline overflow, put back when the glide ends.
-const held = new Map<HTMLElement, { overflow: string; margin: string }>();
+// Each held scroll content and its own inline overflow and position, put back when the glide ends.
+const held = new Map<
+  HTMLElement,
+  { overflow: string; margin: string; position: string }
+>();
 // The newest glide drawn in each pane: only it lets that pane's held range go.
 const holdIds = new WeakMap<Element, number>();
 let holdCount = 0;
 
 function releaseScrollRangeIn(root: Element): void {
-  held.forEach(({ overflow, margin }, content) => {
+  held.forEach(({ overflow, margin, position }, content) => {
     if (!root.contains(content)) return;
     content.style.overflow = overflow;
     content.style.overflowClipMargin = margin;
+    content.style.position = position;
     held.delete(content);
   });
 }
@@ -276,10 +280,11 @@ export function cutLayoutGlidesIn(root: Element): void {
 // Ends the fades, copies and held scroll ranges inside `root`, or everywhere.
 function cutGlidesIn(root: Element | null): void {
   const inside = (el: Element) => root === null || root.contains(el);
-  held.forEach(({ overflow, margin }, content) => {
+  held.forEach(({ overflow, margin, position }, content) => {
     if (!inside(content)) return;
     content.style.overflow = overflow;
     content.style.overflowClipMargin = margin;
+    content.style.position = position;
     held.delete(content);
   });
   for (const copy of [...copies]) {
@@ -619,9 +624,15 @@ function draw(
       held.set(content, {
         overflow: content.style.overflow,
         margin: content.style.overflowClipMargin,
+        position: content.style.position,
       });
     content.style.overflow = 'clip';
     content.style.overflowClipMargin = `${margin}px`;
+    // KAN-1013. The leaving copies are placed absolutely: held, the list is
+    // their containing block, so its clip takes them in too and a copy
+    // gliding past its end never makes the page itself scroll.
+    if (getComputedStyle(content).position === 'static')
+      content.style.position = 'relative';
   });
   new Set([...own.keys(), ...ownX.keys()]).forEach((el) =>
     el.animate(
