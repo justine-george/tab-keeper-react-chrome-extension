@@ -302,3 +302,117 @@ test.describe('a group in Currently open', () => {
     await expect(colorRow(page)).toBeHidden();
   });
 });
+
+// KAN-1014. The strip's picker comes and goes as every menu does (KAN-982).
+test.describe("the strip's picker: the menus' motion", () => {
+  test.beforeEach(async ({ context }) => {
+    await seedSessions(context, {
+      ...buildContainer([TRIP]),
+      selectedTabGroupId: 'S1',
+    });
+  });
+
+  const picker = (page: Page): Locator =>
+    page.locator('[role="menu"][aria-orientation="horizontal"]');
+  const copies = (page: Page): Locator => page.locator('[data-leaving-copy]');
+  // Its own animations, as Chrome holds them.
+  const motionsOf = (el: Locator) =>
+    el.evaluate((node) =>
+      node.getAnimations().map((a) => {
+        const effect = a.effect as KeyframeEffect;
+        return {
+          keyframes: effect
+            .getKeyframes()
+            .map(({ opacity, scale }) => ({ opacity, scale })),
+          duration: Number(effect.getTiming().duration),
+        };
+      })
+    );
+
+  test('a press grows it from the strip side, at its top, 0.96 to 1 over 160 ms', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await context.newPage();
+    await openTrip(page, extensionId);
+
+    await strip(page).click();
+
+    await expect(picker(page)).toBeVisible();
+    expect(await motionsOf(picker(page))).toEqual([
+      {
+        keyframes: [
+          { opacity: '0', scale: '0.96' },
+          { opacity: '1', scale: '1' },
+        ],
+        duration: 160,
+      },
+    ]);
+    expect(
+      await picker(page).evaluate((el) => getComputedStyle(el).transformOrigin)
+    ).toBe('0px 0px');
+  });
+
+  test('a pick leaves a copy fading where it stood: inert, no role, gone soon after', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await context.newPage();
+    await openTrip(page, extensionId);
+    await strip(page).click();
+    // A menu cut short while growing just goes.
+    await expect.poll(() => motionsOf(picker(page))).toEqual([]);
+    const before = await picker(page).boundingBox();
+
+    await page.getByRole('menuitemradio', { name: 'Purple' }).click();
+
+    await expect(picker(page)).toHaveCount(0);
+    await expect(copies(page)).toHaveCount(1);
+    expect(
+      await copies(page).evaluate((el) => ({
+        inert: (el as HTMLElement).inert,
+        roles: el.querySelectorAll('[role]').length,
+        swatches: el.querySelectorAll('button').length,
+      }))
+    ).toEqual({ inert: true, roles: 0, swatches: 9 });
+    const box = await copies(page).boundingBox();
+    expect(box?.x).toBeCloseTo(before!.x, 0);
+    expect(box?.y).toBeCloseTo(before!.y, 0);
+    await expect(page.getByRole('menuitemradio')).toHaveCount(0);
+    await expect(copies(page)).toHaveCount(0);
+    await expect.poll(() => savedColor(page)).toBe('purple');
+  });
+
+  test('a key opens and closes it at once', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await context.newPage();
+    await openTrip(page, extensionId);
+    await strip(page).focus();
+
+    await page.keyboard.press('Enter');
+    await expect(picker(page)).toBeVisible();
+    expect(await motionsOf(picker(page))).toEqual([]);
+
+    await page.keyboard.press('Escape');
+    await expect(picker(page)).toHaveCount(0);
+    expect(await copies(page).count()).toBe(0);
+  });
+
+  test.describe('reduced motion', () => {
+    test.use({ reducedMotion: 'reduce' });
+
+    test('no grow, no copy', async ({ context, extensionId }) => {
+      const page = await context.newPage();
+      await openTrip(page, extensionId);
+      await strip(page).click();
+      await expect(picker(page)).toBeVisible();
+      expect(await motionsOf(picker(page))).toEqual([]);
+
+      await page.getByRole('menuitemradio', { name: 'Purple' }).click();
+      await expect(picker(page)).toHaveCount(0);
+      expect(await copies(page).count()).toBe(0);
+    });
+  });
+});
