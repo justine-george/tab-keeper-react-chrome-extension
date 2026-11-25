@@ -12,6 +12,8 @@ import {
   type Size,
 } from './coachMarkPlacement';
 import { thisView } from '../../redux/firstRun';
+import { openSettingsPage } from '../../redux/slices/globalStateSlice';
+import { SettingsCategory } from '../../redux/slices/settingsCategoryStateSlice';
 import {
   closeEnding,
   selectEndingTarget,
@@ -50,6 +52,11 @@ export default function EndingCard() {
       : ''
   );
   const close = useCallback(() => void dispatch(closeEnding()), [dispatch]);
+  // KAN-1018 (his pick A). The story behind Tab Keeper, for whoever wants it: closes the card, opens Settings › About.
+  const readStory = useCallback(() => {
+    dispatch(closeEnding());
+    void dispatch(openSettingsPage(SettingsCategory.ABOUT));
+  }, [dispatch]);
   if (target === null) return null;
 
   const [first, second, signOff] = endingLines(target, title, t);
@@ -77,6 +84,7 @@ export default function EndingCard() {
       isDimmed={false}
       width={CARD_WIDTH[thisView()]}
       place={place}
+      secondary={{ label: t('Read the story'), onPress: readStory }}
       primary={{ label: t('Got it'), onPress: close }}
       onEscape={close}
     />
