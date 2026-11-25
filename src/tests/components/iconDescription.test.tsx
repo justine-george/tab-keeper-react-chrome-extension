@@ -141,6 +141,7 @@ describe('the other controls with a tooltip follow the same rule', () => {
       <OpenNowRail
         windows={null}
         foldAction={{ icon: 'undo', label: 'Fold', onClick: noop }}
+        showBeside={null}
         buttonRef={createRef()}
         onGoneWithFocus={noop}
         searchText=""

@@ -1,7 +1,6 @@
 import type { BrowserContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { elementLanded } from './fixtures/landed';
 import {
   buildContainer,
   buildSession,
@@ -55,8 +54,8 @@ const widthOf = async (page: Page, selector: string) => {
   return Math.round(box.width);
 };
 const detail = (page: Page) => page.locator(DETAIL);
-const rail = (page: Page) =>
-  page.getByRole('button', { name: /^Currently open/ });
+// By its place: wide, it is named by its action (KAN-1002).
+const rail = (page: Page) => page.locator('[data-open-now-rail] > button');
 
 test('the button folds Currently open to its rail (a 53px column) and shows it again; the saved session takes the width', async ({
   context,
@@ -101,27 +100,46 @@ test('the choice survives a reload', async ({ context, extensionId }) => {
   expect(await widthOf(page, OPEN_NOW)).toBe(53);
 });
 
-test('folded, the rail opens its drawer over the saved session, and Esc leaves it folded', async ({
+// KAN-1002. Wide, the rail is there only because Currently open was folded
+// by hand: its press shows it beside the saved session again, and focus goes
+// to the saved session's button, which folds it again.
+test('folded, a click on the rail shows Currently open beside the saved session', async ({
   context,
   extensionId,
 }) => {
   await seed(context);
   const page = await open(context, extensionId, WIDE);
+  const sideBySide = await widthOf(page, DETAIL);
   await detail(page).getByRole('button', { name: FOLD }).click();
-  await rail(page).click();
-  const drawer = page.getByRole('dialog', { name: 'Currently open' });
-  await expect(drawer).toBeVisible();
-  // KAN-810. It slides in: measure it where it comes to rest.
-  await elementLanded(drawer, 'subtree');
-  const box = await drawer.boundingBox();
-  if (box === null) throw new Error('the drawer has no box');
-  expect(Math.round(box.width)).toBe(480);
-  expect(Math.round(box.x + box.width)).toBe(WIDE.width);
+  await expect(rail(page)).toHaveAccessibleName(SHOW);
+  await expect(rail(page)).toHaveAttribute('data-tooltip', /^Currently open, /);
 
-  await page.keyboard.press('Escape');
-  await expect(drawer).toHaveCount(0);
-  await expect(rail(page)).toBeFocused();
-  expect(await widthOf(page, OPEN_NOW)).toBe(53);
+  await rail(page).click();
+  await expect(rail(page)).toHaveCount(0);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect.poll(() => widthOf(page, DETAIL)).toBe(sideBySide);
+  await expect(detail(page).getByRole('button', { name: FOLD })).toBeFocused();
+});
+
+test('folded, / from the rail shows Currently open beside it, with the cursor in its search', async ({
+  context,
+  extensionId,
+}) => {
+  await seed(context);
+  const page = await open(context, extensionId, WIDE);
+  const sideBySide = await widthOf(page, DETAIL);
+  await detail(page).getByRole('button', { name: FOLD }).click();
+  // A key brings focus to the rail, so / is Currently open's.
+  await page.keyboard.press('Shift');
+  await rail(page).focus();
+  await page.keyboard.press('/');
+
+  await expect(rail(page)).toHaveCount(0);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect.poll(() => widthOf(page, DETAIL)).toBe(sideBySide);
+  await expect(
+    page.locator(OPEN_NOW).getByRole('textbox', { name: 'Search open tabs' })
+  ).toBeFocused();
 });
 
 test('below 1100px the pencil is back; wide again, Currently open is still folded', async ({

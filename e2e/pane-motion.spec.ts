@@ -123,8 +123,14 @@ async function press(page: Page, act: () => Promise<void>) {
   return all[all.length - 1];
 }
 
-const rail = (page: Page) =>
-  page.getByRole('button', { name: /^Currently open/ });
+// By its place: wide, it is named by its action (KAN-1002).
+const rail = (page: Page) => page.locator('[data-open-now-rail] > button');
+// Wide, the rail's press and / show Currently open beside it (KAN-1002), so
+// the drawer is opened where it still opens: narrow.
+async function openDrawerNarrow(page: Page) {
+  await page.setViewportSize({ width: 1000, height: 800 });
+  await rail(page).click();
+}
 
 test('each fold starts a transition that moves its layers, from the drawer too; the drawer slides on its own', async ({
   context,
@@ -197,7 +203,7 @@ test('each fold starts a transition that moves its layers, from the drawer too; 
   );
   // The drawer slides in and out on itself, taking presses throughout: no pane motion.
   const beforeDrawer = (await runs(page)).length;
-  await rail(page).click();
+  await openDrawerNarrow(page);
   const drawer = page.getByRole('dialog');
   await expect(drawer).toBeVisible();
   expect(
@@ -209,7 +215,7 @@ test('each fold starts a transition that moves its layers, from the drawer too; 
   await expect(drawer).toHaveCount(0);
   expect((await runs(page)).length).toBe(beforeDrawer);
 
-  await rail(page).click();
+  await openDrawerNarrow(page);
   await elementLanded(page.getByRole('dialog'), 'subtree');
   const fromDrawer = await press(page, () =>
     page.getByRole('dialog').getByRole('button', { name: FOLD_SAVED }).click()
@@ -286,7 +292,7 @@ test('with reduced motion, folding Currently open and opening the drawer start n
     .getByRole('button', { name: FOLD_OPEN_NOW })
     .click();
   await expect(rail(page)).toBeVisible();
-  await rail(page).click();
+  await openDrawerNarrow(page);
   await expect(page.getByRole('dialog')).toBeVisible();
   expect(await runs(page)).toEqual([]);
 });
@@ -298,8 +304,8 @@ test('/ opens the drawer at once, and the keys typed after it reach the field', 
   await recordTransitions(context);
   await seed(context, true);
   const page = await open(context, extensionId);
-  // Opened by its own button and closed by Esc, the rail is where / goes.
-  await rail(page).click();
+  // Opened from the rail and closed by Esc, the rail is where / goes.
+  await openDrawerNarrow(page);
   await elementLanded(page.getByRole('dialog'), 'subtree');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -317,7 +323,7 @@ test('the rail button wears no fill while its drawer is open over it', async ({
 }) => {
   await seed(context, true);
   const page = await open(context, extensionId);
-  await rail(page).click();
+  await openDrawerNarrow(page);
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.mouse.move(400, 700);
   await expect
@@ -346,7 +352,7 @@ test('a click on a saved session while the drawer is open slides it out and show
     foldOpenNowInTabView: true,
   });
   const page = await open(context, extensionId);
-  await rail(page).click();
+  await openDrawerNarrow(page);
   await elementLanded(page.getByRole('dialog'), 'subtree');
   await page
     .locator('[data-pane="sessions"] [data-drag-row-id="S2"]')

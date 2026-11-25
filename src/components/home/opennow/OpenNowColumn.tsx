@@ -9,14 +9,17 @@ import { useOpenNowPlace } from '../../../hooks/useOpenNowPlace';
 import { useOpenWindows } from '../../../hooks/useOpenWindows';
 import { endSavedSessionPeek } from '../../../redux/slices/globalStateSlice';
 import { selectHasSavedSessions } from '../../../redux/savedSessionFold';
-import { setFoldSavedSessionInTabView } from '../../../redux/slices/settingsDataStateSlice';
+import {
+  setFoldOpenNowInTabView,
+  setFoldSavedSessionInTabView,
+} from '../../../redux/slices/settingsDataStateSlice';
 import { AppDispatch, RootState } from '../../../redux/store';
 import { SAVED_FOLD_ICON } from './foldIcon';
 import { runPaneMotion } from '../paneMotion';
 import { takeFoldFocus } from '../foldFocus';
 import OpenNowPane from './OpenNowPane';
 import type { OpenNowHeaderAction } from './OpenNowPane';
-import OpenNowRail from './OpenNowRail';
+import OpenNowRail, { type ShowBesideBy } from './OpenNowRail';
 import { OPEN_NOW_RAIL_QUERY } from './railQuery';
 
 interface OpenNowColumnProps {
@@ -57,6 +60,15 @@ function OpenNowColumn({ folded }: OpenNowColumnProps) {
   // swaps too (KAN-808); otherwise nothing is swapped and the pressed button
   // keeps focus.
   const focusAfterSwap = useRef(false);
+  // KAN-1002. / on the wide rail: the pane's search takes focus once drawn.
+  // Before the effect below, so the rail's going with focus hands it nothing.
+  const searchAfterSwap = useRef(false);
+  useEffect(() => {
+    if (showRail || !searchAfterSwap.current) return;
+    searchAfterSwap.current = false;
+    focusAfterSwap.current = false;
+    searchInputRef.current?.focus();
+  }, [showRail]);
   useEffect(() => {
     if (!focusAfterSwap.current) return;
     focusAfterSwap.current = false;
@@ -134,12 +146,40 @@ function OpenNowColumn({ folded }: OpenNowColumnProps) {
       ? [unfoldAction]
       : [];
 
+  // KAN-1002. Wide, the rail is there because the saved session's button
+  // folded Currently open, so its press and / undo that. A press hands focus
+  // first to that button, which folds it again, as the card hands focus on
+  // (KAN-999), so the rail goes without it; / puts the cursor in the search,
+  // as it does in the drawer (KAN-330 R1).
+  const showBeside = (by: ShowBesideBy) => {
+    if (by === 'shortcut') searchAfterSwap.current = true;
+    else
+      document
+        .querySelector<HTMLElement>(
+          '[data-pane="detail"] [data-pane-layer="saved-title-action"] [role="button"]'
+        )
+        ?.focus();
+    runPaneMotion(
+      () => {
+        dispatch(setFoldOpenNowInTabView(false));
+        dispatch(endSavedSessionPeek());
+      },
+      'openNow',
+      'unfold'
+    );
+  };
+
   // The windows are read here, above the swap, so a resize does not re-read.
   if (showRail) {
     return (
       <OpenNowRail
         windows={windows}
         foldAction={foldAction}
+        showBeside={
+          isNarrow
+            ? null
+            : { label: t('Show Open now beside it'), show: showBeside }
+        }
         buttonRef={railButtonRef}
         onGoneWithFocus={handOnFocus}
         searchText={searchText}

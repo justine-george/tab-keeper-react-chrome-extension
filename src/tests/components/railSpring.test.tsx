@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { act, fireEvent, screen } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 
 import MainContainer from '../../components/MainContainer';
 import { OPEN_NOW_RAIL_QUERY } from '../../components/home/opennow/railQuery';
@@ -44,7 +44,6 @@ import { dragKindOf } from '../setup/carryKind';
 // KAN-820 E. A saved carry resting 600ms on Currently open's rail springs the drawer out, without moving focus.
 // jsdom has no layout: the rail is stubbed at x 980..1024 (jsdom's innerWidth), y 0..800.
 
-const RAIL_NAME = 'Currently open, 3 Tabs';
 const RAIL_BOX = DOMRect.fromRect({ x: 980, y: 0, width: 44, height: 800 });
 // The drawer over the right side, the rail under it.
 const DRAWER_BOX = DOMRect.fromRect({ x: 644, y: 0, width: 380, height: 800 });
@@ -131,7 +130,12 @@ async function renderHome(
       }
     },
   });
-  const button = await screen.findByRole('button', { name: RAIL_NAME });
+  // By its place: wide, it is named by its action (KAN-1002).
+  const button = await waitFor(() => {
+    const el = rail().querySelector<HTMLButtonElement>('button');
+    if (el === null) throw new Error('no rail button');
+    return el;
+  });
   // Timers are faked after the render: i18n's init must settle first.
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
   rail().getBoundingClientRect = () => RAIL_BOX;
