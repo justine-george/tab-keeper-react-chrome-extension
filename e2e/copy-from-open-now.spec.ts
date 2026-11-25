@@ -786,6 +786,59 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
     expect(fold).toBe(true);
   });
 
+  // KAN-1006 (his yes). Resting on the Saved session card peeks as resting on the selected row does; the peek
+  // folds back after the drop, and after Esc. The stored fold stays.
+  test('9b. folded: resting on the Saved session card peeks the saved session; it folds back after the drop, and after Esc (KAN-1006)', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openTabViewFolded(context, extensionId);
+    const live = await openLiveWindow(serviceWorker, ['Live A', 'Live B']);
+    const card = page.locator('[data-saved-session-card]');
+    const detail = page.locator('[data-pane="detail"]');
+    const badge = page.locator(`${CARD} [data-carry-card-badge]`);
+    await expect(liveRow(page, live.idOf('Live A'))).toBeVisible();
+
+    for (const end of ['drop', 'esc'] as const) {
+      await settled(page);
+      const id = end === 'drop' ? live.idOf('Live A') : live.idOf('Live B');
+      const at = await pickUpLive(page, id);
+      const c = await boxOf(card);
+      await page.mouse.move(c.x + c.width / 2, at.y, { steps: 6 });
+      await expect(card).toHaveAttribute('data-carry-target', '');
+      // A release here saves nothing, so no +.
+      await expect(page.locator(CARD)).toHaveCount(1);
+      await expect(badge).toHaveCount(0);
+      // PREMISE: not before the wait.
+      await expect(detail).toHaveCount(0);
+      await page.waitForTimeout(SPRING_OPEN_MS + 200);
+      await expect(page.locator('[data-drag-row-id="w1"]')).toBeVisible();
+      await expect(card).toHaveCount(0);
+      if (end === 'drop') {
+        await settled(page);
+        await aimAt(page, 'a1', 0.25);
+        await page.mouse.up();
+        await expect
+          .poll(async () => (await urlsOf(page, 'S1'))[0]?.[1])
+          .toBe(dataUrl('Live A'));
+      } else {
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+      }
+      await expect(page.locator(CARD)).toHaveCount(0);
+      await expect(detail).toHaveCount(0);
+      await expect(card).toBeVisible();
+    }
+    // Esc saved nothing: only Live A was added.
+    expect((await urlsOf(page, 'S1')).flat()).not.toContain(dataUrl('Live B'));
+    const fold = await page.evaluate(() => {
+      const raw = localStorage.getItem('settingsData');
+      return raw === null ? null : JSON.parse(raw).foldSavedSessionInTabView;
+    });
+    expect(fold).toBe(true);
+  });
+
   test('10. narrow: the drawer slides away for the carry and comes back after the drop, and after Esc (N2 A)', async ({
     context,
     extensionId,

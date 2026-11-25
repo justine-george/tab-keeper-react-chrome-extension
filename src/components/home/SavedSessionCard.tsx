@@ -1,9 +1,13 @@
+import { useRef } from 'react';
 import { css } from '@emotion/react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 
 import Icon from '../common/Icon';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { springSweepStyle } from '../common/springOpen';
+import { useSavedCardSpring } from './useSavedCardSpring';
 import { endSavedSessionPeek } from '../../redux/slices/globalStateSlice';
 import { setFoldSavedSessionInTabView } from '../../redux/slices/settingsDataStateSlice';
 import type { AppDispatch, RootState } from '../../redux/store';
@@ -57,7 +61,7 @@ export default function SavedSessionCard() {
     color: inherit;
     font: inherit;
     cursor: pointer;
-    /* No drop lands here: under a drag or a carry it shows no hover, so it never reads as a target. */
+    /* No drop lands here: under a drag or a carry it shows no hover. A live carry resting on it peeks (KAN-1006). */
     /* His pick H2: a session row's hover and press fills, card-wide, and a darker outline. */
     html:not([data-dragging]):not([data-carrying]) &:hover {
       background-color: ${COLORS.HOVER_COLOR};
@@ -67,7 +71,23 @@ export default function SavedSessionCard() {
     html:not([data-dragging]):not([data-carrying]) &:active {
       background-color: ${COLORS.ACTIVE_COLOR};
     }
+    /* KAN-1006. A live carry resting here: the rail's carry-target look, then the row's sweep. */
+    &[data-carry-target] {
+      background-color: ${COLORS.ACTIVE_COLOR};
+      outline: 2px solid ${COLORS.LABEL_L2_COLOR};
+      outline-offset: -2px;
+    }
+    &[data-carry-dwell] {
+      background-color: transparent;
+      ${springSweepStyle(COLORS.ACTIVE_COLOR)}
+    }
   `;
+
+  // KAN-1006. Resting a live carry on the card peeks the saved session.
+  const slotRef = useRef<HTMLDivElement>(null);
+  const { isTarget } = useSavedCardSpring(slotRef);
+  // Reduced motion draws no sweep; the peek still comes after the wait.
+  const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
 
   const label = t('Show the saved session');
   // His pick W1: the tooltip names what the card holds, "Trip, 2 Tabs", as
@@ -85,7 +105,7 @@ export default function SavedSessionCard() {
           t
         );
   return (
-    <div css={slotStyle} data-saved-card-slot="">
+    <div ref={slotRef} css={slotStyle} data-saved-card-slot="">
       <button
         type="button"
         css={buttonStyle}
@@ -93,6 +113,8 @@ export default function SavedSessionCard() {
         data-tooltip={tip}
         data-saved-session-card=""
         data-pane-layer="saved-card"
+        data-carry-target={isTarget ? '' : undefined}
+        data-carry-dwell={isTarget && !reducedMotion ? '' : undefined}
         onClick={show}
       >
         <Icon type={SAVED_CARD_ICON} />
