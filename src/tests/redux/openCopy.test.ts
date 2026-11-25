@@ -826,10 +826,16 @@ describe('openCarriedCopy with Skip duplicates when opening', () => {
 
       expect(intoWindows()[0].skipTabsAlreadyOpen).toBe(false);
       expect(heard).toEqual([{ windowId: 1, tabIds: [31] }]);
-      expect(toasts(store)).toEqual([]);
+      expect(toasts(store)).toEqual([
+        {
+          text: TOAST_MESSAGES.OPENED_IN_WINDOW,
+          params: { number: 1 },
+          leftOut: 0,
+        },
+      ]);
     });
 
-    it('window drop leaves some out: arrival on new ids + left-out toast', async () => {
+    it('window drop leaves some out: arrival on new ids + one Opened toast that says how many were left out', async () => {
       answerWith({
         ids: [31, 32],
         leftOut: 2,
@@ -844,13 +850,17 @@ describe('openCarriedCopy with Skip duplicates when opening', () => {
 
       expect(intoWindows()[0].skipTabsAlreadyOpen).toBe(true);
       expect(heard).toEqual([{ windowId: 1, tabIds: [31, 32] }]);
-      expect(toasts(store)).toMatchObject([
-        { text: TOAST_MESSAGES.DUPLICATE_TABS_LEFT_OUT, params: { count: 2 } },
+      expect(toasts(store)).toEqual([
+        {
+          text: TOAST_MESSAGES.OPENED_IN_WINDOW,
+          params: { number: 1 },
+          leftOut: 2,
+        },
       ]);
       expect(reviewAsks(actions)).toBe(1);
     });
 
-    it('two window drops that leave some out: two left-out toasts, stacked', async () => {
+    it('two window drops that leave some out: two Opened toasts, stacked', async () => {
       answerWith({
         ids: [31, 32],
         leftOut: 2,
@@ -862,9 +872,17 @@ describe('openCarriedCopy with Skip duplicates when opening', () => {
       await store.dispatch(openCarriedCopy(windowItem, drop, GO_TO));
       await store.dispatch(openCarriedCopy(windowItem, drop, GO_TO));
 
-      expect(toasts(store)).toMatchObject([
-        { text: TOAST_MESSAGES.DUPLICATE_TABS_LEFT_OUT, params: { count: 2 } },
-        { text: TOAST_MESSAGES.DUPLICATE_TABS_LEFT_OUT, params: { count: 2 } },
+      expect(toasts(store)).toEqual([
+        {
+          text: TOAST_MESSAGES.OPENED_IN_WINDOW,
+          params: { number: 1 },
+          leftOut: 2,
+        },
+        {
+          text: TOAST_MESSAGES.OPENED_IN_WINDOW,
+          params: { number: 1 },
+          leftOut: 2,
+        },
       ]);
     });
 
@@ -958,7 +976,7 @@ describe('openCarriedCopy with Skip duplicates when opening', () => {
       ]);
     });
 
-    it('tab drop onto a window without it opens as today, no toast', async () => {
+    it('tab drop onto a window without it opens as today, and says so', async () => {
       liveWith(A, B);
       const { store } = readyOn(true);
 
@@ -967,7 +985,13 @@ describe('openCarriedCopy with Skip duplicates when opening', () => {
       ).resolves.toBe(true);
 
       expect(handle?.createdTabs).toHaveLength(1);
-      expect(toasts(store)).toEqual([]);
+      expect(toasts(store)).toEqual([
+        {
+          text: TOAST_MESSAGES.OPENED_IN_WINDOW,
+          params: { number: 1 },
+          leftOut: 0,
+        },
+      ]);
     });
 
     it('tab drop off: opens a second copy and asks Chrome for no tab list', async () => {
@@ -980,7 +1004,13 @@ describe('openCarriedCopy with Skip duplicates when opening', () => {
 
       expect(handle?.createdTabs).toHaveLength(1);
       expect(handle?.tabsQueryCalls).toEqual([]);
-      expect(toasts(store)).toEqual([]);
+      expect(toasts(store)).toEqual([
+        {
+          text: TOAST_MESSAGES.OPENED_IN_WINDOW,
+          params: { number: 1 },
+          leftOut: 0,
+        },
+      ]);
     });
 
     it('a split half dropped alone is judged on its page', async () => {
@@ -1013,7 +1043,7 @@ describe('openCarriedCopy with Skip duplicates when opening', () => {
   });
 
   describe('a group at a slot', () => {
-    it('group drop partial: group of the rest + left-out toast', async () => {
+    it('group drop partial: group of the rest + one Opened toast that says how many were left out', async () => {
       liveWith(A, 'https://x.example/');
       const { store, actions } = readyOn(true);
 
@@ -1031,8 +1061,12 @@ describe('openCarriedCopy with Skip duplicates when opening', () => {
       );
       expect(handle?.groupedTabs).toHaveLength(1);
       expect(handle?.groupedTabs[0].tabIds).toHaveLength(1);
-      expect(toasts(store)).toMatchObject([
-        { text: TOAST_MESSAGES.DUPLICATE_TABS_LEFT_OUT, params: { count: 1 } },
+      expect(toasts(store)).toEqual([
+        {
+          text: TOAST_MESSAGES.OPENED_IN_WINDOW,
+          params: { number: 1 },
+          leftOut: 1,
+        },
       ]);
       expect(reviewAsks(actions)).toBe(1);
     });
@@ -1108,7 +1142,13 @@ describe('openCarriedCopy with Skip duplicates when opening', () => {
       );
 
       expect(handle?.createdTabs).toHaveLength(2);
-      expect(toasts(store)).toEqual([]);
+      expect(toasts(store)).toEqual([
+        {
+          text: TOAST_MESSAGES.OPENED_IN_WINDOW,
+          params: { number: 1 },
+          leftOut: 0,
+        },
+      ]);
     });
 
     it('group drop off adds no tab list read', async () => {
@@ -1137,7 +1177,13 @@ describe('openCarriedCopy with Skip duplicates when opening', () => {
       );
 
       expect(handle?.createdTabs).toHaveLength(2);
-      expect(toasts(made.store)).toEqual([]);
+      expect(toasts(made.store)).toEqual([
+        {
+          text: TOAST_MESSAGES.OPENED_IN_WINDOW,
+          params: { number: 1 },
+          leftOut: 0,
+        },
+      ]);
     });
   });
 });
@@ -1553,5 +1599,176 @@ describe('openCarriedCopy keeps an undo step', () => {
       openCarriedCopy(tabItem('t2', sample), { kind: 'tab', slot }, GO_TO)
     );
     expect(stepOf(store)?.tabs).toHaveLength(1);
+  });
+  // KAN-1010 (his pick A). What opened says so, with the drop's Undo.
+  describe('says where it opened (KAN-1010)', () => {
+    const said = (store: ReturnType<typeof ready>['store']) =>
+      store.getState().globalState.toasts.map((t) => ({
+        text: t.text,
+        params: t.params,
+        leftOut: t.leftOut,
+        liveStepId: t.liveStepId,
+      }));
+    const stepId = (store: ReturnType<typeof ready>['store']) =>
+      store.getState().undoRedo.present.liveStep?.id;
+
+    it('a tab at a slot: "Opened in Window 1." with Undo for its step', async () => {
+      live();
+      const { store } = ready();
+      await store.dispatch(
+        openCarriedCopy(tabItem(), { kind: 'tab', slot }, GO_TO)
+      );
+      expect(stepId(store)).toBeDefined();
+      expect(said(store)).toEqual([
+        {
+          text: TOAST_MESSAGES.OPENED_IN_WINDOW,
+          params: { number: 1 },
+          leftOut: 0,
+          liveStepId: stepId(store),
+        },
+      ]);
+    });
+
+    it("the number is the window's in Currently open: the second listed is Window 2, whatever its Chrome id", async () => {
+      handle?.restore();
+      handle = setupChromeFake({
+        windows: [
+          {
+            id: 7,
+            tabs: [{ id: 71, url: 'https://x.example/', active: true }],
+          },
+          {
+            id: 9,
+            tabs: [{ id: 91, url: 'https://y.example/', active: true }],
+          },
+        ],
+      });
+      workLikeTheWorker();
+      const { store } = ready();
+      await store.dispatch(
+        openCarriedCopy(
+          tabItem(),
+          { kind: 'tab', slot: { windowId: 9, index: 1, pinned: false } },
+          GO_TO
+        )
+      );
+      expect(said(store)).toMatchObject([{ params: { number: 2 } }]);
+    });
+
+    it('a group and a pair say it too', async () => {
+      live();
+      const { store } = ready();
+      await store.dispatch(
+        openCarriedCopy(
+          groupItem,
+          { kind: 'group', slot: { windowId: 1, index: 1 } },
+          GO_TO
+        )
+      );
+      await store.dispatch(
+        openCarriedCopy(
+          savedItem({
+            kind: 'pair',
+            tabGroupId: SESSION,
+            windowId: 'w1',
+            tabId: 't2',
+            partnerTabId: 't3',
+          }),
+          { kind: 'tab', slot },
+          GO_TO
+        )
+      );
+      expect(said(store).map((t) => t.text)).toEqual([
+        TOAST_MESSAGES.OPENED_IN_WINDOW,
+        TOAST_MESSAGES.OPENED_IN_WINDOW,
+      ]);
+    });
+
+    it('a window into a window: "Opened in Window 1."', async () => {
+      live();
+      const { store } = ready();
+      await store.dispatch(
+        openCarriedCopy(windowItem, { kind: 'intoWindow', windowId: 1 }, GO_TO)
+      );
+      expect(said(store)).toEqual([
+        {
+          text: TOAST_MESSAGES.OPENED_IN_WINDOW,
+          params: { number: 1 },
+          leftOut: 0,
+          liveStepId: stepId(store),
+        },
+      ]);
+    });
+
+    it('a new window: "New window opened." with Undo, once the worker answers', async () => {
+      live();
+      const { store } = ready();
+      await store.dispatch(
+        openCarriedCopy(tabItem(), { kind: 'newWindow' }, GO_TO)
+      );
+      await vi.waitFor(() =>
+        expect(said(store)).toEqual([
+          {
+            text: TOAST_MESSAGES.NEW_WINDOW_OPENED,
+            params: undefined,
+            leftOut: 0,
+            liveStepId: stepId(store),
+          },
+        ])
+      );
+    });
+
+    it('a window into a window that closed: the worker\'s new window, so "New window opened."', async () => {
+      live();
+      const { store } = ready();
+      await store.dispatch(
+        openCarriedCopy(windowItem, { kind: 'intoWindow', windowId: 99 }, GO_TO)
+      );
+      expect(said(store)).toMatchObject([
+        { text: TOAST_MESSAGES.NEW_WINDOW_OPENED, liveStepId: stepId(store) },
+      ]);
+    });
+
+    it('two drops: two toasts, and only the newest keeps Undo', async () => {
+      live();
+      const { store } = ready();
+      await store.dispatch(
+        openCarriedCopy(tabItem(), { kind: 'tab', slot }, GO_TO)
+      );
+      await store.dispatch(
+        openCarriedCopy(tabItem('t1'), { kind: 'tab', slot }, GO_TO)
+      );
+      const [older, newer] = said(store);
+      expect(older.liveStepId).toBeNull();
+      expect(newer.liveStepId).toBe(stepId(store));
+    });
+
+    it('worst path: the window gone by the time it is read, so no number and no toast', async () => {
+      live();
+      const { store } = ready();
+      // Chrome's list as it is, less the window just dropped into.
+      const others = (
+        await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] })
+      ).filter((w) => w.id !== slot.windowId);
+      const getAll = vi
+        .spyOn(chrome.windows, 'getAll')
+        .mockImplementation(() => Promise.resolve(others));
+      await store.dispatch(
+        openCarriedCopy(tabItem(), { kind: 'tab', slot }, GO_TO)
+      );
+      expect(getAll).toHaveBeenCalled();
+      expect(stepId(store)).toBeDefined();
+      expect(said(store)).toEqual([]);
+    });
+
+    it('Chrome unable to list windows: no toast, and the drop still opened', async () => {
+      live();
+      const { store } = ready();
+      vi.spyOn(chrome.windows, 'getAll').mockRejectedValue(new Error('gone'));
+      await expect(
+        store.dispatch(openCarriedCopy(tabItem(), { kind: 'tab', slot }, GO_TO))
+      ).resolves.toBe(true);
+      expect(said(store)).toEqual([]);
+    });
   });
 });

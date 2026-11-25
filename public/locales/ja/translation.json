@@ -155,6 +155,8 @@
   "Sort tabs by site": "タブをサイト別に並べ替え",
   "Sort groups by name": "グループを名前順に並べ替え",
   "TabsSortedBySite": "タブをサイト別に並べ替えました。",
+  "OpenedInWindow": "ウィンドウ {{number}} で開きました。",
+  "NewWindowOpened": "新しいウィンドウで開きました。",
   "GroupsSortedByName": "グループを名前順に並べ替えました。",
   "UndoRefusedSort": "並べ替えを元に戻せませんでした。そのウィンドウのタブはその後変更されています。",
   "UndoRefusedMove": "移動を元に戻せませんでした。それらのタブはその後移動または閉じられています。",

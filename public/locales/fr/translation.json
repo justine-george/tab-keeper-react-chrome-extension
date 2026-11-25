@@ -161,6 +161,8 @@
   "Sort tabs by site": "Trier les onglets par site",
   "Sort groups by name": "Trier les groupes par nom",
   "TabsSortedBySite": "Onglets triés par site.",
+  "OpenedInWindow": "Ouvert dans la fenêtre {{number}}.",
+  "NewWindowOpened": "Nouvelle fenêtre ouverte.",
   "GroupsSortedByName": "Groupes triés par nom.",
   "UndoRefusedSort": "Impossible d’annuler le tri. Les onglets de cette fenêtre ont changé depuis.",
   "UndoRefusedMove": "Impossible d’annuler le déplacement. Ces onglets ont été déplacés ou fermés depuis.",

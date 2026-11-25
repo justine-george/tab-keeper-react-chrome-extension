@@ -34,6 +34,7 @@ import type {
   TabCopySlot,
 } from '../utils/functions/openNowMoves';
 import { announceArrival } from '../utils/functions/arrival';
+import { openWindowNumber } from '../utils/functions/openNow';
 import { TOAST_MESSAGES } from '../utils/constants/common';
 import {
   leaveOutOpenTabs,
@@ -209,14 +210,6 @@ export const openCarriedCopy =
     };
 
     const skips = selectSkipsTabsAlreadyOpen(state);
-    const sayLeftOut = (count: number) =>
-      dispatch(
-        showToast({
-          toastText: TOAST_MESSAGES.DUPLICATE_TABS_LEFT_OUT,
-          toastParams: { count },
-          stacksOnTwin: true,
-        })
-      );
     // Each drop is its own event, so twin toasts stack (KAN-401).
     // Every page was there: the open copies light up and the drop is done.
     const sayAlreadyOpen = (windowId: number, ids: number[]) => {
@@ -232,16 +225,16 @@ export const openCarriedCopy =
       );
     };
 
-    // KAN-893. The tabs a drop opened, kept as one undo step; `saved` runs parallel to `ids`.
+    // KAN-893. The tabs a drop opened, kept as one undo step; `saved` runs parallel to `ids`. Returns the step's id.
     const hasTabGroups = state.globalState.hasTabGroupsPermission;
     const keep = async (
       ids: readonly (number | undefined)[],
       saved: readonly tabData[],
       reopen: ReopenAt,
       extra: { group?: TabGroupSpec; madeWindow?: MadeWindow } = {}
-    ) => {
+    ): Promise<number | null> => {
       const { group = null, madeWindow } = extra;
-      keepOpenedStep(dispatch, {
+      return keepOpenedStep(dispatch, {
         kind: 'opened',
         tabs: await recordOpened(ids, saved, hasTabGroups),
         group,
@@ -255,6 +248,41 @@ export const openCarriedCopy =
         reopen,
         goToURLText,
       });
+    };
+    // KAN-1010 (his pick A). Where it opened, as Currently open numbers that
+    // window, with Undo for its step; `leftOut` adds how many were already
+    // open (KAN-906). A window Chrome no longer lists has no number: no toast,
+    // and ⌘Z still undoes the drop. Each drop is its own event, so twins stack.
+    const sayOpened = async (
+      at: number | 'newWindow',
+      stepId: number | null,
+      leftOut = 0
+    ): Promise<void> => {
+      let number: number | null = null;
+      if (at !== 'newWindow') {
+        try {
+          const windows = await chrome.windows.getAll({
+            populate: true,
+            windowTypes: ['normal'],
+          });
+          number = openWindowNumber(windows, at);
+        } catch {
+          number = null;
+        }
+        if (number === null) return;
+      }
+      await dispatch(
+        showToast({
+          toastText:
+            number === null
+              ? TOAST_MESSAGES.NEW_WINDOW_OPENED
+              : TOAST_MESSAGES.OPENED_IN_WINDOW,
+          ...(number === null ? {} : { toastParams: { number } }),
+          liveStepId: stepId ?? undefined,
+          leftOut,
+          stacksOnTwin: true,
+        })
+      );
     };
     const atSlot = (slot: {
       windowId: number;
@@ -285,12 +313,13 @@ export const openCarriedCopy =
       void whileKeepingStep(async () => {
         const made = await askNewWindow(request);
         if (made !== null) {
-          await keep(
+          const stepId = await keep(
             made.tabIds,
             spec.tabs,
             { at: 'newWindow', spec },
             { madeWindow: made }
           );
+          await sayOpened('newWindow', stepId);
         }
       });
       return Promise.resolve(true);
@@ -306,6 +335,7 @@ export const openCarriedCopy =
         pinTabKeeper: state.settingsDataState.pinTabKeeperInNewWindows,
         skipTabsAlreadyOpen: skips,
       };
+      let stepId: number | null = null;
       opened = whileMovingTabs(async () => {
         const answer = await askIntoWindow(request);
         const { ids, savedTabIds, madeWindows } = answer;
@@ -317,22 +347,23 @@ export const openCarriedCopy =
             windowId: place.windowId,
             spec: { ...spec, tabs: saved },
           } as const;
-          await keep(ids, saved, reopen);
+          stepId = await keep(ids, saved, reopen);
         } else if (ids.length === 0 && madeWindows[0] !== undefined) {
           // Its window closed mid-carry: the worker opened it in a new one instead, undone as a New window drop.
           const made = madeWindows[0];
-          await keep(
+          const madeStep = await keep(
             made.tabIds,
             spec.tabs,
             { at: 'newWindow', spec },
             { madeWindow: made }
           );
+          await sayOpened('newWindow', madeStep);
         }
         return answer;
-      }).then(({ ids, leftOut, alreadyOpen }): Outcome => {
+      }).then(async ({ ids, leftOut, alreadyOpen }): Promise<Outcome> => {
         if (ids.length > 0) {
           announceArrival(place.windowId, ids);
-          if (leftOut > 0) sayLeftOut(leftOut);
+          await sayOpened(place.windowId, stepId, leftOut);
           return 'opened';
         }
         // Every tab left out; fewer means the rest were refused.
@@ -355,7 +386,8 @@ export const openCarriedCopy =
         }
         const id = await openTabCopy(plain, place.slot);
         if (id === undefined) return 'nothing';
-        await keep([id], [plain], atSlot(place.slot));
+        const stepId = await keep([id], [plain], atSlot(place.slot));
+        await sayOpened(place.slot.windowId, stepId);
         return 'opened';
       });
     } else if (place.kind === 'tab' && pick.kind === 'pair') {
@@ -372,7 +404,8 @@ export const openCarriedCopy =
         }
         const ids = await openPairCopy(...halves, place.slot);
         if (!ids.some((id) => id !== undefined)) return 'nothing';
-        await keep(ids, halves, atSlot(place.slot));
+        const stepId = await keep(ids, halves, atSlot(place.slot));
+        await sayOpened(place.slot.windowId, stepId);
         return 'opened';
       });
     } else if (place.kind === 'group' && pick.kind === 'group') {
@@ -393,8 +426,10 @@ export const openCarriedCopy =
           goToURLText
         );
         if (!ids.some((id) => id !== undefined)) return 'nothing';
-        await keep(ids, rest.tabs, atSlot(place.slot), { group: found.group });
-        if (rest.leftOut > 0) sayLeftOut(rest.leftOut);
+        const stepId = await keep(ids, rest.tabs, atSlot(place.slot), {
+          group: found.group,
+        });
+        await sayOpened(place.slot.windowId, stepId, rest.leftOut);
         return 'opened';
       });
     } else {

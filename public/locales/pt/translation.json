@@ -161,6 +161,8 @@
   "Sort tabs by site": "Ordenar abas por site",
   "Sort groups by name": "Ordenar grupos por nome",
   "TabsSortedBySite": "Abas ordenadas por site.",
+  "OpenedInWindow": "Aberto na janela {{number}}.",
+  "NewWindowOpened": "Nova janela aberta.",
   "GroupsSortedByName": "Grupos ordenados por nome.",
   "UndoRefusedSort": "Não foi possível desfazer a ordenação. As abas dessa janela mudaram desde então.",
   "UndoRefusedMove": "Não foi possível desfazer o movimento. Essas abas foram movidas ou fechadas desde então.",

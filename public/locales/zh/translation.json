@@ -155,6 +155,8 @@
   "Sort tabs by site": "按网站排序标签页",
   "Sort groups by name": "按名称排序群组",
   "TabsSortedBySite": "标签页已按网站排序。",
+  "OpenedInWindow": "已在窗口 {{number}} 中打开。",
+  "NewWindowOpened": "已在新窗口中打开。",
   "GroupsSortedByName": "群组已按名称排序。",
   "UndoRefusedSort": "无法撤销排序。该窗口的标签页此后已发生变化。",
   "UndoRefusedMove": "无法撤销移动。这些标签页此后已被移动或关闭。",

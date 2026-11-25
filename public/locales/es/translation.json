@@ -161,6 +161,8 @@
   "Sort tabs by site": "Ordenar pestañas por sitio",
   "Sort groups by name": "Ordenar grupos por nombre",
   "TabsSortedBySite": "Pestañas ordenadas por sitio.",
+  "OpenedInWindow": "Se abrió en la ventana {{number}}.",
+  "NewWindowOpened": "Se abrió una ventana nueva.",
   "GroupsSortedByName": "Grupos ordenados por nombre.",
   "UndoRefusedSort": "No se pudo deshacer la ordenación. Las pestañas de esa ventana han cambiado desde entonces.",
   "UndoRefusedMove": "No se pudo deshacer el movimiento. Esas pestañas se movieron o se cerraron desde entonces.",

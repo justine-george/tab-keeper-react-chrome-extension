@@ -158,6 +158,8 @@
   "Sort tabs by site": "Sortera flikar efter webbplats",
   "Sort groups by name": "Sortera grupper efter namn",
   "TabsSortedBySite": "Flikarna har sorterats efter webbplats.",
+  "OpenedInWindow": "Öppnades i fönster {{number}}.",
+  "NewWindowOpened": "Nytt fönster öppnades.",
   "GroupsSortedByName": "Grupperna har sorterats efter namn.",
   "UndoRefusedSort": "Det gick inte att ångra sorteringen. Flikarna i det fönstret har ändrats sedan dess.",
   "UndoRefusedMove": "Det gick inte att ångra flytten. De flikarna har flyttats eller stängts sedan dess.",

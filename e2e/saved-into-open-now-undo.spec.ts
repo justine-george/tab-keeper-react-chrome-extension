@@ -426,7 +426,8 @@ test.describe('undo and redo of a drop into Currently open', () => {
         const count = await total();
 
         await undoKey(page);
-        await expect(toasts(page)).toContainText(REFUSED);
+        // Over the drop's own "Opened in" toast (KAN-1010), which stays.
+        await expect(toasts(page).filter({ hasText: REFUSED })).toHaveCount(1);
         expect(await total()).toBe(count);
 
         await undoKey(page);
@@ -584,5 +585,58 @@ test.describe('undo and redo of a drop into Currently open', () => {
     await expect
       .poll(() => addresses(worker, live.windowId), SETTLE)
       .toEqual(both);
+  });
+});
+
+// KAN-1010 (his pick A). A drop that opened says where, as Currently open
+// numbers the window, with the drop's own Undo.
+test.describe('the drop says where it opened (KAN-1010)', () => {
+  test('into a live window: "Opened in Window N." as the list labels it; its Undo closes the copy and the toast', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    await openLiveWindow(worker, ['X']);
+    const live = await openLiveWindow(worker, ['A', 'B']);
+    const page = await setUp(context, extensionId);
+    await expect(liveRow(page, live.idOf('B'))).toBeVisible();
+    const label = (
+      await page
+        .locator(`${OPEN_NOW} [data-open-window-id="${live.windowId}"]`)
+        .first()
+        .innerText()
+    ).match(/Window \d+/)?.[0];
+    // PREMISE: the list names it, and not as the first window.
+    expect(label).toMatch(/^Window [2-9]$/);
+
+    await dropS2(page, worker, live.windowId, live.idOf('B'));
+    const said = toasts(page).filter({ hasText: `Opened in ${label}.` });
+    await expect(said).toHaveCount(1);
+    await said.getByRole('button', { name: /^Undo/ }).click();
+
+    await expect
+      .poll(() => addresses(worker, live.windowId), SETTLE)
+      .toEqual([dataUrl('A'), dataUrl('B')]);
+    await expect(said).toHaveCount(0);
+  });
+
+  test('as a new window: "New window opened." with Undo', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const live = await openLiveWindow(worker, ['A']);
+    const page = await setUp(context, extensionId);
+    await expect(liveRow(page, live.idOf('A'))).toBeVisible();
+
+    await pickUp(page, tabHandle(page, 's2'));
+    await carryTo(page, await middleOf(liveRow(page, live.idOf('A'))));
+    await carryTo(page, await middleOf(page.locator(LAST_BOX)));
+    await expect(page.locator(LAST_BOX)).toHaveAttribute('data-landing', '');
+    await page.mouse.up();
+
+    const said = toasts(page).filter({ hasText: 'New window opened.' });
+    await expect(said).toHaveCount(1, SETTLE);
+    await expect(said.getByRole('button', { name: /^Undo/ })).toBeVisible();
   });
 });
