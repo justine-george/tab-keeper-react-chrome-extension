@@ -14,8 +14,8 @@ async function openWide(page: Page, extensionId: string) {
   await page.locator('[data-tour-anchor="save"]').waitFor();
 }
 
-const rail = (page: Page) =>
-  page.getByRole('button', { name: /^Currently open/ });
+// By its place: wide, it is named by its action (KAN-1002).
+const rail = (page: Page) => page.locator('[data-open-now-rail] > button');
 
 test('narrowing the window hands focus to the rail', async ({
   context,

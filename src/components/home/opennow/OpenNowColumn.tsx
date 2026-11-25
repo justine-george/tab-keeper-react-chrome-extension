@@ -9,7 +9,10 @@ import { useOpenNowPlace } from '../../../hooks/useOpenNowPlace';
 import { useOpenWindows } from '../../../hooks/useOpenWindows';
 import { endSavedSessionPeek } from '../../../redux/slices/globalStateSlice';
 import { selectHasSavedSessions } from '../../../redux/savedSessionFold';
-import { setFoldSavedSessionInTabView } from '../../../redux/slices/settingsDataStateSlice';
+import {
+  setFoldOpenNowInTabView,
+  setFoldSavedSessionInTabView,
+} from '../../../redux/slices/settingsDataStateSlice';
 import { AppDispatch, RootState } from '../../../redux/store';
 import { SAVED_FOLD_ICON } from './foldIcon';
 import { runPaneMotion } from '../paneMotion';
@@ -134,12 +137,37 @@ function OpenNowColumn({ folded }: OpenNowColumnProps) {
       ? [unfoldAction]
       : [];
 
+  // KAN-1002. Wide, the rail is there because the saved session's button
+  // folded Currently open, so its press undoes that. Focus goes first to that
+  // button, which folds it again, as the card hands focus on (KAN-999); the
+  // rail then goes without it.
+  const showBeside = () => {
+    document
+      .querySelector<HTMLElement>(
+        '[data-pane="detail"] [data-pane-layer="saved-title-action"] [role="button"]'
+      )
+      ?.focus();
+    runPaneMotion(
+      () => {
+        dispatch(setFoldOpenNowInTabView(false));
+        dispatch(endSavedSessionPeek());
+      },
+      'openNow',
+      'unfold'
+    );
+  };
+
   // The windows are read here, above the swap, so a resize does not re-read.
   if (showRail) {
     return (
       <OpenNowRail
         windows={windows}
         foldAction={foldAction}
+        showBeside={
+          isNarrow
+            ? null
+            : { label: t('Show Open now beside it'), onClick: showBeside }
+        }
         buttonRef={railButtonRef}
         onGoneWithFocus={handOnFocus}
         searchText={searchText}

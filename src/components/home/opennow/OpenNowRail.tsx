@@ -56,6 +56,10 @@ interface OpenNowRailProps {
   windows: OpenWindow[] | null;
   // The fold button, shown in the drawer's header before its close button.
   foldAction: OpenNowHeaderAction;
+  // KAN-1002. Wide, the rail is there only because Currently open was folded
+  // by hand, so its press shows it beside the saved session, as the saved
+  // session's card does. Narrow, null: there is no room, so it opens the drawer.
+  showBeside: { label: string; onClick: () => void } | null;
   // The rail's button. The caller holds it so an unfold that brings the rail
   // back can focus it (OpenNowColumn).
   buttonRef: RefObject<HTMLButtonElement>;
@@ -87,6 +91,7 @@ const slideOut = keyframes`
 export default function OpenNowRail({
   windows,
   foldAction,
+  showBeside,
   buttonRef,
   onGoneWithFocus,
   searchText,
@@ -463,16 +468,22 @@ export default function OpenNowRail({
         ref={buttonRef}
         type="button"
         css={buttonStyle}
-        aria-label={railLabel}
+        // His pick W1, as the saved session's card: named by what a press
+        // does, the tooltip says what it holds.
+        aria-label={showBeside?.label ?? railLabel}
         data-tooltip={railLabel}
-        aria-expanded={isOpen}
+        aria-expanded={showBeside === null ? isOpen : undefined}
         aria-keyshortcuts={showsShortcut ? SEARCH_SHORTCUT_KEY : undefined}
         // Only while the drawer exists: an IDREF to nothing names no element.
-        aria-controls={isOpen ? drawerId : undefined}
-        onClick={() => (isOpen ? close() : openDrawer())}
+        aria-controls={showBeside === null && isOpen ? drawerId : undefined}
+        onClick={() => {
+          if (showBeside !== null) showBeside.onClick();
+          else if (isOpen) close();
+          else openDrawer();
+        }}
       >
         <Icon type="tab" />
-        {/* Named by aria-label, which holds this text and the count. */}
+        {/* Named by aria-label: this text and the count, or wide, the action. */}
         <RailLabel text={t('Open now')} />
         {showsShortcut && (
           <span aria-hidden="true">

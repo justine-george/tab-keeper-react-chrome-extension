@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { act, fireEvent, screen, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import MainContainer from '../../components/MainContainer';
@@ -25,6 +31,23 @@ const FOLD_OPEN_NOW = 'Give the saved session the full width';
 const SHOW_OPEN_NOW = 'Show Currently open beside it';
 const FOLD_SAVED = 'Give Currently open the full width';
 const PENCIL = 'Rename session';
+const rail = () => {
+  const el = document.querySelector<HTMLElement>('[data-open-now-rail] button');
+  if (el === null) throw new Error('no rail');
+  return el;
+};
+const drawer = () => screen.queryByRole('dialog');
+// Wide, the rail is named by its action (KAN-1002), which the saved session's
+// folded button shares, so it is found by its place.
+const railShown = () => waitFor(rail);
+// Wide, the rail's press unfolds (KAN-1002); / still opens the drawer once
+// a key has brought focus to the rail, which makes Currently open its target.
+const openDrawerBySlash = async () => {
+  const user = userEvent.setup();
+  await user.keyboard('{Shift}');
+  act(() => rail().focus());
+  await user.keyboard('/');
+};
 const RAIL_NAME = 'Currently open, 3 Tabs';
 const GRIP = 'Resize the Currently open panel';
 // Only the pane renders this line, so its presence is the pane's.
@@ -184,9 +207,7 @@ describe('the press', () => {
     fold.focus();
     fireEvent.click(fold);
     expect(folds(store)).toEqual({ saved: false, openNow: true });
-    expect(
-      await screen.findByRole('button', { name: RAIL_NAME })
-    ).toBeInTheDocument();
+    expect(await railShown()).toBeInTheDocument();
     expect(within(openNowSlot()).queryByText(PANE_ONLY)).toBeNull();
     expect(openNowTrack()).toBe('53px');
     // The saved session stays, and the button now says what it will do.
@@ -225,14 +246,42 @@ describe('the press', () => {
 });
 
 describe('folded to the rail', () => {
-  test("the rail's button opens the drawer, and Open now stays folded", async () => {
+  // KAN-1002. Wide, the rail is there only because Currently open was folded
+  // by hand, so its press unfolds it, as the saved session's card does.
+  test("wide, the rail shows Currently open beside it, and focus goes to the saved session's button", async () => {
     const { store } = await renderHome();
     await mounted();
     fireEvent.click(button(FOLD_OPEN_NOW)!);
-    const rail = await screen.findByRole('button', { name: RAIL_NAME });
-    fireEvent.click(rail);
-    expect(rail).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByText(PANE_ONLY)).toBeInTheDocument();
+    await railShown();
+    // Named by what it does; the tooltip says what it holds.
+    expect(rail()).toHaveAccessibleName(SHOW_OPEN_NOW);
+    expect(rail()).toHaveAttribute('data-tooltip', RAIL_NAME);
+    expect(rail()).not.toHaveAttribute('aria-expanded');
+
+    const pressed = rail();
+    pressed.focus();
+    fireEvent.click(pressed);
+    expect(folds(store)).toEqual({ saved: false, openNow: false });
+    expect(drawer()).toBeNull();
+    expect(within(openNowSlot()).getByText(PANE_ONLY)).toBeInTheDocument();
+    expect(openNowTrack()).not.toBe('53px');
+    expect(document.activeElement).toBe(
+      within(detail()).getByRole('button', { name: FOLD_OPEN_NOW })
+    );
+  });
+
+  test('narrowed while folded by hand, the rail opens the drawer again', async () => {
+    const { store } = await renderHome();
+    await mounted();
+    fireEvent.click(button(FOLD_OPEN_NOW)!);
+    await railShown();
+    act(() => railQuery.setMatches(true));
+
+    const narrow = await screen.findByRole('button', { name: RAIL_NAME });
+    expect(narrow).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(narrow);
+    expect(narrow).toHaveAttribute('aria-expanded', 'true');
+    expect(drawer()).not.toBeNull();
     expect(folds(store)).toEqual({ saved: false, openNow: true });
   });
 
@@ -240,12 +289,13 @@ describe('folded to the rail', () => {
     const { store } = await renderHome();
     await mounted();
     fireEvent.click(button(FOLD_OPEN_NOW)!);
-    fireEvent.click(await screen.findByRole('button', { name: RAIL_NAME }));
+    await railShown();
+    await openDrawerBySlash();
     fireEvent.click(screen.getByRole('button', { name: FOLD_SAVED }));
     expect(folds(store)).toEqual({ saved: true, openNow: false });
     expect(screen.queryByRole('button', { name: HERO_ONLY })).toBeNull();
     expect(screen.getByText(PANE_ONLY)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: RAIL_NAME })).toBeNull();
+    expect(document.querySelector('[data-open-now-rail]')).toBeNull();
     // The pressed button went with the drawer: focus goes to Open now's heading.
     expect(
       screen.getByRole('heading', { name: 'Currently open' })
@@ -307,7 +357,9 @@ describe('the motions', () => {
     await renderHome();
     await mounted();
     fireEvent.click(button(FOLD_OPEN_NOW)!);
-    fireEvent.click(await screen.findByRole('button', { name: SHOW_OPEN_NOW }));
+    fireEvent.click(
+      await within(detail()).findByRole('button', { name: SHOW_OPEN_NOW })
+    );
     expect(started).toEqual([
       { move: 'openNow', dir: 'fold', from: undefined },
       { move: 'openNow', dir: 'unfold', from: undefined },
@@ -327,14 +379,14 @@ describe('the motions', () => {
     fireEvent.click(button(FOLD_OPEN_NOW)!);
     started.length = 0;
     const user = userEvent.setup();
-    const rail = await screen.findByRole('button', { name: RAIL_NAME });
-    await user.click(rail);
-    expect(rail).toHaveAttribute('aria-expanded', 'true');
+    await railShown();
+    await openDrawerBySlash();
+    expect(drawer()).not.toBeNull();
     await user.keyboard('{Escape}');
-    expect(rail).toHaveAttribute('aria-expanded', 'false');
+    expect(drawer()).toBeNull();
     // Closed by Esc, the rail is /'s target: / opens the drawer into its field.
     await user.keyboard('/');
-    expect(rail).toHaveAttribute('aria-expanded', 'true');
+    expect(drawer()).not.toBeNull();
     expect(document.activeElement).toBe(
       screen.getByRole('textbox', { name: 'Search open tabs' })
     );
@@ -342,7 +394,6 @@ describe('the motions', () => {
       keys: '[MouseLeft]',
       target: document.querySelector<HTMLElement>('[data-pane="sessions"]')!,
     });
-    expect(rail).toHaveAttribute('aria-expanded', 'false');
     // jsdom animates nothing: the drawer goes at once.
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(started).toEqual([]);
@@ -352,7 +403,8 @@ describe('the motions', () => {
     await renderHome();
     await mounted();
     fireEvent.click(button(FOLD_OPEN_NOW)!);
-    fireEvent.click(await screen.findByRole('button', { name: RAIL_NAME }));
+    await railShown();
+    await openDrawerBySlash();
     started.length = 0;
     fireEvent.click(
       within(screen.getByRole('dialog')).getByRole('button', {
