@@ -223,17 +223,21 @@ export function glidesAt(el: Element): {
         : [],
   };
 }
-// Each held scroll content and its own inline overflow, put back when the glide ends.
-const held = new Map<HTMLElement, { overflow: string; margin: string }>();
+// Each held scroll content and its own inline overflow and position, put back when the glide ends.
+const held = new Map<
+  HTMLElement,
+  { overflow: string; margin: string; position: string }
+>();
 // The newest glide drawn in each pane: only it lets that pane's held range go.
 const holdIds = new WeakMap<Element, number>();
 let holdCount = 0;
 
 function releaseScrollRangeIn(root: Element): void {
-  held.forEach(({ overflow, margin }, content) => {
+  held.forEach(({ overflow, margin, position }, content) => {
     if (!root.contains(content)) return;
     content.style.overflow = overflow;
     content.style.overflowClipMargin = margin;
+    content.style.position = position;
     held.delete(content);
   });
 }
@@ -276,10 +280,11 @@ export function cutLayoutGlidesIn(root: Element): void {
 // Ends the fades, copies and held scroll ranges inside `root`, or everywhere.
 function cutGlidesIn(root: Element | null): void {
   const inside = (el: Element) => root === null || root.contains(el);
-  held.forEach(({ overflow, margin }, content) => {
+  held.forEach(({ overflow, margin, position }, content) => {
     if (!inside(content)) return;
     content.style.overflow = overflow;
     content.style.overflowClipMargin = margin;
+    content.style.position = position;
     held.delete(content);
   });
   for (const copy of [...copies]) {
@@ -302,6 +307,8 @@ interface Snapshot {
   // Each tab row by its tab, and each split mark by its row's tab.
   rows: Map<string, { el: Element; box: Box }>;
   marks: Map<string, { el: Element; rect: DOMRect; color: string }>;
+  // KAN-1013. Each scrolled list's scroll, by its scroller.
+  scrolls: Map<Element, number>;
 }
 
 function snapshot(root: Element): Snapshot {
@@ -330,7 +337,12 @@ function snapshot(root: Element): Snapshot {
         color: getComputedStyle(el).color,
       });
   });
-  return { boxes, strips, rows, marks };
+  const scrolls = new Map<Element, number>();
+  scrolledContents(root, boxes.keys()).forEach((content) => {
+    const sc = content.parentElement;
+    if (sc !== null) scrolls.set(sc, sc.scrollTop);
+  });
+  return { boxes, strips, rows, marks, scrolls };
 }
 
 // The split marks there now, by their row's tab.
@@ -612,9 +624,15 @@ function draw(
       held.set(content, {
         overflow: content.style.overflow,
         margin: content.style.overflowClipMargin,
+        position: content.style.position,
       });
     content.style.overflow = 'clip';
     content.style.overflowClipMargin = `${margin}px`;
+    // KAN-1013. The leaving copies are placed absolutely: held, the list is
+    // their containing block, so its clip takes them in too and a copy
+    // gliding past its end never makes the page itself scroll.
+    if (getComputedStyle(content).position === 'static')
+      content.style.position = 'relative';
   });
   new Set([...own.keys(), ...ownX.keys()]).forEach((el) =>
     el.animate(
@@ -768,6 +786,24 @@ function draw(
     const dy = box.top - at[i].twin.top;
     copy.style.left = `${dx}px`;
     copy.style.top = `${dy}px`;
+    // KAN-1013. The commit pulled its list's scroll back (a shorter list at
+    // its end): every row there glides down that far, and so does the copy,
+    // so it leaves with them rather than under them.
+    const scroller = [...before.scrolls.keys()].find((sc) => sc.contains(copy));
+    const pulled =
+      scroller === undefined
+        ? 0
+        : (before.scrolls.get(scroller) ?? 0) - scroller.scrollTop;
+    if (Math.abs(pulled) >= 1)
+      copy.animate(
+        [{ transform: 'none' }, { transform: `translateY(${pulled}px)` }],
+        {
+          duration: moveMs,
+          easing: EASE.OUT,
+          fill: 'forwards',
+          id: LANDING_SLIDE,
+        }
+      );
     const end = () => {
       copies.delete(copy);
       copy.remove();
