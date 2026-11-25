@@ -56,6 +56,10 @@ export function useDocumentTheme(): void {
     //    did not cover.
     root.style.setProperty('--app-background', COLORS.PRIMARY_COLOR);
 
+    // KAN-1004. The panes' top and bottom borders, the window's frame: the pane
+    // motions draw it where no pane picture covers the page (paneMotion).
+    root.style.setProperty('--pane-frame-line', COLORS.PANEL_BORDER_COLOR);
+
     // KAN-996 (pick G). The fill a kept row lights up in after Remove
     // duplicates (layoutGlide), a pressed row's: the glide code has no theme.
     root.style.setProperty('--row-light', COLORS.ACTIVE_COLOR);
