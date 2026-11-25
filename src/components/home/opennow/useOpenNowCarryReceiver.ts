@@ -4,10 +4,10 @@
 //   it is already open.
 // - A saved tab or group: Open now's lists adopt it under this receiver
 //   (its region is the pane), and land it at a slot or in the New window
-//   block below the last window. Above the scroller -- the title, the
-//   counts, the toolbar and the search row -- is the header's New window box
-//   (spec builder call 2): the layer drives it there, and a release opens a
-//   new window.
+//   block below the last window, or on the header's New window box as drawn
+//   (KAN-1005, as every New window header lands; the title, counts and
+//   search row around it take nothing): the layer drives it there, and a
+//   release opens a new window.
 // - A saved window is never adopted. Over an open window of its kind, that
 //   whole window lights and a release adds its tabs there (KAN-892 D);
 //   anywhere else in the pane the block below the last window lights, and a
@@ -38,6 +38,7 @@ import { windowCarryScrollStep } from './windowCarryScroll';
 import {
   OPEN_NOW_FIRST_TARGET,
   OPEN_NOW_LAST_TARGET,
+  newWindowTargetHit,
 } from '../rightpane/newWindowTarget';
 
 interface Options {
@@ -171,8 +172,6 @@ export function useOpenNowCarryReceiver({
 
   useEffect(() => {
     const pane = () => paneRef.current;
-    const headerBottom = (paneBox: DOMRect) =>
-      scrollerRef.current?.getBoundingClientRect().top ?? paneBox.top;
     // KAN-871. A live carry comes back to the pane's own edge, the grip's inside half too (KAN-611).
     const gripFor = (carry: Carry | null) =>
       carry?.item.source === 'live' ? null : gripBox();
@@ -184,11 +183,14 @@ export function useOpenNowCarryReceiver({
         inPaneBox(el.getBoundingClientRect(), gripFor(currentCarry()), x, y)
       );
     };
+    // KAN-1005. On the header's New window box as drawn, read at the move.
     const inHeader = (x: number, y: number): boolean => {
       const el = pane();
       if (el === null || answersNothing(el)) return false;
-      const b = el.getBoundingClientRect();
-      return inBox(b, x, y) && y < headerBottom(b);
+      const hit = newWindowTargetHit(
+        el.querySelector(`[data-new-window-target="${OPEN_NOW_FIRST_TARGET}"]`)
+      );
+      return hit?.(x, y) ?? false;
     };
     // Where the layer last hovered: what take() opens; null, nothing.
     let place: CopyPlace | null = null;

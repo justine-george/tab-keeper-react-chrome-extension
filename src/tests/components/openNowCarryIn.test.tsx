@@ -75,6 +75,9 @@ import { standInSessionList } from '../setup/standInSessionList';
 // left of x 0.
 
 const HEADER_Y = 50;
+// KAN-1005. The header's New window box as drawn, y 30..70; the search row
+// below it is header but no box.
+const SEARCH_Y = 85;
 const LIST_Y = 500;
 
 // W1 [11 A*, 12 B], W2 [21 C*]
@@ -202,8 +205,14 @@ async function renderPane(
   return windows;
 }
 
-const carry = (item: CarriedItem, x = 10, y = HEADER_Y) =>
+const carry = (item: CarriedItem, x = 10, y = HEADER_Y) => {
   act(() => startCarry(item, CARD, x, y));
+  // The box the carry draws, laid out (jsdom has no layout).
+  const drawn = document.querySelector<HTMLElement>(
+    `[data-new-window-target="${OPEN_NOW_FIRST_TARGET}"]`
+  );
+  if (drawn !== null) drawn.getBoundingClientRect = () => box(30, 40);
+};
 const headerBox = () =>
   document.querySelector(`[data-new-window-target="${OPEN_NOW_FIRST_TARGET}"]`);
 const lastBox = () =>
@@ -509,6 +518,19 @@ describe('a release the pane takes', () => {
       focused: true,
       tabs: [{ tabId: 't1' }],
     });
+  });
+
+  // KAN-1005. As every New window header lands: on the box drawn, not the
+  // title, counts or search row around it.
+  test('a tab over the search row, outside the drawn box: nothing lit, and nothing taken', async () => {
+    await renderPane();
+    carry(tabOf(), 10, SEARCH_Y);
+    const r = receiver(10, SEARCH_Y);
+    r.hover(10, SEARCH_Y);
+    expect(headerBox()?.hasAttribute('data-landing')).toBe(false);
+    expect(opens()).toBe(false);
+    expect(r.take()).toBe(false);
+    expect(restores()).toEqual([]);
   });
 
   test('a tab over the list: nothing lit, and the layer takes nothing there', async () => {

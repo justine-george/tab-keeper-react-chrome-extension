@@ -338,6 +338,54 @@ test('a window opens as a new window, in front, maximized as saved', async ({
   expect(await stored(page)).toEqual(before);
 });
 
+// A saved row an Open now list holds, as its phantom.
+const HELD_PHANTOM = `${OPEN_NOW} [data-drag-row-id^="open-now:"]`;
+
+// KAN-1005. As every New window header lands: on the box drawn, not the title,
+// counts or search row around it, whether the layer or a list holds the carry.
+test.describe("Currently open's header lands a new window on its box alone", () => {
+  for (const path of [
+    'straight from the saved side',
+    'held by a list first',
+  ] as const) {
+    test(`over the search row, ${path}: the box stays unlit and a release opens nothing`, async ({
+      context,
+      extensionId,
+      serviceWorker: worker,
+    }) => {
+      const live = await openLiveWindow(worker, ['A', 'B']);
+      const page = await setUp(context, extensionId);
+      await expect(liveRow(page, live.idOf('B'))).toBeVisible();
+      const windowsBefore = await windowIds(worker);
+
+      await pickUp(page, tabHandle(page, 's2'));
+      if (path === 'held by a list first') {
+        await carryTo(page, await middleOf(liveRow(page, live.idOf('A'))));
+        // PREMISE: the list holds it.
+        await expect(page.locator(HELD_PHANTOM)).toHaveAttribute(
+          'data-drag-held',
+          ''
+        );
+      }
+      const search = page
+        .locator(OPEN_NOW)
+        .getByRole('textbox', { name: 'Search open tabs' });
+      await carryTo(page, await middleOf(search));
+      // PREMISE: the box is drawn, above the search row.
+      await expect(page.locator(HEADER_BOX)).toBeVisible();
+      await expect(page.locator(HEADER_BOX)).not.toHaveAttribute(
+        'data-landing',
+        ''
+      );
+      await page.mouse.up();
+
+      // Nothing opened: given time to, the window count stays.
+      await page.waitForTimeout(500);
+      expect(await windowIds(worker)).toEqual(windowsBefore);
+    });
+  }
+});
+
 test.describe('the New window boxes open a new window holding just the tab', () => {
   for (const box of ['header', 'below'] as const) {
     test(`the ${box} box`, async ({
