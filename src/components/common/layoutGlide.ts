@@ -205,6 +205,24 @@ function stripHooks(root: Element): void {
 const copies = new Set<HTMLElement>();
 // Each prepared glide still waiting for its commit, with the panes it measured.
 const pending = new Map<() => void, readonly Element[]>();
+// KAN-1011. The glides moving `el` now, and whether one still waits for a
+// commit in a pane that holds it: its rows are not yet where they will rest.
+export function glidesAt(el: Element): {
+  pending: boolean;
+  running: Animation[];
+} {
+  return {
+    pending: [...pending.values()].some((roots) =>
+      roots.some((root) => root.contains(el))
+    ),
+    running:
+      typeof el.getAnimations === 'function'
+        ? el
+            .getAnimations({ subtree: true })
+            .filter((a) => a.id === LAYOUT_GLIDE || a.id === LANDING_SLIDE)
+        : [],
+  };
+}
 // Each held scroll content and its own inline overflow, put back when the glide ends.
 const held = new Map<HTMLElement, { overflow: string; margin: string }>();
 // The newest glide drawn in each pane: only it lets that pane's held range go.

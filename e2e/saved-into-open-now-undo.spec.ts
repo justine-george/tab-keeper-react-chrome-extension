@@ -640,3 +640,122 @@ test.describe('the drop says where it opened (KAN-1010)', () => {
     await expect(said.getByRole('button', { name: /^Undo/ })).toBeVisible();
   });
 });
+
+// KAN-1011 (his pick: light after it lands). A redo glides the reopened rows
+// back in (KAN-996); the arrival fill lights them only where they rest, never
+// over a row that was already there.
+test.describe('a redo lights the reopened rows once they have landed (KAN-1011)', () => {
+  // Every frame from now: each visible fill's box, and every row's, new or not.
+  const sampleFrames = (page: Page) =>
+    page.evaluate(() => {
+      const pane = document.querySelector('[data-pane="open-now"]');
+      const before = new Set(
+        [...(pane?.querySelectorAll('[data-open-tab-id]') ?? [])].map((r) =>
+          r.getAttribute('data-open-tab-id')
+        )
+      );
+      const frames: {
+        fills: [number, number][];
+        old: [number, number][];
+        fresh: [number, number][];
+      }[] = [];
+      Object.assign(window, { __frames: frames });
+      const span = (el: Element): [number, number] => {
+        const b = el.getBoundingClientRect();
+        return [b.top, b.bottom];
+      };
+      const t0 = performance.now();
+      const tick = () => {
+        const rows = [...(pane?.querySelectorAll('[data-open-tab-id]') ?? [])];
+        frames.push({
+          fills: [
+            ...(pane?.querySelectorAll<HTMLElement>('[data-arrival]') ?? []),
+          ]
+            .filter(
+              (f) => !f.hidden && Number(getComputedStyle(f).opacity) > 0.05
+            )
+            .map(span),
+          old: rows
+            .filter((r) => before.has(r.getAttribute('data-open-tab-id')))
+            .map(span),
+          fresh: rows
+            .filter((r) => !before.has(r.getAttribute('data-open-tab-id')))
+            .map(span),
+        });
+        if (performance.now() - t0 < 2500) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+  const framesSeen = async (page: Page) => {
+    await page.waitForTimeout(2700);
+    return page.evaluate(
+      () =>
+        (window as unknown as { __frames: unknown }).__frames as {
+          fills: [number, number][];
+          old: [number, number][];
+          fresh: [number, number][];
+        }[]
+    );
+  };
+  const overlap = (a: [number, number], b: [number, number]) =>
+    Math.min(a[1], b[1]) - Math.max(a[0], b[0]);
+  // Every frame a fill shows: over a reopened row, and clear of every row that was there.
+  const misplaced = (
+    frames: Awaited<ReturnType<typeof framesSeen>>
+  ): string[] =>
+    frames.flatMap((f, i) =>
+      f.fills.flatMap((fill) => [
+        ...f.old
+          .filter((row) => overlap(fill, row) > 1)
+          .map((row) => `frame ${i}: fill ${fill} over old row ${row}`),
+        ...(f.fresh.some((row) => overlap(fill, row) > 1)
+          ? []
+          : [`frame ${i}: fill ${fill} over no reopened row`]),
+      ])
+    );
+
+  for (const what of ['tab', 'group', 'window'] as const) {
+    test(`a ${what}`, async ({
+      context,
+      extensionId,
+      serviceWorker: worker,
+    }) => {
+      const live = await openLiveWindow(worker, ['A', 'B', 'C']);
+      const page = await setUp(context, extensionId);
+      await expect(liveRow(page, live.idOf('C'))).toBeVisible();
+      await pickUp(
+        page,
+        what === 'tab'
+          ? tabHandle(page, 's2')
+          : what === 'group'
+            ? groupHandle(page, 'day')
+            : windowHandle(page, 'w1')
+      );
+      // A window lands at the end of the open window it is let go over.
+      await carryTo(page, await topOf(liveRow(page, live.idOf('B'))));
+      await page.mouse.up();
+      const url =
+        what === 'tab'
+          ? 'https://s2.test/'
+          : what === 'group'
+            ? 'https://g0.test/'
+            : 'https://s1.test/';
+      await landed(page, worker, live.windowId, url);
+      await page.mouse.move(5, 5);
+      await undoKey(page);
+      await expect
+        .poll(() => addresses(worker, live.windowId), SETTLE)
+        .toEqual([dataUrl('A'), dataUrl('B'), dataUrl('C')]);
+      // The undo's own motion and fill are over.
+      await page.waitForTimeout(1500);
+
+      await sampleFrames(page);
+      await redoKey(page);
+      const frames = await framesSeen(page);
+
+      // PREMISE: the redo lit its rows at all.
+      expect(frames.some((f) => f.fills.length > 0)).toBe(true);
+      expect(misplaced(frames)).toEqual([]);
+    });
+  }
+});
