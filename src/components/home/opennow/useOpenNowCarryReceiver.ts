@@ -240,9 +240,13 @@ export function useOpenNowCarryReceiver({
         : null;
     };
 
-    // KAN-892 D. A window carry aims at the open window under (x, y), else the New window box.
+    // KAN-892 D. A window carry aims at the open window under (x, y), else a
+    // New window box: the header's when on it as drawn (KAN-1012, his pick A),
+    // else the one below. One lights at a time.
     const aimWindow = (x: number, y: number) => {
+      const header = inHeader(x, y);
       const box = boxBelowNow();
+      // The header is above the list, where no window is.
       const windowId =
         box !== null && inBox(box, x, y) ? null : windowTarget(x, y);
       place =
@@ -250,7 +254,8 @@ export function useOpenNowCarryReceiver({
           ? { kind: 'newWindow' }
           : { kind: 'intoWindow', windowId };
       showWindow(windowId);
-      light(pane(), OPEN_NOW_LAST_TARGET, windowId === null);
+      light(pane(), OPEN_NOW_FIRST_TARGET, header);
+      light(pane(), OPEN_NOW_LAST_TARGET, windowId === null && !header);
     };
 
     // KAN-895. Held near the list's edge, a window carry scrolls it, aimed

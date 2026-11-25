@@ -401,12 +401,13 @@ describe('what a saved carry shows', () => {
     ).toBeInstanceOf(HTMLElement);
   });
 
-  test('a window: the block alone, no phantom; the header keeps its buttons', async () => {
+  // KAN-1012 (his pick A). The header's box too, as a tab or group draws it.
+  test("a window: the block below and the header's New window box, no phantom", async () => {
     await renderPane();
     carry(WINDOW);
     expect(lastBox()).not.toBeNull();
     expect(lastBox()?.querySelector('[data-drag-row-id]')).toBeNull();
-    expect(headerBox()).toBeNull();
+    expect(headerBox()).not.toBeNull();
   });
 
   test('nothing is drawn after the carry ends', async () => {
@@ -545,16 +546,20 @@ describe('a release the pane takes', () => {
     expect(restores()).toEqual([]);
   });
 
-  test('a window anywhere: the block below lit, and a release opens it in front, maximized as saved', async () => {
+  test("a window: the block below lit, the header's box over it, and a release opens it in front, maximized as saved", async () => {
     await renderPane();
     carry(WINDOW, 10, LIST_Y);
     const r = receiver(10, LIST_Y);
 
     r.hover(10, LIST_Y);
     expect(lastBox()?.hasAttribute('data-landing')).toBe(true);
+    expect(headerBox()?.hasAttribute('data-landing')).toBe(false);
     expect(opens()).toBe(true);
+    // KAN-1012. One lit at a time: over the header's box, that box.
     r.hover(10, HEADER_Y);
-    expect(lastBox()?.hasAttribute('data-landing')).toBe(true);
+    expect(headerBox()?.hasAttribute('data-landing')).toBe(true);
+    expect(lastBox()?.hasAttribute('data-landing')).toBe(false);
+    expect(opens()).toBe(true);
 
     expect(r.take()).toBe(true);
     expect(carryEndedAs(WINDOW)).toBe('copied');
@@ -762,7 +767,7 @@ describe('a saved window over an open window', () => {
     expect(lastBox()?.hasAttribute('data-landing')).toBe(false);
   });
 
-  test('below the last window, and over the header, the box below lights and no window does', async () => {
+  test("below the last window the box below lights, over the header the header's box, and no window does", async () => {
     await renderPane();
     placeBlocks();
     carry(WINDOW, 10, W1_Y);
@@ -778,7 +783,21 @@ describe('a saved window over an open window', () => {
     expect(lastBox()?.hasAttribute('data-landing')).toBe(false);
     r.hover(10, HEADER_Y);
     expect(lit()).toEqual([]);
+    // KAN-1012. Over the header, its own box.
+    expect(headerBox()?.hasAttribute('data-landing')).toBe(true);
+    expect(lastBox()?.hasAttribute('data-landing')).toBe(false);
+  });
+
+  // KAN-1012. Outside the drawn box the header is pane, as for a tab: the block below.
+  test("over the search row, outside the header's box: the block below lights, not the header's", async () => {
+    await renderPane();
+    placeBlocks();
+    carry(WINDOW, 10, SEARCH_Y);
+    const r = receiver(10, SEARCH_Y);
+    r.hover(10, SEARCH_Y);
+    expect(lit()).toEqual([]);
     expect(lastBox()?.hasAttribute('data-landing')).toBe(true);
+    expect(headerBox()?.hasAttribute('data-landing')).toBe(false);
   });
 
   // A window scrolled up under the header is not under a pointer on the header.
@@ -791,7 +810,7 @@ describe('a saved window over an open window', () => {
 
     r.hover(10, HEADER_Y);
     expect(lit()).toEqual([]);
-    expect(lastBox()?.hasAttribute('data-landing')).toBe(true);
+    expect(headerBox()?.hasAttribute('data-landing')).toBe(true);
     // CONTROL: its part in the list is the window.
     r.hover(10, W1_Y);
     expect(lit()).toEqual(['1']);

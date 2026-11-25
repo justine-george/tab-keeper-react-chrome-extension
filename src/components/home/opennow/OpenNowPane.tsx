@@ -522,8 +522,10 @@ export default function OpenNowPane({
     },
     [offersNewWindow]
   );
-  // A live row that may go to a new window gets both boxes, as a saved carry does.
-  const showsNewWindow = carriedIn !== null || heldOffersNewWindow;
+  // A live row that may go to a new window gets both boxes, as a saved carry
+  // does; a saved window too (KAN-1012, his pick A).
+  const showsNewWindow =
+    carriedIn !== null || heldOffersNewWindow || drawsWindowBlock;
   const drawsNewWindowBlock =
     carriedIn !== null || drawsWindowBlock || heldOffersNewWindow;
   // KAN-949. A live row lands as New window on the drawn header box too.
