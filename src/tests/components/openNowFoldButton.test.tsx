@@ -40,13 +40,20 @@ const drawer = () => screen.queryByRole('dialog');
 // Wide, the rail is named by its action (KAN-1002), which the saved session's
 // folded button shares, so it is found by its place.
 const railShown = () => waitFor(rail);
-// Wide, the rail's press unfolds (KAN-1002); / still opens the drawer once
-// a key has brought focus to the rail, which makes Currently open its target.
-const openDrawerBySlash = async () => {
+// / once a key has brought focus to the rail, which makes Currently open its target.
+const slashFromRail = async () => {
   const user = userEvent.setup();
   await user.keyboard('{Shift}');
   act(() => rail().focus());
   await user.keyboard('/');
+};
+// Wide, the rail's press and / show Currently open beside it (KAN-1002), so
+// these open the drawer where it still opens: narrow.
+const openDrawerNarrow = async () => {
+  act(() => railQuery.setMatches(true));
+  await userEvent
+    .setup()
+    .click(await screen.findByRole('button', { name: RAIL_NAME }));
 };
 const RAIL_NAME = 'Currently open, 3 Tabs';
 const GRIP = 'Resize the Currently open panel';
@@ -270,6 +277,20 @@ describe('folded to the rail', () => {
     );
   });
 
+  test('wide, / from the rail shows Currently open beside it, with the cursor in its search', async () => {
+    const { store } = await renderHome();
+    await mounted();
+    fireEvent.click(button(FOLD_OPEN_NOW)!);
+    await railShown();
+
+    await slashFromRail();
+    expect(folds(store)).toEqual({ saved: false, openNow: false });
+    expect(drawer()).toBeNull();
+    expect(document.activeElement).toBe(
+      within(openNowSlot()).getByRole('textbox', { name: 'Search open tabs' })
+    );
+  });
+
   test('narrowed while folded by hand, the rail opens the drawer again', async () => {
     const { store } = await renderHome();
     await mounted();
@@ -290,7 +311,7 @@ describe('folded to the rail', () => {
     await mounted();
     fireEvent.click(button(FOLD_OPEN_NOW)!);
     await railShown();
-    await openDrawerBySlash();
+    await openDrawerNarrow();
     fireEvent.click(screen.getByRole('button', { name: FOLD_SAVED }));
     expect(folds(store)).toEqual({ saved: true, openNow: false });
     expect(screen.queryByRole('button', { name: HERO_ONLY })).toBeNull();
@@ -380,7 +401,7 @@ describe('the motions', () => {
     started.length = 0;
     const user = userEvent.setup();
     await railShown();
-    await openDrawerBySlash();
+    await openDrawerNarrow();
     expect(drawer()).not.toBeNull();
     await user.keyboard('{Escape}');
     expect(drawer()).toBeNull();
@@ -404,7 +425,7 @@ describe('the motions', () => {
     await mounted();
     fireEvent.click(button(FOLD_OPEN_NOW)!);
     await railShown();
-    await openDrawerBySlash();
+    await openDrawerNarrow();
     started.length = 0;
     fireEvent.click(
       within(screen.getByRole('dialog')).getByRole('button', {

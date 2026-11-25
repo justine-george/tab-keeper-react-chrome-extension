@@ -52,14 +52,18 @@ import {
   type DrawerCarry,
 } from './drawerCarry';
 
+// What showed Currently open beside the saved session: where focus goes next.
+export type ShowBesideBy = 'press' | 'shortcut';
+
 interface OpenNowRailProps {
   windows: OpenWindow[] | null;
   // The fold button, shown in the drawer's header before its close button.
   foldAction: OpenNowHeaderAction;
   // KAN-1002. Wide, the rail is there only because Currently open was folded
-  // by hand, so its press shows it beside the saved session, as the saved
-  // session's card does. Narrow, null: there is no room, so it opens the drawer.
-  showBeside: { label: string; onClick: () => void } | null;
+  // by hand, so its press and / show it beside the saved session, as the saved
+  // session's card does; a resting carry still springs the drawer. Narrow,
+  // null: there is no room, so both open the drawer.
+  showBeside: { label: string; show: (by: ShowBesideBy) => void } | null;
   // The rail's button. The caller holds it so an unfold that brings the rail
   // back can focus it (OpenNowColumn).
   buttonRef: RefObject<HTMLButtonElement>;
@@ -134,6 +138,10 @@ export default function OpenNowRail({
     isOpen
       ? null
       : () => {
+          if (showBeside !== null) {
+            showBeside.show('shortcut');
+            return;
+          }
           openedByShortcut.current = true;
           openDrawer();
         }
@@ -477,7 +485,7 @@ export default function OpenNowRail({
         // Only while the drawer exists: an IDREF to nothing names no element.
         aria-controls={showBeside === null && isOpen ? drawerId : undefined}
         onClick={() => {
-          if (showBeside !== null) showBeside.onClick();
+          if (showBeside !== null) showBeside.show('press');
           else if (isOpen) close();
           else openDrawer();
         }}
