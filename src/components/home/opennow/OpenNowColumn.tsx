@@ -8,6 +8,7 @@ import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { useOpenNowPlace } from '../../../hooks/useOpenNowPlace';
 import { useOpenWindows } from '../../../hooks/useOpenWindows';
 import { endSavedSessionPeek } from '../../../redux/slices/globalStateSlice';
+import { peekOpenNowForCarry } from '../../../redux/openNowCarryPeek';
 import { selectHasSavedSessions } from '../../../redux/savedSessionFold';
 import {
   setFoldOpenNowInTabView,
@@ -151,7 +152,12 @@ function OpenNowColumn({ folded }: OpenNowColumnProps) {
   // first to that button, which folds it again, as the card hands focus on
   // (KAN-999), so the rail goes without it; / puts the cursor in the search,
   // as it does in the drawer (KAN-330 R1).
+  // KAN-1008. A resting carry shows it for the carry only, and moves no focus.
   const showBeside = (by: ShowBesideBy) => {
+    if (by === 'spring') {
+      dispatch(peekOpenNowForCarry());
+      return;
+    }
     if (by === 'shortcut') searchAfterSwap.current = true;
     else
       document

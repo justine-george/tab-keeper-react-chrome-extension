@@ -184,7 +184,17 @@ test.describe('Currently open folded by hand, wide', () => {
     return page;
   }
 
-  test('a saved tab resting on the rail springs the drawer; a drop in a window opens it there', async ({
+  // KAN-1008 (his pick B). Wide, the rest shows Currently open beside, not the drawer, for the carry only.
+  const storedFold = (page: Page) =>
+    page.evaluate(
+      () =>
+        JSON.parse(localStorage.getItem('settingsData') ?? '{}')
+          .foldOpenNowInTabView
+    );
+  const beside = (page: Page) =>
+    page.locator('[data-open-now-scroller]:not([role="dialog"] *)');
+
+  test('a saved tab resting on the rail shows Currently open beside; a drop in a window opens it there, then it folds back', async ({
     context,
     extensionId,
     serviceWorker: worker,
@@ -194,15 +204,44 @@ test.describe('Currently open folded by hand, wide', () => {
 
     await pickUp(page, tabHandle(page, 's2'));
     await carryTo(page, await centre(page, '[data-open-now-rail]'));
-    await expect(rail(page)).toHaveAttribute('data-carry-target', '');
-    await expect(drawer(page)).toBeVisible();
-    await expect(page.locator('[data-drawer-settling]')).toHaveCount(0);
+    await expect(rail(page)).toHaveCount(0);
+    await expect(beside(page)).toBeVisible();
+    await expect(drawer(page)).toHaveCount(0);
     await carryTo(page, await topOf(liveRow(page, live.idOf('B'))));
     await page.mouse.up();
 
     await expect
       .poll(async () => (await strip(worker, live.windowId)).map((t) => t.url))
       .toEqual([dataUrl('A'), 'https://s2.test/', dataUrl('B')]);
+    await expect(rail(page)).toBeVisible();
+    await expect(beside(page)).toHaveCount(0);
+    expect(await storedFold(page)).toBe(true);
+  });
+
+  test('Esc after it shows beside: folds back, nothing opened, the saved session unchanged', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const live = await openLiveWindow(worker, ['A', 'B']);
+    const page = await openRail(context, extensionId);
+    const before = await urlsOf(page, 'S1');
+
+    await pickUp(page, tabHandle(page, 's2'));
+    await carryTo(page, await centre(page, '[data-open-now-rail]'));
+    await expect(beside(page)).toBeVisible();
+    await carryTo(page, await topOf(liveRow(page, live.idOf('B'))));
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+
+    await expect(rail(page)).toBeVisible();
+    await expect(beside(page)).toHaveCount(0);
+    expect(await storedFold(page)).toBe(true);
+    expect((await strip(worker, live.windowId)).map((t) => t.url)).toEqual([
+      dataUrl('A'),
+      dataUrl('B'),
+    ]);
+    expect(await urlsOf(page, 'S1')).toEqual(before);
   });
 
   // The rail takes saved items only: a session row's drag over it lights nothing.

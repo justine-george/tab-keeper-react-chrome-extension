@@ -35,13 +35,21 @@ describe('selectIsSavedSessionFolded', () => {
 // KAN-808. Open now folded to its rail: the stored choice, never while the
 // saved session is folded (stored or a corrupted pair) unless a peek shows it.
 describe('selectIsOpenNowFolded', () => {
-  const folded = (openNow: boolean, saved: boolean, peeking: boolean) =>
+  const folded = (
+    openNow: boolean,
+    saved: boolean,
+    peeking: boolean,
+    peekingOpenNow = false
+  ) =>
     selectIsOpenNowFolded({
       settingsDataState: {
         foldOpenNowInTabView: openNow,
         foldSavedSessionInTabView: saved,
       },
-      globalState: { isPeekingSavedSession: peeking },
+      globalState: {
+        isPeekingSavedSession: peeking,
+        isPeekingOpenNow: peekingOpenNow,
+      },
     });
 
   test('folded by the setting, the saved session shown: folded', () => {
@@ -54,5 +62,10 @@ describe('selectIsOpenNowFolded', () => {
 
   test('the saved session folded too: Open now has its column, not folded', () => {
     expect(folded(true, true, false)).toBe(false);
+  });
+
+  // KAN-1008. A carry resting on the rail shows it beside for now; the stored fold stays.
+  test('folded by the setting, but peeking for a carry: not folded', () => {
+    expect(folded(true, false, false, true)).toBe(false);
   });
 });

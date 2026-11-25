@@ -29,6 +29,7 @@ import { newRun } from '../../utils/functions/firstRun';
 import { buildSession } from '../fixtures/sessionFixture';
 import { live } from '../fixtures/liveSnapshotFixture';
 import {
+  carryCrossedIntoOpenNow,
   carryEndedAs,
   currentCarry,
   endCarry,
@@ -905,17 +906,166 @@ describe('while the sprung drawer slides in', () => {
   });
 });
 
-describe('folded wide (spec call 1)', () => {
-  test('folded wide, the rail springs too', async () => {
+// KAN-1008 (his pick B). Wide, the rail is Currently open folded by hand: a
+// saved carry resting on it shows it beside the saved session for the carry,
+// the stored fold untouched, and the carry's end folds it back.
+describe('folded wide, a rest shows Currently open beside (KAN-1008)', () => {
+  const scroller = () => document.querySelector('[data-open-now-scroller]');
+  const peeking = (r: RenderWithProvidersResult) =>
+    r.store.getState().globalState.isPeekingOpenNow;
+  const storedFold = (r: RenderWithProvidersResult) =>
+    r.store.getState().settingsDataState.foldOpenNowInTabView;
+  const railNow = () => document.querySelector('[data-open-now-rail]');
+
+  // The pane motions run from here on, as "<kind> <direction>" (test-only
+  // stub: jsdom has no view transitions). As in Chrome, the update runs
+  // later, not inside startViewTransition: here on the next timer.
+  // `updateAfter`: ms until the update runs; past a frame, it runs after the frame's callbacks.
+  function recordPaneMotions(updateAfter = 0) {
+    const runs: string[] = [];
+    document.startViewTransition = ((update: () => void) => {
+      const root = document.documentElement;
+      runs.push(`${root.dataset.paneMove} ${root.dataset.paneMoveDir}`);
+      setTimeout(update, updateAfter);
+      return { finished: new Promise<void>(() => {}) };
+    }) as unknown as typeof document.startViewTransition;
+    return () => runs;
+  }
+
+  async function renderFoldedWide() {
     installMatchMedia(false);
-    await renderHome({ foldOpenNow: true });
+    const r = await renderHome({ foldOpenNow: true, threeTabs: true });
+    // The fold back waits a frame: frames are faked too.
+    vi.useFakeTimers({
+      toFake: [
+        'setTimeout',
+        'clearTimeout',
+        'requestAnimationFrame',
+        'cancelAnimationFrame',
+      ],
+    });
+    return r;
+  }
+
+  afterEach(() => {
+    delete (document as { startViewTransition?: unknown }).startViewTransition;
+    delete document.documentElement.dataset.paneMove;
+    delete document.documentElement.dataset.paneMoveDir;
+  });
+
+  test('after 600ms Currently open is beside, no drawer; the stored fold and focus stay', async () => {
+    const r = await renderFoldedWide();
+    const sort = screen.getByRole('button', { name: 'Sort sessions' });
+    sort.focus();
     carrySaved();
     moveTo(ON_RAIL);
-
     expect(isTarget()).toBe(true);
+
     wait(SPRING_OPEN_MS - 1);
-    expect(drawer()).toBeNull();
+    expect(railNow()).not.toBeNull();
     wait(1);
+
+    expect(railNow()).toBeNull();
+    expect(drawer()).toBeNull();
+    expect(scroller()).not.toBeNull();
+    expect(peeking(r)).toBe(true);
+    expect(storedFold(r)).toBe(true);
+    expect(document.activeElement).toBe(sort);
+    // As the drawer's spring: the carry is in Currently open now (D3).
+    expect(carryCrossedIntoOpenNow()).toBe(true);
+  });
+
+  test('Esc: folded back to the rail on the frame after, nothing moved', async () => {
+    const r = await renderFoldedWide();
+    const before = r.store.getState().tabContainerDataState.tabGroups;
+    carrySaved();
+    moveTo(ON_RAIL);
+    wait(SPRING_OPEN_MS);
+    expect(peeking(r)).toBe(true);
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(currentCarry()).toBeNull();
+    wait(16);
+
+    expect(peeking(r)).toBe(false);
+    expect(railNow()).not.toBeNull();
+    expect(storedFold(r)).toBe(true);
+    expect(r.store.getState().tabContainerDataState.tabGroups).toBe(before);
+  });
+
+  test('a release on the saved side: folded back, the saved session unchanged', async () => {
+    const r = await renderFoldedWide();
+    const before = r.store.getState().tabContainerDataState.tabGroups;
+    const item = carrySaved();
+    moveTo(ON_RAIL);
+    wait(SPRING_OPEN_MS);
+    moveTo(OFF_RAIL);
+    releaseAt(OFF_RAIL);
+    wait(16);
+
+    expect(carryEndedAs(item)).toBe('cancelled');
+    expect(peeking(r)).toBe(false);
+    expect(railNow()).not.toBeNull();
+    expect(r.store.getState().tabContainerDataState.tabGroups).toBe(before);
+  });
+
+  test('slides beside with the » motion and back with the « one', async () => {
+    const r = await renderFoldedWide();
+    const kinds = recordPaneMotions();
+    carrySaved();
+    moveTo(ON_RAIL);
+    wait(SPRING_OPEN_MS);
+    // PREMISE: the update runs a timer later, as in Chrome.
+    expect(peeking(r)).toBe(false);
+    wait(1);
+    expect(peeking(r)).toBe(true);
+    expect(kinds()).toEqual(['openNow unfold']);
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    wait(16);
+    expect(kinds()).toEqual(['openNow unfold', 'openNow fold']);
+    wait(1);
+    expect(peeking(r)).toBe(false);
+  });
+
+  test('worst path: the carry ends before the slide draws it beside, so nothing stays beside', async () => {
+    const r = await renderFoldedWide();
+    // As in Chrome: the update waits for the old picture, drawn after the frame's callbacks.
+    recordPaneMotions(32);
+    carrySaved();
+    moveTo(ON_RAIL);
+    wait(SPRING_OPEN_MS);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    wait(100);
+
+    expect(peeking(r)).toBe(false);
+    expect(railNow()).not.toBeNull();
+  });
+
+  test('unfolded by hand meanwhile: the peek ends at once, no « slide', async () => {
+    const r = await renderFoldedWide();
+    const kinds = recordPaneMotions();
+    carrySaved();
+    moveTo(ON_RAIL);
+    wait(SPRING_OPEN_MS + 1);
+    act(() => {
+      r.store.dispatch(setFoldOpenNowInTabView(false));
+    });
+    fireEvent.keyDown(window, { key: 'Escape' });
+    wait(16);
+
+    expect(peeking(r)).toBe(false);
+    expect(kinds()).toEqual(['openNow unfold']);
+  });
+
+  test('narrow, the same rest still springs the drawer', async () => {
+    installMatchMedia(true);
+    const r = await renderHome({ foldOpenNow: true });
+    carrySaved();
+    moveTo(ON_RAIL);
+    wait(SPRING_OPEN_MS);
+
     expect(drawer()).not.toBeNull();
+    expect(r.store.getState().globalState.isPeekingOpenNow).toBe(false);
   });
 });
