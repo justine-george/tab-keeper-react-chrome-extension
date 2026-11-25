@@ -160,14 +160,22 @@ export const paneMotionCss = `
   /* Folded, Currently open has no left padding; beside the session it keeps ${PANE_SIDE}. Its content slides that far. */
   ${on('saved', 'fold')}::view-transition-new(pane-open-now) { animation: pane-left-out ${MOVE} both; }
   ${on('saved', 'unfold')}::view-transition-old(pane-open-now) { animation: pane-left-in ${MOVE} both; }
-  /* Its right edge, at the window's, from a strip of its other picture. */
+  /* Its right edge, at the window's, from a strip of its other picture. KAN-1004: the strip
+     holds the card's border and the gutter past it, clear in the picture, so it gets the
+     page behind it; else the moving picture's fill shows through, past the border. */
   ${on('saved', 'fold')}::view-transition-old(pane-open-now),
   ${on('saved', 'unfold')}::view-transition-new(pane-open-now) {
     z-index: 1; object-position: right top; mask-image: linear-gradient(to left, #000 ${STRIP}, transparent ${STRIP}); animation: none;
+    background: var(--app-background);
   }
 
   ${on('saved', 'fold')}::view-transition-new(pane-saved-card) { animation: pane-fade-in ${HANDOFF} ${LAST} ease-out both; }
   ${on('saved', 'unfold')}::view-transition-old(pane-saved-card) { animation: pane-fade-out ${HANDOFF} ease-out both; }
+
+  /* KAN-1004. A header button that flips « ↔ » across the move: the old glyph goes over the
+     first hand-off and the new one comes over the last, so the two never draw over each other. */
+  ::view-transition-old(pane-open-now-fold), ::view-transition-old(pane-saved-title-action) { animation: pane-fade-out ${HANDOFF} ease-out both; }
+  ::view-transition-new(pane-open-now-fold), ::view-transition-new(pane-saved-title-action) { animation: pane-fade-in ${HANDOFF} ${LAST} ease-out both; }
 
   /* Its close button has no place in the column it widens into. */
   ::view-transition-old(pane-open-now-close):only-child { animation: pane-fade-out ${HANDOFF} ease-out both; }
