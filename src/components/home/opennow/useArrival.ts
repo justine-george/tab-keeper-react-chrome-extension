@@ -7,6 +7,7 @@ import {
 } from 'react';
 
 import { DURATION } from '../../../styles/scale';
+import { glidesAt } from '../../common/layoutGlide';
 import {
   type Arrival,
   arrivalBox,
@@ -192,10 +193,14 @@ function show(
     const fill = document.createElement('div');
     fill.setAttribute('data-arrival', '');
     fill.setAttribute('aria-hidden', 'true');
+    // Drawn once its rows have landed (lightUp).
+    fill.hidden = true;
     block.append(fill);
     return fill;
   });
+  let lit = false;
   const place = () => {
+    if (!lit) return;
     const runs = runsNow();
     if (runs === null) return;
     const at = block.getBoundingClientRect();
@@ -222,7 +227,6 @@ function show(
       ? null
       : scrollTopShowing(scroller, runs.flat());
   };
-  place();
   let scrolling = glide(scroller, aim, reduced);
 
   let userScrolled = false;
@@ -234,6 +238,7 @@ function show(
     scroller.addEventListener(type, onUserScroll, { passive: true });
 
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let frame: number | null = null;
   const fades: Animation[] = [];
   let ended = false;
   const end = () => {
@@ -242,12 +247,19 @@ function show(
     for (const type of USER_SCROLLS)
       scroller.removeEventListener(type, onUserScroll);
     if (timer !== null) clearTimeout(timer);
+    if (frame !== null) cancelAnimationFrame(frame);
     for (const fade of fades) fade.cancel();
     for (const fill of fills) fill.remove();
   };
-  if (reduced || !fills.every(canAnimate)) {
-    timer = setTimeout(end, SHOWN_MS);
-  } else {
+  const lightUp = () => {
+    if (ended) return;
+    lit = true;
+    for (const fill of fills) fill.hidden = false;
+    place();
+    if (reduced || !fills.every(canAnimate)) {
+      timer = setTimeout(end, SHOWN_MS);
+      return;
+    }
     for (const fill of fills)
       fades.push(
         fill.animate(
@@ -264,7 +276,19 @@ function show(
       // Cancelled: end() ran already.
       () => {}
     );
-  }
+  };
+  // KAN-1011 (his pick). A redo glides its rows back in (KAN-996): they light
+  // where they land, once every glide moving them has ended. A prepared glide
+  // is drawn after this commit's effects, so it is read on the next frame.
+  const now = glidesAt(block);
+  if (!now.pending && now.running.length === 0) lightUp();
+  else
+    frame = requestAnimationFrame(() => {
+      frame = null;
+      void Promise.allSettled(
+        glidesAt(block).running.map((a) => a.finished)
+      ).then(lightUp);
+    });
   return {
     fit: () => {
       if (ended) return;

@@ -1,10 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  LAYOUT_GLIDE,
   clipAboveLine,
+  glidesAt,
   ownShifts,
+  prepareLayoutGlide,
   uncoveredAt,
 } from '../../components/common/layoutGlide';
+import { LANDING_SLIDE } from '../../components/home/rightpane/rowDrag/landingSlides';
 
 // KAN-984. The two sums a fold's or delete's glide is drawn from.
 
@@ -107,5 +111,48 @@ describe('uncoveredAt', () => {
     expect(last).toBeLessThan(0.45);
     // Past 90% of the way it waits no longer.
     expect(uncoveredAt(300, 132, 196)).toBeCloseTo(last, 5);
+  });
+});
+
+// KAN-1011. What the arrival fill waits for before it lights a redo's rows.
+describe('glidesAt', () => {
+  afterEach(() => {
+    // A prepare with no pane stops every one still waiting.
+    prepareLayoutGlide([], 'delete');
+    Reflect.deleteProperty(Element.prototype, 'animate');
+    document.body.replaceChildren();
+  });
+
+  it('pending while a prepared glide waits for a commit in a pane that holds it, not outside', () => {
+    // jsdom has no Web Animations: a glide is prepared only where it can be drawn.
+    Object.defineProperty(Element.prototype, 'animate', {
+      configurable: true,
+      value: () => ({}),
+    });
+    const pane = document.createElement('div');
+    const row = document.createElement('div');
+    const elsewhere = document.createElement('div');
+    pane.append(row);
+    document.body.append(pane, elsewhere);
+    // CONTROL: nothing prepared.
+    expect(glidesAt(row).pending).toBe(false);
+
+    prepareLayoutGlide([pane], 'delete', 'undo or redo');
+
+    expect(glidesAt(row).pending).toBe(true);
+    expect(glidesAt(elsewhere).pending).toBe(false);
+  });
+
+  it("running: the row glides and the glide's fades, nothing else", () => {
+    const row = document.createElement('div');
+    const running = [LAYOUT_GLIDE, 'row-light', LANDING_SLIDE].map(
+      (id) => ({ id }) as Animation
+    );
+    row.getAnimations = () => running;
+
+    expect(glidesAt(row).running.map((a) => a.id)).toEqual([
+      LAYOUT_GLIDE,
+      LANDING_SLIDE,
+    ]);
   });
 });
