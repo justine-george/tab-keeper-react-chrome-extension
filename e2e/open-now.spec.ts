@@ -141,8 +141,9 @@ async function expectSideBySide(page: Page, width: number): Promise<void> {
   expect(Math.abs(openNow.right - viewport)).toBeLessThanOrEqual(1);
 }
 
-// Folded: no detail pane, and Open now fills from the sessions pane's right
-// edge to the window's, give or take the borders.
+// Folded: no detail pane, and Open now fills from the saved session's card
+// (KAN-999), or the sessions pane's right edge with no card, to the window's,
+// give or take the borders.
 async function expectFolded(page: Page): Promise<void> {
   await expect(page.locator(DETAIL)).toHaveCount(0);
   const viewport = await innerWidth(page);
@@ -150,12 +151,14 @@ async function expectFolded(page: Page): Promise<void> {
     .poll(async () => {
       const sessions = await need(page, SESSIONS);
       const openNow = await need(page, OPEN_NOW);
+      const slot = await page.locator('[data-saved-card-slot]').boundingBox();
+      const edge = slot === null ? sessions.right : slot.x + slot.width;
       return {
-        leftGap: Math.round(Math.abs(openNow.left - sessions.right)),
+        leftGap: Math.round(Math.abs(openNow.left - edge)),
         widthGap:
-          Math.abs(openNow.width - (viewport - sessions.right)) <= 2
+          Math.abs(openNow.width - (viewport - edge)) <= 2
             ? 'within 2px'
-            : `${openNow.width} vs ${viewport - sessions.right}`,
+            : `${openNow.width} vs ${viewport - edge}`,
       };
     })
     .toEqual({ leftGap: 0, widthGap: 'within 2px' });
@@ -471,7 +474,7 @@ test.describe('Open now in the tab view (KAN-280)', () => {
     await expectFolded(page);
   });
 
-  test('6. below 1100px, side by side, a 44px rail opens a 480px drawer that Esc closes', async ({
+  test('6. below 1100px, side by side, a 53px rail opens a 480px drawer that Esc closes', async ({
     context,
     extensionId,
   }, testInfo) => {
@@ -487,7 +490,7 @@ test.describe('Open now in the tab view (KAN-280)', () => {
     await expect(rail).toBeVisible();
     await expect
       .poll(async () => Math.round((await need(page, OPEN_NOW)).width))
-      .toBe(44);
+      .toBe(53);
 
     await rail.click();
     const drawer = page.getByRole('dialog', { name: 'Currently open' });
@@ -1026,7 +1029,9 @@ test.describe('Open now heading and empty-list layout (KAN-280)', () => {
     // line's full width less its controls, 32px tall, the text 8px in and
     // centred on the line.
     expect(facts.margins).toEqual(['0px', '0px', '0px', '0px']);
-    expect(facts.controlsWidth).toBeGreaterThan(0);
+    // KAN-999. Folded (the profile's default), the saved session's card
+    // shows it, so the line holds no controls.
+    expect(facts.controlsWidth).toBe(0);
     expect(facts.box).toEqual({
       left: 0,
       top: 0,

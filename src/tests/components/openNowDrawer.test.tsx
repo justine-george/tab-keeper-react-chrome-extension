@@ -43,7 +43,7 @@ import {
   tabRow,
 } from '../setup/openNowDragHarness';
 
-// KAN-280 O2. Below 1100px, side by side, Open now's column is a 44px rail
+// KAN-280 O2. Below 1100px, side by side, Open now's column is a 53px rail column
 // with one button, and the button opens Open now as a drawer over the right
 // side. Folded, Open now is in the detail column at any width, so no rail.
 
@@ -385,10 +385,10 @@ describe('the rail is only for side by side (O2)', () => {
 });
 
 // jsdom evaluates no media query, so this reads the rule the grid emits. It
-// pins that the 44px track and the rail answer the one query: were the two
+// pins that the 53px track and the rail answer the one query: were the two
 // written apart, one could be edited without the other.
 describe('the grid and the rail share one query (O2)', () => {
-  test("the grid's 44px third track sits under the rail's query", async () => {
+  test("the grid's 53px last track sits under the rail's query", async () => {
     installMatchMedia(true);
     await renderHome(false);
     await railButton();
@@ -400,7 +400,7 @@ describe('the grid and the rail share one query (O2)', () => {
       `@media ${OPEN_NOW_RAIL_QUERY.replace(
         /[()]/g,
         '\\$&'
-      )}\\s*\\{[^}]*grid-template-columns:\\s*356px minmax\\(0, 1fr\\) 44px`
+      )}\\s*\\{[^}]*grid-template-columns:\\s*356px 0 minmax\\(0, 1fr\\) 53px`
     );
     expect(css).toMatch(railRule);
   });
@@ -443,7 +443,8 @@ describe('focus after a fold or unfold (O2)', () => {
     await renderHome(true);
     await within(openNowSlot()).findByText('B');
 
-    press(within(openNowSlot()).getByRole('button', { name: UNFOLD }));
+    // KAN-999. The saved session's card.
+    press(screen.getByRole('button', { name: UNFOLD }));
 
     const button = await railButton();
     expect(document.activeElement).toBe(button);
@@ -456,7 +457,7 @@ describe('focus after a fold or unfold (O2)', () => {
     await renderHome(false);
     await within(openNowSlot()).findByText('B');
     press(within(openNowSlot()).getByRole('button', { name: FOLD }));
-    press(within(openNowSlot()).getByRole('button', { name: UNFOLD }));
+    press(screen.getByRole('button', { name: UNFOLD }));
     // Off the pane: focus inside it follows to the rail (KAN-928).
     act(() => (document.activeElement as HTMLElement).blur());
 
@@ -478,19 +479,19 @@ describe('focus after a fold or unfold (O2)', () => {
     await waitFor(() => expect(document.activeElement).toBe(button));
   });
 
-  // CONTROL. Wide, the pane is not swapped: the pressed button is the same
-  // element, relabelled, and keeps focus as it did before the rail existed.
-  test('CONTROL: wide, fold and unfold keep focus on the fold button', async () => {
+  // KAN-999. Wide, each press removes its button: the fold button goes from
+  // the header and the saved session's card comes, and back. Focus follows.
+  test('wide, fold hands focus to the card and the card hands it back', async () => {
     installMatchMedia(false);
     await renderHome(false);
     await within(openNowSlot()).findByText('B');
 
     press(within(openNowSlot()).getByRole('button', { name: FOLD }));
-    expect(document.activeElement).toBe(
-      within(openNowSlot()).getByRole('button', { name: UNFOLD })
-    );
+    const card = screen.getByRole('button', { name: UNFOLD });
+    expect(card).toHaveAttribute('data-saved-session-card');
+    expect(document.activeElement).toBe(card);
 
-    press(within(openNowSlot()).getByRole('button', { name: UNFOLD }));
+    press(card);
     expect(document.activeElement).toBe(
       within(openNowSlot()).getByRole('button', { name: FOLD })
     );
@@ -885,19 +886,14 @@ describe('the fold control', () => {
     ).toBeNull();
   });
 
-  test("folded: Show the saved session is a panel-open glyph on the heading's line", async () => {
+  // KAN-999. Folded, the saved session's card shows it, so the heading's line has no fold control.
+  test("folded: no fold control on the heading's line", async () => {
     installMatchMedia(false);
     await renderHome(true);
 
     const line = await headingLineIn(openNowSlot());
-    const unfold = within(line).getByRole('button', { name: UNFOLD });
-
-    expect(glyphOf(unfold)).toBe('left_panel_open');
-    expect(
-      within(await iconRowIn(openNowSlot())).queryByRole('button', {
-        name: UNFOLD,
-      })
-    ).toBeNull();
+    expect(within(line).queryByRole('button', { name: UNFOLD })).toBeNull();
+    expect(within(line).queryByRole('button', { name: FOLD })).toBeNull();
   });
 
   test("in the drawer the heading's line holds the fold, then the close", async () => {

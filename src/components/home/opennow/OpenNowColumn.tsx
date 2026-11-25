@@ -8,10 +8,12 @@ import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { useOpenNowPlace } from '../../../hooks/useOpenNowPlace';
 import { useOpenWindows } from '../../../hooks/useOpenWindows';
 import { endSavedSessionPeek } from '../../../redux/slices/globalStateSlice';
+import { selectHasSavedSessions } from '../../../redux/savedSessionFold';
 import { setFoldSavedSessionInTabView } from '../../../redux/slices/settingsDataStateSlice';
 import { AppDispatch, RootState } from '../../../redux/store';
 import { FOLD_ICON } from './foldIcon';
 import { runPaneMotion } from '../paneMotion';
+import { handFoldFocusTo, takeFoldFocus } from '../foldFocus';
 import OpenNowPane from './OpenNowPane';
 import type { OpenNowHeaderAction } from './OpenNowPane';
 import OpenNowRail from './OpenNowRail';
@@ -61,36 +63,54 @@ function OpenNowColumn({ folded }: OpenNowColumnProps) {
     (showRail ? railButtonRef.current : headingRef.current)?.focus();
   }, [showRail]);
 
+  // KAN-999. Shown by the saved session's card, which then went: focus comes
+  // to the button that folds it again, or to the rail that holds that button.
+  useEffect(() => {
+    if (folded || !takeFoldFocus('openNowFold')) return;
+    if (showRail) {
+      railButtonRef.current?.focus();
+      return;
+    }
+    headingRef.current
+      ?.closest('[data-open-now-header]')
+      ?.querySelector<HTMLElement>('[data-tour-anchor="fold"]')
+      ?.focus();
+  }, [folded, showRail]);
+
   // KAN-306, KAN-928. A resize or another page swapped the rail or pane away with focus inside it.
   const handOnFocus = useCallback(() => {
     focusAfterSwap.current = true;
   }, []);
 
-  const setFolded = (fold: boolean) => {
+  // KAN-999. Folding leaves this button nowhere. From the drawer, the pane
+  // takes the drawer's place and its heading takes focus (focusAfterSwap);
+  // otherwise the saved session's card does, or, with no session to show,
+  // the heading.
+  const hasSavedSessions = useSelector(selectHasSavedSessions);
+  const fold = () => {
     focusAfterSwap.current = isNarrow || showRail;
+    if (!focusAfterSwap.current) {
+      if (hasSavedSessions) handFoldFocusTo('savedCard');
+      else headingRef.current?.focus();
+    }
     runPaneMotion(
       () => {
-        dispatch(setFoldSavedSessionInTabView(fold));
+        dispatch(setFoldSavedSessionInTabView(true));
         dispatch(endSavedSessionPeek());
       },
       'saved',
-      fold ? 'fold' : 'unfold'
+      'fold'
     );
   };
 
-  const foldAction: OpenNowHeaderAction = folded
-    ? {
-        icon: FOLD_ICON.folded,
-        label: t('Show the saved session'),
-        onClick: () => setFolded(false),
-        tourAnchor: 'fold',
-      }
-    : {
-        icon: FOLD_ICON.unfolded,
-        label: t('Fold the saved session away'),
-        onClick: () => setFolded(true),
-        tourAnchor: 'fold',
-      };
+  // Folded, the saved session's card shows it again (KAN-999), so the
+  // header has no fold button then.
+  const foldAction: OpenNowHeaderAction = {
+    icon: FOLD_ICON.unfolded,
+    label: t('Fold the saved session away'),
+    onClick: fold,
+    tourAnchor: 'fold',
+  };
 
   // The windows are read here, above the swap, so a resize does not re-read.
   if (showRail) {
@@ -109,7 +129,7 @@ function OpenNowColumn({ folded }: OpenNowColumnProps) {
   return (
     <OpenNowPane
       windows={windows}
-      titleActions={[foldAction]}
+      titleActions={folded ? [] : [foldAction]}
       headingId={headingId}
       headingRef={headingRef}
       searchText={searchText}

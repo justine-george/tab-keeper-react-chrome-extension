@@ -38,7 +38,10 @@ import { setRunSaveEcho } from '../../redux/slices/globalStateSlice';
 import { prefersReducedMotion } from '../modals/getStartedMotion';
 import { playSaveEcho } from './saveEcho';
 import { showSession } from '../../redux/showSession';
-import { selectIsSavedSessionFolded } from '../../redux/savedSessionFold';
+import {
+  selectIsSavedSessionFolded,
+  selectShowsSavedSessionCard,
+} from '../../redux/savedSessionFold';
 import { isSampleSession } from '../../utils/functions/sampleSession';
 import { useSampleNames } from '../../hooks/useSampleNames';
 import { useIsOpenNowGripShown } from '../../hooks/useIsOpenNowGripShown';
@@ -85,6 +88,10 @@ export default function FirstRun() {
   );
   const echo = useSelector((s: RootState) => s.globalState.runSaveEcho);
   const isFolded = useSelector(selectIsSavedSessionFolded);
+  const hasSavedCard = useSelector(selectShowsSavedSessionCard);
+  const selectedSessionId = useSelector(
+    (s: RootState) => s.tabContainerDataState.selectedTabGroupId
+  );
   // KAN-635. The save button the row shows, so the card names what is there.
   const defaultSaveScope = useSelector(
     (s: RootState) => s.settingsDataState.defaultSaveScope
@@ -191,7 +198,8 @@ export default function FirstRun() {
     kind,
     saveCard,
     run.sessionId,
-    hasCompactButton
+    hasCompactButton,
+    hasSavedCard ? selectedSessionId : null
   );
   if (plan === null || (kind === 'save' && saveCard === null)) return null;
 
@@ -261,15 +269,19 @@ export default function FirstRun() {
           };
         }
         return {
-          text: isFolded ? (
+          // KAN-999. Folded, the Saved session card or a session's row shows
+          // it; on a first run nothing is saved, so there is neither.
+          text: hasSavedCard ? (
             <GlyphSentence
               sentence={t(
-                'Type in the search box to find an open tab. Press {{icon}} to show the saved session beside it.',
+                'Type in the search box to find an open tab. To show the saved session beside it, press {{icon}} or click a session in the list.',
                 { icon: GLYPH_SLOT }
               )}
               icon={FOLD_ICON.folded}
               label={t('Show the saved session')}
             />
+          ) : isFolded ? (
+            t('Type in the search box to find an open tab.')
           ) : (
             <GlyphSentence
               // KAN-500. The edge only where the grip is drawn.

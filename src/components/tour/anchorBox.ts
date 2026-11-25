@@ -1,6 +1,20 @@
-import { intersectBox, unionBox, type Box } from './coachMarkPlacement';
+import {
+  intersectBox,
+  unionBox,
+  type Box,
+  type HoleCorners,
+} from './coachMarkPlacement';
 
 export type AnchorBox = (element: Element) => Box | null;
+
+// KAN-900. What a step lights and leaves reachable in a hole of its own,
+// outside the ring: each element `selector` finds, measured by `boxOf` (its
+// own box by default), its hole in `corners` (a CONTROL's by default).
+export interface Opening {
+  selector: string;
+  boxOf?: AnchorBox;
+  corners?: HoleCorners;
+}
 
 // What a step lights instead of its ring's box: the first of `anchors` drawn, measured by `boxOf`.
 export interface Spotlight {
@@ -42,6 +56,25 @@ const clientBox = (element: Element): Box => {
     width: element.clientWidth,
     height: element.clientHeight,
   };
+};
+
+// The nearest ancestor that scrolls; null when none does.
+const scrollerOf = (element: Element): Element | null => {
+  for (let el = element.parentElement; el !== null; el = el.parentElement) {
+    const { overflow, overflowY } = getComputedStyle(el);
+    if (/auto|scroll/.test(`${overflow} ${overflowY}`)) return el;
+  }
+  return null;
+};
+
+// KAN-999. A session row's fill, clipped to what its list shows: null for a
+// row scrolled out of view, so no hole opens outside the list.
+export const visibleRowFill: AnchorBox = (row) => {
+  const fill = rowFillBox(row);
+  const scroller = scrollerOf(row);
+  return fill === null || scroller === null
+    ? fill
+    : intersectBox(fill, clientBox(scroller));
 };
 
 // The window rows, not their container (it holds a margin and the trailing block), clipped to the scroll box.

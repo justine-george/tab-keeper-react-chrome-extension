@@ -8,8 +8,10 @@ import {
 
 import {
   placeFree,
+  sameCorners,
   sameFrame,
   type Box,
+  type Hole,
   type CoachFrame,
   type AnchoredPlacement,
   type Size,
@@ -17,8 +19,12 @@ import {
 import {
   ownBox,
   type AnchorBox,
+  type Opening,
   type Spotlight,
 } from '../components/tour/anchorBox';
+import { RADIUS } from '../styles/scale';
+
+const CONTROL_CORNERS = sameCorners(Number.parseFloat(RADIUS.CONTROL));
 
 type Place = (
   anchor: Box,
@@ -42,13 +48,16 @@ function firstAnchor(
   return null;
 }
 
-// KAN-900. Each element drawn for the selectors, with a box; one not rendered is skipped.
-function openingBoxes(selectors: readonly string[]): Box[] {
-  return selectors.flatMap((selector) =>
-    [...document.querySelectorAll(selector)].flatMap((element) => {
-      const box = ownBox(element);
-      return box !== null && box.width > 0 && box.height > 0 ? [box] : [];
-    })
+// KAN-900. A hole for each element drawn for the openings, with a box; one not rendered is skipped.
+function openingHoles(openings: readonly Opening[]): Hole[] {
+  return openings.flatMap(
+    ({ selector, boxOf = ownBox, corners = CONTROL_CORNERS }) =>
+      [...document.querySelectorAll(selector)].flatMap((element) => {
+        const box = boxOf(element);
+        return box !== null && box.width > 0 && box.height > 0
+          ? [{ box, corners }]
+          : [];
+      })
   );
 }
 
@@ -59,7 +68,7 @@ export function useCoachPlacement(
   place: Place,
   boxOf: AnchorBox = ownBox,
   spotlight?: Spotlight,
-  openings: readonly string[] = []
+  openings: readonly Opening[] = []
 ): CoachFrame | null {
   const [frame, setFrame] = useState<CoachFrame | null>(null);
   const placeRef = useRef(place);
@@ -108,7 +117,7 @@ export function useCoachPlacement(
           kind: 'anchored',
           anchor: box,
           bright,
-          openings: openingBoxes(openingsRef.current),
+          openings: openingHoles(openingsRef.current),
           placement: placeRef.current(
             box,
             { width: mark.offsetWidth, height: mark.offsetHeight },

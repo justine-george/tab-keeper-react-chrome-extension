@@ -36,7 +36,7 @@ import {
   type HoleCorners,
   type Size,
 } from './coachMarkPlacement';
-import type { AnchorBox, Spotlight } from './anchorBox';
+import type { AnchorBox, Opening, Spotlight } from './anchorBox';
 import { playLineIn, playSwell } from './cardMotion';
 import { canAnimate, prefersReducedMotion } from '../modals/getStartedMotion';
 import { RADIUS, TYPE } from '../../styles/scale';
@@ -64,7 +64,7 @@ interface CoachMarkProps {
   boxOf?: AnchorBox;
   spotlight?: Spotlight;
   // KAN-900. Elements lit and reachable in holes of their own, outside the ring.
-  openings?: readonly string[];
+  openings?: readonly Opening[];
   // KAN-901. The corners of what the step lights, when not a CONTROL's.
   holeCorners?: HoleCorners;
   isLive: boolean;
@@ -292,7 +292,7 @@ export default function CoachMark({
   const tall = tallButtonCss(20);
 
   const bright = frame?.kind === 'anchored' ? frame.bright : null;
-  const openingBoxes = frame?.kind === 'anchored' ? frame.openings : [];
+  const openingHoles = frame?.kind === 'anchored' ? frame.openings : [];
   return (
     <>
       {frame && isDimmed && (
@@ -308,10 +308,7 @@ export default function CoachMark({
               : {
                   clipPath: clipPathWithHoles([
                     { box: bright, corners: holeCorners },
-                    ...openingBoxes.map((box) => ({
-                      box,
-                      corners: CONTROL_CORNERS,
-                    })),
+                    ...openingHoles,
                   ]),
                 }
           }

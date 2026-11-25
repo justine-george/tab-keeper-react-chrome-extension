@@ -143,6 +143,11 @@ function Fixture({ withB = true }: { withB?: boolean }) {
         text="Replace"
         tooltipText="Replace this session with open windows"
       />
+      <button data-tooltip="Show the saved session" data-testid="tall">
+        <span data-tooltip-near="" data-testid="near">
+          Saved session
+        </span>
+      </button>
       <div data-testid="pane" tabIndex={0} style={{ overflow: 'auto' }} />
       <dialog open>
         <button data-tooltip="In dialog">d</button>
@@ -578,6 +583,23 @@ describe('the anchor changes while shown', () => {
     await settle();
     wait(200);
     expect(chip()).toBeNull();
+  });
+
+  // KAN-999. A full-height rail card: the chip goes by its label, not the window's bottom.
+  test('an anchor with a data-tooltip-near part is placed by that part', async () => {
+    await setup();
+    screen.getByTestId('tall').getBoundingClientRect = () =>
+      new DOMRect(0, 0, 52, 800);
+    screen.getByTestId('near').getBoundingClientRect = () =>
+      new DOMRect(14, 40, 24, 90);
+    pointerTo(screen.getByTestId('tall'));
+    wait(200);
+    expect(chip()).toHaveTextContent('Show the saved session');
+    expect(placeTooltip).toHaveBeenLastCalledWith(
+      { left: 14, top: 40, width: 24, height: 90 },
+      expect.anything(),
+      expect.anything()
+    );
   });
 
   test('Review Focus 3: nested anchors show the innermost text', async () => {

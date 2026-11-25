@@ -101,6 +101,8 @@ export const paneMotionCss = `
   ${on('saved')} [data-pane='open-now'] [data-pane-layer='open-now-fold'] { view-transition-name: pane-open-now-fold; }
   ${on('saved')} [data-pane='open-now'] [data-pane-layer='open-now-back'] { view-transition-name: pane-open-now-back; }
   ${on('saved')} [data-pane-layer='open-now-close'] { view-transition-name: pane-open-now-close; }
+  /* KAN-999. The saved session's card, folded: it appears where it lives as Currently open lands, and fades first on the way back. */
+  ${on('saved')} [data-pane-layer='saved-card'] { view-transition-name: pane-saved-card; }
   /* The / chip moves between the two search fields with the press. */
   ${on('saved')} [data-pane='open-now'] [data-pane-layer='search-chip'] { view-transition-name: pane-open-now-chip; }
   ${on('saved')} [data-pane='sessions'] [data-pane-layer='search-chip'] { view-transition-name: pane-sessions-chip; }
@@ -123,7 +125,7 @@ export const paneMotionCss = `
   ::view-transition-group(pane-saved-title-action), ::view-transition-group(pane-saved-add-window),
   ::view-transition-group(pane-open-now-fold), ::view-transition-group(pane-open-now-back),
   ::view-transition-group(pane-open-now-close), ::view-transition-group(pane-open-now-chip),
-  ::view-transition-group(pane-sessions-chip),
+  ::view-transition-group(pane-sessions-chip), ::view-transition-group(pane-saved-card),
   ::view-transition-group(pane-open-now-grip) { z-index: 2; }
 
   /* Folding Currently open. The saved session grows: its new picture is revealed as its box widens. */
@@ -163,6 +165,9 @@ export const paneMotionCss = `
   ${on('saved', 'unfold')}::view-transition-new(pane-open-now) {
     z-index: 1; object-position: right top; mask-image: linear-gradient(to left, #000 ${STRIP}, transparent ${STRIP}); animation: none;
   }
+
+  ${on('saved', 'fold')}::view-transition-new(pane-saved-card) { animation: pane-fade-in ${HANDOFF} ${LAST} ease-out both; }
+  ${on('saved', 'unfold')}::view-transition-old(pane-saved-card) { animation: pane-fade-out ${HANDOFF} ease-out both; }
 
   /* Its close button has no place in the column it widens into. */
   ::view-transition-old(pane-open-now-close):only-child { animation: pane-fade-out ${HANDOFF} ease-out both; }

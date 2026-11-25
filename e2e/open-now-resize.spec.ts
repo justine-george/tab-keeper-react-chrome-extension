@@ -953,9 +953,9 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     await expect(grip).toHaveCount(1);
     await expectOpenNow(page, 600);
 
-    // The rail, below 1100px: Open now is its 44px column and has no line.
+    // The rail, below 1100px: Open now is its 53px column (KAN-999: a 44px card) and has no line.
     await page.setViewportSize(RAIL);
-    await expectOpenNow(page, 44);
+    await expectOpenNow(page, 53);
     await expect(grip).toHaveCount(0);
 
     // Folded: the saved session is not shown, so there is no line either.

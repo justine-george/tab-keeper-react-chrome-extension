@@ -10,7 +10,7 @@ describe('the corners each step lights', () => {
   const plan = (
     kind: RunStepKind,
     saveCard: 'save' | 'sessions' | null = null
-  ) => runStepPlan('full', kind, saveCard, 'sample:x', true);
+  ) => runStepPlan('full', kind, saveCard, 'sample:x', true, null);
 
   test('the save row: 8 at the field’s corners on the left, 12 at the save group’s on the right', () => {
     expect(plan('save', 'save')?.holeCorners).toEqual([8, 12, 12, 8]);

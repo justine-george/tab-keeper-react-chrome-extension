@@ -1,9 +1,11 @@
 import type { IconName } from '../../common/iconNames';
 
-// The fold button's glyph in each state, read by the button and by the run's card that names it.
+// The glyph of what shows or folds the saved session: its card while folded,
+// Currently open's fold button while not. The run's card names them too.
 export const FOLD_ICON = {
-  // KAN-794 (his pick B): a panel, so it reads as the layout, not as back.
-  folded: 'left_panel_open',
+  // KAN-999 (his pick I4): folded, the saved session's card wears a folder.
+  // KAN-794 (his pick B): unfolded, a panel, so it reads as the layout.
+  folded: 'folder',
   unfolded: 'left_panel_close',
 } as const satisfies Record<'folded' | 'unfolded', IconName>;
 

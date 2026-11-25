@@ -403,7 +403,9 @@ for (const name of ['Open', 'Replace'] as const) {
   });
 }
 
-test('a double-click on a selected folded row does no more than peek', async ({
+// KAN-999. Folded, the selected row already shows its actions; another row
+// shows them only once a click selects it and peeks, under the pointer.
+test('a double-click on an unselected folded row does no more than peek', async ({
   context,
   extensionId,
   serviceWorker,
@@ -418,9 +420,9 @@ test('a double-click on a selected folded row does no more than peek', async ({
   await page.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
   const row = page
     .locator('[data-pane="sessions"]')
-    .getByRole('button', { name: 'Trip', exact: true });
+    .getByRole('button', { name: 'Kyoto', exact: true });
   const detail = page.locator('[data-pane="detail"]');
-  // PREMISE: folded, so nothing is shown and the row has no actions yet.
+  // PREMISE: folded, so nothing is shown, and this row, not selected, has no actions yet.
   await expect(row).toBeVisible();
   await expect(detail).toHaveCount(0);
   const strip = row.locator('xpath=..').locator('[data-row-actions]');

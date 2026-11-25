@@ -27,6 +27,7 @@ import {
   TOAST_LEAVE_MS,
   TOAST_MOVE,
   TOAST_MOVE_MS,
+  TOAST_START_STYLE,
   useToastStack,
 } from './useToastStack';
 import {
@@ -415,6 +416,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
             <div
               key={toast.id}
               ref={refFor(toast.id)}
+              style={TOAST_START_STYLE}
               data-toast
               data-front={isFront || undefined}
               css={[toastStyle, leaving && leavingStyle]}
@@ -434,6 +436,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
           <div
             key={toast.id}
             ref={refFor(toast.id)}
+            style={TOAST_START_STYLE}
             data-toast
             data-front={isFront || undefined}
             css={[

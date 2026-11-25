@@ -40,7 +40,7 @@ export type CoachFrame =
       kind: 'anchored';
       anchor: Box;
       bright: Box;
-      openings: readonly Box[];
+      openings: readonly Hole[];
       placement: AnchoredPlacement;
     }
   | { kind: 'free'; placement: FreePlacement };
@@ -260,7 +260,11 @@ export function sameFrame(a: CoachFrame | null, b: CoachFrame | null): boolean {
     sameBox(a.anchor, b.anchor) &&
     sameBox(a.bright, b.bright) &&
     a.openings.length === b.openings.length &&
-    a.openings.every((box, i) => sameBox(box, b.openings[i])) &&
+    a.openings.every(
+      (hole, i) =>
+        sameBox(hole.box, b.openings[i].box) &&
+        hole.corners.every((c, j) => c === b.openings[i].corners[j])
+    ) &&
     a.placement.side === b.placement.side &&
     a.placement.left === b.placement.left &&
     a.placement.top === b.placement.top &&
