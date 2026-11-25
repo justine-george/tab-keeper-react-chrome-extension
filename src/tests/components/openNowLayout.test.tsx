@@ -25,7 +25,7 @@ import {
 // Only HeroContainerRight renders this, and it renders in the tab view (D7
 // keeps Open session there), so its presence is the saved detail's.
 const HERO_ONLY = 'Open session, keeping current windows';
-const FOLD = 'Fold the saved session away';
+const FOLD = 'Give Currently open the full width';
 const UNFOLD = 'Show the saved session';
 
 // Factories: the save reducer's result is frozen by Immer, so a session
@@ -142,7 +142,7 @@ describe('the peek (O5)', () => {
     ).toBeInTheDocument();
   });
 
-  test('Fold the saved session away while peeking folds', async () => {
+  test('Give Currently open the full width while peeking folds', async () => {
     goToTabView();
     await renderHome();
     await mounted();

@@ -18,7 +18,7 @@ import { buildSession } from '../fixtures/sessionFixture';
 // shows the saved session. No sessions, no card.
 
 const SHOW = 'Show the saved session';
-const FOLD = 'Fold the saved session away';
+const FOLD = 'Give Currently open the full width';
 // Only HeroContainerRight renders this, so its presence is the saved detail's.
 const HERO_ONLY = 'Open session, keeping current windows';
 
@@ -150,7 +150,7 @@ describe('the saved session card', () => {
     ).toBeNull();
   });
 
-  test('the card hands focus to "Fold the saved session away"', async () => {
+  test('the card hands focus to "Give Currently open the full width"', async () => {
     installMatchMedia(false);
     await renderHome(true);
 
@@ -164,7 +164,7 @@ describe('the saved session card', () => {
     expect(document.activeElement).toBe(fold);
   });
 
-  test('"Fold the saved session away" hands focus to the card', async () => {
+  test('"Give Currently open the full width" hands focus to the card', async () => {
     installMatchMedia(false);
     await renderHome(false);
 

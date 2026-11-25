@@ -168,7 +168,7 @@ const showButton = (page: Page) =>
   page.getByRole('button', { name: 'Show the saved session', exact: true });
 const foldButton = (page: Page) =>
   page.getByRole('button', {
-    name: 'Fold the saved session away',
+    name: 'Give Currently open the full width',
     exact: true,
   });
 

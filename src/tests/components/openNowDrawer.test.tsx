@@ -219,7 +219,7 @@ describe('narrow and side by side (O2)', () => {
     ).toBeInTheDocument();
     expect(
       within(drawer).getByRole('button', {
-        name: 'Fold the saved session away',
+        name: 'Give Currently open the full width',
       })
     ).toBeInTheDocument();
   });
@@ -346,14 +346,14 @@ describe('narrow and side by side (O2)', () => {
 
   // Folding from the drawer puts Open now in the detail column, where there
   // is no rail to hang a drawer from.
-  test('Fold the saved session away from the drawer folds, and the rail is gone', async () => {
+  test('Give Currently open the full width from the drawer folds, and the rail is gone', async () => {
     installMatchMedia(true);
     await renderHome(false);
     const { drawer } = await openDrawer();
 
     fireEvent.click(
       within(drawer).getByRole('button', {
-        name: 'Fold the saved session away',
+        name: 'Give Currently open the full width',
       })
     );
 
@@ -410,7 +410,7 @@ describe('the grid and the rail share one query (O2)', () => {
 // button that was pressed. Focus goes to what took its place, not to <body>.
 // Where nothing is swapped (wide), the pressed button stays, and so does focus.
 describe('focus after a fold or unfold (O2)', () => {
-  const FOLD = 'Fold the saved session away';
+  const FOLD = 'Give Currently open the full width';
   const UNFOLD = 'Show the saved session';
 
   // A keyboard press: the control has focus, then activates.
@@ -419,7 +419,7 @@ describe('focus after a fold or unfold (O2)', () => {
     fireEvent.click(el);
   };
 
-  test('Fold the saved session away from the drawer moves focus to the Open now heading in the detail area', async () => {
+  test('Give Currently open the full width from the drawer moves focus to the Open now heading in the detail area', async () => {
     installMatchMedia(true);
     await renderHome(false);
     const { drawer } = await openDrawer();
@@ -847,7 +847,7 @@ describe('closing from outside (KAN-681, KAN-682)', () => {
 // KAN-794 (his picks B and F). The fold is a panel glyph on the heading's
 // line, as the drawer's close is, so the icon row keeps the actions on tabs.
 describe('the fold control', () => {
-  const FOLD = 'Fold the saved session away';
+  const FOLD = 'Give Currently open the full width';
   const UNFOLD = 'Show the saved session';
 
   // The heading's line: the heading, then its controls.
@@ -871,14 +871,14 @@ describe('the fold control', () => {
     return row;
   };
 
-  test("side by side: a panel-close glyph on the heading's line, not in the icon row", async () => {
+  test("side by side: a « glyph on the heading's line, not in the icon row", async () => {
     installMatchMedia(false);
     await renderHome(false);
 
     const line = await headingLineIn(openNowSlot());
     const fold = within(line).getByRole('button', { name: FOLD });
 
-    expect(glyphOf(fold)).toBe('left_panel_close');
+    expect(glyphOf(fold)).toBe('keyboard_double_arrow_left');
     expect(
       within(await iconRowIn(openNowSlot())).queryByRole('button', {
         name: FOLD,

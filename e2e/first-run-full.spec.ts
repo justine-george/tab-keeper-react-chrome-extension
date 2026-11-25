@@ -732,7 +732,7 @@ test.describe('with saved sessions', () => {
       '[data-pane="open-now"] [data-tour-anchor="fold"]'
     );
     const glyph = card(page).getByRole('img', {
-      name: 'Fold the saved session away',
+      name: 'Give Currently open the full width',
       exact: true,
     });
     await expect(glyph).toBeVisible();

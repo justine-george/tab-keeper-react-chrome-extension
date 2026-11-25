@@ -333,11 +333,11 @@ describe('step 2 names the fold button the view shows', () => {
       r.store.dispatch(peekSavedSession());
     });
     const glyph = await screen.findByRole('img', {
-      name: 'Fold the saved session away',
+      name: 'Give Currently open the full width',
     });
     // KAN-794. The button's own glyph.
     expect(glyph.querySelector('[data-icon]')?.getAttribute('data-icon')).toBe(
-      'left_panel_close'
+      'keyboard_double_arrow_left'
     );
     expect(mark()).toHaveTextContent('Drag the edge');
   });

@@ -91,8 +91,8 @@ export default function HeroContainerRight() {
   const hasOpenNowFold = isTabView() && !isNarrow;
   const isOpenNowFolded = useSelector(selectIsOpenNowFolded);
   const openNowFoldLabel = isOpenNowFolded
-    ? t('Show Open now')
-    : t('Fold Open now away');
+    ? t('Show Open now beside it')
+    : t('Give the saved session the full width');
 
   const tabContainerDataList = useSelector(
     (state: RootState) => state.tabContainerDataState

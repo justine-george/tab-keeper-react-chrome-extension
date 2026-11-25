@@ -107,7 +107,7 @@ function OpenNowColumn({ folded }: OpenNowColumnProps) {
   // header has no fold button then.
   const foldAction: OpenNowHeaderAction = {
     icon: FOLD_ICON.unfolded,
-    label: t('Fold the saved session away'),
+    label: t('Give Open now the full width'),
     onClick: fold,
     tourAnchor: 'fold',
   };

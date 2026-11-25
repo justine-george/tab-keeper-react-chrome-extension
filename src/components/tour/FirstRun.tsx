@@ -297,7 +297,7 @@ export default function FirstRun() {
                     )
               }
               icon={FOLD_ICON.unfolded}
-              label={t('Fold the saved session away')}
+              label={t('Give Open now the full width')}
             />
           ),
           primary: next,
