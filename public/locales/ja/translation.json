@@ -265,6 +265,7 @@
   "Saved session": "保存済みのセッション",
   "Give the saved session the full width": "保存済みのセッションを全幅で表示",
   "Show Open now beside it": "「現在開いているタブ」を横に表示",
+  "Show the saved session beside it": "保存済みのセッションを横に表示",
   "Close Open now": "「現在開いているタブ」パネルを閉じる",
   "Resize Open now": "「現在開いているタブ」パネルの幅を変更",
   "Resize the saved sessions list": "保存したセッションの一覧の幅を変更",

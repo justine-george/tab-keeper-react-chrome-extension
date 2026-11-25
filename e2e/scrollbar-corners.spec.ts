@@ -232,7 +232,9 @@ test('full view: Currently open, the saved list and the session card keep their 
   await page.locator('[aria-label="Sort sessions"]').first().waitFor();
   // Saved list bottom; Currently open bottom.
   await expectCornersIntact(page, 'full view, Currently open', 2);
-  await page.getByRole('button', { name: 'Show the saved session' }).click();
+  await page
+    .getByRole('button', { name: 'Show the saved session', exact: true })
+    .click();
   // The panes slide (DURATION.FOLD 280ms); measure once they rest.
   await page.waitForTimeout(600);
   // Saved list bottom; session card top and bottom; Currently open bottom.

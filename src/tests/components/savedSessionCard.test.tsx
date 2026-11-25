@@ -19,6 +19,10 @@ import { buildSession } from '../fixtures/sessionFixture';
 
 const SHOW = 'Show the saved session';
 const FOLD = 'Give Currently open the full width';
+// KAN-1000. Folded, Currently open's header button brings it back too.
+const BESIDE = 'Show the saved session beside it';
+const glyphOf = (el: HTMLElement) =>
+  el.querySelector('[data-icon]')?.getAttribute('data-icon');
 // Only HeroContainerRight renders this, so its presence is the saved detail's.
 const HERO_ONLY = 'Open session, keeping current windows';
 
@@ -137,16 +141,37 @@ describe('the saved session card', () => {
     expect(card()).toBeNull();
   });
 
-  test("folded: Currently open's pane has no fold button", async () => {
+  test("folded: Currently open's header button is » and shows the saved session beside it", async () => {
     installMatchMedia(false);
-    await renderHome(true);
+    const { store } = await renderHome(true);
 
     await screen.findByRole('button', { name: SHOW });
     expect(
-      within(openNowSlot()).queryByRole('button', { name: SHOW })
-    ).toBeNull();
-    expect(
       within(openNowSlot()).queryByRole('button', { name: FOLD })
+    ).toBeNull();
+    const beside = within(openNowSlot()).getByRole('button', {
+      name: BESIDE,
+    });
+    expect(glyphOf(beside)).toBe('keyboard_double_arrow_right');
+
+    fireEvent.click(beside);
+    expect(store.getState().settingsDataState.foldSavedSessionInTabView).toBe(
+      false
+    );
+    expect(screen.getByRole('button', { name: HERO_ONLY })).toBeInTheDocument();
+  });
+
+  // Nothing saved, nothing to show: no card and no button.
+  test("folded with nothing saved: Currently open's header has no button", async () => {
+    installMatchMedia(false);
+    await renderHome(true, false);
+
+    await within(openNowSlot()).findByRole('heading', {
+      name: 'Currently open',
+    });
+    expect(card()).toBeNull();
+    expect(
+      within(openNowSlot()).queryByRole('button', { name: BESIDE })
     ).toBeNull();
   });
 
@@ -164,7 +189,8 @@ describe('the saved session card', () => {
     expect(document.activeElement).toBe(fold);
   });
 
-  test('"Give Currently open the full width" hands focus to the card', async () => {
+  // KAN-1000. The button stays as », so it keeps focus; the card takes none.
+  test('"Give Currently open the full width" keeps focus as it turns into »', async () => {
     installMatchMedia(false);
     await renderHome(false);
 
@@ -174,8 +200,12 @@ describe('the saved session card', () => {
     act(() => fold.focus());
     fireEvent.click(fold);
 
-    const button = await screen.findByRole('button', { name: SHOW });
-    expect(document.activeElement).toBe(button);
+    await screen.findByRole('button', { name: SHOW });
+    const beside = within(openNowSlot()).getByRole('button', {
+      name: BESIDE,
+    });
+    expect(beside).toBe(fold);
+    expect(document.activeElement).toBe(beside);
   });
 
   test('folding with no sessions: focus goes to the heading, and a later save does not take it', async () => {

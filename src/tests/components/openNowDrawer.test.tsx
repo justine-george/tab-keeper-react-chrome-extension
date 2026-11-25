@@ -412,6 +412,8 @@ describe('the grid and the rail share one query (O2)', () => {
 describe('focus after a fold or unfold (O2)', () => {
   const FOLD = 'Give Currently open the full width';
   const UNFOLD = 'Show the saved session';
+  // KAN-1000. Folded, Currently open's own header button.
+  const BESIDE = 'Show the saved session beside it';
 
   // A keyboard press: the control has focus, then activates.
   const press = (el: HTMLElement) => {
@@ -450,6 +452,18 @@ describe('focus after a fold or unfold (O2)', () => {
     expect(document.activeElement).toBe(button);
   });
 
+  test('Show the saved session beside it while narrow moves focus to the rail button', async () => {
+    installMatchMedia(true);
+    await renderHome(true);
+    await within(openNowSlot()).findByText('B');
+
+    // KAN-1000. Currently open's header button, not the card.
+    press(within(openNowSlot()).getByRole('button', { name: BESIDE }));
+
+    const button = await railButton();
+    expect(document.activeElement).toBe(button);
+  });
+
   // Only a press that swaps may move focus. A wide press swaps nothing, so it
   // must leave nothing pending for a later resize to act on.
   test('a window narrowed after a wide fold and unfold does not pull focus to the rail', async () => {
@@ -479,19 +493,28 @@ describe('focus after a fold or unfold (O2)', () => {
     await waitFor(() => expect(document.activeElement).toBe(button));
   });
 
-  // KAN-999. Wide, each press removes its button: the fold button goes from
-  // the header and the saved session's card comes, and back. Focus follows.
-  test('wide, fold hands focus to the card and the card hands it back', async () => {
+  // KAN-1000. Wide, the header's button stays and flips « ↔ », so it keeps
+  // focus both ways. The card goes when pressed, so it hands focus to it.
+  test('wide, the header button keeps focus both ways, and the card hands it focus', async () => {
     installMatchMedia(false);
     await renderHome(false);
     await within(openNowSlot()).findByText('B');
 
-    press(within(openNowSlot()).getByRole('button', { name: FOLD }));
-    const card = screen.getByRole('button', { name: UNFOLD });
-    expect(card).toHaveAttribute('data-saved-session-card');
-    expect(document.activeElement).toBe(card);
+    const button = within(openNowSlot()).getByRole('button', { name: FOLD });
+    press(button);
+    expect(within(openNowSlot()).getByRole('button', { name: BESIDE })).toBe(
+      button
+    );
+    expect(document.activeElement).toBe(button);
 
-    press(card);
+    press(button);
+    expect(within(openNowSlot()).getByRole('button', { name: FOLD })).toBe(
+      button
+    );
+    expect(document.activeElement).toBe(button);
+
+    press(button);
+    press(screen.getByRole('button', { name: UNFOLD }));
     expect(document.activeElement).toBe(
       within(openNowSlot()).getByRole('button', { name: FOLD })
     );

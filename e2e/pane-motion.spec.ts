@@ -182,7 +182,7 @@ test('each fold starts a transition that moves its layers, from the drawer too; 
   );
 
   const showSaved = await press(page, () =>
-    page.getByRole('button', { name: SHOW_SAVED }).click()
+    page.getByRole('button', { name: SHOW_SAVED, exact: true }).click()
   );
   expect(showSaved).toMatchObject({
     move: 'saved',
