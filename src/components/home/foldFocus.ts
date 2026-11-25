@@ -1,8 +1,8 @@
-// KAN-999. The saved session's two fold controls live in different places: its
-// card (folded) and Currently open's fold button (unfolded). A press on
-// either removes it, so focus would fall to <body>; the press hands focus to
-// the other, which takes it once it is drawn.
-export type FoldFocusTarget = 'savedCard' | 'openNowFold';
+// KAN-999. A press on the saved session's card (folded) removes it, so focus
+// would fall to <body>; the press hands focus to Currently open's fold
+// button, which takes it once it is drawn. That button stays as it flips
+// (KAN-1000), so it keeps its own focus and hands none.
+export type FoldFocusTarget = 'openNowFold';
 
 let pending: FoldFocusTarget | null = null;
 

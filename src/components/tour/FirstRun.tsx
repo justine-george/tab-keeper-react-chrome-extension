@@ -15,7 +15,7 @@ import {
   type Size,
 } from './coachMarkPlacement';
 import { RunHelloDialog } from '../modals/RunHelloDialog';
-import { FOLD_ICON } from '../home/opennow/foldIcon';
+import { SAVED_CARD_ICON, SAVED_FOLD_ICON } from '../home/opennow/foldIcon';
 import { SAVE_OF } from '../home/leftpane/saveScopes';
 import type { AppDispatch, RootState } from '../../redux/store';
 import {
@@ -277,7 +277,7 @@ export default function FirstRun() {
                 'Type in the search box to find an open tab. To show the saved session beside it, press {{icon}} or click a session in the list.',
                 { icon: GLYPH_SLOT }
               )}
-              icon={FOLD_ICON.folded}
+              icon={SAVED_CARD_ICON}
               label={t('Show the saved session')}
             />
           ) : isFolded ? (
@@ -296,8 +296,8 @@ export default function FirstRun() {
                       { icon: GLYPH_SLOT }
                     )
               }
-              icon={FOLD_ICON.unfolded}
-              label={t('Fold the saved session away')}
+              icon={SAVED_FOLD_ICON.unfolded}
+              label={t('Give Open now the full width')}
             />
           ),
           primary: next,

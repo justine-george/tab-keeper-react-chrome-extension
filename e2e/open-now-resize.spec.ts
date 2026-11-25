@@ -332,7 +332,7 @@ const savedRow = (page: Page, id: string): Locator =>
 
 const foldButton = (page: Page) =>
   page.getByRole('button', {
-    name: 'Fold the saved session away',
+    name: 'Give Currently open the full width',
     exact: true,
   });
 

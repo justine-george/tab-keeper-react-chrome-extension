@@ -45,7 +45,7 @@ test('a fold from another page hands focus to the rail', async ({
   const other = await context.newPage();
   await openWide(other, extensionId);
   await other
-    .getByRole('button', { name: 'Fold the Currently open panel away' })
+    .getByRole('button', { name: 'Give the saved session the full width' })
     .first()
     .click();
 

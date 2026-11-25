@@ -160,7 +160,7 @@ test.describe('resizing the saved list (KAN-687)', () => {
     expect(await widthOf(page, OPEN_NOW)).toBe(720);
 
     await page
-      .getByRole('button', { name: 'Fold the saved session away' })
+      .getByRole('button', { name: 'Give Currently open the full width' })
       .click();
     await expect(page.locator(DETAIL)).toHaveCount(0);
     await expectList(page, 480);
@@ -270,7 +270,7 @@ test.describe('resizing the saved list (KAN-687)', () => {
     await page.setViewportSize({ width: 1280, height: 800 });
 
     await page
-      .getByRole('button', { name: 'Fold the saved session away' })
+      .getByRole('button', { name: 'Give Currently open the full width' })
       .click();
     await expect(page.locator(LIST_GRIP)).toHaveCount(1);
     await dragGrip(page, 400);

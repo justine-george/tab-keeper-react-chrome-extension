@@ -20,8 +20,8 @@ const NARROW = { width: 1024, height: 768 };
 const POPUP = { width: 790, height: 550 };
 const OPEN_NOW = '[data-pane="open-now"]';
 const DETAIL = '[data-pane="detail"]';
-const FOLD = 'Fold the Currently open panel away';
-const SHOW = 'Show the Currently open panel';
+const FOLD = 'Give the saved session the full width';
+const SHOW = 'Show Currently open beside it';
 const LONG =
   'Quarterly planning for the platform team, with every roadmap, budget and hiring doc in one place';
 

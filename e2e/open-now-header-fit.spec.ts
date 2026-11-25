@@ -11,7 +11,7 @@ import { standIn } from './fixtures/standInPages';
 // Measured on main before the move: cut to 121px of its 134 at 1100.
 
 const BACK = 'Back to your tab';
-const FOLD = 'Fold the saved session away';
+const FOLD = 'Give Currently open the full width';
 
 test.beforeEach(async ({ context, serviceWorker }) => {
   await seedSettings(context, { foldSavedSessionInTabView: false });

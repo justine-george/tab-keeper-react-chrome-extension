@@ -100,9 +100,9 @@ const CURRENTLY_OPEN: Record<string, string> = {
     'Type in the search box to find an open tab. Press {{icon}} to give Currently open the whole view.',
   'Open now is tucked in here while the window is narrow. Press {{icon}} to see and search every open tab.':
     'Currently open is tucked in here while the window is narrow. Press {{icon}} to see and search every open tab.',
-  // KAN-808.
-  'Fold Open now away': 'Fold the Currently open panel away',
-  'Show Open now': 'Show the Currently open panel',
+  // KAN-1000.
+  'Give Open now the full width': 'Give Currently open the full width',
+  'Show Open now beside it': 'Show Currently open beside it',
   'Open now is tucked in here. Press {{icon}} to see and search every open tab.':
     'Currently open is tucked in here. Press {{icon}} to see and search every open tab.',
 };

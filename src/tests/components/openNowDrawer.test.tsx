@@ -219,7 +219,7 @@ describe('narrow and side by side (O2)', () => {
     ).toBeInTheDocument();
     expect(
       within(drawer).getByRole('button', {
-        name: 'Fold the saved session away',
+        name: 'Give Currently open the full width',
       })
     ).toBeInTheDocument();
   });
@@ -346,14 +346,14 @@ describe('narrow and side by side (O2)', () => {
 
   // Folding from the drawer puts Open now in the detail column, where there
   // is no rail to hang a drawer from.
-  test('Fold the saved session away from the drawer folds, and the rail is gone', async () => {
+  test('Give Currently open the full width from the drawer folds, and the rail is gone', async () => {
     installMatchMedia(true);
     await renderHome(false);
     const { drawer } = await openDrawer();
 
     fireEvent.click(
       within(drawer).getByRole('button', {
-        name: 'Fold the saved session away',
+        name: 'Give Currently open the full width',
       })
     );
 
@@ -410,8 +410,10 @@ describe('the grid and the rail share one query (O2)', () => {
 // button that was pressed. Focus goes to what took its place, not to <body>.
 // Where nothing is swapped (wide), the pressed button stays, and so does focus.
 describe('focus after a fold or unfold (O2)', () => {
-  const FOLD = 'Fold the saved session away';
+  const FOLD = 'Give Currently open the full width';
   const UNFOLD = 'Show the saved session';
+  // KAN-1000. Folded, Currently open's own header button.
+  const BESIDE = 'Show the saved session beside it';
 
   // A keyboard press: the control has focus, then activates.
   const press = (el: HTMLElement) => {
@@ -419,7 +421,7 @@ describe('focus after a fold or unfold (O2)', () => {
     fireEvent.click(el);
   };
 
-  test('Fold the saved session away from the drawer moves focus to the Open now heading in the detail area', async () => {
+  test('Give Currently open the full width from the drawer moves focus to the Open now heading in the detail area', async () => {
     installMatchMedia(true);
     await renderHome(false);
     const { drawer } = await openDrawer();
@@ -445,6 +447,18 @@ describe('focus after a fold or unfold (O2)', () => {
 
     // KAN-999. The saved session's card.
     press(screen.getByRole('button', { name: UNFOLD }));
+
+    const button = await railButton();
+    expect(document.activeElement).toBe(button);
+  });
+
+  test('Show the saved session beside it while narrow moves focus to the rail button', async () => {
+    installMatchMedia(true);
+    await renderHome(true);
+    await within(openNowSlot()).findByText('B');
+
+    // KAN-1000. Currently open's header button, not the card.
+    press(within(openNowSlot()).getByRole('button', { name: BESIDE }));
 
     const button = await railButton();
     expect(document.activeElement).toBe(button);
@@ -479,19 +493,28 @@ describe('focus after a fold or unfold (O2)', () => {
     await waitFor(() => expect(document.activeElement).toBe(button));
   });
 
-  // KAN-999. Wide, each press removes its button: the fold button goes from
-  // the header and the saved session's card comes, and back. Focus follows.
-  test('wide, fold hands focus to the card and the card hands it back', async () => {
+  // KAN-1000. Wide, the header's button stays and flips « ↔ », so it keeps
+  // focus both ways. The card goes when pressed, so it hands focus to it.
+  test('wide, the header button keeps focus both ways, and the card hands it focus', async () => {
     installMatchMedia(false);
     await renderHome(false);
     await within(openNowSlot()).findByText('B');
 
-    press(within(openNowSlot()).getByRole('button', { name: FOLD }));
-    const card = screen.getByRole('button', { name: UNFOLD });
-    expect(card).toHaveAttribute('data-saved-session-card');
-    expect(document.activeElement).toBe(card);
+    const button = within(openNowSlot()).getByRole('button', { name: FOLD });
+    press(button);
+    expect(within(openNowSlot()).getByRole('button', { name: BESIDE })).toBe(
+      button
+    );
+    expect(document.activeElement).toBe(button);
 
-    press(card);
+    press(button);
+    expect(within(openNowSlot()).getByRole('button', { name: FOLD })).toBe(
+      button
+    );
+    expect(document.activeElement).toBe(button);
+
+    press(button);
+    press(screen.getByRole('button', { name: UNFOLD }));
     expect(document.activeElement).toBe(
       within(openNowSlot()).getByRole('button', { name: FOLD })
     );
@@ -847,7 +870,7 @@ describe('closing from outside (KAN-681, KAN-682)', () => {
 // KAN-794 (his picks B and F). The fold is a panel glyph on the heading's
 // line, as the drawer's close is, so the icon row keeps the actions on tabs.
 describe('the fold control', () => {
-  const FOLD = 'Fold the saved session away';
+  const FOLD = 'Give Currently open the full width';
   const UNFOLD = 'Show the saved session';
 
   // The heading's line: the heading, then its controls.
@@ -871,14 +894,14 @@ describe('the fold control', () => {
     return row;
   };
 
-  test("side by side: a panel-close glyph on the heading's line, not in the icon row", async () => {
+  test("side by side: a « glyph on the heading's line, not in the icon row", async () => {
     installMatchMedia(false);
     await renderHome(false);
 
     const line = await headingLineIn(openNowSlot());
     const fold = within(line).getByRole('button', { name: FOLD });
 
-    expect(glyphOf(fold)).toBe('left_panel_close');
+    expect(glyphOf(fold)).toBe('keyboard_double_arrow_left');
     expect(
       within(await iconRowIn(openNowSlot())).queryByRole('button', {
         name: FOLD,

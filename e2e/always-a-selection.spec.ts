@@ -159,7 +159,10 @@ test.describe('the tab view folded draws the selection (KAN-390, KAN-999)', () =
     await drawnSelected();
 
     await page
-      .getByRole('button', { name: 'Fold the saved session away', exact: true })
+      .getByRole('button', {
+        name: 'Give Currently open the full width',
+        exact: true,
+      })
       .click();
     await page.mouse.move(0, 0);
     await drawnSelected();

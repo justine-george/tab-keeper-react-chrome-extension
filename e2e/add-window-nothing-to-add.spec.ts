@@ -53,7 +53,9 @@ async function openAlone(
   await page.locator('[aria-label="Sort sessions"]').first().waitFor();
   // The full view opens on Currently open; the chip is on the session card.
   if (path === FULL_VIEW_PATH)
-    await page.getByRole('button', { name: 'Show the saved session' }).click();
+    await page
+      .getByRole('button', { name: 'Show the saved session', exact: true })
+      .click();
   return { page, windowId };
 }
 

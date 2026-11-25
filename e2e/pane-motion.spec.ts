@@ -27,9 +27,9 @@ import {
 // reduced motion stays instant, and that / keeps the keys typed after it.
 
 const WIDE = { width: 1400, height: 800 };
-const FOLD_OPEN_NOW = 'Fold the Currently open panel away';
-const SHOW_OPEN_NOW = 'Show the Currently open panel';
-const FOLD_SAVED = 'Fold the saved session away';
+const FOLD_OPEN_NOW = 'Give the saved session the full width';
+const SHOW_OPEN_NOW = 'Show Currently open beside it';
+const FOLD_SAVED = 'Give Currently open the full width';
 const SHOW_SAVED = 'Show the saved session';
 
 interface Run {
@@ -182,7 +182,7 @@ test('each fold starts a transition that moves its layers, from the drawer too; 
   );
 
   const showSaved = await press(page, () =>
-    page.getByRole('button', { name: SHOW_SAVED }).click()
+    page.getByRole('button', { name: SHOW_SAVED, exact: true }).click()
   );
   expect(showSaved).toMatchObject({
     move: 'saved',

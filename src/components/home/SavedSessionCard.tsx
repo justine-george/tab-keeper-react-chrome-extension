@@ -1,5 +1,3 @@
-import { useEffect, useRef } from 'react';
-
 import { css } from '@emotion/react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
@@ -13,9 +11,9 @@ import {
   formatNameWithCount,
   formatTabCount,
 } from '../../utils/functions/local';
-import { FOLD_ICON } from './opennow/foldIcon';
+import { SAVED_CARD_ICON } from './opennow/foldIcon';
 import { runPaneMotion } from './paneMotion';
-import { handFoldFocusTo, takeFoldFocus } from './foldFocus';
+import { handFoldFocusTo } from './foldFocus';
 import { railCardStyle } from './railCard';
 import RailLabel from './RailLabel';
 
@@ -27,13 +25,6 @@ export default function SavedSessionCard() {
   const COLORS = useThemeColors();
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
-  const buttonRef = useRef<HTMLButtonElement>(null);
-
-  // Folded by Currently open's button, which then went: focus comes here.
-  useEffect(() => {
-    if (takeFoldFocus('savedCard')) buttonRef.current?.focus();
-  }, []);
-
   const show = () => {
     handFoldFocusTo('openNowFold');
     runPaneMotion(
@@ -95,7 +86,6 @@ export default function SavedSessionCard() {
   return (
     <div css={slotStyle} data-saved-card-slot="">
       <button
-        ref={buttonRef}
         type="button"
         css={buttonStyle}
         aria-label={label}
@@ -104,7 +94,7 @@ export default function SavedSessionCard() {
         data-pane-layer="saved-card"
         onClick={show}
       >
-        <Icon type={FOLD_ICON.folded} />
+        <Icon type={SAVED_CARD_ICON} />
         <RailLabel text={t('Saved session')} />
       </button>
     </div>

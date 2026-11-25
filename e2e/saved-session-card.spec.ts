@@ -465,6 +465,6 @@ test('the Saved session card keeps its action as its name', async ({
 }) => {
   const page = await openTabView(context, extensionId, true, SESSIONS(), WIDE);
   await expect(
-    page.getByRole('button', { name: 'Show the saved session' })
+    page.getByRole('button', { name: 'Show the saved session', exact: true })
   ).toBeVisible();
 });

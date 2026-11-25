@@ -21,9 +21,9 @@ import { buildSession } from '../fixtures/sessionFixture';
 // time. The popup (no Open now) and a narrow window (already the rail) keep
 // the pencil.
 
-const FOLD_OPEN_NOW = 'Fold the Currently open panel away';
-const SHOW_OPEN_NOW = 'Show the Currently open panel';
-const FOLD_SAVED = 'Fold the saved session away';
+const FOLD_OPEN_NOW = 'Give the saved session the full width';
+const SHOW_OPEN_NOW = 'Show Currently open beside it';
+const FOLD_SAVED = 'Give Currently open the full width';
 const PENCIL = 'Rename session';
 const RAIL_NAME = 'Currently open, 3 Tabs';
 const GRIP = 'Resize the Currently open panel';
@@ -85,6 +85,8 @@ const renderHome = (title = 'First session') =>
 
 const mounted = () => screen.findByRole('button', { name: 'Sort sessions' });
 const button = (name: string) => screen.queryByRole('button', { name });
+const glyphOf = (el: HTMLElement) =>
+  el.querySelector('[data-icon]')?.getAttribute('data-icon');
 const detail = () => {
   const pane = document.querySelector<HTMLElement>('[data-pane="detail"]');
   if (pane === null) throw new Error('no detail pane');
@@ -177,6 +179,8 @@ describe('the press', () => {
     expect(within(openNowSlot()).getByText(PANE_ONLY)).toBeInTheDocument();
 
     const fold = button(FOLD_OPEN_NOW)!;
+    // KAN-1000 (his pick B2): » points at the pane it pushes aside.
+    expect(glyphOf(fold)).toBe('keyboard_double_arrow_right');
     fold.focus();
     fireEvent.click(fold);
     expect(folds(store)).toEqual({ saved: false, openNow: true });
@@ -191,6 +195,8 @@ describe('the press', () => {
     // The same button, so focus stays on it.
     expect(show).toBe(fold);
     expect(show).toHaveFocus();
+    // Back: « brings Currently open back beside it.
+    expect(glyphOf(show)).toBe('keyboard_double_arrow_left');
 
     fireEvent.click(show);
     expect(folds(store)).toEqual({ saved: false, openNow: false });
