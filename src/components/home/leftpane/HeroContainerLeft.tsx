@@ -73,8 +73,11 @@ export default function HeroContainer() {
        icons inside a 64px box with half of it empty.
 
        12px against the pane's 8px sides. 8px was tried and read as
-       tight; 16px is what it was, and that is the floating look. */
-    padding: 12px 0px;
+       tight; 16px is what it was, and that is the floating look.
+
+       KAN-1003 (his pick B): 3px of the top moves under, so the row sits on
+       the pane titles' line and the field below stays where it was. */
+    padding: 9px 0 15px;
     user-select: none;
   `;
 

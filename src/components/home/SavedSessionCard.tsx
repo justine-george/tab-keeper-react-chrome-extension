@@ -51,7 +51,8 @@ export default function SavedSessionCard() {
 
   const buttonStyle = css`
     ${railCardStyle(COLORS)}
-    padding-top: 8px;
+    /* KAN-1003 (his pick B): the glyph on the top row's line, the pane title's. */
+    padding-top: 0;
     background-color: transparent;
     color: inherit;
     font: inherit;

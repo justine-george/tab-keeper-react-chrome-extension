@@ -393,7 +393,8 @@ export default function OpenNowRail({
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 8px 0 0;
+    /* KAN-1003 (his pick B): the glyph on the top row's line, the pane title's. */
+    padding: 0;
     border: none;
     ${corners(RADIUS.PANEL_INNER)}
     background-color: transparent;
