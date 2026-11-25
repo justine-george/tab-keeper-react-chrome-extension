@@ -1,14 +1,18 @@
 import { useEffect, useRef } from 'react';
 
 import { css } from '@emotion/react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 
 import Icon from '../common/Icon';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { endSavedSessionPeek } from '../../redux/slices/globalStateSlice';
 import { setFoldSavedSessionInTabView } from '../../redux/slices/settingsDataStateSlice';
-import type { AppDispatch } from '../../redux/store';
+import type { AppDispatch, RootState } from '../../redux/store';
+import {
+  formatNameWithCount,
+  formatTabCount,
+} from '../../utils/functions/local';
 import { FOLD_ICON } from './opennow/foldIcon';
 import { runPaneMotion } from './paneMotion';
 import { handFoldFocusTo, takeFoldFocus } from './foldFocus';
@@ -62,15 +66,32 @@ export default function SavedSessionCard() {
     font: inherit;
     cursor: pointer;
     /* No drop lands here: under a drag or a carry it shows no hover, so it never reads as a target. */
+    /* His pick H2: a session row's hover and press fills, card-wide, and a darker outline. */
     html:not([data-dragging]):not([data-carrying]) &:hover {
-      background-color: ${COLORS.ICON_HOVER_COLOR};
+      background-color: ${COLORS.HOVER_COLOR};
+      border-color: ${COLORS.LABEL_L2_COLOR};
     }
-    &:active {
-      background-color: ${COLORS.ICON_ACTIVE_COLOR};
+    /* As specific as the hover, and after it, so a press shows. */
+    html:not([data-dragging]):not([data-carrying]) &:active {
+      background-color: ${COLORS.ACTIVE_COLOR};
     }
   `;
 
   const label = t('Show the saved session');
+  // His pick W1: the tooltip names what the card holds, "Trip, 2 Tabs", as
+  // the rail's does; the name stays the action.
+  const session = useSelector((s: RootState) => {
+    const { tabGroups, selectedTabGroupId } = s.tabContainerDataState;
+    return tabGroups.find((g) => g.tabGroupId === selectedTabGroupId) ?? null;
+  });
+  const tip =
+    session === null
+      ? label
+      : formatNameWithCount(
+          session.title,
+          formatTabCount(session.tabCount, t),
+          t
+        );
   return (
     <div css={slotStyle} data-saved-card-slot="">
       <button
@@ -78,7 +99,7 @@ export default function SavedSessionCard() {
         type="button"
         css={buttonStyle}
         aria-label={label}
-        data-tooltip={label}
+        data-tooltip={tip}
         data-saved-session-card=""
         data-pane-layer="saved-card"
         onClick={show}

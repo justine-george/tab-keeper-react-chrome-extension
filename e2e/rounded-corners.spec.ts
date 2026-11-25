@@ -1019,7 +1019,8 @@ test.describe('round 5 picks', () => {
       .toBe('rgb(237, 238, 240)'); // Chalk HOVER_COLOR #EDEEF0
   });
 
-  test("the Open now rail button's fills round at 8", async ({
+  // KAN-999 (his pick H2). The button is the whole card: its fills round inside the card's 1px border.
+  test("the Open now rail button's fills round at 11, inside the card's 12", async ({
     context,
     extensionId,
     serviceWorker,
@@ -1033,7 +1034,7 @@ test.describe('round 5 picks', () => {
     await page.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
     await expectCorners(
       page.locator('[data-open-now-rail] button').first(),
-      '8px',
+      '11px',
       'the rail button'
     );
   });

@@ -313,7 +313,10 @@ function Chip({
     chip.style.top = '0px';
     const origin = chip.getBoundingClientRect();
     const frame = frameOf(dialog);
-    const box = anchor.getBoundingClientRect();
+    // KAN-999. A part marked data-tooltip-near places it: a full-height card's label, not the card.
+    const box = (
+      anchor.querySelector('[data-tooltip-near]') ?? anchor
+    ).getBoundingClientRect();
     const at = placeTooltip(
       {
         left: box.left - frame.left,

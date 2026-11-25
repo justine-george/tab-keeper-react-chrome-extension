@@ -356,6 +356,13 @@ export default function OpenNowRail({
     ${railCardStyle(COLORS)}
     height: calc(100% - 16px);
     margin: 8px 8px 8px 0;
+    padding-top: 0;
+    /* His pick H2: hovered, the outline darkens, as the folded saved session's
+       card's does; under a drag or a carry it shows no hover, and a saved item
+       resting here shows the carry target's look instead. */
+    html:not([data-dragging]):not([data-carrying]) &:has(> button:hover) {
+      border-color: ${COLORS.LABEL_L2_COLOR};
+    }
     /* KAN-820 E. The session row's carry-target look; its button shows no hover or press fill under it. */
     &[data-carry-target] {
       background-color: ${COLORS.ACTIVE_COLOR};
@@ -376,29 +383,27 @@ export default function OpenNowRail({
     }
   `;
 
-  // Sized and filled as an actionable Icon is (padding 4px round a 24px
-  // glyph, hover and press fills), but a native button: it needs a ref for
-  // focus to come back to, and aria-controls. KAN-776: the label stacks under
-  // the glyph.
+  // KAN-999 (his pick H2). The whole card is the button, as the folded saved
+  // session's card is: a session row's hover and press fills, card-wide. A
+  // native button: it needs a ref for focus to come back to, and
+  // aria-controls. KAN-776: the label stacks under the glyph.
   const buttonStyle = css`
+    flex: 1;
+    align-self: stretch;
     display: flex;
     flex-direction: column;
     align-items: center;
-    min-width: 32px;
-    justify-content: center;
-    padding: 4px;
+    padding: 8px 0 0;
     border: none;
-    /* An icon button's corners (KAN-721, R5). */
-    ${corners(RADIUS.CONTROL)}
+    ${corners(RADIUS.PANEL_INNER)}
     background-color: transparent;
     color: inherit;
     cursor: pointer;
-    &:hover {
-      background-color: ${COLORS.ICON_HOVER_COLOR};
+    html:not([data-dragging]):not([data-carrying]) &:hover {
+      background-color: ${COLORS.HOVER_COLOR};
     }
-    /* KAN-810. No fill while expanded: the drawer covers the button then, so the fill only ever flashed as the drawer moved. */
-    &:active {
-      background-color: ${COLORS.ICON_ACTIVE_COLOR};
+    html:not([data-dragging]):not([data-carrying]) &:active {
+      background-color: ${COLORS.ACTIVE_COLOR};
     }
   `;
 

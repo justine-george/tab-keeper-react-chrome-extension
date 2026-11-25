@@ -5,7 +5,8 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { TYPE } from '../../styles/scale';
 
 // A rail's label, under its glyph (KAN-776). Named by its button's
-// aria-label, so this is only what the eye reads.
+// aria-label, so this is only what the eye reads. KAN-999: the card's tooltip
+// sits under it (data-tooltip-near), not at the full-height card's foot.
 export default function RailLabel({ text }: { text: string }) {
   const COLORS = useThemeColors();
   const { i18n } = useTranslation();
@@ -40,7 +41,7 @@ export default function RailLabel({ text }: { text: string }) {
   `;
 
   return stacksUpright ? (
-    <span css={[labelStyle, stackedStyle]}>
+    <span css={[labelStyle, stackedStyle]} data-tooltip-near="">
       {text
         .split(' ')
         .flatMap((word, i) => [
@@ -49,6 +50,8 @@ export default function RailLabel({ text }: { text: string }) {
         ])}
     </span>
   ) : (
-    <span css={[labelStyle, verticalStyle]}>{text}</span>
+    <span css={[labelStyle, verticalStyle]} data-tooltip-near="">
+      {text}
+    </span>
   );
 }

@@ -7,6 +7,11 @@ import { seedSettings } from './fixtures/seed';
 import { boxOf, pickUp } from './fixtures/sessionDrag';
 import { carryTo } from './fixtures/liveWindows';
 import { samples, startSampling } from './fixtures/glideSamples';
+import { pixelsAt, rgb } from './fixtures/pixels';
+import {
+  CHALK_THEME,
+  CHARCOAL_THEME,
+} from '../src/utils/constants/themePalettes';
 
 // KAN-999 on the real artifact. Folded, the saved session keeps an outlined
 // card between the list and Currently open: 44px wide, from the top of
@@ -348,4 +353,118 @@ test('folded, another page deletes the last session: the card goes at once', asy
   expect(xs[xs.length - 1]).toBeCloseTo(from - 52, 0);
   expect(xs.filter((x) => x < from - 2 && x > from - 50)).toEqual([]);
   await expect(card(page)).toHaveCount(0);
+});
+
+// KAN-999 (his picks H2, W1). Both rail cards are one button, card-wide: a
+// hover anywhere takes a session row's hover fill and darkens the outline, a
+// press its pressed fill; the tooltip sits under the label, not at the
+// window's bottom, and names what the card holds.
+const THEMES = [
+  ['Chalk', CHALK_THEME],
+  ['Charcoal', CHARCOAL_THEME],
+] as const;
+const CARDS = [
+  {
+    name: 'the Saved session card',
+    folded: true,
+    viewport: WIDE,
+    outline: (page: Page) => card(page),
+    tip: 'Trip, 2 Tabs',
+  },
+  {
+    name: "Currently open's rail",
+    folded: false,
+    viewport: SHORT,
+    outline: (page: Page) => railCard(page),
+    tip: /^Currently open, \d+ Tabs?$/,
+  },
+] as const;
+
+for (const [theme, COLORS] of THEMES) {
+  for (const c of CARDS) {
+    test(`${theme}, ${c.name}: a hover low on the card fills it whole as a row's hover, darkens its outline; a press there acts`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openTabView(
+        context,
+        extensionId,
+        c.folded,
+        SESSIONS(),
+        c.viewport,
+        { theme }
+      );
+      const outline = c.outline(page);
+      await expect(outline).toBeVisible();
+      const b = await boxOf(outline);
+      const x = b.x + b.width / 2;
+      const spots: Array<[number, number]> = [
+        [x, b.y + 6],
+        [x, b.y + b.height / 2],
+        [x, b.y + b.height - 6],
+      ];
+      const borderOf = () =>
+        outline.evaluate((e) => getComputedStyle(e).borderTopColor);
+      await page.mouse.move(5, b.y + b.height / 2);
+      const rest = await pixelsAt(page, spots);
+      // CONTROL: at rest the card isn't already the hover fill.
+      expect(rest[1]).not.toBe(COLORS.HOVER_COLOR);
+      expect(await borderOf()).toBe(rgb(COLORS.PANEL_BORDER_COLOR));
+
+      await page.mouse.move(x, b.y + b.height - 20);
+      await expect
+        .poll(() => pixelsAt(page, spots))
+        .toEqual([COLORS.HOVER_COLOR, COLORS.HOVER_COLOR, COLORS.HOVER_COLOR]);
+      expect(await borderOf()).toBe(rgb(COLORS.LABEL_L2_COLOR));
+
+      await page.mouse.down();
+      await expect
+        .poll(() => pixelsAt(page, spots))
+        .toEqual([
+          COLORS.ACTIVE_COLOR,
+          COLORS.ACTIVE_COLOR,
+          COLORS.ACTIVE_COLOR,
+        ]);
+      await page.mouse.up();
+      // The press low on the card does the card's job.
+      if (c.folded) await expect(card(page)).toHaveCount(0);
+      else await expect(page.getByRole('dialog')).toBeVisible();
+    });
+  }
+}
+
+for (const c of CARDS) {
+  test(`${c.name}: the tooltip sits under the label wherever the pointer is on the card, and names what it holds`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openTabView(
+      context,
+      extensionId,
+      c.folded,
+      SESSIONS(),
+      c.viewport
+    );
+    const outline = c.outline(page);
+    await expect(outline).toBeVisible();
+    const b = await boxOf(outline);
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height - 20);
+    const chip = page.locator('[data-tooltip-chip]');
+    await expect(chip).toHaveText(c.tip);
+    const label = await boxOf(outline.locator('[data-tooltip-near]'));
+    const tip = await boxOf(chip);
+    expect(Math.abs(tip.y - (label.y + label.height) - 6)).toBeLessThanOrEqual(
+      1
+    );
+  });
+}
+
+test('the Saved session card keeps its action as its name', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openTabView(context, extensionId, true, SESSIONS(), WIDE);
+  await expect(
+    page.getByRole('button', { name: 'Show the saved session' })
+  ).toBeVisible();
 });
