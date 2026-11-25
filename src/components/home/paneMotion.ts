@@ -1,7 +1,7 @@
 import { flushSync } from 'react-dom';
 
 import { PANE_SIDE } from '../../styles/paneInset';
-import { DURATION, EASE } from '../../styles/scale';
+import { DURATION, EASE, RADIUS } from '../../styles/scale';
 
 // KAN-810 (his pick B, refined over 8 rounds). The tab view's folds and the
 // rail's drawer move, so you can see where a pane went, instead of swapping:
@@ -32,6 +32,9 @@ const LAST = `calc(${FOLD} - ${HANDOFF})`;
 const NEXT_TO_LAST = `calc(${FOLD} - 2 * ${HANDOFF})`;
 // A pane's box borders, kept by a strip of its other picture that rides its edge.
 const STRIP = '10px';
+// KAN-1004. Currently open's, in a saved move: its gutter and its card's whole corner
+// curve, so each corner draws from one picture, not cut where two meet.
+const OPEN_NOW_STRIP = `calc(${PANE_SIDE} + ${RADIUS.PANEL} + 1px)`;
 
 // The latest motion's token: a press during a motion skips the first, whose
 // end must not clear the second's attributes.
@@ -161,11 +164,11 @@ export const paneMotionCss = `
   ${on('saved', 'fold')}::view-transition-new(pane-open-now) { animation: pane-left-out ${MOVE} both; }
   ${on('saved', 'unfold')}::view-transition-old(pane-open-now) { animation: pane-left-in ${MOVE} both; }
   /* Its right edge, at the window's, from a strip of its other picture. KAN-1004: the strip
-     holds the card's border and the gutter past it, clear in the picture, so it gets the
-     page behind it; else the moving picture's fill shows through, past the border. */
+     holds the card's border, corners and the gutter past it, clear in the picture, so it
+     gets the page behind it; else the moving picture's fill shows through, past the border. */
   ${on('saved', 'fold')}::view-transition-old(pane-open-now),
   ${on('saved', 'unfold')}::view-transition-new(pane-open-now) {
-    z-index: 1; object-position: right top; mask-image: linear-gradient(to left, #000 ${STRIP}, transparent ${STRIP}); animation: none;
+    z-index: 1; object-position: right top; mask-image: linear-gradient(to left, #000 ${OPEN_NOW_STRIP}, transparent ${OPEN_NOW_STRIP}); animation: none;
     background: var(--app-background);
   }
 

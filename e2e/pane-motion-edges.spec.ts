@@ -222,3 +222,87 @@ test('a header button that flips « ↔ » never shows both glyphs at once', asy
     }
   }
 });
+
+// A screen region's colours, as drawn, row by row.
+// The largest gap, on any channel of any pixel, between two regions.
+const furthest = (a: number[], b: number[]) =>
+  Math.max(...a.map((v, i) => Math.abs(v - b[i])));
+
+async function region(
+  page: Page,
+  clip: { x: number; y: number; width: number; height: number }
+) {
+  const png = await page.screenshot({ clip });
+  return page.evaluate(async (b64) => {
+    const img = new Image();
+    img.src = `data:image/png;base64,${b64}`;
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = img.width;
+    c.height = img.height;
+    const g = c.getContext('2d')!;
+    g.drawImage(img, 0, 0);
+    return [...g.getImageData(0, 0, img.width, img.height).data];
+  }, png.toString('base64'));
+}
+
+test("folding and showing the saved session, Currently open's card corners draw whole", async ({
+  context,
+  extensionId,
+}) => {
+  const page = await open(context, extensionId);
+  // The search card's top-right corner: nothing else is drawn near it.
+  const corner = await page.evaluate(() => {
+    const input = document.querySelector('[data-pane="open-now"] input');
+    let card = input?.parentElement ?? null;
+    while (
+      card !== null &&
+      getComputedStyle(card).borderTopRightRadius === '0px'
+    )
+      card = card.parentElement;
+    if (card === null) return null;
+    const r = card.getBoundingClientRect();
+    return { right: r.right, top: r.top };
+  });
+  if (corner === null) throw new Error('no search card');
+  // The corner's curve and the gutter past it, clear of the / chip, which moves.
+  const clip = {
+    x: Math.round(corner.right) - 11,
+    y: Math.round(corner.top) - 1,
+    width: 17,
+    height: 12,
+  };
+  const atRest = await region(page, clip);
+
+  for (const fraction of FRACTIONS) {
+    await pressAndFreeze(
+      page,
+      () => page.getByRole('button', { name: FOLD_SAVED }).click(),
+      fraction
+    );
+    // A whole corner differs only by its edge's anti-aliasing (a few levels);
+    // a cut one loses border pixels (about 40 levels).
+    expect(
+      furthest(await region(page, clip), atRest),
+      `fold at ${fraction}`
+    ).toBeLessThan(20);
+    await release(page);
+
+    await pressAndFreeze(
+      page,
+      () =>
+        page
+          .locator('[data-pane="open-now"]')
+          .getByRole('button', { name: SHOW_SAVED_BESIDE })
+          .click(),
+      fraction
+    );
+    // A whole corner differs only by its edge's anti-aliasing (a few levels);
+    // a cut one loses border pixels (about 40 levels).
+    expect(
+      furthest(await region(page, clip), atRest),
+      `unfold at ${fraction}`
+    ).toBeLessThan(20);
+    await release(page);
+  }
+});
