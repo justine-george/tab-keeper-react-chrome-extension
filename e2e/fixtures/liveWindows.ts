@@ -1,3 +1,4 @@
+import { expect } from '@playwright/test';
 import type { Locator, Page, Worker } from '@playwright/test';
 
 import { boxOf } from './sessionDrag';
@@ -18,6 +19,19 @@ export async function openLiveWindow(worker: Worker, titles: string[]) {
     return { windowId: w.id, tabIds: ids };
   }, titles.map(dataUrl));
   if (made === null) throw new Error('Chrome gave no window or tab ids');
+  // KAN-1007. A new tab's url is "" until it commits: a Chrome snapshot taken
+  // before that never matches one taken after.
+  await expect
+    .poll(() =>
+      worker.evaluate(
+        async (windowId) =>
+          (await chrome.tabs.query({ windowId }))
+            .sort((x, y) => x.index - y.index)
+            .map((t) => t.url),
+        made.windowId
+      )
+    )
+    .toEqual(titles.map(dataUrl));
   const idOf = (title: string) => {
     const id = made.tabIds[titles.indexOf(title)];
     if (id === undefined) throw new Error(`no tab ${title}`);
