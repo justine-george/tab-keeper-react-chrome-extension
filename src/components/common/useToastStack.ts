@@ -11,6 +11,15 @@ const MAX_DEPTH = MAX_TOASTS + 1;
 // fades only.
 export const TOAST_GAP_PX = 8;
 export const TOAST_RISE_PX = 12;
+
+// KAN-999. Every toast is created 12px low and clear, so a layout read by
+// anything else in the commit that adds it (a row measuring its strip) never
+// gives it a resting style to start from. One object, so React never writes
+// it again over the stack's own styles.
+export const TOAST_START_STYLE = {
+  transform: `translateY(${TOAST_RISE_PX}px)`,
+  opacity: 0,
+} as const;
 export const TOAST_MOVE_MS = 220;
 export const TOAST_MOVE = `${TOAST_MOVE_MS}ms cubic-bezier(0.2, 0, 0, 1)`;
 export const TOAST_LEAVE_MS = 160;
