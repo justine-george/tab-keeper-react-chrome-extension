@@ -86,12 +86,12 @@ async function pickUpLive(page: Page, tabId: number, card = true) {
   return { x, y: y + 10 };
 }
 
-// Out of Open now's pane to the left (P1): the card shows, with its + badge.
+// Out of Open now's pane to the left (P1): the card shows. Its + shows only
+// where letting go saves it (KAN-1005), which 1e checks.
 async function carryOutOfOpenNow(page: Page, y: number) {
   const pane = await boxOf(page.locator('[data-pane="open-now"]'));
   await page.mouse.move(pane.x - 40, y, { steps: 6 });
   await expect(page.locator(CARD)).toHaveCount(1);
-  await expect(page.locator(`${CARD} [data-carry-card-badge]`)).toHaveCount(1);
 }
 
 // KAN-816. The + is the `add` ligature: a name missing from the icon subset draws as text, three letters wide.
@@ -262,6 +262,49 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
     await expect(target).toBeHidden();
     await page.keyboard.press('Escape');
     await page.mouse.up();
+  });
+
+  // KAN-1005 (his rule, 22:27): the + says a release here saves the tab, so it shows
+  // only over a place that takes it, as a saved carry's does over Currently open.
+  test('1e. the + shows only where letting go saves it: the New window box and a slot, not the gap under the box', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openTabView(context, extensionId, false);
+    const live = await openLiveWindow(serviceWorker, ['Live A']);
+    await expect(liveRow(page, live.idOf('Live A'))).toBeVisible();
+    const before = await stored(page);
+    const badge = page.locator(`${CARD} [data-carry-card-badge]`);
+    const box = page.locator('[data-new-window-target="first"]');
+
+    const at = await pickUpLive(page, live.idOf('Live A'));
+    const pane = await boxOf(page.locator('[data-pane="open-now"]'));
+    await page.mouse.move(pane.x - 40, at.y, { steps: 6 });
+    await expect(page.locator(CARD)).toHaveCount(1);
+
+    // On the box: lit, and the +.
+    const b = await boxOf(box);
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 4 });
+    await expect(box).toHaveAttribute('data-landing', '');
+    await expect(badge).toBeVisible();
+
+    // Just under it, above the first window: nothing lit, no +.
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height + 6, { steps: 3 });
+    await expect(box).not.toHaveAttribute('data-landing', '');
+    await expect(badge).toBeHidden();
+
+    // Over a saved row, at a slot: the +.
+    await aimAt(page, 'a1', 0.25);
+    await expect(badge).toBeVisible();
+
+    // Let go in the gap: nothing saved.
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height + 6, { steps: 3 });
+    await expect(badge).toBeHidden();
+    await page.mouse.up();
+    await expect(page.locator(CARD)).toHaveCount(0);
+    await page.waitForTimeout(300);
+    expect(await stored(page)).toEqual(before);
   });
 
   // KAN-611 (Justine, 02:16): one edge for out and back. In Open now's margin outside its list the drag is still

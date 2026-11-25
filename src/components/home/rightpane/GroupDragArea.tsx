@@ -19,7 +19,7 @@ import { useKeepWindowOpen } from './useKeepWindowOpen';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useGroupDrop } from './useGroupDrop';
 import type { PaneWindows } from './rowDrag/dropRules';
-import { markNewWindowTarget } from './newWindowTarget';
+import { markSavedListLanding } from './newWindowTarget';
 import { groupCarryOut } from './carryOut';
 
 export const GroupDragArea: React.FC<{
@@ -108,7 +108,7 @@ export const GroupDragArea: React.FC<{
       // (KAN-350, KAN-361, KAN-366 B).
       adoptRowId={adoptRowId}
       adoptedRowLandsAs={adoptedRowLandsAs}
-      onLandingWindowChange={markNewWindowTarget}
+      onLandingWindowChange={markSavedListLanding}
       // From pick-up, the toolbar row's New window target stands in for the
       // session header's controls (KAN-361 N1 B).
       offersNewWindow

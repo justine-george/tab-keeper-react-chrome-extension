@@ -54,6 +54,7 @@ import {
   currentCarry,
   putsViewBack,
   registerCarryReceiver,
+  setLiveCarrySaves,
   subscribeCarry,
   type CarryReceiver,
 } from '../../../redux/carry';
@@ -334,6 +335,8 @@ export default function TabGroupEntryContainer() {
       if (carryTargetRef.current === id) return;
       carryTargetRef.current = id;
       setCarryTargetId(id);
+      // KAN-1005. Aimed at a session, a live carry let go here is saved there.
+      setLiveCarrySaves(id !== null);
     };
 
     // Measured when a carry enters the scroller, and again on its next entry.

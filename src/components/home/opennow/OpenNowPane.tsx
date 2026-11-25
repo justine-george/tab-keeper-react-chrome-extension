@@ -480,21 +480,23 @@ export default function OpenNowPane({
       setCarryOpens(windowId !== undefined);
     }
   }, []);
-  // The header -- everything in the pane above the scroller, as the receiver
-  // reads it (builder call 2) -- lands an adopted carry as a new window, and
-  // the list keeps the drag there, as the saved list does over its own.
+  // The header's New window box as drawn: where any row lands as a new window
+  // (KAN-949 live, KAN-1005 adopted), never the title, counts or search row
+  // around it. A release over the search row, just above the list, moves
+  // nothing (KAN-472).
+  const measureHeaderBox = useCallback(() => {
+    const box = paneRef.current
+      ?.querySelector(`[data-new-window-target="${OPEN_NOW_FIRST_TARGET}"]`)
+      ?.getBoundingClientRect();
+    if (box === undefined) return null;
+    return (x: number, y: number) =>
+      x >= box.left && x < box.right && y >= box.top && y < box.bottom;
+  }, []);
+  // An adopted carry lands there as a new window, and the list keeps the drag
+  // over the header, as the saved list does over its own.
   const headerLanding = useMemo(
-    () => ({
-      windowId: OPEN_NOW_HEADER_NEW_WINDOW,
-      measure: () => {
-        const pane = paneRef.current?.getBoundingClientRect();
-        const top = scrollerRef.current?.getBoundingClientRect().top;
-        if (pane === undefined || top === undefined) return null;
-        return (x: number, y: number) =>
-          x >= pane.left && x < pane.right && y >= pane.top && y < top;
-      },
-    }),
-    []
+    () => ({ windowId: OPEN_NOW_HEADER_NEW_WINDOW, measure: measureHeaderBox }),
+    [measureHeaderBox]
   );
 
   // KAN-949. Whether an Open now list's drag holds a live row that may go to a
@@ -524,28 +526,17 @@ export default function OpenNowPane({
   const showsNewWindow = carriedIn !== null || heldOffersNewWindow;
   const drawsNewWindowBlock =
     carriedIn !== null || drawsWindowBlock || heldOffersNewWindow;
-  // KAN-949. A live row lands as New window on the drawn header box alone, not
-  // on the whole header a saved carry lands on: a release over the search row,
-  // just above the list, moves nothing (KAN-472).
+  // KAN-949. A live row lands as New window on the drawn header box too.
   const liveNewWindowLandings = useMemo(
     () => ({
       header: {
         windowId: OPEN_NOW_HEADER_NEW_WINDOW,
-        measure: () => {
-          const box = paneRef.current
-            ?.querySelector(
-              `[data-new-window-target="${OPEN_NOW_FIRST_TARGET}"]`
-            )
-            ?.getBoundingClientRect();
-          if (box === undefined) return null;
-          return (x: number, y: number) =>
-            x >= box.left && x < box.right && y >= box.top && y < box.bottom;
-        },
+        measure: measureHeaderBox,
       },
       endWindowId: OPEN_NOW_NEW_WINDOW,
       offers: offersNewWindow,
     }),
-    [offersNewWindow]
+    [offersNewWindow, measureHeaderBox]
   );
 
   const toggleWindow = (id: number) => {

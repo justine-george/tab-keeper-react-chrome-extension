@@ -35,6 +35,7 @@ import {
   subscribeCarryReroute,
   useCarry,
   useCarryOpens,
+  useLiveCarrySaves,
   type CarryCard,
   type CarryReceiver,
 } from '../../redux/carry';
@@ -152,6 +153,7 @@ function CardBody({ card }: { card: CarryCard }) {
 export function CarryLayer() {
   const carry = useCarry();
   const opens = useCarryOpens();
+  const saves = useLiveCarrySaves();
   const dragCard = useDragCard();
   const COLORS = useThemeColors();
   const tabGroups = useSelector(
@@ -360,8 +362,9 @@ export function CarryLayer() {
       }}
     >
       <CardBody card={shown.card} />
-      {carry !== null && (carry.item.source === 'live' || opens) && (
-        // D1 A. The + that says a copy is being made. KAN-815: a saved carry's, only where a release opens it.
+      {carry !== null && (carry.item.source === 'live' ? saves : opens) && (
+        // D1 A. The + that says a copy is being made, only where a release makes it: a saved
+        // carry's where it opens in Chrome (KAN-815), a live one's where it is saved (KAN-1005).
         <span
           data-carry-card-badge=""
           className="material-symbols-outlined"

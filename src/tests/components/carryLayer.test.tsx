@@ -12,6 +12,7 @@ import {
   rerouteCarry,
   setCarryOpens,
   setCarryOwner,
+  setLiveCarrySaves,
   startCarry,
   type CarryCard,
   type CarryReceiver,
@@ -593,12 +594,18 @@ describe('a live carry (KAN-280 Part F)', () => {
   const badge = () =>
     document.querySelector('[data-carry-card] [data-carry-card-badge]');
 
-  test("its card wears the + badge; a saved carry's does not (D1 A)", async () => {
+  // KAN-1005 (his rule): the + says letting go here saves it, so only then.
+  test("its card wears the + only while letting go would save it; a saved carry's never by that (D1 A)", async () => {
     await renderLayer();
     act(() => startCarry(LIVE_ITEM(), LIVE_CARD, 10, 10));
+    expect(badge()).toBeNull();
+    act(() => setLiveCarrySaves(true));
     expect(badge()?.textContent).toBe('add');
+    act(() => setLiveCarrySaves(false));
+    expect(badge()).toBeNull();
     act(() => endCarry('cancelled'));
     act(() => startCarry(savedItem(TAB), LIVE_CARD, 10, 10));
+    act(() => setLiveCarrySaves(true));
     expect(card()).not.toBeNull();
     expect(badge()).toBeNull();
   });
@@ -635,11 +642,19 @@ describe('a live carry (KAN-280 Part F)', () => {
     expect(badge()).toBeNull();
   });
 
-  test('a live carry keeps its badge whatever the opens marker says', async () => {
+  test("a live carry's + follows whether it would be saved, not the opens marker", async () => {
     await renderLayer();
     act(() => startCarry(LIVE_ITEM(), LIVE_CARD, 10, 10));
-    act(() => setCarryOpens(false));
-    expect(badge()?.textContent).toBe('add');
+    act(() => setCarryOpens(true));
+    expect(badge()).toBeNull();
+  });
+
+  test('a hand-off between the layer and a list clears it: the new owner says again', async () => {
+    await renderLayer();
+    act(() => startCarry(LIVE_ITEM(), LIVE_CARD, 10, 10));
+    act(() => setLiveCarrySaves(true));
+    act(() => setCarryOwner('area'));
+    expect(badge()).toBeNull();
   });
 
   test('cancelled, it re-selects nothing (P3)', async () => {

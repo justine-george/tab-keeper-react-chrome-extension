@@ -197,7 +197,9 @@ function drawerEl(): HTMLElement {
   if (!(el instanceof HTMLElement)) throw new Error('no drawer');
   return el;
 }
-// The pane's header lies above its scroller, here y 400.
+// The pane's header lies above its scroller, here y 400. A carry lands as a new
+// window on its New window box alone (KAN-1005), laid out here under both points
+// these tests rest on over the drawer: IN_HEADER and ON_RAIL.
 const IN_HEADER = { x: 700, y: 100 };
 // The drawer over the right side, as drawn and where it rests (test-only stubs: jsdom lays nothing out).
 function placeDrawer(el: HTMLElement) {
@@ -221,6 +223,15 @@ function layOutDrawer() {
   pane.getBoundingClientRect = () => DRAWER_BOX;
   scroller.getBoundingClientRect = () =>
     DOMRect.fromRect({ x: 644, y: 400, width: 380, height: 400 });
+  // Drawn once the carry is over the pane, so laid out whenever it is read.
+  const real = HTMLElement.prototype.getBoundingClientRect;
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+    function (this: HTMLElement) {
+      return this.matches('[data-new-window-target="open-now-first"]')
+        ? DOMRect.fromRect({ x: 652, y: 80, width: 372, height: 250 })
+        : real.call(this);
+    }
+  );
 }
 // Rests on the rail until the drawer springs, laid out before it settles.
 async function springDrawer() {
