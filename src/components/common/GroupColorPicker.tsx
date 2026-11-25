@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useLayoutEffect, useRef } from 'react';
 
 import { css } from '@emotion/react';
 import { useSelector } from 'react-redux';
@@ -8,6 +8,7 @@ import { usePopoverList } from '../../hooks/usePopoverList';
 import { RADIUS } from '../../styles/scale';
 import GroupColorSwatches, { SWATCH_COUNT } from './GroupColorSwatches';
 import { GROUP_STRIP_TRANSITION } from './groupColorStrip';
+import { MENU_LEAVE, growMenuIn, useLeaveRef } from './popoverMotion';
 import {
   TAB_GROUP_COLOR_HEX,
   sanitizeTabGroupColor,
@@ -127,6 +128,13 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
   const tourRuns = useSelector(selectRunHere) !== null;
   const macGuard = useMacCtrlClickGuard();
 
+  // KAN-1014. The menus' motion (KAN-982): grows from the band's side at its top, fades out as a copy.
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const leaveRef = useLeaveRef<HTMLDivElement>(MENU_LEAVE, menuRef);
+  useLayoutEffect(() => {
+    if (isOpen && menuRef.current) growMenuIn(menuRef.current, '0 0');
+  }, [isOpen]);
+
   return (
     <div
       ref={wrapperRef}
@@ -242,6 +250,7 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
       </div>
       {isOpen && (
         <div
+          ref={leaveRef}
           role="menu"
           aria-orientation="horizontal"
           onKeyDown={handleKeyDown}

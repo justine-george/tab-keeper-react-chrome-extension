@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -11,6 +11,8 @@ import {
 import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import type { chromeTabGroupData } from '../../redux/slices/tabContainerDataStateSlice';
+import { cutLeaving, MENU_IN_MS } from '../../components/common/popoverMotion';
+import { trackLastInput } from '../../utils/functions/lastInput';
 
 // The coloured band, which used to be aria-hidden decoration and is now the
 // trigger for a colour picker. The reducer is covered in
@@ -407,5 +409,85 @@ describe('right-clicking a saved group’s colour bar', () => {
     expect(document.querySelectorAll('[data-row-menu]')).toHaveLength(0);
     expect(screen.getAllByRole('menuitemradio')).toHaveLength(9);
     expect(screen.getAllByRole('menuitemradio')[0]).toHaveFocus();
+  });
+});
+
+// KAN-1014. The picker comes and goes as every menu does (KAN-982). jsdom has no Web Animations: stubbed.
+describe('the picker’s motion', () => {
+  let animate: ReturnType<typeof vi.fn>;
+  let undoInput: () => void = () => {};
+
+  beforeEach(() => {
+    animate = vi.fn(() => ({
+      finished: new Promise<void>(() => undefined),
+      playState: 'running',
+    }));
+    Object.assign(Element.prototype, { animate, getAnimations: () => [] });
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(
+      DOMRect.fromRect({ x: 20, y: 60, width: 240, height: 42 })
+    );
+    undoInput = trackLastInput(window);
+  });
+
+  afterEach(() => {
+    cutLeaving();
+    undoInput();
+    vi.restoreAllMocks();
+    Reflect.deleteProperty(Element.prototype, 'animate');
+    Reflect.deleteProperty(Element.prototype, 'getAnimations');
+  });
+
+  const copies = () => document.querySelectorAll('[data-leaving-copy]');
+
+  test('opened by a press, it grows from the band’s side at its top', async () => {
+    const user = userEvent.setup();
+    await renderGroup();
+
+    await user.click(screen.getByRole('button', { name: BAND }));
+
+    const menu = screen.getByRole('menu');
+    expect(menu.style.transformOrigin).toBe('0 0');
+    const grows = animate.mock.calls.filter(
+      (_, i) => animate.mock.contexts[i] === menu
+    );
+    expect(grows).toEqual([
+      [
+        [
+          { opacity: 0, scale: '0.96' },
+          { opacity: 1, scale: '1' },
+        ],
+        expect.objectContaining({ duration: MENU_IN_MS }),
+      ],
+    ]);
+  });
+
+  test('closed by a pick, a copy fades where it stood, with no role', async () => {
+    const user = userEvent.setup();
+    await renderGroup();
+    await user.click(screen.getByRole('button', { name: BAND }));
+
+    await user.click(screen.getByRole('menuitemradio', { name: 'Red' }));
+
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(copies()).toHaveLength(1);
+    const copy = copies()[0] as HTMLElement;
+    expect(copy.inert).toBe(true);
+    expect(copy.querySelectorAll('[role]')).toHaveLength(0);
+    expect(copy.style.left).toBe('20px');
+    expect(copy.style.top).toBe('60px');
+  });
+
+  test('a key opens and closes it at once', async () => {
+    const user = userEvent.setup();
+    await renderGroup();
+    screen.getByRole('button', { name: BAND }).focus();
+
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(animate).not.toHaveBeenCalled();
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(copies()).toHaveLength(0);
   });
 });
