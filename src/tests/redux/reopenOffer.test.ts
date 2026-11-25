@@ -40,6 +40,7 @@ import {
   takeReopenOffer,
 } from '../../redux/reopenOffer';
 import { NEEDS_YOU_TOAST_MS } from '../../redux/toastDuration';
+import { onTabMovesEnded, tabMovesInFlight } from '../../redux/undoHistory';
 import { MAX_TOASTS } from '../../redux/toastStack';
 import {
   clearReopenFocus,
@@ -366,6 +367,84 @@ describe('reopenFromOffer (KAN-311)', () => {
     expect(openState(store)).toBe(true);
     expect(toastTexts(store.getState())).toEqual(newer);
     expect(pendingReopenFocus()).toBeNull();
+  });
+});
+
+// KAN-1001. A group comes back in steps: its tabs, then grouped, then its name
+// and colour. Currently open reads none of the steps between (whileMovingTabs),
+// so it never draws the group unnamed and grey, and the arrival glides once.
+describe('reopenFromOffer holds Currently open until a recreate ends (KAN-1001)', () => {
+  test('a closed group: held through its last step, its name and colour; read once after', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      windows: [
+        { id: 1, focused: true, tabs: [{ url: url('home'), active: true }] },
+        {
+          id: 2,
+          tabs: [
+            { url: url('a'), active: true },
+            { url: url('x1'), groupId: 50 },
+            { url: url('x2'), groupId: 50 },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 50, windowId: 2, title: 'Docs', color: 'blue' }],
+    });
+    const all = await chrome.windows.getAll({
+      populate: true,
+      windowTypes: ['normal'],
+    });
+    const w2 = toOpenWindows(all, await chrome.tabGroups.query({}), null).find(
+      (w) => w.id === 2
+    );
+    if (!w2) throw new Error('no window 2');
+    const item = await closeOpenGroup(w2, 50);
+    if (!item) throw new Error('close failed');
+    // PREMISE: a group has no recently closed entry, so this page recreates it.
+    expect(item.restorableSessionId).toBeNull();
+    const { store } = makeTestStore();
+    await store.dispatch(offerReopen(item));
+    const id = shownOfferId(store.getState());
+    if (id === null) throw new Error('no offer id');
+
+    const heldAt: Record<string, boolean[]> = {
+      create: [],
+      group: [],
+      update: [],
+    };
+    const watch =
+      <A extends unknown[], R>(name: string, fn: (...args: A) => R) =>
+      (...args: A): R => {
+        heldAt[name]?.push(tabMovesInFlight());
+        return fn(...args);
+      };
+    // The fake's own calls, taken before the spies replace them.
+    const create = watch('create', chrome.tabs.create.bind(chrome.tabs));
+    const group = watch('group', chrome.tabs.group.bind(chrome.tabs));
+    const update = watch(
+      'update',
+      chrome.tabGroups.update.bind(chrome.tabGroups)
+    );
+    vi.spyOn(chrome.tabs, 'create').mockImplementation(create);
+    vi.spyOn(chrome.tabs, 'group').mockImplementation(group);
+    vi.spyOn(chrome.tabGroups, 'update').mockImplementation(update);
+    let ended = 0;
+    const stop = onTabMovesEnded(() => {
+      ended += 1;
+    });
+
+    await store.dispatch(reopenFromOffer(id));
+    stop();
+
+    expect(heldAt).toEqual({
+      create: [true, true],
+      group: [true],
+      update: [true],
+    });
+    expect(tabMovesInFlight()).toBe(false);
+    expect(ended).toBe(1);
+    const back = await chrome.tabGroups.query({ windowId: 2 });
+    expect(back).toMatchObject([{ title: 'Docs', color: 'blue' }]);
   });
 });
 

@@ -10,6 +10,7 @@ import {
 } from './reopenOfferStore';
 import type { RootState } from './store';
 import { reopenClosed } from '../utils/functions/reopen';
+import { whileMovingTabs } from './undoHistory';
 import { panes, prepareLayoutGlide } from '../components/common/layoutGlide';
 import type { ClosedItem } from '../utils/functions/reopen';
 import {
@@ -69,11 +70,15 @@ export const reopenFromOffer = createAsyncThunk(
     const item = takeReopenOffer(offerId);
     if (item === null) return;
     thunkAPI.dispatch(closeOfferToast(offerId));
-    const reopened = await reopenClosed(
-      item,
-      (thunkAPI.getState() as RootState).settingsDataState
-        .pinTabKeeperInNewWindows
-    );
+    const pin = (thunkAPI.getState() as RootState).settingsDataState
+      .pinTabKeeperInNewWindows;
+    // KAN-1001. Recreated here, in steps (a group's tabs, then grouped, then
+    // named and coloured): Currently open reads it once, whole, so it never
+    // draws a step between and the Reopen glide plays on the finished list.
+    // The worker's restore has no timeout (reopenClosed), so it is not held.
+    const reopened = await (item.restorableSessionId === null
+      ? whileMovingTabs(() => reopenClosed(item, pin))
+      : reopenClosed(item, pin));
     if (reopened === null) {
       await thunkAPI.dispatch(
         showToast({ toastText: TOAST_MESSAGES.REOPEN_FAILED })
