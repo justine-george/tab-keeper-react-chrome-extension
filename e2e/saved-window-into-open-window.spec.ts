@@ -138,6 +138,41 @@ test('held over an open window, that window lights and New window does not', asy
   expect(fill).not.toBe('rgba(0, 0, 0, 0)');
 });
 
+// KAN-1012 (his pick A). As a tab or group: on the header's New window box as
+// drawn, that box lights, not the one below, and a release opens a new window.
+test("over the header's New window box, it lights, the box below does not, and a release opens a new window", async ({
+  context,
+  extensionId,
+  serviceWorker: worker,
+}) => {
+  const live = await openLiveWindow(worker, ['A', 'B']);
+  const page = await setUp(context, extensionId);
+  await expect(liveRow(page, live.idOf('B'))).toBeVisible();
+  const headerBox = page.locator(
+    '[data-pane="open-now"] [data-new-window-target="open-now-first"]'
+  );
+  const windowsBefore = await windowIds(worker);
+
+  await pickUp(page, windowHandle(page, 'w1'));
+  await carryTo(page, await middleOf(liveRow(page, live.idOf('B'))));
+  await expect(headerBox).toBeVisible();
+  // CONTROL: over a window, neither box.
+  await expect(headerBox).not.toHaveAttribute('data-landing', '');
+  await carryTo(page, await middleOf(headerBox));
+  await expect(headerBox).toHaveAttribute('data-landing', '');
+  await expect(page.locator(LAST_BOX)).not.toHaveAttribute('data-landing', '');
+  await expect(block(page, live.windowId)).not.toHaveAttribute(
+    'data-landing',
+    ''
+  );
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => (await windowIds(worker)).length, SETTLE)
+    .toBe(windowsBefore.length + 1);
+  expect((await strip(worker, live.windowId)).length).toBe(2);
+});
+
 test('a release adds the tabs at its end, inactive; focus and the active tab are unchanged; the session is unchanged; a toast says where', async ({
   context,
   extensionId,
