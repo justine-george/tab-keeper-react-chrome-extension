@@ -12,6 +12,8 @@ import {
   type Size,
 } from './coachMarkPlacement';
 import { leaveReplayNote, thisView } from '../../redux/firstRun';
+import { openSettingsPage } from '../../redux/slices/globalStateSlice';
+import { SettingsCategory } from '../../redux/slices/settingsCategoryStateSlice';
 import type { AppDispatch, RootState } from '../../redux/store';
 
 // Where the path goes in the translated sentence, as GLYPH_SLOT marks a glyph.
@@ -39,6 +41,15 @@ export default function ReplayNote() {
       state.globalState.isReplayNoteOpen && !state.globalState.isSettingsPage
   );
   const leave = useCallback(() => void dispatch(leaveReplayNote()), [dispatch]);
+  // KAN-1018. A popup skip never reaches the popup's ending card, so its story link comes here; every other way gets it there.
+  const hasStoryLink = useSelector((state: RootState) => {
+    const run = state.settingsDataState.firstRun;
+    return run?.view === 'popup' && run.ended === 'skipped' && !run.isReplay;
+  });
+  const readStory = useCallback(() => {
+    void dispatch(leaveReplayNote());
+    void dispatch(openSettingsPage(SettingsCategory.ABOUT));
+  }, [dispatch]);
   if (!isShown) return null;
 
   // The labels on screen, each kept whole (Chinese breaks between any two characters), with a break only after a separator.
@@ -69,6 +80,9 @@ export default function ReplayNote() {
       isLive={false}
       width={CARD_WIDTH[thisView()]}
       place={place}
+      {...(hasStoryLink && {
+        secondary: { label: t('Read the story'), onPress: readStory },
+      })}
       primary={{ label: t('Got it'), onPress: leave }}
       onEscape={leave}
     />

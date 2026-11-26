@@ -309,6 +309,27 @@ describe('the ending card', () => {
     expect(mark()).toBeNull();
   });
 
+  // KAN-1018 (his pick A). A quiet link beside Got it: it closes the card for good and opens Settings › About.
+  test('Read the story closes it for good and opens Settings › About', async () => {
+    const { store } = await renderPending();
+    await placed();
+    const link = screen.getByRole('button', { name: 'Read the story' });
+    fireEvent.click(link);
+    await waitFor(() =>
+      expect(store.getState().globalState.isSettingsPage).toBe(true)
+    );
+    expect(
+      store.getState().settingsCategoryState.find((c) => c.isSelected)?.name
+    ).toBe(SettingsCategory.ABOUT);
+    expect(endingOf(store)).toBeNull();
+    expect(store.getState().settingsDataState.isPopupEndingSeen).toBe(true);
+    act(() => {
+      store.dispatch(closeSettingsPage());
+    });
+    await settled();
+    expect(mark()).toBeNull();
+  });
+
   test('hides while a search is active and shows when it clears, search text untouched', async () => {
     const { store } = await renderPending();
     await placed();

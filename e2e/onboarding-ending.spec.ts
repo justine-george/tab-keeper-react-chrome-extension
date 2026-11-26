@@ -19,6 +19,7 @@ import {
   endingCard,
   nextTo,
   openRunFromHelp,
+  replayNote,
   runCheck,
   startRunFromHelp,
   walkFullRunToLastStep,
@@ -458,4 +459,109 @@ test('popup: the card, the popup closed on it; the next finished tour gets none'
   await cardButton(again, 'Done').click();
   await closeReplayNote(again);
   await expectNoEnding(again);
+});
+
+// KAN-1018 (his pick A). A quiet "Read the story" left of Got it; it ends the card and opens Settings › About.
+const storyLink = (page: Page) => cardButton(page, 'Read the story');
+const aboutStory = (page: Page) =>
+  page.getByText('I built Tab Keeper because', { exact: false });
+
+async function readsTheStory(page: Page): Promise<void> {
+  const [link, gotIt] = await Promise.all([
+    storyLink(page).boundingBox(),
+    cardButton(page, 'Got it').boundingBox(),
+  ]);
+  expect(link).not.toBeNull();
+  expect(gotIt).not.toBeNull();
+  expect(link!.x + link!.width).toBeLessThan(gotIt!.x);
+  await storyLink(page).click();
+  await expect(endingCard(page)).toHaveCount(0);
+  await expect(aboutStory(page)).toBeVisible();
+}
+
+test('full view: Read the story closes the card and opens Settings › About', async ({
+  context,
+  extensionId,
+}) => {
+  await stubToolbarPin(context, { pinned: true });
+  const page = await openRunningFullView(context, extensionId);
+  await walkFullRunToLastStep(page);
+  await cardButton(page, 'Not now').click();
+  await closeReplayNote(page);
+  await finishSetupWithDone(page);
+  await expectEnding(page, 'nothingSaved', page.locator(SAVE));
+  await readsTheStory(page);
+  expect((await storedSettings(page)).isFullViewEndingSeen).toBe(true);
+  // Back from Settings: the card stays gone.
+  await page.getByRole('button', { name: 'Go back', exact: true }).click();
+  await expect(page.locator(SAVE)).toBeVisible();
+  await page.waitForTimeout(WINDOW);
+  await expect(endingCard(page)).toHaveCount(0);
+});
+
+test('popup: Read the story closes the card and opens Settings › About', async ({
+  context,
+  extensionId,
+}) => {
+  await seedSessions(context, buildContainer([]));
+  await seedSettings(context, {
+    firstRun: {
+      ...RUN_FINISHED,
+      view: 'popup',
+      helloIn: 'popup',
+      step: 1,
+      ended: null,
+    },
+  });
+  await openTabs(context);
+  const page = await openPage(context, extensionId, POPUP_RUN.path, POPUP);
+  await runCheck(page, 'resumed');
+  await expect(cardAt(page, 1)).toBeVisible();
+  await saveOnTour(page, 'typed', 2);
+  for (let step = 3; step <= 8; step++) await nextTo(page, step);
+  await cardButton(page, 'Done').click();
+  await closeReplayNote(page);
+  await expectEnding(page, 'typed', openOn(page, 'Lisbon trip'));
+  await readsTheStory(page);
+  expect((await storedSettings(page)).isPopupEndingSeen).toBe(true);
+});
+
+// KAN-1018. The popup skipper's note carries the story link; a full-view skip's note does not (its ending card comes after setup).
+const replayStoryLink = (page: Page) =>
+  replayNote(page).getByRole('button', { name: 'Read the story', exact: true });
+
+test('popup: Skip tutorial, the note has Read the story, which opens Settings › About', async ({
+  context,
+  extensionId,
+}) => {
+  await seedSettings(context, {
+    firstRun: {
+      ...RUN_FINISHED,
+      view: 'popup',
+      helloIn: 'popup',
+      step: 1,
+      ended: null,
+    },
+  });
+  const page = await openPage(context, extensionId, POPUP_RUN.path, POPUP);
+  await runCheck(page, 'resumed');
+  await cardButton(page, 'Skip tutorial').click();
+  await expect(replayStoryLink(page)).toBeVisible();
+  await replayStoryLink(page).click();
+  await expect(replayNote(page)).toHaveCount(0);
+  await expect(aboutStory(page)).toBeVisible();
+  await expect(endingCard(page)).toHaveCount(0);
+});
+
+test('full view: Skip tutorial, the note has no Read the story', async ({
+  context,
+  extensionId,
+}) => {
+  await stubToolbarPin(context, { pinned: true });
+  const page = await openRunningFullView(context, extensionId);
+  await cardButton(page, 'Skip tutorial').click();
+  await expect(
+    replayNote(page).getByRole('button', { name: 'Got it', exact: true })
+  ).toBeVisible();
+  await expect(replayStoryLink(page)).toHaveCount(0);
 });

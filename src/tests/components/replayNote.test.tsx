@@ -8,6 +8,13 @@ import {
   openReplayNote,
   openSettingsPage,
 } from '../../redux/slices/globalStateSlice';
+import { recordFirstRun } from '../../redux/slices/settingsDataStateSlice';
+import { SettingsCategory } from '../../redux/slices/settingsCategoryStateSlice';
+import {
+  newReplayRun,
+  newRun,
+  type FirstRun,
+} from '../../utils/functions/firstRun';
 
 // KAN-499. The note after the run, at the header's Settings button.
 
@@ -113,5 +120,50 @@ describe('the replay note', () => {
       store.dispatch(closeSettingsPage());
     });
     await placed();
+  });
+});
+
+// KAN-1018. A popup skipper never gets the popup's ending card, so the note carries its story link; everyone else gets it there.
+describe('the story link on the note', () => {
+  const renderAfter = (run: FirstRun) =>
+    renderWithProviders(<ReplayNote />, {
+      seedStore: (store) => {
+        store.dispatch(recordFirstRun(run));
+        store.dispatch(
+          openReplayNote({
+            leadsToSetup: false,
+            leadsToEnding: false,
+            isAfterHelpTour: run.isReplay,
+          })
+        );
+      },
+    });
+  const story = () => screen.queryByRole('button', { name: 'Read the story' });
+
+  test('after a popup skip: Read the story closes the note and opens Settings › About', async () => {
+    const { store } = await renderAfter({
+      ...newRun('popup', 1),
+      ended: 'skipped',
+    });
+    await placed();
+    fireEvent.click(story()!);
+    await waitFor(() =>
+      expect(store.getState().globalState.isSettingsPage).toBe(true)
+    );
+    expect(store.getState().globalState.isReplayNoteOpen).toBe(false);
+    expect(
+      store.getState().settingsCategoryState.find((c) => c.isSelected)?.name
+    ).toBe(SettingsCategory.ABOUT);
+  });
+
+  test.each<[string, FirstRun]>([
+    ['a finished popup tour', { ...newRun('popup', 8), ended: 'finished' }],
+    ['a full-view skip', { ...newRun('full', 1), ended: 'skipped' }],
+    ['a skipped Help replay', { ...newReplayRun('popup'), ended: 'skipped' }],
+  ])('none after %s', async (_, run) => {
+    await renderAfter(run);
+    await placed();
+    expect(screen.getByRole('button', { name: 'Got it' })).toBeVisible();
+    expect(story()).toBeNull();
   });
 });
