@@ -8,9 +8,9 @@ import { EASE } from '../src/styles/scale';
 
 // KAN-1024 on the real artifact. A theme pick: the new tile's check pops in
 // (half size to full, 200 ms) as the old one fades where it is (120 ms); the
-// tiles' frames cross-fade (150 ms); the page cross-fades to the new colors
+// tiles' frames change at once; the page cross-fades to the new colors
 // (a 250 ms view transition of the whole page, the setup dialog included).
-// The toolbar icon tiles move their check and frame the same way, with no
+// The toolbar icon tiles move their check the same way, with no
 // page fade. Reduced motion keeps all of it still.
 
 interface Seen {
@@ -137,13 +137,13 @@ function expectMarkerMotion(seen: Seen[], from: string, to: string) {
       ],
     }),
   ]);
-  // Both frames cross-fade over 150 ms, and nothing else on the tiles moves.
+  // Both frames change at once: nothing runs on them, the hover's fade included.
   for (const who of [`${to} frame`, `${from} frame`])
-    expect(of(who)).toEqual([expect.objectContaining({ duration: 150 })]);
+    expect(of(who)).toEqual([]);
 }
 
 test.describe('Settings › Appearance (popup)', () => {
-  test('a theme pick pops the check in, fades the frames and cross-fades the page', async ({
+  test('a theme pick pops the check in, switches the frames and cross-fades the page', async ({
     context,
     extensionId,
   }) => {
@@ -153,14 +153,6 @@ test.describe('Settings › Appearance (popup)', () => {
 
     const seen = await afterPress(page, tile(page, 'Charcoal'));
     expectMarkerMotion(seen, 'Chalk', 'Charcoal');
-    // The frames run from the old page's frame line to the new page's ring, and back.
-    const frames = seen.filter((s) => s.who.endsWith('frame'));
-    expect(
-      frames.map((f) => f.keyframes.map((k) => hex(k.borderColor!)))
-    ).toEqual([
-      expect.arrayContaining([CHARCOAL_THEME.LABEL_L1_COLOR]),
-      expect.arrayContaining([CHARCOAL_THEME.LABEL_L1_COLOR]),
-    ]);
     // The whole page: old picture out, new picture in, 250 ms each.
     const fade = seen.filter((s) => s.who === 'page');
     expect(fade.map((f) => [f.pseudo, f.duration])).toEqual(
@@ -222,7 +214,7 @@ test.describe('Settings › Appearance (popup)', () => {
       .toBe(false);
   });
 
-  test('a toolbar icon pick moves its check and frame the same way, and the page stays', async ({
+  test('a toolbar icon pick moves its check the same way, and the page stays', async ({
     context,
     extensionId,
   }) => {

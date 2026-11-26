@@ -10,23 +10,22 @@ import { EASE } from '../../../styles/scale';
  * KAN-1024. How a pick moves in a picture-tile picker (themes, toolbar icon).
  *
  * The check pops in on the new tile as the old one fades where it is; the
- * frames cross-fade; for a theme, the whole page cross-fades to the new colors.
+ * frames change at once; for a theme, the whole page cross-fades to the new
+ * colors.
  *
  * Script animations, not CSS transitions: a theme change switches every CSS
  * transition off for two frames (useDocumentTheme, KAN-22), so a transition
- * on the check or the frame would never run.
+ * on the check would never run.
  */
 const CHECK_FADE_MS = 120;
 const CHECK_POP_MS = 200;
-const FRAME_FADE_MS = 150;
 const PAGE_FADE_MS = 250;
 
 /** One tile's marker, as its pick turns it on or off. */
 export function moveMarker(
   isOn: boolean,
   frame: HTMLElement | null,
-  check: HTMLElement | null,
-  colors: { line: string; ring: string }
+  check: HTMLElement | null
 ): void {
   if (prefersReducedMotion()) return;
   if (check !== null && canAnimate(check)) {
@@ -50,22 +49,13 @@ export function moveMarker(
       );
     }
   }
-  if (frame !== null && canAnimate(frame)) {
-    const [from, to] = isOn
-      ? [colors.line, colors.ring]
-      : [colors.ring, colors.line];
-    // The hover's colour transition would outrank this fade (transitions win
-    // the cascade): off for the pick, set before the browser restyles the tile.
+  if (frame !== null) {
+    // The hover's colour transition would fade the frame: off for the pick, set
+    // before the browser restyles the tile, back once the new frame is painted.
     frame.style.transition = 'none';
-    const fade = frame.animate([{ borderColor: from }, { borderColor: to }], {
-      duration: FRAME_FADE_MS,
-      easing: 'ease-out',
-    });
-    const done = () => {
-      if (frame.getAnimations().length === 0) frame.style.transition = '';
-    };
-    fade.addEventListener('finish', done);
-    fade.addEventListener('cancel', done);
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => (frame.style.transition = ''))
+    );
   }
 }
 

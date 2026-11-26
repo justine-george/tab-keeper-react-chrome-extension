@@ -25,7 +25,7 @@ import { moveMarker } from './pickMotion';
  * the check is absolutely placed, so the row never reflows.
  *
  * A PICK MOVES (KAN-1024): the check pops in on the new tile as the old one
- * fades where it is, and the two frames cross-fade (pickMotion). So the check
+ * fades where it is; the frames change at once (pickMotion). So the check
  * stays rendered on every tile, hidden on all but the current one.
  *
  * HOVER AND PRESS move an unselected frame's colour a rung, not the tile's
@@ -123,14 +123,8 @@ export default function SwatchButton({
   const shown = useRef(false);
   // A pick, not the first paint: the marker moves.
   useLayoutEffect(() => {
-    if (shown.current)
-      moveMarker(isActive, frameRef.current, checkRef.current, {
-        line: PAGE.PANEL_BORDER_COLOR,
-        ring: PAGE.LABEL_L1_COLOR,
-      });
+    if (shown.current) moveMarker(isActive, frameRef.current, checkRef.current);
     shown.current = true;
-    // PAGE is read at the pick: only isActive starts a move.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive]);
 
   const nameStyle = css`
