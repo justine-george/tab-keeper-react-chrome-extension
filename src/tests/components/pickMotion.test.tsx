@@ -1,15 +1,19 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
-import { pickTheme } from '../../components/settings/rightpane/pickMotion';
+import {
+  noteLanguageShown,
+  pickLanguage,
+  pickTheme,
+} from '../../components/settings/rightpane/pickMotion';
 import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 
-// KAN-1024. A theme pick runs inside a view transition that pictures the whole
-// page, flagged on <html> while it runs. Instant where there is no API, or the
+// KAN-1024, KAN-1031. A theme or language pick runs inside a view transition
+// that pictures the whole page, flagged on <html> with its kind while it runs. Instant where there is no API, or the
 // user asked for reduced motion. jsdom has no view transitions: this fakes the
 // one method the module reads.
 
 const root = document.documentElement;
-const flagged = () => root.hasAttribute('data-theme-pick');
+const flagged = () => root.hasAttribute('data-page-fade');
 
 function fakeTransitions() {
   const runs: { callback: () => void; finish: () => void }[] = [];
@@ -35,7 +39,7 @@ const settle = () => new Promise((r) => setTimeout(r, 0));
 afterEach(() => {
   delete document.startViewTransition;
   vi.restoreAllMocks();
-  delete root.dataset.themePick;
+  delete root.dataset.pageFade;
 });
 
 describe('pickTheme', () => {
@@ -84,5 +88,71 @@ describe('pickTheme', () => {
     runs[1].finish();
     await settle();
     expect(flagged()).toBe(false);
+  });
+});
+
+describe('pickLanguage', () => {
+  // The callback the browser runs, as the module hands it over.
+  const run = (i: number) =>
+    (
+      document.startViewTransition as unknown as {
+        mock: { calls: [() => Promise<void>][] };
+      }
+    ).mock.calls[i][0]();
+
+  test('the current language picked again starts no transition', () => {
+    const { start } = fakeTransitions();
+    const choose = vi.fn(() => Promise.resolve());
+    pickLanguage(null, 'en', 'en', choose);
+    expect(choose).toHaveBeenCalledTimes(1);
+    expect(start).not.toHaveBeenCalled();
+    expect(flagged()).toBe(false);
+  });
+
+  test('the old page holds until the new language is drawn', async () => {
+    fakeTransitions();
+    const choose = vi.fn(() => Promise.resolve());
+    pickLanguage(null, 'de', 'en', choose);
+    expect(root.dataset.pageFade).toBe('language');
+    let done = false;
+    void run(0).then(() => (done = true));
+    await settle();
+    expect(choose).toHaveBeenCalledTimes(1);
+    // Chosen, not yet drawn: the browser keeps the old picture.
+    expect(done).toBe(false);
+    noteLanguageShown('es');
+    await settle();
+    expect(done).toBe(false);
+    noteLanguageShown('de');
+    await settle();
+    expect(done).toBe(true);
+  });
+
+  test('a language never drawn lets the page go on after half a second', async () => {
+    vi.useFakeTimers();
+    try {
+      fakeTransitions();
+      pickLanguage(null, 'de', 'en', () => Promise.resolve());
+      let done = false;
+      void run(0).then(() => (done = true));
+      await vi.advanceTimersByTimeAsync(499);
+      expect(done).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(done).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test('words drawn before the choice settles still let the page go on', async () => {
+    fakeTransitions();
+    pickLanguage(null, 'de', 'en', () => {
+      noteLanguageShown('de');
+      return Promise.resolve();
+    });
+    let done = false;
+    void run(0).then(() => (done = true));
+    await settle();
+    expect(done).toBe(true);
   });
 });

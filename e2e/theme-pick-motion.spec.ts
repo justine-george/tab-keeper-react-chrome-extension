@@ -5,6 +5,7 @@ import { seedSettings } from './fixtures/seed';
 import { pageGround } from './fixtures/onboarding';
 import { BB_PINK_THEME, CHARCOAL_THEME } from '../src/hooks/useThemeColors';
 import { EASE } from '../src/styles/scale';
+import { afterPress, type Seen } from './fixtures/pickRecord';
 
 // KAN-1024 on the real artifact. A theme pick: the new tile's check pops in
 // (half size to full, 200 ms) as the old one fades where it is (120 ms); the
@@ -12,79 +13,6 @@ import { EASE } from '../src/styles/scale';
 // (a 250 ms view transition of the whole page, the setup dialog included).
 // The toolbar icon tiles move their check the same way, with no
 // page fade. Reduced motion keeps all of it still.
-
-interface Seen {
-  who: string;
-  pseudo: string | null;
-  duration: number;
-  easing: string;
-  keyframes: Array<Record<string, string | null>>;
-}
-
-// Records every animation that starts on the page from now on and runs, with
-// who it moves: a tile's check or frame (by the tile's name), or the page
-// itself. One gone within two frames was cancelled, not run: the hover's colour
-// transition that the pick replaces.
-const record = (page: Page) =>
-  page.evaluate(() => {
-    const seen = new Map<Animation, { frames: number }>();
-    const out: unknown[] = [];
-    (window as unknown as { __seen: unknown[] }).__seen = out;
-    const who = (el: Element | null): string => {
-      if (el === document.documentElement) return 'page';
-      const button = el?.closest('button[aria-pressed]');
-      const name = button?.lastElementChild?.textContent ?? '?';
-      if (el?.matches('[data-swatch-check]')) return `${name} check`;
-      if (el?.matches('[data-swatch-tile]')) return `${name} frame`;
-      return el?.tagName ?? '?';
-    };
-    const tick = () => {
-      for (const a of document.getAnimations()) {
-        const known = seen.get(a);
-        if (known !== undefined) {
-          known.frames++;
-          continue;
-        }
-        const effect = a.effect as KeyframeEffect;
-        const timing = effect.getTiming();
-        const entry = {
-          who: who(effect.target),
-          pseudo: effect.pseudoElement,
-          duration: Number(timing.duration),
-          easing: String(timing.easing),
-          keyframes: effect.getKeyframes().map((k) => ({
-            opacity: (k.opacity as string) ?? null,
-            transform: (k.transform as string) ?? null,
-            visibility: (k.visibility as string) ?? null,
-            borderColor: (k.borderColor as string) ?? null,
-          })),
-          frames: 1,
-        };
-        seen.set(a, entry);
-        out.push(entry);
-      }
-      requestAnimationFrame(tick);
-    };
-    tick();
-  });
-
-const seenSoFar = (page: Page): Promise<Seen[]> =>
-  page.evaluate(() =>
-    (window as unknown as { __seen: (Seen & { frames: number })[] }).__seen
-      .filter((s) => s.frames > 2)
-      .map((s) => ({ ...s, frames: undefined }))
-  );
-
-// Everything that started within half a second of a press on `target`. The
-// pointer arrives first and settles, so its hover fade is not counted.
-async function afterPress(page: Page, target: Locator) {
-  await target.hover();
-  await page.waitForTimeout(300);
-  await record(page);
-  await target.click();
-  await page.waitForTimeout(500);
-  return seenSoFar(page);
-}
 
 const tile = (scope: Page | Locator, name: string): Locator =>
   scope.getByRole('button', { name, exact: true });
@@ -197,7 +125,7 @@ test.describe('Settings › Appearance (popup)', () => {
     await page.keyboard.press('Shift+Tab');
     expect(
       await page.evaluate(() =>
-        document.documentElement.hasAttribute('data-theme-pick')
+        document.documentElement.hasAttribute('data-page-fade')
       )
     ).toBe(true);
     await page.keyboard.press('Enter');
@@ -208,7 +136,7 @@ test.describe('Settings › Appearance (popup)', () => {
     await expect
       .poll(() =>
         page.evaluate(() =>
-          document.documentElement.hasAttribute('data-theme-pick')
+          document.documentElement.hasAttribute('data-page-fade')
         )
       )
       .toBe(false);

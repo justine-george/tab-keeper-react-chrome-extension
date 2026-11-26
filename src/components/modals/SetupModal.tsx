@@ -14,7 +14,7 @@ import TabKeeperMark from '../common/TabKeeperMark';
 import { KEYS_SLOT, ShortcutSentence } from '../common/ShortcutSentence';
 import { slidingPairColors } from '../common/slidingPairColors';
 import { pressedCellStyle } from '../common/pressedCellStyle';
-import { pickTheme } from '../settings/rightpane/pickMotion';
+import { pickLanguage, pickTheme } from '../settings/rightpane/pickMotion';
 import ThemeSwatch from '../settings/rightpane/ThemeSwatch';
 import { chromeLanguageOrder } from '../settings/rightpane/languageOptions';
 import { themeChoices } from '../settings/rightpane/themeChoices';
@@ -154,7 +154,11 @@ export const SetupModal: React.FC = () => {
     // A Go back pressed while Chrome answered wins over this late move.
     setStepIndex((at) => (at === from ? from + 1 : at));
   };
-  const pickLanguage = (next: Language) => dispatch(chooseLanguage(next, i18n));
+  // KAN-1031. The cells' grid, where the new check pops in.
+  const choose = (next: Language, cells: HTMLElement | null) =>
+    pickLanguage(cells, next, language, () =>
+      dispatch(chooseLanguage(next, i18n))
+    );
 
   const buttons = dialogButtonStyles(COLORS);
   const titleSize = dialogTitleSize();
@@ -358,7 +362,7 @@ export const SetupModal: React.FC = () => {
                 lang={id}
                 aria-pressed={isActive}
                 css={[buttons.quiet, cellStyle, isActive && pressedCell]}
-                onClick={() => pickLanguage(id)}
+                onClick={(e) => choose(id, e.currentTarget.parentElement)}
               >
                 {isActive && (
                   <Icon

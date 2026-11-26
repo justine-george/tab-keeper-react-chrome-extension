@@ -10,7 +10,7 @@ import { focusRingOutsideCss } from '../../common/focusRing';
 import { RecentlyDeleted } from './RecentlyDeleted';
 import ClickableTabKeeperMark from '../../common/ClickableTabKeeperMark';
 import HelpSettings from './HelpSettings';
-import { pickTheme } from './pickMotion';
+import { pickLanguage, pickTheme } from './pickMotion';
 import ThemeSwatch from './ThemeSwatch';
 import ToolbarIconTiles from './ToolbarIconTiles';
 import { chromeLanguageOrder } from './languageOptions';
@@ -1124,8 +1124,14 @@ const SettingsDetailsContainer: React.FC = () => {
                   iconType={isActive ? 'check' : undefined}
                   iconSize={ICON.SMALL}
                   iconColor={pressed.labelOnKnob}
-                  onClick={() => {
-                    dispatch(chooseLanguage(language, i18n));
+                  onClick={(e) => {
+                    // KAN-1031. The cells' grid, where the new check pops in.
+                    pickLanguage(
+                      e.currentTarget.parentElement,
+                      language,
+                      settingsData.language,
+                      () => dispatch(chooseLanguage(language, i18n))
+                    );
                   }}
                   // Border-box and a fixed height, so the check moves nothing.
                   style={`width: 100%; min-width: 0; justify-content: center; ${
