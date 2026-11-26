@@ -57,6 +57,16 @@ if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = function scrollIntoView() {};
 }
 
+// KAN-1019. jsdom has no pointer capture, so the resize grip's press threw.
+// A no-op: which element hovers mid-drag is checked in a real browser.
+if (!Element.prototype.setPointerCapture) {
+  Element.prototype.setPointerCapture = function setPointerCapture() {};
+  Element.prototype.releasePointerCapture = function releasePointerCapture() {};
+  Element.prototype.hasPointerCapture = function hasPointerCapture() {
+    return false;
+  };
+}
+
 // KAN-379. jsdom has no Web Animations, so a drag resting on a collapsed
 // window finds no sweep and never opens it. Tests open one directly
 // (springOpenWindow); the dwell's timing is checked in a real browser.

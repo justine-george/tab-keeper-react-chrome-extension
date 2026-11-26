@@ -86,10 +86,12 @@ export default function PaneResizeGrip({
   }, [range]);
 
   const drag = useRef<Drag | null>(null);
+  const gripRef = useRef<HTMLDivElement>(null);
   const [isResizing, setIsResizing] = useState(false);
 
-  // The drag's listeners live on `window` (RowDragArea's pattern, no pointer
-  // capture), from the press until the drag ends. Every way it ends -- the
+  // The drag's listeners live on `window` (RowDragArea's pattern), from the
+  // press until the drag ends; the grip holds the pointer's capture
+  // (onPointerDown), and an event it captures still bubbles up to them. Every way it ends -- the
   // release, pointercancel, Escape, the window losing focus, or this grip
   // unmounting mid-drag -- runs the same cleanup: listeners off, the root
   // flag off, the live width handed back. Only the release saves (O1a:
@@ -104,6 +106,12 @@ export default function PaneResizeGrip({
     const end = (save: boolean) => {
       const ended = drag.current;
       drag.current = null;
+      // Escape or a lost release ends the drag with the button maybe still
+      // down: let the pointer go, so what it is on can hover again.
+      const grip = gripRef.current;
+      if (ended !== null && grip?.hasPointerCapture(ended.pointerId)) {
+        grip.releasePointerCapture(ended.pointerId);
+      }
       onLiveWidth(null);
       setIsResizing(false);
       // A press and release that did not move saves nothing, so the two
@@ -171,6 +179,8 @@ export default function PaneResizeGrip({
     if (drag.current !== null) return;
     // No text selection starts under the press.
     event.preventDefault();
+    // KAN-1019. Captured, nothing the pointer crosses takes a hover until the release.
+    event.currentTarget.setPointerCapture(event.pointerId);
     drag.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -323,6 +333,7 @@ export default function PaneResizeGrip({
 
   return (
     <div
+      ref={gripRef}
       css={[placement, gripStyle]}
       // Open now's marker predates the list's grip: the tour and its specs
       // find Open now's grip by it.
