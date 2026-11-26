@@ -10,6 +10,7 @@ import { focusRingOutsideCss } from '../../common/focusRing';
 import { RecentlyDeleted } from './RecentlyDeleted';
 import ClickableTabKeeperMark from '../../common/ClickableTabKeeperMark';
 import HelpSettings from './HelpSettings';
+import { pickTheme } from './pickMotion';
 import ThemeSwatch from './ThemeSwatch';
 import ToolbarIconTiles from './ToolbarIconTiles';
 import { chromeLanguageOrder } from './languageOptions';
@@ -257,7 +258,7 @@ const SettingsDetailsContainer: React.FC = () => {
                 palette={palette}
                 name={name}
                 isActive={settingsData.theme === theme}
-                onSelect={() => dispatch(setTheme(theme))}
+                onSelect={() => pickTheme(() => dispatch(setTheme(theme)))}
               />
             ))}
           </div>

@@ -14,6 +14,7 @@ import TabKeeperMark from '../common/TabKeeperMark';
 import { KEYS_SLOT, ShortcutSentence } from '../common/ShortcutSentence';
 import { slidingPairColors } from '../common/slidingPairColors';
 import { pressedCellStyle } from '../common/pressedCellStyle';
+import { pickTheme } from '../settings/rightpane/pickMotion';
 import ThemeSwatch from '../settings/rightpane/ThemeSwatch';
 import { chromeLanguageOrder } from '../settings/rightpane/languageOptions';
 import { themeChoices } from '../settings/rightpane/themeChoices';
@@ -334,7 +335,7 @@ export const SetupModal: React.FC = () => {
                 palette={palette}
                 name={name}
                 isActive={theme === id}
-                onSelect={() => dispatch(setTheme(id))}
+                onSelect={() => pickTheme(() => dispatch(setTheme(id)))}
               />
             ))}
           </div>
