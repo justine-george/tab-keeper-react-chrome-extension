@@ -43,6 +43,14 @@ const SESSION = buildSession({
   ],
 });
 
+// Unselected, so its row can show a hover (KAN-1019).
+const OTHER = buildSession({
+  ...SESSION,
+  tabGroupId: 'list-resize-2',
+  title: 'Another session',
+  isSelected: false,
+});
+
 // Seeds ONCE per profile: seed.ts's init scripts re-run on every reload and
 // would put back the width a drag saved.
 async function seedOnce(
@@ -69,7 +77,7 @@ async function seedOnce(
     },
     {
       sessions: JSON.stringify({
-        ...buildContainer([SESSION]),
+        ...buildContainer([SESSION, OTHER]),
         selectedTabGroupId: SESSION.tabGroupId,
       }),
       settings: JSON.stringify({
@@ -296,10 +304,124 @@ test.describe('resizing the saved list (KAN-687)', () => {
     await expectList(page, 540);
     expect(await page.evaluate(() => window.__sawDragging)).toBe(false);
   });
+
+  // KAN-1019. A drag past the list's limit carries the pointer over what
+  // sits beside the grip; nothing there lights until the release.
+  for (const c of [
+    {
+      name: 'past its widest, over the folded Saved session card',
+      dx: 400,
+      folded: true,
+      target: '[data-saved-session-card]',
+    },
+    {
+      name: 'past its narrowest, over a session row',
+      dx: -300,
+      folded: false,
+      target: '[data-drag-row-id="list-resize-2"]',
+    },
+  ]) {
+    test(`7. dragged ${c.name}: it never lights mid-drag, and does once released there`, async ({
+      context,
+      extensionId,
+    }) => {
+      await seedOnce(context, { foldSavedSessionInTabView: c.folded });
+      const page = await openPage(context, extensionId, 1440);
+      const target = page.locator(c.target);
+      await expect(target).toBeVisible();
+      // Hovered (it or a part of it), and how it is drawn.
+      const look = () =>
+        target.evaluate((e) => {
+          const s = getComputedStyle(e);
+          const hovered = e.matches(':hover') || e.querySelector(':hover');
+          return `${hovered ? 'hovered' : 'not hovered'} ${s.backgroundColor} ${s.borderTopColor}`;
+        });
+      const rest = await look();
+
+      // Every frame of the drag, the target's look.
+      await target.evaluate((e) => {
+        window.__looks = [];
+        const tick = () => {
+          const s = getComputedStyle(e);
+          const hovered = e.matches(':hover') || e.querySelector(':hover');
+          window.__looks?.push(
+            `${hovered ? 'hovered' : 'not hovered'} ${s.backgroundColor} ${s.borderTopColor}`
+          );
+          window.__looking = requestAnimationFrame(tick);
+        };
+        tick();
+      });
+      const from = await gripCentre(page);
+      await page.mouse.move(from.x, from.y);
+      await page.mouse.down();
+      await page.mouse.move(from.x + c.dx, from.y, { steps: 8 });
+      // The list is at its limit now, so the target has stopped moving.
+      const box = await target.boundingBox();
+      if (box === null) throw new Error(`${c.target} is not drawn`);
+      const on = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+      await page.mouse.move(on.x, on.y, { steps: 8 });
+      // PREMISE: the drag is still running, with the pointer on the target.
+      await expect(page.locator(LIST_GRIP)).toHaveAttribute('data-active', '');
+      expect(
+        await page.evaluate(
+          ({ x, y, sel }) =>
+            document.elementFromPoint(x, y)?.closest(sel) !== null,
+          { ...on, sel: c.target }
+        )
+      ).toBe(true);
+      await page.evaluate(
+        () => new Promise((r) => requestAnimationFrame(() => r(null)))
+      );
+      const looks = await page.evaluate(() => {
+        if (window.__looking !== undefined)
+          cancelAnimationFrame(window.__looking);
+        return window.__looks ?? [];
+      });
+      expect(looks.length).toBeGreaterThan(5);
+      expect([...new Set(looks)]).toEqual([rest]);
+
+      // CONTROL: released there, it is hovered.
+      await page.mouse.up();
+      await expect.poll(look).toMatch(/^hovered /);
+    });
+  }
+
+  // KAN-1019. Escape ends the drag with the button still down: the grip lets
+  // the pointer go then, so a row under it hovers again before the release.
+  test('8. Escape mid-drag over a session row: the row hovers again at once, nothing saves', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedOnce(context, {});
+    const page = await openPage(context, extensionId, 1440);
+    const row = page.locator('[data-drag-row-id="list-resize-2"]');
+    const hovered = () =>
+      row.evaluate((e) => e.matches(':hover') || !!e.querySelector(':hover'));
+    const from = await gripCentre(page);
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    const box = await row.boundingBox();
+    if (box === null) throw new Error('no session row');
+    const on = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    await page.mouse.move(on.x, on.y, { steps: 8 });
+    // PREMISE: mid-drag, the row is not hovered.
+    await expect(page.locator(LIST_GRIP)).toHaveAttribute('data-active', '');
+    expect(await hovered()).toBe(false);
+
+    await page.keyboard.press('Escape');
+    await expect(page.locator(LIST_GRIP)).not.toHaveAttribute('data-active');
+    await page.mouse.move(on.x + 1, on.y);
+    await expect.poll(hovered).toBe(true);
+    await page.mouse.up();
+    await expectList(page, 360);
+    expect(await storedListWidth(page)).toBeNull();
+  });
 });
 
 declare global {
   interface Window {
     __sawDragging?: boolean;
+    __looks?: string[];
+    __looking?: number;
   }
 }
