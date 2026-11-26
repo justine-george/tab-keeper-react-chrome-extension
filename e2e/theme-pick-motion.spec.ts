@@ -71,6 +71,20 @@ function expectMarkerMotion(seen: Seen[], from: string, to: string) {
 }
 
 test.describe('Settings › Appearance (popup)', () => {
+  test('opening Settings moves no tile', async ({ context, extensionId }) => {
+    await seedSettings(context, { theme: 'Chalk' });
+    const page = await context.newPage();
+    await page.goto(`chrome-extension://${extensionId}/index.html`);
+    const seen = await afterPress(
+      page,
+      page.locator('[aria-label="Settings"]')
+    );
+    await expect(tile(page, 'Chalk')).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      seen.filter((s) => s.who.endsWith(' check') || s.who.endsWith(' frame'))
+    ).toEqual([]);
+  });
+
   test('a theme pick pops the check in, switches the frames and cross-fades the page', async ({
     context,
     extensionId,
