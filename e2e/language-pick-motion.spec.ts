@@ -104,6 +104,13 @@ test.describe('Settings › Language (popup)', () => {
 
     expect(await afterPress(page, cell(page, 'English'))).toEqual([]);
     expect(await lang(page)).toBe('en');
+    // No fade waits on words that will never change: the page stays live.
+    await cell(page, 'English').click();
+    expect(
+      await page.evaluate(() =>
+        document.documentElement.hasAttribute('data-page-fade')
+      )
+    ).toBe(false);
   });
 
   test('a second pick from the keyboard mid-fade lands, and the fade ends clean', async ({
