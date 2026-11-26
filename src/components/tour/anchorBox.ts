@@ -60,25 +60,6 @@ const clientBox = (element: Element): Box => {
   };
 };
 
-// The nearest ancestor that scrolls; null when none does.
-const scrollerOf = (element: Element): Element | null => {
-  for (let el = element.parentElement; el !== null; el = el.parentElement) {
-    const { overflow, overflowY } = getComputedStyle(el);
-    if (/auto|scroll/.test(`${overflow} ${overflowY}`)) return el;
-  }
-  return null;
-};
-
-// KAN-999. A session row's fill, clipped to what its list shows: null for a
-// row scrolled out of view, so no hole opens outside the list.
-export const visibleRowFill: AnchorBox = (row) => {
-  const fill = rowFillBox(row);
-  const scroller = scrollerOf(row);
-  return fill === null || scroller === null
-    ? fill
-    : intersectBox(fill, clientBox(scroller));
-};
-
 // The window rows, not their container (it holds a margin and the trailing block), clipped to the scroll box.
 export const rowsBox: AnchorBox = (element) => {
   const rows = unionBox(

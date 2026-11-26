@@ -10,7 +10,6 @@ import {
   panelsBox,
   rowFillBox,
   rowsBox,
-  visibleRowFill,
   type AnchorBox,
   type Opening,
 } from './anchorBox';
@@ -91,9 +90,8 @@ export function runStepPlan(
   sessionId: string | null,
   // KAN-623. Whether the full view draws ⤡ for the compact-view card to point at.
   hasCompactButton: boolean,
-  // KAN-999. The selected session, while it is folded behind the Saved
-  // session card; null while no card is drawn.
-  foldedSessionId: string | null,
+  // KAN-999. Whether the saved session is folded behind the Saved session card.
+  hasSavedCard: boolean,
   // KAN-500. Currently open is the rail: one card, no search row or edge.
   isRail = false
 ): RunStepPlan | null {
@@ -132,22 +130,10 @@ export function runStepPlan(
         anchors: [`${OPEN_NOW} [data-open-now-search]`, OPEN_NOW],
         boxOf: findAndFitBox,
         // KAN-900. The edge the card says to drag: lit, and reachable, outside the ring.
-        // KAN-999. Folded, the card and the row it names too, and the step
-        // below the search row: left of it, it covered them.
-        openings: [
-          // O1. Too thin to ring: the edge is only lit.
-          { selector: '[data-resize-grip]', isRinged: false },
-          ...(foldedSessionId === null
-            ? []
-            : [
-                {
-                  selector: '[data-saved-session-card]',
-                  corners: sameCorners(px(RADIUS.PANEL)),
-                },
-                { selector: row(foldedSessionId), boxOf: visibleRowFill },
-              ]),
-        ],
-        sides: foldedSessionId === null ? LEFT_OF : BELOW,
+        // O1. Too thin to ring: the edge is only lit.
+        openings: [{ selector: '[data-resize-grip]', isRinged: false }],
+        // Round 3 (A). Search alone, folded too; below, clear of the Saved session card.
+        sides: hasSavedCard ? BELOW : LEFT_OF,
         // KAN-1020. Typing lists matches from the left under the search
         // row: below, the card hangs from the row's right end.
         belowAt: 'end',

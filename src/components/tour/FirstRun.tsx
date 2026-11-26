@@ -16,7 +16,7 @@ import {
   type Size,
 } from './coachMarkPlacement';
 import { RunHelloDialog } from '../modals/RunHelloDialog';
-import { SAVED_CARD_ICON, SAVED_FOLD_ICON } from '../home/opennow/foldIcon';
+import { SAVED_FOLD_ICON } from '../home/opennow/foldIcon';
 import { SAVE_OF } from '../home/leftpane/saveScopes';
 import type { AppDispatch, RootState } from '../../redux/store';
 import {
@@ -92,9 +92,6 @@ export default function FirstRun() {
   const dragsTried = useSelector((s: RootState) => s.globalState.runDragsTried);
   const isFolded = useSelector(selectIsSavedSessionFolded);
   const hasSavedCard = useSelector(selectShowsSavedSessionCard);
-  const selectedSessionId = useSelector(
-    (s: RootState) => s.tabContainerDataState.selectedTabGroupId
-  );
   // KAN-635. The save button the row shows, so the card names what is there.
   const defaultSaveScope = useSelector(
     (s: RootState) => s.settingsDataState.defaultSaveScope
@@ -202,7 +199,7 @@ export default function FirstRun() {
     saveCard,
     run.sessionId,
     hasCompactButton,
-    hasSavedCard ? selectedSessionId : null,
+    hasSavedCard,
     isRail
   );
   if (plan === null || (kind === 'save' && saveCard === null)) return null;
@@ -273,18 +270,8 @@ export default function FirstRun() {
           };
         }
         return {
-          // KAN-999. Folded, the Saved session card or a session's row shows
-          // it; on a first run nothing is saved, so there is neither.
-          text: hasSavedCard ? (
-            <GlyphSentence
-              sentence={t(
-                'Type in the search box to find an open tab. To show the saved session beside it, press {{icon}} or click a session in the list.',
-                { icon: GLYPH_SLOT }
-              )}
-              icon={SAVED_CARD_ICON}
-              label={t('Show the saved session')}
-            />
-          ) : isFolded ? (
+          // Round 3 (A). Folded, search alone: step 4 shows the saved session.
+          text: isFolded ? (
             t('Type in the search box to find an open tab.')
           ) : (
             <GlyphSentence

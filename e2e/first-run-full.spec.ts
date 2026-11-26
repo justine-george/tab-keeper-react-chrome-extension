@@ -736,9 +736,8 @@ test.describe('with saved sessions', () => {
     );
   });
 
-  // KAN-999. Folded with sessions saved, step 2 lights the Saved session card
-  // and the selected row, each pressable in a hole of its own, and sits below
-  // the search row so it covers neither.
+  // Round 3 (A). Folded with sessions saved, step 2 teaches search alone: the
+  // Saved session card and the rows stay dimmed, and step 4 shows the session.
   const savedCard = (page: Page) => page.locator('[data-saved-session-card]');
   const sessionRow = (page: Page, id: string) =>
     page.locator(`[data-pane="sessions"] [data-drag-row-id="${id}"]`);
@@ -775,32 +774,29 @@ test.describe('with saved sessions', () => {
     return { page, selected: String(selected), other };
   };
 
-  test('step 2, folded: the text names the card and a session; the card and the selected row are lit, the step below the search row covers neither', async ({
+  test('step 2, folded: search alone; one ring; the card and the rows stay dimmed', async ({
     context,
     extensionId,
   }) => {
     const { page, selected, other } = await atFoldedStep2(context, extensionId);
     await expect(card(page).locator('p').first()).toHaveText(
-      'Type in the search box to find an open tab. To show the saved session beside it, press folder or click a session in the list.'
+      'Type in the search box to find an open tab.'
     );
-    const glyph = card(page).getByRole('img', {
-      name: 'Show the saved session',
-      exact: true,
-    });
-    await expect(glyph).toBeVisible();
-    expect(await glyph.textContent()).toBe(
-      await savedCard(page)
-        .locator('[aria-hidden="true"]')
-        .first()
-        .textContent()
-    );
+    await expect(card(page).getByRole('img')).toHaveCount(0);
+    await expect(
+      page.locator('[data-coach-ring], [data-coach-opening-ring]')
+    ).toHaveCount(1);
     expect(await cardSide(page)).toBe('below');
-    expect(await overlaps(card(page), savedCard(page))).toBe(false);
-    expect(await overlaps(card(page), sessionRow(page, selected))).toBe(false);
-    expect(await reachable(page, savedCard(page))).toBe(true);
-    expect(await reachable(page, sessionRow(page, selected))).toBe(true);
-    // CONTROL: the row not selected stays dimmed.
+    expect(await reachable(page, savedCard(page))).toBe(false);
+    expect(await reachable(page, sessionRow(page, selected))).toBe(false);
     expect(await reachable(page, sessionRow(page, other))).toBe(false);
+    // CONTROL: the search row is live.
+    expect(
+      await reachable(
+        page,
+        page.locator('[data-pane="open-now"] [data-open-now-search] input')
+      )
+    ).toBe(true);
   });
 
   // KAN-1020. Typing at step 2 lists matches under the search row: the card
@@ -832,49 +828,26 @@ test.describe('with saved sessions', () => {
     );
   });
 
-  test('step 2, folded: pressing the Saved session card unfolds; the step stays at 2 and names the edge', async ({
+  test('step 2, folded: a press on the dimmed Saved session card says why and shows nothing; step 4 shows the session', async ({
     context,
     extensionId,
   }) => {
     const { page } = await atFoldedStep2(context, extensionId);
-    await savedCard(page).click();
-    await expect
-      .poll(async () => (await storedSettings(page)).foldSavedSessionInTabView)
-      .toBe(false);
-    await expect(page.locator('[data-pane="detail"]')).toBeVisible();
-    await expect(cardAt(page, 2)).toBeVisible();
-    // KAN-868. 1280px leaves a range to drag through: a grip, so the edge in the card.
-    await expect(page.locator('[data-resize-grip]')).toHaveCount(1);
-    await expect(card(page)).toContainText(
-      'Type in the search box to find an open tab. Drag the edge to make this wider, or press'
-    );
-    const fold = page.locator(
-      '[data-pane="open-now"] [data-tour-anchor="fold"]'
-    );
-    const glyph = card(page).getByRole('img', {
-      name: 'Give Currently open the full width',
-      exact: true,
-    });
-    await expect(glyph).toBeVisible();
-    expect(await glyph.textContent()).toBe(await fold.textContent());
-    expect(await storedRun(page)).toMatchObject({ step: 2, ended: null });
-  });
-
-  test('step 2, folded: clicking the lit row shows the saved session beside Currently open; the step stays at 2', async ({
-    context,
-    extensionId,
-  }) => {
-    const { page, selected } = await atFoldedStep2(context, extensionId);
-    const [x, y] = await centreOf(sessionRow(page, selected));
+    const [x, y] = await centreOf(savedCard(page));
     await page.mouse.click(x, y);
-    await expect(page.locator('[data-pane="detail"]')).toBeVisible();
-    await expect(page.locator('[data-pane="detail"]')).toContainText(
-      selected === 'old' ? 'Older' : 'Latest'
+    await expect(page.locator('[data-coach-nudge]')).toHaveText(
+      'Everything else works after the tour.'
     );
-    await expect(savedCard(page)).toHaveCount(0);
-    await expect(cardAt(page, 2)).toBeVisible();
-    await expect(page.locator('[data-coach-nudge]')).toHaveCount(0);
+    await twoFrames(page);
+    expect((await storedSettings(page)).foldSavedSessionInTabView).toBe(true);
+    await expect(page.locator('[data-pane="detail"]')).toHaveCount(0);
     expect(await storedRun(page)).toMatchObject({ step: 2, ended: null });
+    // Nothing is lost: step 4 slides the session in by itself.
+    await nextTo(page, 3);
+    await nextTo(page, 4);
+    await landedAt(page, 4);
+    await expect(page.locator('[data-pane="detail"]')).toBeVisible();
+    await expect(savedCard(page)).toHaveCount(0);
   });
 
   // KAN-736. The ⋮ step is look-only: a right-click on the dimmed title or the lit ⋮ opens no menu, Chrome's included.

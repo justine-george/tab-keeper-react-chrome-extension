@@ -430,7 +430,6 @@
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "关：您的会话只保留在此设备上。开：在您的设备间同步会话。请参阅{{policy}}。",
   "privacy policy": "隐私政策",
   "Saved sessions appear here.": "已保存的会话会显示在这里。",
-  "Type in the search box to find an open tab. To show the saved session beside it, press {{icon}} or click a session in the list.": "在搜索框中输入，即可找到打开的标签页。按 {{icon}} 或点击列表中的会话，可在旁边显示已保存的会话。",
   "Type in the search box to find an open tab.": "在搜索框中输入，即可找到打开的标签页。",
   "Show me here": "在这里看看",
   "In a split view with {{title}}": "与“{{title}}”分屏显示",

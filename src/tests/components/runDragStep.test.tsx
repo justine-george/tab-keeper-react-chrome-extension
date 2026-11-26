@@ -11,7 +11,7 @@ import { RADIUS } from '../../styles/scale';
 // Round 2: both live, to try a drag each way.
 describe('the drag step', () => {
   test('rings the windows, lights Currently open’s panels, live, the card inside the saved list', () => {
-    expect(runStepPlan('full', 'drag', null, 'S1', true, null)).toStrictEqual({
+    expect(runStepPlan('full', 'drag', null, 'S1', true, false)).toStrictEqual({
       anchors: ['[data-pane="detail"] [data-tour-anchor="windows"]'],
       boxOf: rowsBox,
       openings: [

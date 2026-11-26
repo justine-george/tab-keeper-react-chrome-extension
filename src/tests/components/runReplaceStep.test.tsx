@@ -87,16 +87,16 @@ describe('the run’s Replace step (KAN-586)', () => {
       isLive: false,
     };
     expect(
-      runStepPlan('popup', 'row', null, SAMPLE, false, null)
+      runStepPlan('popup', 'row', null, SAMPLE, false, false)
     ).toStrictEqual(plan);
-    expect(runStepPlan('full', 'row', null, SAMPLE, false, null)).toStrictEqual(
-      { ...plan, cardWidth: LIST_CARD_WIDTH }
-    );
+    expect(
+      runStepPlan('full', 'row', null, SAMPLE, false, false)
+    ).toStrictEqual({ ...plan, cardWidth: LIST_CARD_WIDTH });
   });
 
   test('it points at the engaged row’s Replace, below it, in both views', () => {
     for (const view of ['popup', 'full'] as const)
-      expect(runStepPlan(view, 'replace', null, SAMPLE, false, null)).toEqual({
+      expect(runStepPlan(view, 'replace', null, SAMPLE, false, false)).toEqual({
         anchors: [
           '[data-pane="sessions"] [data-drag-row-id="sample\\:x"] [data-run-engaged] [data-tour-anchor="row-replace"]',
         ],
@@ -104,7 +104,9 @@ describe('the run’s Replace step (KAN-586)', () => {
         isLive: false,
       });
     // No session yet: no card, as at Open and Switch.
-    expect(runStepPlan('popup', 'replace', null, null, false, null)).toBeNull();
+    expect(
+      runStepPlan('popup', 'replace', null, null, false, false)
+    ).toBeNull();
   });
 
   test('at its step the row’s Replace is lit, still waiting; Open and Switch are dimmed', async () => {

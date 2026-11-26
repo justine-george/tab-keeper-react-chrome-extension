@@ -456,7 +456,6 @@
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Spento: le sessioni restano qui. Acceso: si sincronizzano. Vedi l’{{policy}}.",
   "privacy policy": "informativa sulla privacy",
   "Saved sessions appear here.": "Le sessioni salvate compaiono qui.",
-  "Type in the search box to find an open tab. To show the saved session beside it, press {{icon}} or click a session in the list.": "Digita nella casella di ricerca per trovare una scheda aperta. Per mostrare accanto la sessione salvata, premi {{icon}} o fai clic su una sessione nell’elenco.",
   "Type in the search box to find an open tab.": "Digita nella casella di ricerca per trovare una scheda aperta.",
   "Show me here": "Mostrami qui",
   "In a split view with {{title}}": "In vista divisa con «{{title}}»",
