@@ -719,9 +719,12 @@ describe('KAN-878: a tour without the pin card', () => {
     expect(count()).toBe('Step 2 of 2');
   });
 
-  test('pinned with the setting off: 9 of 10 with Next, and the pin card after', async () => {
+  // Round 4. Untried, the drag card's button is Skip; it goes on, as Next does.
+  test('pinned with the setting off: 9 of 10 with Skip, no Skip tutorial, and the pin card after', async () => {
     await renderPinnedAt({ ...newRun('full', 9), sessionId: 'own' }, false);
-    fireEvent.click(await button('Next'));
+    const skip = await button('Skip');
+    expect(cardButtons()).not.toContain('Skip tutorial');
+    fireEvent.click(skip);
     expect(await button('Pin this tab')).toBeTruthy();
     expect(count()).toBe('Step 10 of 10');
   });

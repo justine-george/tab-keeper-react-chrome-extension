@@ -31,6 +31,7 @@ import {
   replayNote,
   seedRawSettingsIfAbsent,
   seedSessionsIfAbsent,
+  skipTo,
   startRunFromHelp,
   type RunViewCase,
 } from './fixtures/run';
@@ -217,6 +218,16 @@ async function expectFits(root: Locator, label: string) {
 
 const press = (root: Locator, name: string) =>
   root.getByRole('button', { name, exact: true }).click();
+// On to the next card: the drag card's button reads Skip until a drag ticks (round 4).
+const onward = async (page: Page, say: (s: string) => string) =>
+  press(
+    card(page),
+    say(
+      (await card(page).getAttribute('data-coach-kind')) === 'drag'
+        ? 'Skip'
+        : 'Next'
+    )
+  );
 
 // KAN-457: Back and Pin this tab share a row. KAN-970: Not now is at the row's left, or under it when the
 // row is full, its words on the text edge either way.
@@ -292,7 +303,7 @@ for (const lang of LANGS) {
       await expectRootTook(page);
       await startRunFromHelp(page, say);
       await expect(cardAt(page, 1)).toBeVisible();
-      await press(card(page), say('Next'));
+      await onward(page, say);
       await expect(cardAt(page, 2)).toBeVisible();
       await expect(card(page)).toContainText(
         lead(
@@ -332,7 +343,7 @@ for (const lang of LANGS) {
             break;
           }
           if (step !== saveStep(view)) {
-            await press(card(page), say('Next'));
+            await onward(page, say);
             continue;
           }
           // The run's own save, then Back: the save card says it saved (M4 A+).
@@ -345,7 +356,7 @@ for (const lang of LANGS) {
             )
           );
           await expectFits(card(page), `${lang} ${view.name} saved line`);
-          await press(card(page), say('Next'));
+          await onward(page, say);
         }
         // KAN-499. The last card's way out, then the note.
         await press(card(page), say(view.view === 'full' ? 'Not now' : 'Done'));
@@ -366,7 +377,7 @@ for (const lang of LANGS) {
         }
         await startRunFromHelp(page, say);
         for (let step = 1; step < saveStep(view); step++) {
-          await press(card(page), say('Next'));
+          await onward(page, say);
           await expect(cardAt(page, step + 1)).toBeVisible();
         }
         await expect(card(page)).toContainText(
@@ -414,7 +425,7 @@ for (const lang of LANGS) {
       await expectFits(hello(page), `${lang} What's new`);
       await press(hello(page), say('Start'));
       for (let step = 2; step <= 3; step++) {
-        await press(card(page), say('Next'));
+        await onward(page, say);
         await expect(cardAt(page, step)).toBeVisible();
       }
       await expect(card(page)).toContainText(
@@ -667,7 +678,8 @@ for (const [theme, palette] of THEMES) {
         `${theme} Start`
       );
       for (let step = 1; step <= 10; step++) {
-        if (step > 1 && step !== 4) await nextTo(page, step);
+        if (step === 10) await skipTo(page, step);
+        else if (step > 1 && step !== 4) await nextTo(page, step);
         await expect(cardAt(page, step)).toBeVisible();
         await expectCardReads(
           page,

@@ -26,6 +26,7 @@ import {
   landedAt,
   nextTo,
   openRunFromHelp,
+  skipTo,
   replayNote,
   runDrawn,
   seedSessionsIfAbsent,
@@ -224,7 +225,7 @@ test('Help starts at card 1 with no Hello; the ten cards in their places, Back a
   expect(step9.x + step9.width).toBeLessThanOrEqual(
     sessions.x + sessions.width
   );
-  await nextTo(page, 10);
+  await skipTo(page, 10);
   await expect.poll(() => cardSide(page)).toBe('free');
   await expect(page.locator('[data-coach-ring]')).toHaveCount(0);
   await expect(cardButton(page, 'Skip tutorial')).toHaveCount(0);
@@ -577,7 +578,8 @@ test('Pin this tab pins this tab and ends the run', async ({
   expect(await pinned()).toBe(false);
   for (let step = 2; step <= 3; step++) await nextTo(page, step);
   await cardButton(page, 'Use an example').click();
-  for (let step = 5; step <= 10; step++) await nextTo(page, step);
+  for (let step = 5; step <= 9; step++) await nextTo(page, step);
+  await skipTo(page, 10);
   // KAN-562: about the tab, so it isn't read as the toolbar pin that follows.
   await expect(card(page)).toContainText(
     'Keep Tab Keeper open in a pinned tab.'
@@ -602,7 +604,8 @@ test('Esc on a middle card is Skip tutorial; on the last it is Not now (R5); on 
   await expect(cardAt(page, 1)).toBeVisible();
   for (let step = 2; step <= 3; step++) await nextTo(page, step);
   await cardButton(page, 'Use an example').click();
-  for (let step = 5; step <= 10; step++) await nextTo(page, step);
+  for (let step = 5; step <= 9; step++) await nextTo(page, step);
+  await skipTo(page, 10);
   await page.keyboard.press('Escape');
   await expect.poll(() => storedRun(page)).toMatchObject({ ended: 'finished' });
   await expect(replayNote(page)).toBeVisible();
@@ -1027,7 +1030,8 @@ test.describe('with saved sessions', () => {
       ]);
     // CONTROL: while the run points at it, its Open is dimmed and blocked.
     expect(await look()).toEqual(['opacity(0.3)', 'true']);
-    for (let step = 5; step <= 10; step++) await nextTo(page, step);
+    for (let step = 5; step <= 9; step++) await nextTo(page, step);
+    await skipTo(page, 10);
     await cardButton(page, 'Not now').click();
     await expect
       .poll(() => storedRun(page))

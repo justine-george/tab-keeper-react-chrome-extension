@@ -404,15 +404,24 @@ export default function FirstRun() {
           ),
           checklist: [
             {
-              label: t('Onto a window in Currently open, to open it there'),
+              label: t(
+                'Left to right: onto a window in Currently open, to open it there'
+              ),
               isDone: dragsTried.opened,
             },
             {
-              label: t('From Currently open into this session, to save a copy'),
+              label: t(
+                'Right to left: from Currently open into this session, to save a copy'
+              ),
               isDone: dragsTried.saved,
             },
           ],
-          primary: next,
+          // Round 4. Skip until a drag ticks, then Next: the same way on.
+          // Last (no pin card), Done: the tour ends either way.
+          primary:
+            isLast || dragsTried.opened || dragsTried.saved
+              ? next
+              : { label: t('Skip'), onPress: next.onPress },
         };
       case 'twoViews':
         return {
@@ -470,7 +479,8 @@ export default function FirstRun() {
       isLive={plan.isLive}
       width={card.width ?? plan.cardWidth ?? CARD_WIDTH[run.view]}
       place={place}
-      onSkip={isLast ? undefined : skip}
+      // Round 4. The drag card's Skip is its button: no second way out beside it.
+      onSkip={isLast || kind === 'drag' ? undefined : skip}
       onBack={
         previousRunStep(run, decidedPinCard) !== null ? goBack : undefined
       }

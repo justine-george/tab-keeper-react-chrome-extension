@@ -9,6 +9,7 @@ import {
   cardButton,
   closeReplayNote,
   nextTo,
+  skipTo,
   replayNote,
   runCheck,
   seedRawSettingsIfAbsent,
@@ -111,7 +112,7 @@ test('pinned with the setting off: the pin card is card 10 of 10', async ({
   await startRunFromHelp(page);
   await walkToDrag(page);
   await expectCount(page, 9, 10);
-  await nextTo(page, 10);
+  await skipTo(page, 10);
   await expect(page.locator(PIN_CARD)).toBeVisible();
   await expectCount(page, 10, 10);
   await expect(cardButton(page, 'Pin this tab')).toBeVisible();
@@ -124,7 +125,7 @@ test('same tab: Pin this tab, then a Help replay skips the card', async ({
   const page = await fullViewPage(context, extensionId, false);
   await startRunFromHelp(page);
   await walkToDrag(page);
-  await nextTo(page, 10);
+  await skipTo(page, 10);
   await cardButton(page, 'Pin this tab').click();
   await closeReplayNote(page);
   const setup = page.getByRole('dialog', { name: SETUP, exact: true });

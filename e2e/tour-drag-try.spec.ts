@@ -22,13 +22,15 @@ import {
   landedAt,
   nextTo,
   openRunFromHelp,
+  storedRun,
 } from './fixtures/run';
 
 // Round 2 of KAN-1023: the full view's drag step is something to try. A tab
 // from the session onto a live window opens there; a live tab into the
 // session saves a copy; each ticks in the card. Windows stay put: one let go
-// over Currently open would open in front of the tour. Next is there all
-// along, as a keyboard can't drag.
+// over Currently open would open in front of the tour. The button is there
+// all along, as a keyboard can't drag: Skip until a drag ticks, then Next.
+// Skip tutorial is not on this card (round 4).
 
 const ticked = (page: Page) =>
   card(page).locator('[data-coach-tick][data-done]');
@@ -52,7 +54,7 @@ async function toDragStep(page: Page): Promise<void> {
   await landedAt(page, 9);
 }
 
-test('step 9: a tab dragged each way opens or saves, and ticks its line; Next is there before either', async ({
+test('step 9: a tab dragged each way opens or saves, and ticks its line; Skip before either, Next after', async ({
   context,
   extensionId,
   serviceWorker: worker,
@@ -64,11 +66,13 @@ test('step 9: a tab dragged each way opens or saves, and ticks its line; Next is
     'Try it: drag a tab between this session and Currently open.'
   );
   await expect(card(page).getByRole('listitem')).toHaveText([
-    /Onto a window in Currently open, to open it there$/,
-    /From Currently open into this session, to save a copy$/,
+    /Left to right: onto a window in Currently open, to open it there$/,
+    /Right to left: from Currently open into this session, to save a copy$/,
   ]);
   await expect(ticked(page)).toHaveCount(0);
-  await expect(cardButton(page, 'Next')).toBeEnabled();
+  await expect(cardButton(page, 'Skip')).toBeEnabled();
+  await expect(cardButton(page, 'Next')).toHaveCount(0);
+  await expect(cardButton(page, 'Skip tutorial')).toHaveCount(0);
   // Both are live: neither is held still.
   const tab = savedTab(page);
   expect(await hitAt(page, ...(await centreOf(tab)))).not.toMatch(
@@ -96,6 +100,8 @@ test('step 9: a tab dragged each way opens or saves, and ticks its line; Next is
   await expect(
     card(page).getByRole('listitem').first().getByRole('img', { name: 'Done' })
   ).toBeVisible();
+  await expect(cardButton(page, 'Next')).toBeEnabled();
+  await expect(cardButton(page, 'Skip')).toHaveCount(0);
 
   // Right to left: Live A saved into the session, as a copy.
   const a = await boxOf(liveRow(page, live.idOf('Live A')));
@@ -165,4 +171,19 @@ test('step 9: a window, saved or live, is not carried out: nothing opens in fron
     0
   );
   await expect(cardAt(page, 9)).toBeVisible();
+});
+
+test('step 9: Skip goes on to the pin card, not out of the tour; Esc still ends it', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openRunFromHelp(context, extensionId, FULL_RUN);
+  await toDragStep(page);
+  await cardButton(page, 'Skip').click();
+  await expect(cardAt(page, 10)).toBeVisible();
+  expect(await storedRun(page)).toMatchObject({ step: 10, ended: null });
+  await cardButton(page, 'Back').click();
+  await expect(cardAt(page, 9)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect.poll(() => storedRun(page)).toMatchObject({ ended: 'skipped' });
 });

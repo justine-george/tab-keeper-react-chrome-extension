@@ -18,6 +18,7 @@ import {
   closeReplayNote,
   endingCard,
   nextTo,
+  skipTo,
   openRunFromHelp,
   replayNote,
   runCheck,
@@ -204,7 +205,8 @@ for (const wording of ['typed', 'suggested', 'nothingSaved'] as const) {
     await nextTo(page, 2);
     await nextTo(page, 3);
     await saveOnTour(page, wording, 4);
-    for (let step = 5; step <= 10; step++) await nextTo(page, step);
+    for (let step = 5; step <= 9; step++) await nextTo(page, step);
+    await skipTo(page, 10);
     await cardButton(page, 'Not now').click();
     await closeReplayNote(page);
     await expect(endingCard(page)).toHaveCount(0);
