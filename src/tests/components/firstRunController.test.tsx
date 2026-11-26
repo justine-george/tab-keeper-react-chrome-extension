@@ -67,7 +67,8 @@ beforeEach(() => {
     '<div data-tour-anchor="sessions"></div></div>' +
     '<span data-tour-anchor="expand"></span>' +
     '<span data-tour-anchor="compact"></span>' +
-    '<div data-pane="open-now"><div data-open-now-search></div></div>';
+    // As drawn: the pane, its column, its panels (panelsBox).
+    '<div data-pane="open-now"><div><div data-open-now-search></div></div></div>';
   for (const element of anchors.querySelectorAll('*')) {
     element.getBoundingClientRect = () => RECT;
   }

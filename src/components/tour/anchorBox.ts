@@ -7,13 +7,15 @@ import {
 
 export type AnchorBox = (element: Element) => Box | null;
 
-// KAN-900. What a step lights and leaves reachable in a hole of its own,
-// outside the ring: each element `selector` finds, measured by `boxOf` (its
-// own box by default), its hole in `corners` (a CONTROL's by default).
+// KAN-900. What a step lights and leaves reachable in a hole of its own:
+// each element `selector` finds, measured by `boxOf` (its own box by
+// default), its hole in `corners` (a CONTROL's by default), ringed as the
+// anchor is (O1) unless `isRinged` is false.
 export interface Opening {
   selector: string;
   boxOf?: AnchorBox;
   corners?: HoleCorners;
+  isRinged?: boolean;
 }
 
 // What a step lights instead of its ring's box: the first of `anchors` drawn, measured by `boxOf`.
@@ -104,25 +106,14 @@ export const findAndFitBox: AnchorBox = (element) =>
       )
     : ownBox(element);
 
-// KAN-1021. A pane's panels: its column's content box, inside the padding
-// that spaces them from the window's edges, so the strips of page above and
-// below them stay dimmed.
+// KAN-1021. A pane's panels: the drawn children of its column, so the
+// padding that spaces them from the window's edges, and the strips of page
+// above and below them, stay dimmed (O1: the rail's card, not its margin).
 export const panelsBox: AnchorBox = (pane) => {
   const column = pane.firstElementChild ?? pane;
-  const rect = column.getBoundingClientRect();
-  const style = getComputedStyle(column);
-  const [top, right, bottom, left] = [
-    style.paddingTop,
-    style.paddingRight,
-    style.paddingBottom,
-    style.paddingLeft,
-  ].map((value) => Number.parseFloat(value) || 0);
-  return {
-    left: rect.left + left,
-    top: rect.top + top,
-    width: Math.max(0, rect.width - left - right),
-    height: Math.max(0, rect.height - top - bottom),
-  };
+  return unionBox(
+    [...column.children].map((panel) => fromRect(panel.getBoundingClientRect()))
+  );
 };
 
 // KAN-1021. The first element `selector` finds, as its own box; undefined when none is drawn.

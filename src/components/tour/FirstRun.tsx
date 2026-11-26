@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 
-import CoachMark from './CoachMark';
+import CoachMark, { type CoachCheck } from './CoachMark';
 import GlyphSentence from './GlyphSentence';
 import { GLYPH_SLOT } from './glyphSlot';
 import { CARD_WIDTH, PIN_CARD_WIDTH, runStepPlan } from './runSteps';
@@ -64,6 +64,7 @@ import { panes, prepareLayoutGlide } from '../common/layoutGlide';
 interface Card {
   text: ReactNode;
   fine?: string;
+  checklist?: readonly CoachCheck[];
   width?: string;
   primary: CoachAction;
   secondary?: CoachAction;
@@ -88,6 +89,7 @@ export default function FirstRun() {
     (s: RootState) => s.tabContainerDataState.tabGroups
   );
   const echo = useSelector((s: RootState) => s.globalState.runSaveEcho);
+  const dragsTried = useSelector((s: RootState) => s.globalState.runDragsTried);
   const isFolded = useSelector(selectIsSavedSessionFolded);
   const hasSavedCard = useSelector(selectShowsSavedSessionCard);
   const selectedSessionId = useSelector(
@@ -200,7 +202,8 @@ export default function FirstRun() {
     saveCard,
     run.sessionId,
     hasCompactButton,
-    hasSavedCard ? selectedSessionId : null
+    hasSavedCard ? selectedSessionId : null,
+    isRail
   );
   if (plan === null || (kind === 'save' && saveCard === null)) return null;
 
@@ -401,16 +404,27 @@ export default function FirstRun() {
       case 'windows':
         return {
           text: t(
-            "Each window can be opened on its own. Click a window's title to rename it, or right-click it for more."
+            "Each window can be opened on its own. Click a window's title to rename it. After the tour, right-click it for more."
           ),
           primary: next,
         };
-      // KAN-1023. "also": a second way in, beside Open, not in its place.
+      // KAN-1023. A second way in, beside Open, to try each way (round 2);
+      // Next goes on whether tried or not, as a keyboard can't drag.
       case 'drag':
         return {
           text: t(
-            'You can also drag a window or tab from this session into Currently open to open it, or from Currently open into a session to save a copy there.'
+            'Try it: drag a tab between this session and Currently open.'
           ),
+          checklist: [
+            {
+              label: t('Onto a window in Currently open, to open it there'),
+              isDone: dragsTried.opened,
+            },
+            {
+              label: t('From Currently open into this session, to save a copy'),
+              isDone: dragsTried.saved,
+            },
+          ],
           primary: next,
         };
       case 'twoViews':
@@ -461,6 +475,7 @@ export default function FirstRun() {
       kind={kind}
       text={card.text}
       fine={card.fine}
+      checklist={card.checklist}
       anchors={plan.anchors}
       boxOf={plan.boxOf}
       openings={plan.openings}

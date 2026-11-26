@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
   type SyntheticEvent,
 } from 'react';
@@ -24,10 +25,12 @@ import { useFontFamily } from '../../hooks/useFontFamily';
 import { useCoachPlacement } from '../../hooks/useCoachPlacement';
 import { useCardMotion } from '../../hooks/useCardMotion';
 import ProgressLine from '../common/ProgressLine';
+import Icon from '../common/Icon';
 import {
   COACH,
   clipPathWithHoles,
   ringBox,
+  ringCorners,
   type AnchoredPlacement,
   type Box,
   type CoachAction,
@@ -39,10 +42,12 @@ import {
 import type { AnchorBox, Opening, Spotlight } from './anchorBox';
 import { playLineIn, playSwell } from './cardMotion';
 import { canAnimate, prefersReducedMotion } from '../modals/getStartedMotion';
-import { RADIUS, TYPE } from '../../styles/scale';
+import { CORNER_SHAPE, RADIUS, TYPE } from '../../styles/scale';
+import { onRefusedDuringTour } from './tourRefusal';
 import { corners } from '../../styles/corners';
 
-// KAN-721. The ring sits RING_INSET outside a CONTROL, so it rounds at PANEL.
+// O1. Each ring sits RING_INSET outside what it rings, so it rounds that
+// much more: a CONTROL's at PANEL.
 // KAN-901. The dim's hole takes the corners of what it lights, so it is lit
 // to its corners and no further: a CONTROL's unless the step says otherwise.
 const CONTROL_CORNERS = sameCorners(Number.parseFloat(RADIUS.CONTROL));
@@ -54,12 +59,19 @@ export interface CoachProgress {
   total: number;
 }
 
+// Round 2 (KAN-1023). A line of the card's checklist, ticked once done.
+export interface CoachCheck {
+  label: string;
+  isDone: boolean;
+}
+
 interface CoachMarkProps {
   progress: CoachProgress | null;
   // The run step this card is, or 'ending' (KAN-879); none on the note after the run.
   kind?: string;
   text: ReactNode;
   fine?: string;
+  checklist?: readonly CoachCheck[];
   anchors: readonly string[];
   boxOf?: AnchorBox;
   spotlight?: Spotlight;
@@ -155,6 +167,7 @@ export default function CoachMark({
   kind,
   text,
   fine,
+  checklist,
   anchors,
   boxOf,
   spotlight,
@@ -183,10 +196,20 @@ export default function CoachMark({
     null
   );
   const isNudged = pressedAt !== null && pressedAt.step === step;
-  const onDimPress = (event: SyntheticEvent) => {
-    swallow(event);
+  // Round 2. Any press the tour turns away says so: on the dim, on a
+  // look-only step's still box, or a row's right-click (tourRefusal).
+  const nudge = () => {
     setPressedAt({ step });
     if (canMove(markRef.current)) playSwell(markRef.current);
+  };
+  const onDimPress = (event: SyntheticEvent) => {
+    swallow(event);
+    nudge();
+  };
+  // A right-click, or a Ctrl+click on a Mac, nudges at its contextmenu: once.
+  const onDimMouseDown = (event: ReactMouseEvent) => {
+    if (event.button !== 0 || event.ctrlKey) swallow(event);
+    else onDimPress(event);
   };
   useLayoutEffect(() => {
     if (isNudged && canMove(nudgeRef.current)) playLineIn(nudgeRef.current);
@@ -203,6 +226,14 @@ export default function CoachMark({
   useCardMotion(markRef, ringRef, progress?.step ?? null, frame);
   const buttons = dialogButtonStyles(COLORS);
   const isPlaced = frame !== null;
+  const onRefusedRef = useRef(nudge);
+  useLayoutEffect(() => {
+    onRefusedRef.current = nudge;
+  });
+  useLayoutEffect(() => {
+    if (!isPlaced) return;
+    return onRefusedDuringTour(() => onRefusedRef.current());
+  }, [isPlaced]);
 
   // Only while drawn; the last step's Esc is its non-pin button. A layout effect, so it lands in the commit that shows the card (KAN-520).
   // On window, so it hears Esc after the overlays on document: an open drawer closes before the tour skips (KAN-813).
@@ -253,7 +284,7 @@ export default function CoachMark({
     z-index: ${Z.MARK};
     box-sizing: border-box;
     border: 2px dashed ${COLORS.TEXT_COLOR};
-    ${corners(RADIUS.PANEL)}
+    corner-shape: ${CORNER_SHAPE};
     pointer-events: none;
   `;
   const textStyle = css`
@@ -269,6 +300,34 @@ export default function CoachMark({
     font-size: ${TYPE.SECONDARY};
     line-height: 1.45;
     color: ${COLORS.LABEL_L1_COLOR};
+  `;
+  const checklistStyle = css`
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  `;
+  const checkStyle = css`
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  `;
+  // An open ring until done, then filled with a tick, as Tickbox draws one.
+  const tickStyle = css`
+    box-sizing: border-box;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    margin-top: 1px;
+    border: 1.5px solid ${COLORS.TEXT_COLOR};
+    border-radius: 50%;
+    &[data-done] {
+      background: ${COLORS.TEXT_COLOR};
+    }
   `;
   // KAN-970: the way out at the row's left, its words on the text edge, as in the dialogs; the way on at the right.
   // wrap-reverse: when one row can't hold both, the way out drops under the buttons, not above them.
@@ -300,8 +359,8 @@ export default function CoachMark({
           aria-hidden="true"
           data-coach-dim
           css={dimStyle}
-          onMouseDown={onDimPress}
-          onContextMenu={swallow}
+          onMouseDown={onDimMouseDown}
+          onContextMenu={onDimPress}
           style={
             bright === null
               ? undefined
@@ -323,9 +382,9 @@ export default function CoachMark({
             aria-hidden="true"
             data-coach-still
             css={stillStyle}
-            onMouseDown={swallow}
+            onMouseDown={onDimMouseDown}
             onClick={swallow}
-            onContextMenu={swallow}
+            onContextMenu={onDimPress}
             style={{
               left: box.left,
               top: box.top,
@@ -340,9 +399,26 @@ export default function CoachMark({
           aria-hidden="true"
           data-coach-ring
           css={ringStyle}
-          style={ringBox(frame.anchor)}
+          style={{
+            ...ringBox(frame.anchor),
+            borderRadius: ringCorners(holeCorners),
+          }}
         />
       )}
+      {openingHoles
+        .filter((hole) => hole.isRinged)
+        .map((hole, index) => (
+          <div
+            key={index}
+            aria-hidden="true"
+            data-coach-opening-ring
+            css={ringStyle}
+            style={{
+              ...ringBox(hole.box),
+              borderRadius: ringCorners(hole.corners),
+            }}
+          />
+        ))}
       <div
         ref={markRef}
         role="dialog"
@@ -382,6 +458,31 @@ export default function CoachMark({
         <p id={textId} css={textStyle}>
           {text}
         </p>
+        {checklist !== undefined && (
+          <ul css={checklistStyle}>
+            {checklist.map(({ label, isDone }) => (
+              <li key={label} css={checkStyle}>
+                <span
+                  data-coach-tick
+                  {...(isDone
+                    ? { 'data-done': '', role: 'img', 'aria-label': t('Done') }
+                    : { 'aria-hidden': true })}
+                  css={tickStyle}
+                >
+                  {isDone && (
+                    <Icon
+                      type="check"
+                      size="14px"
+                      color={COLORS.PRIMARY_COLOR}
+                      style="padding: 0;"
+                    />
+                  )}
+                </span>
+                <span>{label}</span>
+              </li>
+            ))}
+          </ul>
+        )}
         {fine !== undefined && <p css={fineStyle}>{fine}</p>}
         {isNudged && (
           <p ref={nudgeRef} css={fineStyle} data-coach-nudge>

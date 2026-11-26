@@ -11,7 +11,7 @@ import {
   sameCorners,
   sameFrame,
   type Box,
-  type Hole,
+  type LitHole,
   type CoachFrame,
   type AnchoredPlacement,
   type Size,
@@ -49,13 +49,18 @@ function firstAnchor(
 }
 
 // KAN-900. A hole for each element drawn for the openings, with a box; one not rendered is skipped.
-function openingHoles(openings: readonly Opening[]): Hole[] {
+function openingHoles(openings: readonly Opening[]): LitHole[] {
   return openings.flatMap(
-    ({ selector, boxOf = ownBox, corners = CONTROL_CORNERS }) =>
+    ({
+      selector,
+      boxOf = ownBox,
+      corners = CONTROL_CORNERS,
+      isRinged = true,
+    }) =>
       [...document.querySelectorAll(selector)].flatMap((element) => {
         const box = boxOf(element);
         return box !== null && box.width > 0 && box.height > 0
-          ? [{ box, corners }]
+          ? [{ box, corners, isRinged }]
           : [];
       })
   );

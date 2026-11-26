@@ -177,10 +177,11 @@ test('Help starts at card 1 with no Hello; the ten cards in their places, Back a
   expect(await cardSide(page)).toBe('below');
   // KAN-1023. The window's own menu, named on its card.
   await expect(card(page)).toContainText(
-    "Each window can be opened on its own. Click a window's title to rename it, or right-click it for more."
+    "Each window can be opened on its own. Click a window's title to rename it. After the tour, right-click it for more."
   );
   // KAN-1023. Dragging between the session and Currently open, a second way
-  // in: the windows ringed, Currently open lit, both look-only.
+  // in: the windows ringed, Currently open lit, both live to try (round 2;
+  // tour-drag-try.spec.ts drags each way).
   await nextTo(page, 9);
   await landedAt(page, 9);
   await expect(card(page).getByRole('progressbar')).toHaveAttribute(
@@ -188,7 +189,7 @@ test('Help starts at card 1 with no Hello; the ten cards in their places, Back a
     'Step 9 of 10'
   );
   await expect(card(page)).toContainText(
-    'You can also drag a window or tab from this session into Currently open to open it, or from Currently open into a session to save a copy there.'
+    'Try it: drag a tab between this session and Currently open.'
   );
   expect(await cardSide(page)).toBe('left');
   // The ring is on the session's windows.
@@ -202,11 +203,15 @@ test('Help starts at card 1 with no Hello; the ten cards in their places, Back a
   expect(ringMiddle[0]).toBeLessThan(windowsBox.x + windowsBox.width);
   expect(ringMiddle[1]).toBeGreaterThan(windowsBox.y);
   expect(ringMiddle[1]).toBeLessThan(windowsBox.y + windowsBox.height);
-  expect(await hitAt(page, ...(await centreOf(windows)))).toBe('still');
+  expect(await hitAt(page, ...(await centreOf(windows)))).not.toMatch(
+    /^(dim|still)$/
+  );
   const openNowList = page.locator(
     '[data-pane="open-now"] [data-open-now-search]'
   );
-  expect(await hitAt(page, ...(await centreOf(openNowList)))).toBe('still');
+  expect(await hitAt(page, ...(await centreOf(openNowList)))).not.toMatch(
+    /^(dim|still)$/
+  );
   // CONTROL: the saved list beside it stays dimmed.
   expect(
     await hitAt(
@@ -628,7 +633,8 @@ test.describe('side by side', () => {
   });
 
   // KAN-999. The rail's column is 53px: the 44px rail card and its margins.
-  test('under 1100px, steps 1 and 2 light the rail column', async ({
+  // O1. Steps 1 and 2 light the card, not the column, ringed 4px out at 16.
+  test('under 1100px, steps 1 and 2 light the rail’s card, ringed on screen', async ({
     context,
     extensionId,
   }) => {
@@ -639,12 +645,29 @@ test.describe('side by side', () => {
     const rail = await page.locator('[data-pane="open-now"]').boundingBox();
     if (rail === null) throw new Error('no rail');
     expect(rail.width).toBeCloseTo(53, 0);
-    // The ring sits 4px outside what it rings.
-    const ringsRail = async () =>
-      Math.abs((await ring(page)).width - (rail.width + 8));
-    await expect.poll(ringsRail).toBeLessThanOrEqual(1);
+    const railCard = (await page
+      .locator('[data-pane="open-now"] > * > *')
+      .first()
+      .boundingBox())!;
+    // The ring sits 4px outside what it rings, at 16, inside the window.
+    const ringsCard = async () => {
+      const r = await ring(page);
+      const radius = await page
+        .locator('[data-coach-ring]')
+        .evaluate((el) => getComputedStyle(el).borderRadius);
+      return {
+        left: Math.round(r.left - railCard.x),
+        top: Math.round(r.top - railCard.y),
+        width: Math.round(r.width - railCard.width),
+        height: Math.round(r.height - railCard.height),
+        radius,
+      };
+    };
+    const want = { left: -4, top: -4, width: 8, height: 8, radius: '16px' };
+    await expect.poll(ringsCard).toEqual(want);
     await nextTo(page, 2);
-    await expect.poll(ringsRail).toBeLessThanOrEqual(1);
+    await landedAt(page, 2);
+    await expect.poll(ringsCard).toEqual(want);
   });
 
   // KAN-868. Side by side always has a grip now, down to 1100px.

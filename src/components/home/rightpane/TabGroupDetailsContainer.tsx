@@ -47,6 +47,7 @@ import {
   useCarryCrossedIntoOpenNow,
 } from '../../../redux/carry';
 import { listKindOf, pickOf } from '../../../redux/carriedItem';
+import { selectIsDragStepHere } from '../../../redux/firstRun';
 import { carryWindowTo } from '../../../redux/commitCarry';
 import {
   carriedRowId,
@@ -209,12 +210,15 @@ export default function TabGroupDetailsContainer() {
 
   // KAN-350. Onto the session list, a whole window is carried to another
   // session (KAN-352).
+  // Round 2 (KAN-1023). Not at the tour's drag step: dropped in Currently
+  // open, a window opens in front of the tour. Within the session it moves.
+  const isDragStep = useSelector(selectIsDragStepHere);
   const carryWindowOut = useCallback(
     (windowId: string) =>
-      shownSession === undefined
+      shownSession === undefined || isDragStep
         ? null
         : windowCarryOut(shownSession, windowId),
-    [shownSession]
+    [shownSession, isDragStep]
   );
 
   // KAN-350. A row drop into the session on screen asks for the window it

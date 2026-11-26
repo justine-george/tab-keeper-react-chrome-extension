@@ -24,6 +24,7 @@ import type {
   windowGroupData,
 } from './slices/tabContainerDataStateSlice';
 import type { RootState } from './store';
+import { noteRunDrag } from './firstRun';
 import {
   openGroupCopy,
   openPairCopy,
@@ -190,6 +191,19 @@ export function copyWindowSpec(
 // or into a window runs as Tab Keeper's own move (KAN-850): Open now reads it
 // at once.
 export const openCarriedCopy =
+  (
+    item: CarriedItem,
+    place: CopyPlace,
+    goToURLText: string
+  ): Thunk<Promise<boolean> | null> =>
+  (dispatch) => {
+    const asked = dispatch(askChromeForCopy(item, place, goToURLText));
+    // Round 2 (KAN-1023). The tour's drag step ticks a drop Chrome was asked to open.
+    if (asked !== null) dispatch(noteRunDrag({ way: 'opened' }));
+    return asked;
+  };
+
+const askChromeForCopy =
   (
     item: CarriedItem,
     place: CopyPlace,

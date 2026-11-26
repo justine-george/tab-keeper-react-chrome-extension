@@ -34,13 +34,13 @@ export interface FreePlacement {
 export type CoachPlacement = AnchoredPlacement | FreePlacement;
 
 // bright: the box left undimmed, the anchor's own unless the step lights more.
-// openings (KAN-900): more undimmed boxes, each a hole of its own, outside the ring.
+// openings (KAN-900): more undimmed boxes, each a hole of its own.
 export type CoachFrame =
   | {
       kind: 'anchored';
       anchor: Box;
       bright: Box;
-      openings: readonly Hole[];
+      openings: readonly LitHole[];
       placement: AnchoredPlacement;
     }
   | { kind: 'free'; placement: FreePlacement };
@@ -253,6 +253,15 @@ export interface Hole {
   corners: HoleCorners;
 }
 
+// O1. An opening's hole, and whether a ring goes round it as round the anchor.
+export interface LitHole extends Hole {
+  isRinged: boolean;
+}
+
+// O1. A ring's corners: RING_INSET out from those of the hole it rings.
+export const ringCorners = (corners: HoleCorners): string =>
+  corners.map((c) => `${c + COACH.RING_INSET}px`).join(' ');
+
 // A clip-path keeping the whole element but each hole, in the element's own
 // px, each corner a squircle of its radius (KAN-721, KAN-901), capped at half
 // the hole's sides.
@@ -300,6 +309,7 @@ export function sameFrame(a: CoachFrame | null, b: CoachFrame | null): boolean {
     a.openings.every(
       (hole, i) =>
         sameBox(hole.box, b.openings[i].box) &&
+        hole.isRinged === b.openings[i].isRinged &&
         hole.corners.every((c, j) => c === b.openings[i].corners[j])
     ) &&
     a.placement.side === b.placement.side &&

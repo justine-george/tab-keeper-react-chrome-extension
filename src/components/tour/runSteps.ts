@@ -93,7 +93,9 @@ export function runStepPlan(
   hasCompactButton: boolean,
   // KAN-999. The selected session, while it is folded behind the Saved
   // session card; null while no card is drawn.
-  foldedSessionId: string | null
+  foldedSessionId: string | null,
+  // KAN-500. Currently open is the rail: one card, no search row or edge.
+  isRail = false
 ): RunStepPlan | null {
   switch (kind) {
     case 'hello':
@@ -109,13 +111,23 @@ export function runStepPlan(
     case 'openNow':
       return {
         anchors: [OPEN_NOW],
-        // The pane is square: it runs to the window's edges.
-        holeCorners: sameCorners(px(RADIUS.SQUARE)),
+        // O1. Its panels, not the column: that runs to the window's edges.
+        boxOf: panelsBox,
+        holeCorners: sameCorners(px(RADIUS.PANEL)),
         sides: LEFT_OF,
         isLive: false,
       };
     case 'findAndFit':
-      // The narrow rail draws no search row: the rail itself, as at step 1.
+      // The rail draws no search row: its card, as at step 1 (O1).
+      if (isRail) {
+        return {
+          anchors: [OPEN_NOW],
+          boxOf: panelsBox,
+          holeCorners: sameCorners(px(RADIUS.PANEL)),
+          sides: LEFT_OF,
+          isLive: true,
+        };
+      }
       return {
         anchors: [`${OPEN_NOW} [data-open-now-search]`, OPEN_NOW],
         boxOf: findAndFitBox,
@@ -123,7 +135,8 @@ export function runStepPlan(
         // KAN-999. Folded, the card and the row it names too, and the step
         // below the search row: left of it, it covered them.
         openings: [
-          { selector: '[data-resize-grip]' },
+          // O1. Too thin to ring: the edge is only lit.
+          { selector: '[data-resize-grip]', isRinged: false },
           ...(foldedSessionId === null
             ? []
             : [
@@ -188,8 +201,9 @@ export function runStepPlan(
         isLive: true,
       };
     // KAN-1023. The full view's drag between the two: the session's windows
-    // ringed, Currently open lit beside them, both look-only (a drop would
-    // open a window over the tour). The card sits over the saved list.
+    // ringed, Currently open lit beside them, both live to try a drag each
+    // way (round 2); windows stay put (TabGroupDetailsContainer, OpenNowPane).
+    // The card sits over the saved list.
     case 'drag':
       return {
         anchors: [WINDOWS],
@@ -198,7 +212,7 @@ export function runStepPlan(
         sides: LEFT_OF,
         within: SESSIONS_PANE,
         cardWidth: LIST_CARD_WIDTH,
-        isLive: false,
+        isLive: true,
       };
     case 'twoViews':
       return { anchors: [], sides: BELOW, isLive: false };

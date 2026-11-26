@@ -125,6 +125,7 @@ import { effectiveIncognito } from '../../../utils/functions/openIntoWindow';
 import { isIncognitoAllowed } from '../../../utils/functions/restoreSession';
 import { readLivePlacement } from '../../../redux/livePlacement';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
+import { selectIsDragStepHere } from '../../../redux/firstRun';
 import { dropBoxStyle } from '../../common/dropBoxStyle';
 import { DropBoxLabel } from '../../common/dropBox';
 import {
@@ -293,15 +294,19 @@ export default function OpenNowPane({
     (rowId: string) => liveGroupCarryOut(listed, rowId, recentTabsOf),
     [listed, recentTabsOf]
   );
+  // Round 2 (KAN-1023). The tour's drag step carries tabs and groups only.
+  const isDragStep = useSelector(selectIsDragStepHere);
   const carryWindowOut = useCallback(
     (rowId: string) =>
-      liveWindowCarryOut(
-        listed,
-        rowId,
-        (w) => inChromeOrder.indexOf(w) + 1,
-        recentTabsOf
-      ),
-    [listed, inChromeOrder, recentTabsOf]
+      isDragStep
+        ? null
+        : liveWindowCarryOut(
+            listed,
+            rowId,
+            (w) => inChromeOrder.indexOf(w) + 1,
+            recentTabsOf
+          ),
+    [isDragStep, listed, inChromeOrder, recentTabsOf]
   );
   const windowRowIds = useMemo(() => listed.map((w) => String(w.id)), [listed]);
 
@@ -417,9 +422,17 @@ export default function OpenNowPane({
   const savedTabGroups = useSelector(
     (state: RootState) => state.tabContainerDataState.tabGroups
   );
-  const tourBlocked = useIsOpenBlockedByTour(
-    carried?.source === 'saved' ? carried.ref.tabGroupId : undefined
-  );
+  // Round 2 (KAN-1023). The tour's drag step opens a tab or group dropped
+  // here; a window would open in front of the tour.
+  const tourBlocked =
+    useIsOpenBlockedByTour(
+      carried?.source === 'saved' ? carried.ref.tabGroupId : undefined
+    ) &&
+    !(
+      isDragStep &&
+      carried?.source === 'saved' &&
+      carried.ref.kind !== 'window'
+    );
   const takesCarry =
     carried?.source === 'saved' &&
     searchTerm === null &&
