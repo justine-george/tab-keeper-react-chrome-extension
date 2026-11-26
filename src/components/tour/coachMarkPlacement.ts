@@ -67,7 +67,7 @@ export const COACH = {
 const clamp = (value: number, low: number, high: number): number =>
   Math.min(Math.max(value, low), Math.max(low, high));
 
-// KAN-1020. Below, the card hangs from the anchor's start, or its end.
+// KAN-1020. Below, the card hangs from the anchor's start, or ends where it ends.
 export type BelowAt = 'start' | 'end';
 // Beyond the sides to try: where a card below hangs, and the box it stays
 // inside across (the window, when none).
@@ -95,7 +95,7 @@ function unclamped(
     return {
       left:
         at === 'end'
-          ? aimX(anchor, at) + COACH.NOTCH_INSET - mark.width
+          ? bright.left + bright.width - mark.width
           : aimX(anchor) - COACH.NOTCH_INSET,
       top: bright.top + bright.height + COACH.GAP_BELOW,
     };

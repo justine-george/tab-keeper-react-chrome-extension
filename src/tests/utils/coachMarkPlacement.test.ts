@@ -173,19 +173,19 @@ describe('placeBeside', () => {
 });
 
 // KAN-1020. Below a wide row, hung from its end: the card's right edge
-// sits as far in from the row's end as a start-hung card's left edge sits
-// in from its start, the notch aiming 46px in from the end.
+// lines up with the row's end, as the picked mock (B) drew it; the notch
+// aims 46px in from the end.
 describe('placeBeside below, hung from the anchor’s end', () => {
   const row = { left: 400, top: 120, width: 860, height: 44 };
-  test('the card ends 22px in from the row’s end; the notch aims 46px in', () => {
+  test('the card ends where the row ends; the notch aims 46px in', () => {
     const p = placeBeside(row, FULL_MARK, FULL_VIEW, STEP_2, row, {
       belowAt: 'end',
     });
     expect(p).toEqual({
       side: 'below',
-      left: 1260 - 22 - FULL_MARK.width,
+      left: 1260 - FULL_MARK.width,
       top: 178,
-      notch: FULL_MARK.width - 24,
+      notch: FULL_MARK.width - 46,
     });
     expect(p.left + p.notch).toBe(1260 - 46);
   });

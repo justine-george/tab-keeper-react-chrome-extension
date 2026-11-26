@@ -781,8 +781,8 @@ test.describe('with saved sessions', () => {
   });
 
   // KAN-1020. Typing at step 2 lists matches under the search row: the card
-  // sits under the row's right end, so the matches at its left stay in view.
-  test('step 2, folded: typing leaves the matches uncovered; the card sits under the search row at its right end', async ({
+  // ends where the row ends, so the matches at its left stay in view.
+  test('step 2, folded: typing leaves the matches uncovered; the card ends where the search row ends', async ({
     context,
     extensionId,
   }) => {
@@ -803,9 +803,10 @@ test.describe('with saved sessions', () => {
     const row = (await searchRow.boundingBox())!;
     const c = (await card(page).boundingBox())!;
     expect(c.y).toBeGreaterThan(row.y + row.height);
-    expect(c.x + c.width).toBeLessThanOrEqual(row.x + row.width);
-    // CONTROL: the card is beside the matches, not past the window.
-    expect(c.x + c.width).toBeGreaterThan(row.x + row.width - 60);
+    // The card's right edge lines up with the row's, as mock B drew it.
+    expect(Math.abs(c.x + c.width - (row.x + row.width))).toBeLessThanOrEqual(
+      4
+    );
   });
 
   test('step 2, folded: pressing the Saved session card unfolds; the step stays at 2 and names the edge', async ({
