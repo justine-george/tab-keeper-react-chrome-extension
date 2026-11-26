@@ -55,7 +55,34 @@ Read the full [privacy policy](PRIVACY.md).
 
 ## Changelog
 
-### v.2.5.0 (Latest)
+### v.2.6.0 (Latest)
+
+#### Features
+
+- Rows, menus and dialogs move into place. Added, saved and synced sessions slide in, deleted rows close up, folds, sorts, drops and edits glide, menus grow from what opened them, and dialogs rise with their dim. Every undo and redo plays its change backwards
+- Toasts show how long they have left and can be closed with their ×. Undo closes only the toast of the change it undid
+- A saved tab, group or window dropped into Currently open says where it opened, with Undo
+- In the full view, a folded pane keeps a card. Click Currently open's folded rail, or carry a drag onto either folded card, to see it beside the saved session
+
+#### Improvements
+
+- The header Undo reopens what you just closed in Currently open, as ⌘Z does
+- The tour's search step clears its matches, every lit area is ringed, presses the tour can't take say why, and the drag step lets you try dragging both ways, with an arrow for the way not yet tried
+- Setup's steps glide, the tour's dim fades in and out, and the full-view callout grows from ⤢. The tour's ending card links to the story behind Tab Keeper
+- A theme or language pick pops its check in, and a theme pick fades the page to the new colors
+- The full-view fold buttons say "Give … the full width", and the top row sits on one line
+- A drop onto New window lands on the box drawn for it, and the + shows only where letting go makes something
+- Settings › Language in the full view uses setup's wider language cells
+
+#### Fixes
+
+- A device on its own no longer shows "Synced changes from another device" after a mix of saves, undos and redos
+- A reopened group shows up named and colored straight away
+- Dragging a pane's grip no longer lights what it crosses
+- A window taken out at the scrolled end of a list leaves with the rows, never under them
+- Pane folds keep their edges, corners and frame lines whole mid-move
+
+### v.2.5.0
 
 #### Features
 
@@ -102,38 +129,6 @@ Read the full [privacy policy](PRIVACY.md).
 - A list that fits no longer grows a scrollbar mid-drag
 - A carried tab let go beside the pane, level with its own spot, no longer makes a new window
 - A carried item lands in a session that already holds its ids
-
-### v.2.3.0
-
-#### Features
-
-- Choose Tab Keeper's toolbar icon, in Settings › Display: Color, or Monochrome, which follows Chrome's light or dark mode
-- Change a group's color from its menu: right-click its title or open its ⋮ menu, on saved groups and in Currently open
-- Open saved tabs and groups in a new window, from their right-click menu
-- Copy links from open windows, in the save row's ⋮ menu. It follows the Copy links setting
-
-#### Improvements
-
-- Saved search starts at the top of the list, so the first match is in view. Clearing it puts you back where you were
-- Dialogs scroll inside a short window instead of running off it
-- Tooltips and screen-reader names use each language's own punctuation
-- A save field's hint that's too long for its field ends in an ellipsis
-- In the popup, Settings content starts under the title, and the Sync status icon lines up with its label
-- A group title's keyboard ring sits outside its text
-- English text uses American spelling
-
-#### Fixes
-
-- A tab suspended by another extension while it waited to load comes back with its real page when you go to it
-- The resize grips keep the width you chose, follow only the first touch, and stop on a lost pointer release. Ctrl+press on a Mac no longer starts a resize
-- A dragged item handed back to the session list lights its row straight away
-- Switching sessions from the keyboard mid-drag ends the drag, and with it the grabbing cursor
-- Undoing a sort puts a Tab Keeper page back in its slot, in a window or inside a group
-- Keyboard focus stays on the page's controls when the Currently open panel closes or goes away without a button press
-- Renaming a session or an open group out of the search match keeps keyboard focus
-- Esc closes Currently open's window menu even if its Sort item goes while the menu is open
-- Row actions hide after a rename once the pointer has moved away
-- An open cloud question closes when another page answers it
 
 ## Blog Posts
 

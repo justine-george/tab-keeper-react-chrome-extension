@@ -22,6 +22,16 @@ export type WhatsNewRelease =
 /** KAN-861: the main changes per release, newest first. The release PR renames 'next' to the manifest's version. */
 export const WHATS_NEW: readonly WhatsNewRelease[] = [
   {
+    version: '2.6.0',
+    entries: [
+      {
+        titleKey: 'WhatsNewAnimationsTitle',
+        bodyKey: 'WhatsNewAnimationsBody',
+        changesDefault: false,
+      },
+    ],
+  },
+  {
     version: '2.5.0',
     entries: [
       {

@@ -576,5 +576,7 @@
   "WhatsNewImportBookmarksTitle": "Importa tus carpetas de marcadores",
   "WhatsNewImportBookmarksBody": "En Configuración › Importación, marca las carpetas que quieras. Cada una se convierte en una sesión guardada, y tus marcadores se quedan como están.",
   "WhatsNewFoldGroupTitle": "Contrae un grupo de pestañas",
-  "WhatsNewFoldGroupBody": "Haz clic en la flecha que hay antes del nombre de un grupo para contraerlo. En «Pestañas abiertas», el grupo también se contrae en Chrome. Un grupo guardado que contraigas sigue contraído al abrirlo."
+  "WhatsNewFoldGroupBody": "Haz clic en la flecha que hay antes del nombre de un grupo para contraerlo. En «Pestañas abiertas», el grupo también se contrae en Chrome. Un grupo guardado que contraigas sigue contraído al abrirlo.",
+  "WhatsNewAnimationsTitle": "Animaciones más fluidas",
+  "WhatsNewAnimationsBody": "Las filas, los menús y los cuadros de diálogo ahora se colocan en su sitio con suavidad, para que veas qué ha cambiado."
 }

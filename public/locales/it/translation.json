@@ -576,5 +576,7 @@
   "WhatsNewImportBookmarksTitle": "Importa le cartelle dei segnalibri",
   "WhatsNewImportBookmarksBody": "In Impostazioni › Importazione, seleziona le cartelle che vuoi. Ognuna diventa una sessione salvata, e i tuoi segnalibri restano come sono.",
   "WhatsNewFoldGroupTitle": "Riduci un gruppo di schede",
-  "WhatsNewFoldGroupBody": "Fai clic sulla freccia prima del nome di un gruppo per ridurlo. In «Schede aperte», il gruppo si riduce anche in Chrome. Un gruppo salvato che riduci resta ridotto quando lo apri."
+  "WhatsNewFoldGroupBody": "Fai clic sulla freccia prima del nome di un gruppo per ridurlo. In «Schede aperte», il gruppo si riduce anche in Chrome. Un gruppo salvato che riduci resta ridotto quando lo apri.",
+  "WhatsNewAnimationsTitle": "Animazioni più fluide",
+  "WhatsNewAnimationsBody": "Righe, menu e finestre di dialogo ora si spostano al loro posto con fluidità, così vedi cosa è cambiato."
 }

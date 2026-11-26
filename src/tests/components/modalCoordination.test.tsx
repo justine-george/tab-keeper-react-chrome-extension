@@ -51,7 +51,7 @@ vi.mock('../../utils/constants/whatsNew', async (importOriginal) => {
   const plain: typeof actual.WHATS_NEW = [
     {
       version: 'next',
-      ships: '2.5.0',
+      ships: '2.6.0',
       entries: [{ ...withSettings, changesDefault: false }],
     },
   ];
@@ -490,13 +490,13 @@ describe('the full-view callout in the order (KAN-7 §6)', () => {
 describe("What's new in the order (KAN-861)", () => {
   afterEach(() => history.replaceState(null, '', '?'));
 
-  // An update from 2.4.0 waits; the manifest is far ahead, so 'next' reads as the 2.5.0 it ships as.
+  // An update from 2.5.0 waits; the manifest is far ahead, so 'next' reads as the 2.6.0 it ships as.
   const updated = (action?: ChromeSeed['action']): ChromeSeed => ({
-    localArea: { whatsNewSince: '2.4.0' },
+    localArea: { whatsNewSince: '2.5.0' },
     manifestVersion: '99.0.0',
     action,
   });
-  const TITLE = "What's new in Tab Keeper 2.5.0";
+  const TITLE = "What's new in Tab Keeper 2.6.0";
   const findWhatsNew = () =>
     screen.findByRole('dialog', { name: (n) => n === TITLE });
   const settleAsks = () =>
@@ -611,7 +611,7 @@ describe("What's new in the order (KAN-861)", () => {
       expect(document.documentElement.dataset.firstOpen).toBe(claimedBy)
     );
     expect(store.getState().globalState.whatsNew).toBeNull();
-    expect(chrome.localArea().whatsNewSince).toBe('2.4.0');
+    expect(chrome.localArea().whatsNewSince).toBe('2.5.0');
   });
 
   test('full view: after setup and the pin guide, the update shows it', async () => {

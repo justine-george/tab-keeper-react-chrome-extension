@@ -555,5 +555,7 @@
   "WhatsNewImportBookmarksTitle": "Import your bookmark folders",
   "WhatsNewImportBookmarksBody": "In Settings › Import, tick the folders you want. Each one becomes a saved session, and your bookmarks stay as they are.",
   "WhatsNewFoldGroupTitle": "Fold a tab group",
-  "WhatsNewFoldGroupBody": "Click the arrow next to a group's name to fold it. In Currently open, this folds the group in Chrome too. A saved group you fold stays folded when you open it."
+  "WhatsNewFoldGroupBody": "Click the arrow next to a group's name to fold it. In Currently open, this folds the group in Chrome too. A saved group you fold stays folded when you open it.",
+  "WhatsNewAnimationsTitle": "Smoother animations",
+  "WhatsNewAnimationsBody": "Rows, menus and dialogs now move smoothly into place, so you can see what changed."
 }
