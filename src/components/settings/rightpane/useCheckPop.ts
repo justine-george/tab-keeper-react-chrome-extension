@@ -10,9 +10,12 @@ export function useCheckPop(
   cells: RefObject<HTMLElement | null>,
   picked: string
 ): void {
-  const shown = useRef(false);
+  // The pick last drawn: a change from it is a pick (StrictMode's second run
+  // of the effect sees no change).
+  const drawn = useRef(picked);
   useLayoutEffect(() => {
-    if (shown.current) popPressedCheck(cells.current);
-    shown.current = true;
+    if (drawn.current === picked) return;
+    drawn.current = picked;
+    popPressedCheck(cells.current);
   }, [cells, picked]);
 }

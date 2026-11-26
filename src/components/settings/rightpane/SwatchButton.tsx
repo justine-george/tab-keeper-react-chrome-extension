@@ -120,11 +120,13 @@ export default function SwatchButton({
 
   const frameRef = useRef<HTMLSpanElement>(null);
   const checkRef = useRef<HTMLSpanElement>(null);
-  const shown = useRef(false);
-  // A pick, not the first paint: the marker moves.
+  // The state last drawn: a change from it is a pick (StrictMode's second run
+  // of the effect sees no change).
+  const drawn = useRef(isActive);
   useLayoutEffect(() => {
-    if (shown.current) moveMarker(isActive, frameRef.current, checkRef.current);
-    shown.current = true;
+    if (drawn.current === isActive) return;
+    drawn.current = isActive;
+    moveMarker(isActive, frameRef.current, checkRef.current);
   }, [isActive]);
 
   const nameStyle = css`
