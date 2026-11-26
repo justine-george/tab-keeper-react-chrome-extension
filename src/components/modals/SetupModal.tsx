@@ -14,7 +14,8 @@ import TabKeeperMark from '../common/TabKeeperMark';
 import { KEYS_SLOT, ShortcutSentence } from '../common/ShortcutSentence';
 import { slidingPairColors } from '../common/slidingPairColors';
 import { pressedCellStyle } from '../common/pressedCellStyle';
-import { pickLanguage, pickTheme } from '../settings/rightpane/pickMotion';
+import { pickTheme } from '../settings/rightpane/pickMotion';
+import { useCheckPop } from '../settings/rightpane/useCheckPop';
 import ThemeSwatch from '../settings/rightpane/ThemeSwatch';
 import { chromeLanguageOrder } from '../settings/rightpane/languageOptions';
 import { themeChoices } from '../settings/rightpane/themeChoices';
@@ -85,6 +86,9 @@ export const SetupModal: React.FC = () => {
   const dispatch: AppDispatch = useDispatch();
   const theme = useSelector((s: RootState) => s.settingsDataState.theme);
   const language = useSelector((s: RootState) => s.settingsDataState.language);
+  // KAN-1031. A pick pops the new cell's check in.
+  const languageCells = useRef<HTMLDivElement>(null);
+  useCheckPop(languageCells, language);
   const settings = useSelector((s: RootState) => s.settingsDataState);
   const hasTabGroups = useSelector(
     (s: RootState) => s.globalState.hasTabGroupsPermission
@@ -154,11 +158,7 @@ export const SetupModal: React.FC = () => {
     // A Go back pressed while Chrome answered wins over this late move.
     setStepIndex((at) => (at === from ? from + 1 : at));
   };
-  // KAN-1031. The cells' grid, where the new check pops in.
-  const choose = (next: Language, cells: HTMLElement | null) =>
-    pickLanguage(cells, next, language, () =>
-      dispatch(chooseLanguage(next, i18n))
-    );
+  const pickLanguage = (next: Language) => dispatch(chooseLanguage(next, i18n));
 
   const buttons = dialogButtonStyles(COLORS);
   const titleSize = dialogTitleSize();
@@ -352,7 +352,7 @@ export const SetupModal: React.FC = () => {
     language: {
       heading: t('Which language do you prefer?'),
       body: (
-        <div css={languageGridStyle}>
+        <div ref={languageCells} css={languageGridStyle}>
           {languages.map(([id, endonym]) => {
             const isActive = language === id;
             return (
@@ -362,7 +362,7 @@ export const SetupModal: React.FC = () => {
                 lang={id}
                 aria-pressed={isActive}
                 css={[buttons.quiet, cellStyle, isActive && pressedCell]}
-                onClick={(e) => choose(id, e.currentTarget.parentElement)}
+                onClick={() => pickLanguage(id)}
               >
                 {isActive && (
                   <Icon

@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react';
-import { useTranslation } from 'react-i18next';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useDispatch, useSelector, useStore } from 'react-redux';
 
@@ -51,10 +44,7 @@ import {
 } from '../redux/savedSessionFold';
 import { useOpenNowPlace } from '../hooks/useOpenNowPlace';
 import { paneMotionCss } from './home/paneMotion';
-import {
-  noteLanguageShown,
-  pickMotionCss,
-} from './settings/rightpane/pickMotion';
+import { pickMotionCss } from './settings/rightpane/pickMotion';
 import LeftPaneSettings from './settings/leftpane/LeftPaneSettings';
 import RightPaneSettings from './settings/rightpane/RightPaneSettings';
 import { selectUndoKeyTarget } from '../redux/slices/globalStateSlice';
@@ -97,9 +87,6 @@ function isNativelyUndoableTarget(target: EventTarget | null): boolean {
 
 export default function MainContainer() {
   const COLORS = useThemeColors();
-  // KAN-1031. Every word is drawn in the new language: a pick's fade may go on.
-  const { i18n } = useTranslation();
-  useLayoutEffect(() => noteLanguageShown(i18n.language), [i18n.language]);
   const dispatch: AppDispatch = useDispatch();
   // The key handler reads the store at keydown, never a value from the last render (KAN-744).
   const store = useStore<RootState>();

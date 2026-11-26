@@ -10,7 +10,8 @@ import { focusRingOutsideCss } from '../../common/focusRing';
 import { RecentlyDeleted } from './RecentlyDeleted';
 import ClickableTabKeeperMark from '../../common/ClickableTabKeeperMark';
 import HelpSettings from './HelpSettings';
-import { pickLanguage, pickTheme } from './pickMotion';
+import { pickTheme } from './pickMotion';
+import { useCheckPop } from './useCheckPop';
 import ThemeSwatch from './ThemeSwatch';
 import ToolbarIconTiles from './ToolbarIconTiles';
 import { chromeLanguageOrder } from './languageOptions';
@@ -134,6 +135,9 @@ const SettingsDetailsContainer: React.FC = () => {
   const settingsData = useSelector(
     (state: RootState) => state.settingsDataState
   );
+  // KAN-1031. A language pick pops the new cell's check in.
+  const languageCellsRef = useRef<HTMLDivElement>(null);
+  useCheckPop(languageCellsRef, settingsData.language);
 
   const hasTabGroups = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
@@ -1103,6 +1107,7 @@ const SettingsDetailsContainer: React.FC = () => {
           </div>
 
           <div
+            ref={languageCellsRef}
             css={css`
               display: grid;
               /* KAN-510. Two 200px columns from the label's edge: half the
@@ -1124,14 +1129,8 @@ const SettingsDetailsContainer: React.FC = () => {
                   iconType={isActive ? 'check' : undefined}
                   iconSize={ICON.SMALL}
                   iconColor={pressed.labelOnKnob}
-                  onClick={(e) => {
-                    // KAN-1031. The cells' grid, where the new check pops in.
-                    pickLanguage(
-                      e.currentTarget.parentElement,
-                      language,
-                      settingsData.language,
-                      () => dispatch(chooseLanguage(language, i18n))
-                    );
+                  onClick={() => {
+                    dispatch(chooseLanguage(language, i18n));
                   }}
                   // Border-box and a fixed height, so the check moves nothing.
                   style={`width: 100%; min-width: 0; justify-content: center; ${
