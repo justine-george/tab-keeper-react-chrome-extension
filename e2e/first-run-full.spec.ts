@@ -35,7 +35,7 @@ import {
   watchRunDrawn,
 } from './fixtures/run';
 
-// §3 on the real build, from Help: 9 cards, each in its mocked place.
+// §3 on the real build, from Help: 10 cards, each in its mocked place.
 
 // How many tabs the browser has gained since now, read from the browser itself, not from the harness's announcement.
 async function watchNewTabs(page: Page): Promise<() => Promise<number>> {
@@ -61,7 +61,7 @@ const ring = (page: Page) =>
     return { left, top, width, height, bottom };
   });
 
-test('Help starts at card 1 with no Hello; the nine cards in their places, Back and Next, and Not now', async ({
+test('Help starts at card 1 with no Hello; the ten cards in their places, Back and Next, and Not now', async ({
   context,
   extensionId,
 }) => {
@@ -72,7 +72,7 @@ test('Help starts at card 1 with no Hello; the nine cards in their places, Back 
   await expect.poll(() => cardSide(page)).toBe('left');
   await expect(card(page).getByRole('progressbar')).toHaveAttribute(
     'aria-valuetext',
-    'Step 1 of 9'
+    'Step 1 of 10'
   );
   // KAN-562: led by the name, so it can't read as "this is open at the moment".
   await expect(card(page)).toContainText(
@@ -112,6 +112,29 @@ test('Help starts at card 1 with no Hello; the nine cards in their places, Back 
   await expect(engaged).toHaveCount(1);
   // R7: the lit row is look-only.
   expect(await hitAt(page, ...(await centreOf(engaged)))).toBe('still');
+  // KAN-1021. The card says the session shows on the right: that pane's
+  // header and windows are lit too, and look-only like the row.
+  await landedAt(page, 4);
+  const detail = page.locator('[data-pane="detail"]');
+  const windows = detail.locator('[data-tour-anchor="windows"]');
+  const header = detail.locator('[data-tour-anchor="session-menu"]');
+  expect(await hitAt(page, ...(await centreOf(windows)))).toBe('still');
+  expect(await hitAt(page, ...(await centreOf(header)))).toBe('still');
+  // CONTROL: Currently open, which the card doesn't name, stays dimmed.
+  expect(
+    await hitAt(
+      page,
+      ...(await centreOf(page.locator('[data-pane="open-now"]')))
+    )
+  ).toBe('dim');
+  // The card stays inside the saved list, clear of the pane it lights.
+  const sessions = (await page
+    .locator('[data-pane="sessions"]')
+    .boundingBox())!;
+  const step4 = (await card(page).boundingBox())!;
+  expect(step4.x + step4.width).toBeLessThanOrEqual(
+    sessions.x + sessions.width
+  );
   await nextTo(page, 5);
   const open = page.locator(
     '[data-pane="sessions"] [data-tour-anchor="row-open"]'
@@ -124,8 +147,9 @@ test('Help starts at card 1 with no Hello; the nine cards in their places, Back 
   await twoFrames(page);
   expect(await opened()).toBe(0);
   // KAN-586. Replace, explained under the row's Replace, which is look-only.
+  // KAN-1022. A habit, not a definition.
   await expect(card(page)).toContainText(
-    'Replace keeps this saved session up to date by overwriting it with what you have open now. Nothing closes.'
+    'Before you shut down, press Replace to save what you have open over this session. Nothing closes.'
   );
   await expect.poll(() => cardSide(page)).toBe('below');
   const replace = page.locator(
@@ -151,7 +175,51 @@ test('Help starts at card 1 with no Hello; the nine cards in their places, Back 
   // windows; it sits under them (Justine, 2026-10-16). Read once landed: mid-move it can pass through below.
   await landedAt(page, 8);
   expect(await cardSide(page)).toBe('below');
+  // KAN-1023. The window's own menu, named on its card.
+  await expect(card(page)).toContainText(
+    "Each window can be opened on its own. Click a window's title to rename it, or right-click it for more."
+  );
+  // KAN-1023. Dragging between the session and Currently open, a second way
+  // in: the windows ringed, Currently open lit, both look-only.
   await nextTo(page, 9);
+  await landedAt(page, 9);
+  await expect(card(page).getByRole('progressbar')).toHaveAttribute(
+    'aria-valuetext',
+    'Step 9 of 10'
+  );
+  await expect(card(page)).toContainText(
+    'You can also drag a window or tab from this session into Currently open to open it, or from Currently open into a session to save a copy there.'
+  );
+  expect(await cardSide(page)).toBe('left');
+  // The ring is on the session's windows.
+  const dragRing = await ring(page);
+  const windowsBox = (await windows.boundingBox())!;
+  const ringMiddle = [
+    dragRing.left + dragRing.width / 2,
+    dragRing.top + dragRing.height / 2,
+  ];
+  expect(ringMiddle[0]).toBeGreaterThan(windowsBox.x);
+  expect(ringMiddle[0]).toBeLessThan(windowsBox.x + windowsBox.width);
+  expect(ringMiddle[1]).toBeGreaterThan(windowsBox.y);
+  expect(ringMiddle[1]).toBeLessThan(windowsBox.y + windowsBox.height);
+  expect(await hitAt(page, ...(await centreOf(windows)))).toBe('still');
+  const openNowList = page.locator(
+    '[data-pane="open-now"] [data-open-now-search]'
+  );
+  expect(await hitAt(page, ...(await centreOf(openNowList)))).toBe('still');
+  // CONTROL: the saved list beside it stays dimmed.
+  expect(
+    await hitAt(
+      page,
+      (await page.locator('[data-pane="sessions"]').boundingBox())!.x + 20,
+      790
+    )
+  ).toBe('dim');
+  const step9 = (await card(page).boundingBox())!;
+  expect(step9.x + step9.width).toBeLessThanOrEqual(
+    sessions.x + sessions.width
+  );
+  await nextTo(page, 10);
   await expect.poll(() => cardSide(page)).toBe('free');
   await expect(page.locator('[data-coach-ring]')).toHaveCount(0);
   await expect(cardButton(page, 'Skip tutorial')).toHaveCount(0);
@@ -504,7 +572,7 @@ test('Pin this tab pins this tab and ends the run', async ({
   expect(await pinned()).toBe(false);
   for (let step = 2; step <= 3; step++) await nextTo(page, step);
   await cardButton(page, 'Use an example').click();
-  for (let step = 5; step <= 9; step++) await nextTo(page, step);
+  for (let step = 5; step <= 10; step++) await nextTo(page, step);
   // KAN-562: about the tab, so it isn't read as the toolbar pin that follows.
   await expect(card(page)).toContainText(
     'Keep Tab Keeper open in a pinned tab.'
@@ -529,7 +597,7 @@ test('Esc on a middle card is Skip tutorial; on the last it is Not now (R5); on 
   await expect(cardAt(page, 1)).toBeVisible();
   for (let step = 2; step <= 3; step++) await nextTo(page, step);
   await cardButton(page, 'Use an example').click();
-  for (let step = 5; step <= 9; step++) await nextTo(page, step);
+  for (let step = 5; step <= 10; step++) await nextTo(page, step);
   await page.keyboard.press('Escape');
   await expect.poll(() => storedRun(page)).toMatchObject({ ended: 'finished' });
   await expect(replayNote(page)).toBeVisible();
@@ -710,6 +778,34 @@ test.describe('with saved sessions', () => {
     expect(await reachable(page, sessionRow(page, selected))).toBe(true);
     // CONTROL: the row not selected stays dimmed.
     expect(await reachable(page, sessionRow(page, other))).toBe(false);
+  });
+
+  // KAN-1020. Typing at step 2 lists matches under the search row: the card
+  // sits under the row's right end, so the matches at its left stay in view.
+  test('step 2, folded: typing leaves the matches uncovered; the card sits under the search row at its right end', async ({
+    context,
+    extensionId,
+  }) => {
+    const { page } = await atFoldedStep2(context, extensionId);
+    const searchRow = page.locator(
+      '[data-pane="open-now"] [data-open-now-search]'
+    );
+    await searchRow.locator('input').fill('blank');
+    const match = page
+      .locator('[data-pane="open-now"]')
+      .getByText('about:blank', { exact: true })
+      .first();
+    // PREMISE: the profile's blank tab is a match to cover.
+    await expect(match).toBeVisible();
+    await landedAt(page, 2);
+    expect(await cardSide(page)).toBe('below');
+    expect(await overlaps(card(page), match)).toBe(false);
+    const row = (await searchRow.boundingBox())!;
+    const c = (await card(page).boundingBox())!;
+    expect(c.y).toBeGreaterThan(row.y + row.height);
+    expect(c.x + c.width).toBeLessThanOrEqual(row.x + row.width);
+    // CONTROL: the card is beside the matches, not past the window.
+    expect(c.x + c.width).toBeGreaterThan(row.x + row.width - 60);
   });
 
   test('step 2, folded: pressing the Saved session card unfolds; the step stays at 2 and names the edge', async ({
@@ -934,7 +1030,7 @@ test.describe('with saved sessions', () => {
       ]);
     // CONTROL: while the run points at it, its Open is dimmed and blocked.
     expect(await look()).toEqual(['opacity(0.3)', 'true']);
-    for (let step = 5; step <= 9; step++) await nextTo(page, step);
+    for (let step = 5; step <= 10; step++) await nextTo(page, step);
     await cardButton(page, 'Not now').click();
     await expect
       .poll(() => storedRun(page))

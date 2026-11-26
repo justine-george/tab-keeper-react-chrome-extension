@@ -6,6 +6,7 @@ import CoachMark from './CoachMark';
 import GlyphSentence from './GlyphSentence';
 import { GLYPH_SLOT } from './glyphSlot';
 import { CARD_WIDTH, PIN_CARD_WIDTH, runStepPlan } from './runSteps';
+import { boxOfFirst } from './anchorBox';
 import {
   placeBeside,
   placeInPopupPane,
@@ -381,8 +382,9 @@ export default function FirstRun() {
         };
       case 'replace':
         return {
+          // KAN-1022. A habit to keep, not a definition.
           text: t(
-            'Replace keeps this saved session up to date by overwriting it with what you have open now. Nothing closes.'
+            'Before you shut down, press Replace to save what you have open over this session. Nothing closes.'
           ),
           primary: next,
         };
@@ -399,7 +401,15 @@ export default function FirstRun() {
       case 'windows':
         return {
           text: t(
-            "Each window can be opened on its own. Click a window's title to rename it."
+            "Each window can be opened on its own. Click a window's title to rename it, or right-click it for more."
+          ),
+          primary: next,
+        };
+      // KAN-1023. "also": a second way in, beside Open, not in its place.
+      case 'drag':
+        return {
+          text: t(
+            'You can also drag a window or tab from this session into Currently open to open it, or from Currently open into a session to save a copy there.'
           ),
           primary: next,
         };
@@ -425,6 +435,7 @@ export default function FirstRun() {
   const card = cardFor();
 
   const sides = plan.sides;
+  const { belowAt, within } = plan;
   const place =
     sides === 'pane'
       ? placeInPopupPane
@@ -434,7 +445,10 @@ export default function FirstRun() {
           viewport: Size,
           bright: Box
         ): AnchoredPlacement =>
-          placeBeside(anchor, mark, viewport, sides, bright);
+          placeBeside(anchor, mark, viewport, sides, bright, {
+            belowAt,
+            within: within === undefined ? undefined : boxOfFirst(within),
+          });
 
   return (
     <CoachMark
@@ -452,7 +466,7 @@ export default function FirstRun() {
       openings={plan.openings}
       holeCorners={plan.holeCorners}
       isLive={plan.isLive}
-      width={card.width ?? CARD_WIDTH[run.view]}
+      width={card.width ?? plan.cardWidth ?? CARD_WIDTH[run.view]}
       place={place}
       onSkip={isLast ? undefined : skip}
       onBack={

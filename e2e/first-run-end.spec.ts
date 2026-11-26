@@ -90,7 +90,7 @@ test.beforeEach(async ({ context }) => {
   await seedSettings(context, { isPinGuideDismissed: false });
 });
 
-test('Not now at step 9: setup, then on Skip setup the pin guide', async ({
+test('Not now at step 10: setup, then on Skip setup the pin guide', async ({
   context,
   extensionId,
 }) => {
@@ -146,11 +146,11 @@ test('Skip tutorial: the note, and nothing opens after it (R8, KAN-499)', async 
   expect((await storedSettings(page)).setupState).toBe('none');
 });
 
-// KAN-755: step 9 points at nothing, as the tab strip may be on top or down the side; it waits for no platform answer.
+// KAN-755: step 10 points at nothing, as the tab strip may be on top or down the side; it waits for no platform answer.
 // CONTROL: the same recorder on step 1, which is anchored, sees its one notch.
 const PLATFORMS = ['mac', 'win', 'never answers'] as const;
 for (const [os, step, notches] of [
-  ...PLATFORMS.map((os) => [os, 9, 0] as const),
+  ...PLATFORMS.map((os) => [os, 10, 0] as const),
   ['win', 1, 1] as const,
 ]) {
   test(`step ${step} resumed (${os}): every drawn frame has ${notches} notch${notches === 1 ? '' : 'es'}`, async ({
@@ -195,7 +195,7 @@ for (const [os, step, notches] of [
     if (!Array.isArray(frames)) throw new Error('no frame record');
     expect(frames.length).toBeGreaterThan(0);
     expect([...new Set(frames)]).toEqual([
-      step === 9 ? '0 40px 20px' : `${notches}`,
+      step === 10 ? '0 40px 20px' : `${notches}`,
     ]);
   });
 }
@@ -234,21 +234,21 @@ for (const how of ['Skip setup', 'Done'] as const) {
   });
 }
 
-// KAN-457: step 9's buttons are one row at the default size.
+// KAN-457: step 10's buttons are one row at the default size.
 // KAN-970: Not now sits on their row, at its left, its words on the text edge, as Skip tutorial does.
-// KAN-755: no notch, on any platform; step 8, the anchored card before it, has its one.
+// KAN-755: no notch, on any platform; step 9, the anchored card before it, has its one.
 for (const os of ['mac', 'win'] as const) {
-  test(`step 9 (${os}): Not now, Back and Pin this tab one row, Not now on the text edge; no notch`, async ({
+  test(`step 10 (${os}): Not now, Back and Pin this tab one row, Not now on the text edge; no notch`, async ({
     context,
     extensionId,
   }) => {
     await platformSays(context, os);
     const page = await openRunningFullView(context, extensionId, false);
     await walkFullRunToLastStep(page);
-    const card = cardAt(page, 9);
+    const card = cardAt(page, 10);
     // KAN-569: the step changes a frame before the card moves; measure once it sits free and has glided there.
     await expect(card).toHaveAttribute('data-coach-side', 'free');
-    await landedAt(page, 9);
+    await landedAt(page, 10);
     await expect(card.locator('[data-coach-notch]')).toHaveCount(0);
     const geometry = await card.evaluate((el) => {
       const box = (e: Element | null) => {
@@ -292,9 +292,9 @@ for (const os of ['mac', 'win'] as const) {
     expect(
       Math.abs(geometry.notNowWords - geometry.textEdge)
     ).toBeLessThanOrEqual(0.5);
-    // CONTROL: Back to step 8, anchored, and its notch is drawn.
+    // CONTROL: Back to step 9, anchored, and its notch is drawn.
     await cardButton(page, 'Back').click();
-    await landedAt(page, 8);
-    await expect(cardAt(page, 8).locator('[data-coach-notch]')).toHaveCount(1);
+    await landedAt(page, 9);
+    await expect(cardAt(page, 9).locator('[data-coach-notch]')).toHaveCount(1);
   });
 }

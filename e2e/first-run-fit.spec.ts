@@ -666,13 +666,13 @@ for (const [theme, palette] of THEMES) {
         palette,
         `${theme} Start`
       );
-      for (let step = 1; step <= 9; step++) {
+      for (let step = 1; step <= 10; step++) {
         if (step > 1 && step !== 4) await nextTo(page, step);
         await expect(cardAt(page, step)).toBeVisible();
         await expectCardReads(
           page,
           `${theme} full step ${step}`,
-          step === 9
+          step === 10
             ? [
                 'It moves to the start of your tab bar and stays there, here and in every window Tab Keeper opens. You can turn this off in Settings › Quick access.',
               ]

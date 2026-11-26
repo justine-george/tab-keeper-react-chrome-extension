@@ -15,7 +15,10 @@ import {
   cardAt,
   cardButton,
   cardSide,
+  centreOf,
   closeReplayNote,
+  hitAt,
+  landedAt,
   nextTo,
   openRunFromHelp,
   openRunFromHelpIn,
@@ -115,6 +118,29 @@ test('step 2 names the list, and step 6 says right-clicking the title opens the 
   await expect(card(page)).toContainText(
     'Right-click a session, window, group or tab to open its menu.'
   );
+});
+
+// KAN-1021. The popup's right pane is the one step 2's card points to: lit with the row, look-only.
+test('step 2 lights the right pane with the row, look-only; the list around the row stays dimmed', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openRunFromHelp(context, extensionId, POPUP_RUN);
+  await toStepTwo(page);
+  await landedAt(page, 2);
+  const detail = page.locator('[data-pane="detail"]');
+  for (const part of [
+    detail.locator('[data-tour-anchor="windows"]'),
+    detail.locator('[data-tour-anchor="session-menu"]'),
+  ])
+    expect(await hitAt(page, ...(await centreOf(part)))).toBe('still');
+  // CONTROL: the list under the card's row stays dimmed.
+  const sessions = (await page
+    .locator('[data-pane="sessions"]')
+    .boundingBox())!;
+  expect(
+    await hitAt(page, sessions.x + 20, sessions.y + sessions.height - 10)
+  ).toBe('dim');
 });
 
 test('⤢ at step 8 ends the run, then opens the full view', async ({

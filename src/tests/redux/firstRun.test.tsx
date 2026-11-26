@@ -1002,7 +1002,7 @@ describe('KAN-830: a short run', () => {
     return runOf(store)?.sessionId ?? '';
   };
 
-  test('Next and Back walk 1 → 2 → 9 → 2 → 1; Next stops at 9', async () => {
+  test('Next and Back walk 1 → 2 → 10 → 2 → 1; Next stops at 10', async () => {
     const { store } = makeTestStore();
     await store.dispatch(startRun(newFullViewStepsRun(null)));
     const walked: unknown[] = [];
@@ -1016,7 +1016,7 @@ describe('KAN-830: a short run', () => {
     await press(stepRunBack);
     await press(stepRunBack);
     await press(stepRunBack);
-    expect(walked).toEqual([2, 9, 9, 2, 1, 1]);
+    expect(walked).toEqual([2, 10, 10, 2, 1, 1]);
   });
 
   test('its end removes the popup tour’s example it carried, as an undoable delete', async () => {
@@ -1132,12 +1132,12 @@ describe('KAN-878: the pin card is decided per run shown here', () => {
     expect(pinCardOf(store)).toBe('skip');
   });
 
-  test('Next from Windows goes nowhere when skipped', async () => {
+  test('Next from the drag card goes nowhere when skipped', async () => {
     const store = fullPage(true, true);
-    await store.dispatch(startRun({ ...newRun('full', 8), sessionId: 'own' }));
+    await store.dispatch(startRun({ ...newRun('full', 9), sessionId: 'own' }));
     await store.dispatch(decidePinCard());
     await store.dispatch(advanceRun());
-    expect(runOf(store)?.step).toBe(8);
+    expect(runOf(store)?.step).toBe(9);
   });
 
   test('a late answer after the run stopped here is dropped', async () => {

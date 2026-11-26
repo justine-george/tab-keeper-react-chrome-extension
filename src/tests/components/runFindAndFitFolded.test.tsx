@@ -31,6 +31,15 @@ describe('step 2, folded behind the Saved session card', () => {
     expect(p?.openings?.map((o) => o.selector)).toEqual(['[data-resize-grip]']);
     expect(p?.sides).toEqual(['left', 'below', 'right']);
   });
+
+  // KAN-1020. Typing lists matches from the left under the search row, so
+  // below it the card hangs from the row's right end, folded or not.
+  test.each([['S1'], [null]])(
+    'below the search row, the card hangs from its end (folded on %s)',
+    (folded) => {
+      expect(plan(folded)?.belowAt).toBe('end');
+    }
+  );
 });
 
 // The row's fill, clipped to what its list shows: a row scrolled out of

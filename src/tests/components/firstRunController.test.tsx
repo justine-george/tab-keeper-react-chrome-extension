@@ -271,7 +271,7 @@ describe('the controller', () => {
     const update = vi.spyOn(chrome.tabs, 'update');
     await act(async () => {
       await r.store.dispatch(
-        startRun({ ...newRun('full', 9), sessionId: 'own' })
+        startRun({ ...newRun('full', 10), sessionId: 'own' })
       );
     });
     fireEvent.click(
@@ -302,7 +302,7 @@ describe('the controller', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     await act(async () => {
       await r.store.dispatch(
-        startRun({ ...newRun('full', 9), sessionId: 'own' })
+        startRun({ ...newRun('full', 10), sessionId: 'own' })
       );
     });
     fireEvent.click(
@@ -517,14 +517,14 @@ describe('KAN-623: the compact-view card', () => {
     ).toHaveTextContent('close_fullscreen');
   });
 
-  test('Next goes to step 1, which counts 1 of 9', async () => {
+  test('Next goes to step 1, which counts 1 of 10', async () => {
     const r = await renderCard();
     await screen.findByRole('dialog', { name: COMPACT_TEXT });
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     await waitFor(() => expect(runOf(r)?.step).toBe(1));
     expect(await screen.findByRole('progressbar')).toHaveAttribute(
       'aria-valuetext',
-      'Step 1 of 9'
+      'Step 1 of 10'
     );
   });
 
@@ -549,7 +549,7 @@ describe('KAN-623: the compact-view card', () => {
     document.querySelector('[data-tour-anchor="compact"]')?.remove();
     await renderCard({ hasOpenPopup: false });
     await waitFor(() => expect(mark()).toHaveTextContent(COMPACT_SHORT));
-    // Placed where step 9's card sits, not waiting on an anchor that never comes.
+    // Placed where step 10's card sits, not waiting on an anchor that never comes.
     await waitFor(() =>
       expect(mark()).toHaveAttribute('data-coach-side', 'free')
     );
@@ -605,12 +605,12 @@ describe('KAN-830: the short full-view tour', () => {
     expect(mark()).toHaveAttribute('data-coach-kind', 'findAndFit');
     expect(progress()).toHaveAttribute('aria-valuetext', 'Step 2 of 3');
     expect(screen.getByRole('button', { name: 'Back' })).toBeVisible();
-    await next('9');
+    await next('10');
     expect(mark()).toHaveAttribute('data-coach-kind', 'twoViews');
     expect(progress()).toHaveAttribute('aria-valuetext', 'Step 3 of 3');
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     await waitFor(() => expect(runOf(r)?.step).toBe(2));
-    await next('9');
+    await next('10');
     fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
     await waitFor(() => expect(runOf(r)?.ended).toBe('finished'));
   });
@@ -621,18 +621,18 @@ describe('KAN-830: the short full-view tour', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(runOf(first)?.ended).toBe('skipped');
     first.unmount();
-    const last = await renderAt({ ...newFullViewStepsRun(null), step: 9 });
+    const last = await renderAt({ ...newFullViewStepsRun(null), step: 10 });
     await waitFor(() => expect(mark()).not.toHaveAttribute('aria-hidden'));
     expect(screen.queryByRole('button', { name: 'Skip tutorial' })).toBeNull();
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(runOf(last)?.ended).toBe('finished');
   });
 
-  // CONTROL: the whole tour still counts of 9.
-  test('a whole run at step 1 still reads 1 of 9', async () => {
+  // CONTROL: the whole tour still counts of 10.
+  test('a whole run at step 1 still reads 1 of 10', async () => {
     await renderAt(newRun('full', 1));
     await shown('1');
-    expect(progress()).toHaveAttribute('aria-valuetext', 'Step 1 of 9');
+    expect(progress()).toHaveAttribute('aria-valuetext', 'Step 1 of 10');
   });
 });
 
@@ -694,17 +694,17 @@ describe('KAN-878: a tour without the pin card', () => {
       .querySelector('[data-coach-mark] [role="progressbar"]')
       ?.getAttribute('aria-valuetext');
 
-  test('the windows card is last: 8 of 8, Done, no Skip tutorial', async () => {
-    await renderPinnedAt({ ...newRun('full', 8), sessionId: 'own' }, true);
+  test('the drag card is last: 9 of 9, Done, no Skip tutorial', async () => {
+    await renderPinnedAt({ ...newRun('full', 9), sessionId: 'own' }, true);
     await button('Done');
-    expect(count()).toBe('Step 8 of 8');
+    expect(count()).toBe('Step 9 of 9');
     expect(cardButtons()).not.toContain('Next');
     expect(cardButtons()).not.toContain('Skip tutorial');
   });
 
   test('Done finishes the run, as Not now does, and the replay note follows', async () => {
     const r = await renderPinnedAt(
-      { ...newRun('full', 8), sessionId: 'own' },
+      { ...newRun('full', 9), sessionId: 'own' },
       true
     );
     fireEvent.click(await button('Done'));
@@ -718,14 +718,14 @@ describe('KAN-878: a tour without the pin card', () => {
     expect(count()).toBe('Step 2 of 2');
   });
 
-  test('pinned with the setting off: 8 of 9 with Next, and the pin card after', async () => {
-    await renderPinnedAt({ ...newRun('full', 8), sessionId: 'own' }, false);
+  test('pinned with the setting off: 9 of 10 with Next, and the pin card after', async () => {
+    await renderPinnedAt({ ...newRun('full', 9), sessionId: 'own' }, false);
     fireEvent.click(await button('Next'));
     expect(await button('Pin this tab')).toBeTruthy();
-    expect(count()).toBe('Step 9 of 9');
+    expect(count()).toBe('Step 10 of 10');
   });
 
-  test('counted cards wait for the decision, so 8 of 9 never shows', async () => {
+  test('counted cards wait for the decision, so 9 of 10 never shows', async () => {
     let answer: (tab: chrome.tabs.Tab) => void = () => undefined;
     const counts: (string | null)[] = [];
     const seen = new MutationObserver(() => {
@@ -751,7 +751,7 @@ describe('KAN-878: a tour without the pin card', () => {
     );
     await act(async () => {
       await r.store.dispatch(
-        startRun({ ...newRun('full', 8), sessionId: 'own' })
+        startRun({ ...newRun('full', 9), sessionId: 'own' })
       );
     });
     expect(mark()).toBeNull();
@@ -760,7 +760,7 @@ describe('KAN-878: a tour without the pin card', () => {
     });
     await button('Done');
     seen.disconnect();
-    expect(counts).not.toContain('Step 8 of 9');
-    expect(count()).toBe('Step 8 of 8');
+    expect(counts).not.toContain('Step 9 of 10');
+    expect(count()).toBe('Step 9 of 9');
   });
 });

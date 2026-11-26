@@ -579,6 +579,52 @@ describe('the free step and the still box', () => {
     await placed();
     expect(document.querySelector('[data-coach-still]')).toBeNull();
   });
+
+  // KAN-1021. What a look-only step lights beside its ring is held too.
+  test('a look-only step draws a still box over each opening as well', async () => {
+    const pane = document.createElement('div');
+    pane.setAttribute('data-test-pane', '');
+    pane.getBoundingClientRect = () => ({
+      ...RECT,
+      left: 700,
+      top: 20,
+      width: 300,
+      height: 500,
+    });
+    document.body.append(pane);
+    await render({
+      isLive: false,
+      openings: [{ selector: '[data-test-pane]' }],
+    });
+    await placed();
+    const stills = [
+      ...document.querySelectorAll<HTMLElement>('[data-coach-still]'),
+    ].map((still) => [
+      still.style.left,
+      still.style.top,
+      still.style.width,
+      still.style.height,
+    ]);
+    expect(stills).toEqual([
+      ['400px', '100px', '200px', '40px'],
+      ['700px', '20px', '300px', '500px'],
+    ]);
+    pane.remove();
+  });
+
+  test('CONTROL: a live step with an opening draws no still box', async () => {
+    const pane = document.createElement('div');
+    pane.setAttribute('data-test-pane', '');
+    pane.getBoundingClientRect = () => RECT;
+    document.body.append(pane);
+    await render({
+      isLive: true,
+      openings: [{ selector: '[data-test-pane]' }],
+    });
+    await placed();
+    expect(document.querySelector('[data-coach-still]')).toBeNull();
+    pane.remove();
+  });
 });
 
 describe('motion (§10)', () => {

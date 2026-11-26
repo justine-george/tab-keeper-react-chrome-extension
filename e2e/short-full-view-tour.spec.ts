@@ -76,12 +76,12 @@ test('after a finished popup tour, the full view’s first tour is Currently ope
   await runCheck(full, 'resumed');
   await expect(cardAt(full, 2)).toBeVisible();
   await expectCount(full, 2, 3);
-  await nextTo(full, 9);
-  await expect(cardAt(full, 9)).toHaveAttribute('data-coach-kind', 'twoViews');
+  await nextTo(full, 10);
+  await expect(cardAt(full, 10)).toHaveAttribute('data-coach-kind', 'twoViews');
   await expectCount(full, 3, 3);
   await cardButton(full, 'Back').click();
   await expect(cardAt(full, 2)).toBeVisible();
-  await nextTo(full, 9);
+  await nextTo(full, 10);
   await cardButton(full, 'Not now').click();
   await closeReplayNote(full);
   await expect(setup(full)).toBeVisible();
@@ -120,7 +120,7 @@ test('a popup tour left partway with the example: the short tour ends by removin
   // CONTROL: the example is still in the list while the short tour runs.
   expect(await storedTitles(full)).toEqual([example]);
   await nextTo(full, 2);
-  await nextTo(full, 9);
+  await nextTo(full, 10);
   await cardButton(full, 'Not now').click();
   await closeReplayNote(full);
   await expect.poll(() => storedTitles(full)).toEqual([]);
@@ -139,10 +139,10 @@ test('an unanswered welcome still gets the whole tour', async ({
   const full = await openFullView(context, extensionId);
   await runCheck(full, 'started');
   await expect(cardAt(full, 1)).toBeVisible();
-  await expectCount(full, 1, 9);
+  await expectCount(full, 1, 10);
 });
 
-test('Help after the short tour starts the nine-card tour', async ({
+test('Help after the short tour starts the ten-card tour', async ({
   context,
   extensionId,
 }) => {
@@ -151,6 +151,7 @@ test('Help after the short tour starts the nine-card tour', async ({
     setupState: 'done',
     hasOpenedFullView: true,
     firstRun: {
+      // Stored before KAN-1023, when the short tour's pin card was step 9.
       ...popupRun(9, 'finished'),
       view: 'full',
       onlyFullViewSteps: true,
@@ -160,8 +161,8 @@ test('Help after the short tour starts the nine-card tour', async ({
   await runCheck(full, 'ended');
   await startRunFromHelp(full);
   await expect(cardAt(full, 1)).toBeVisible();
-  await expectCount(full, 1, 9);
+  await expectCount(full, 1, 10);
   await nextTo(full, 2);
   await nextTo(full, 3);
-  await expectCount(full, 3, 9);
+  await expectCount(full, 3, 10);
 });

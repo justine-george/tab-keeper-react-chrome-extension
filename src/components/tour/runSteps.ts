@@ -1,11 +1,13 @@
 import {
   sameCorners,
+  type BelowAt,
   type CoachSide,
   type HoleCorners,
 } from './coachMarkPlacement';
 import { RADIUS } from '../../styles/scale';
 import {
   findAndFitBox,
+  panelsBox,
   rowFillBox,
   rowsBox,
   visibleRowFill,
@@ -29,6 +31,12 @@ export interface RunStepPlan {
   holeCorners?: HoleCorners;
   // 'pane': the popup's left pane, the notch pointing right.
   sides: readonly CoachSide[] | 'pane';
+  // KAN-1020. Below, hung from the anchor's end rather than its start.
+  belowAt?: BelowAt;
+  // KAN-1021. The element the card stays inside across, clear of what the step lights beside it.
+  within?: string;
+  // KAN-1021. A card narrower than the view's, to fit inside `within`.
+  cardWidth?: string;
   isLive: boolean;
 }
 
@@ -37,8 +45,12 @@ export interface RunStepPlan {
 export const CARD_WIDTH = { popup: '290px', full: '360px' } as const;
 // Step 9's Back and Pin this tab on one row, Not now under them, in rem so it grows with the text (KAN-457, KAN-654).
 export const PIN_CARD_WIDTH = '25rem';
+// KAN-1021. Fits the saved list at its narrowest: 356px less its 8px margins.
+export const LIST_CARD_WIDTH = '320px';
 
 const OPEN_NOW = '[data-pane="open-now"]';
+const DETAIL = '[data-pane="detail"]';
+const SESSIONS_PANE = '[data-pane="sessions"]';
 export const SAVE = '[data-pane="sessions"] [data-tour-anchor="save"]';
 const SESSIONS = '[data-pane="sessions"] [data-tour-anchor="sessions"]';
 const WINDOWS = '[data-pane="detail"] [data-tour-anchor="windows"]';
@@ -57,6 +69,12 @@ const SAVE_CORNERS: HoleCorners = [
 const BELOW: readonly CoachSide[] = ['below', 'right', 'left'];
 const LEFT_OF: readonly CoachSide[] = ['left', 'below', 'right'];
 const RIGHT_OF: readonly CoachSide[] = ['right', 'below', 'left'];
+// KAN-1021. A pane's panels, lit beside the ring in their own corners.
+const panels = (selector: string): Opening => ({
+  selector,
+  boxOf: panelsBox,
+  corners: sameCorners(px(RADIUS.PANEL)),
+});
 
 const row = (id: string): string =>
   `[data-pane="sessions"] [data-drag-row-id="${CSS.escape(id)}"]`;
@@ -117,6 +135,9 @@ export function runStepPlan(
               ]),
         ],
         sides: foldedSessionId === null ? LEFT_OF : BELOW,
+        // KAN-1020. Typing lists matches from the left under the search
+        // row: below, the card hangs from the row's right end.
+        belowAt: 'end',
         isLive: true,
       };
     case 'save':
@@ -140,7 +161,11 @@ export function runStepPlan(
             anchors: [row(sessionId)],
             // KAN-901. The fill, not the row: it sits in from the row's sides.
             boxOf: rowFillBox,
+            // KAN-1021. The card says the session shows on the right: that pane too.
+            openings: [panels(DETAIL)],
             sides: BELOW,
+            within: SESSIONS_PANE,
+            ...(view === 'full' ? { cardWidth: LIST_CARD_WIDTH } : {}),
             isLive: false,
           };
     case 'open':
@@ -161,6 +186,19 @@ export function runStepPlan(
         boxOf: rowsBox,
         sides: view === 'full' ? LEFT_OF : 'pane',
         isLive: true,
+      };
+    // KAN-1023. The full view's drag between the two: the session's windows
+    // ringed, Currently open lit beside them, both look-only (a drop would
+    // open a window over the tour). The card sits over the saved list.
+    case 'drag':
+      return {
+        anchors: [WINDOWS],
+        boxOf: rowsBox,
+        openings: [panels(OPEN_NOW)],
+        sides: LEFT_OF,
+        within: SESSIONS_PANE,
+        cardWidth: LIST_CARD_WIDTH,
+        isLive: false,
       };
     case 'twoViews':
       return { anchors: [], sides: BELOW, isLive: false };

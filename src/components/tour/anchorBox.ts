@@ -103,3 +103,32 @@ export const findAndFitBox: AnchorBox = (element) =>
         ].map((part) => fromRect(part.getBoundingClientRect()))
       )
     : ownBox(element);
+
+// KAN-1021. A pane's panels: its column's content box, inside the padding
+// that spaces them from the window's edges, so the strips of page above and
+// below them stay dimmed.
+export const panelsBox: AnchorBox = (pane) => {
+  const column = pane.firstElementChild ?? pane;
+  const rect = column.getBoundingClientRect();
+  const style = getComputedStyle(column);
+  const [top, right, bottom, left] = [
+    style.paddingTop,
+    style.paddingRight,
+    style.paddingBottom,
+    style.paddingLeft,
+  ].map((value) => Number.parseFloat(value) || 0);
+  return {
+    left: rect.left + left,
+    top: rect.top + top,
+    width: Math.max(0, rect.width - left - right),
+    height: Math.max(0, rect.height - top - bottom),
+  };
+};
+
+// KAN-1021. The first element `selector` finds, as its own box; undefined when none is drawn.
+export function boxOfFirst(selector: string): Box | undefined {
+  const element = document.querySelector(selector);
+  return element === null
+    ? undefined
+    : fromRect(element.getBoundingClientRect());
+}

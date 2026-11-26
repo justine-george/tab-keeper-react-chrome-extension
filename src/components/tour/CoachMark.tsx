@@ -314,22 +314,26 @@ export default function CoachMark({
           }
         />
       )}
-      {bright !== null && !isLive && (
-        <div
-          aria-hidden="true"
-          data-coach-still
-          css={stillStyle}
-          onMouseDown={swallow}
-          onClick={swallow}
-          onContextMenu={swallow}
-          style={{
-            left: bright.left,
-            top: bright.top,
-            width: bright.width,
-            height: bright.height,
-          }}
-        />
-      )}
+      {/* KAN-1021. A look-only step holds what it lights beside the ring too. */}
+      {bright !== null &&
+        !isLive &&
+        [bright, ...openingHoles.map((hole) => hole.box)].map((box, index) => (
+          <div
+            key={index}
+            aria-hidden="true"
+            data-coach-still
+            css={stillStyle}
+            onMouseDown={swallow}
+            onClick={swallow}
+            onContextMenu={swallow}
+            style={{
+              left: box.left,
+              top: box.top,
+              width: box.width,
+              height: box.height,
+            }}
+          />
+        ))}
       {frame?.kind === 'anchored' && (
         <div
           ref={ringRef}
