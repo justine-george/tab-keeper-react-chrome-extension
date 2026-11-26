@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 
 import CoachMark from '../../components/tour/CoachMark';
 import {
@@ -10,6 +16,7 @@ import {
   type Size,
 } from '../../components/tour/coachMarkPlacement';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { refuseDuringTour } from '../../components/tour/tourRefusal';
 import { beginDragHold, endDragHold } from '../../redux/dragHold';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { rgb } from '../setup/hexColor';
@@ -295,6 +302,57 @@ describe('the coach mark', () => {
     expect(dim()?.style.clipPath).toBe(hole(400, 100, 200, 40, [8, 12, 12, 8]));
   });
 
+  // O1. A ring sits RING_INSET outside what it rings, so it rounds that much more.
+  test('the ring rounds 4px out from the corners the step lights', async () => {
+    await render({ holeCorners: [8, 12, 12, 8] });
+    await placed();
+    expect(ring()?.style.borderRadius).toBe('12px 16px 16px 12px');
+  });
+
+  // O1. Every lit area is ringed, at its own corners; one that says so is not.
+  test('each opening is ringed at its own corners, unless it says it is not', async () => {
+    const pane = document.createElement('div');
+    pane.setAttribute('data-test-pane', '');
+    pane.getBoundingClientRect = () => ({
+      ...RECT,
+      left: 700,
+      top: 20,
+      width: 300,
+      height: 500,
+    });
+    const edge = document.createElement('div');
+    edge.setAttribute('data-test-edge', '');
+    edge.getBoundingClientRect = () => ({
+      ...RECT,
+      left: 650,
+      top: 20,
+      width: 8,
+      height: 500,
+    });
+    document.body.append(pane, edge);
+    await render({
+      openings: [
+        { selector: '[data-test-pane]', corners: sameCorners(12) },
+        { selector: '[data-test-edge]', isRinged: false },
+      ],
+    });
+    await placed();
+    const rings = [
+      ...document.querySelectorAll<HTMLElement>('[data-coach-opening-ring]'),
+    ].map((r) => [
+      r.style.left,
+      r.style.top,
+      r.style.width,
+      r.style.height,
+      r.style.borderRadius,
+    ]);
+    expect(rings).toEqual([
+      ['696px', '16px', '308px', '508px', '16px 16px 16px 16px'],
+    ]);
+    pane.remove();
+    edge.remove();
+  });
+
   // KAN-736. A right-click on the dim or the still box opens no menu, Chrome's included.
   for (const [name, isLive, target] of [
     ['dim', true, () => dim()],
@@ -461,6 +519,46 @@ describe('the card’s footer and line (§6)', () => {
   });
 });
 
+// Round 2 (KAN-1023). The drag step's two ways, each ticked once done.
+describe('the checklist', () => {
+  test('one line per item between the text and the buttons, a tick on each done one, read out as done', async () => {
+    await render({
+      checklist: [
+        { label: 'Onto a window', isDone: true },
+        { label: 'Into this session', isDone: false },
+      ],
+    });
+    await placed();
+    const items = screen.getAllByRole('listitem');
+    // The tick's glyph is a ligature: its name is text too.
+    expect(items.map((li) => li.lastElementChild?.textContent)).toEqual([
+      'Onto a window',
+      'Into this session',
+    ]);
+    expect(
+      items.map((li) =>
+        li.querySelector('[data-coach-tick]')?.getAttribute('data-done')
+      )
+    ).toEqual(['', null]);
+    expect(within(items[0]).getByRole('img', { name: 'Done' })).toBeTruthy();
+    expect(within(items[1]).queryByRole('img')).toBeNull();
+    const next = screen.getByRole('button', { name: 'Next' });
+    expect(
+      screen.getByText(TEXT).compareDocumentPosition(items[0]) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(
+      items[1].compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
+  test('CONTROL: none given, no list', async () => {
+    await render();
+    await placed();
+    expect(screen.queryByRole('list')).toBeNull();
+  });
+});
+
 describe('IME and Esc (D1)', () => {
   test('an Esc that ends IME composition is not the card’s', async () => {
     const { onEscape } = await render();
@@ -578,6 +676,52 @@ describe('the free step and the still box', () => {
     await render({ isLive: true });
     await placed();
     expect(document.querySelector('[data-coach-still]')).toBeNull();
+  });
+
+  // KAN-1021. What a look-only step lights beside its ring is held too.
+  test('a look-only step draws a still box over each opening as well', async () => {
+    const pane = document.createElement('div');
+    pane.setAttribute('data-test-pane', '');
+    pane.getBoundingClientRect = () => ({
+      ...RECT,
+      left: 700,
+      top: 20,
+      width: 300,
+      height: 500,
+    });
+    document.body.append(pane);
+    await render({
+      isLive: false,
+      openings: [{ selector: '[data-test-pane]' }],
+    });
+    await placed();
+    const stills = [
+      ...document.querySelectorAll<HTMLElement>('[data-coach-still]'),
+    ].map((still) => [
+      still.style.left,
+      still.style.top,
+      still.style.width,
+      still.style.height,
+    ]);
+    expect(stills).toEqual([
+      ['400px', '100px', '200px', '40px'],
+      ['700px', '20px', '300px', '500px'],
+    ]);
+    pane.remove();
+  });
+
+  test('CONTROL: a live step with an opening draws no still box', async () => {
+    const pane = document.createElement('div');
+    pane.setAttribute('data-test-pane', '');
+    pane.getBoundingClientRect = () => RECT;
+    document.body.append(pane);
+    await render({
+      isLive: true,
+      openings: [{ selector: '[data-test-pane]' }],
+    });
+    await placed();
+    expect(document.querySelector('[data-coach-still]')).toBeNull();
+    pane.remove();
   });
 });
 
@@ -746,11 +890,44 @@ describe('a press on the dim', () => {
     ).toBeTruthy();
   });
 
-  test('a press in the card, or on the still box, shows nothing', async () => {
+  test('a press in the card shows nothing', async () => {
     await render({ isLive: false });
     await placed();
     press(mark());
+    expect(note()).toBeNull();
+  });
+
+  // Round 2. Every press the tour turns away says why.
+  test('a press on a look-only step’s still box shows the line', async () => {
+    await render({ isLive: false });
+    await placed();
     press(document.querySelector<HTMLElement>('[data-coach-still]'));
+    expect(note()).toHaveTextContent(LINE);
+  });
+
+  test('a right-click on the dim shows the line and swells the card once', async () => {
+    reduceMotion(false);
+    await render();
+    await placed();
+    animations.length = 0;
+    fireEvent.mouseDown(dim()!, { button: 2 });
+    fireEvent.contextMenu(dim()!);
+    expect(note()).toHaveTextContent(LINE);
+    expect(animations.filter((a) => a.el === mark())).toHaveLength(1);
+  });
+
+  test('a press turned away elsewhere, as a row’s right-click, shows the line', async () => {
+    await render();
+    await placed();
+    act(() => refuseDuringTour());
+    expect(note()).toHaveTextContent(LINE);
+  });
+
+  test('CONTROL: unplaced, a press turned away shows nothing later', async () => {
+    const { rerenderAt } = await render({ anchors: ['[data-none]'] });
+    act(() => refuseDuringTour());
+    rerenderAt({ anchors: ['[data-test-anchor]'] });
+    await placed();
     expect(note()).toBeNull();
   });
 

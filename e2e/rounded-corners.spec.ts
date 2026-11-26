@@ -251,7 +251,8 @@ test.describe('controls', () => {
 });
 
 test.describe('surfaces', () => {
-  test('the tour ring rounds at 12 and the dim cuts its hole with rounded corners', async ({
+  // O1. 4px out from what it lights: the save row's field (8) and group (12).
+  test('the tour ring rounds 4px out from what it lights and the dim cuts its hole with rounded corners', async ({
     context,
     extensionId,
   }) => {
@@ -261,7 +262,7 @@ test.describe('surfaces', () => {
     await expect(cardAt(page, 1)).toBeVisible();
     await expectCorners(
       page.locator('[data-coach-ring]'),
-      '12px',
+      '12px 16px 16px 12px',
       'the tour ring'
     );
     await expectCorners(

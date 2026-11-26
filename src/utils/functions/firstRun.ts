@@ -23,7 +23,7 @@ export function nextWelcomeShows(shows: WelcomeShows): WelcomeShows | null {
   return asWelcomeShows(shows + 1);
 }
 
-export type RunStep = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+export type RunStep = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
 export interface FirstRun {
   view: RunView;
@@ -45,7 +45,7 @@ export interface FirstRun {
 }
 
 // The last card; step 0 is Hello in the full view and the welcome in the popup.
-export const RUN_STEPS: Record<RunView, RunStep> = { full: 9, popup: 8 };
+export const RUN_STEPS: Record<RunView, RunStep> = { full: 10, popup: 8 };
 
 export type RunStepKind =
   | 'hello'
@@ -60,6 +60,7 @@ export type RunStepKind =
   | 'replace'
   | 'delete'
   | 'windows'
+  | 'drag'
   | 'twoViews'
   | 'fullView';
 
@@ -75,6 +76,8 @@ const KINDS: Record<RunView, readonly RunStepKind[]> = {
     'replace',
     'delete',
     'windows',
+    // KAN-1023. The full view only: the popup has no Currently open beside the session.
+    'drag',
     'twoViews',
   ],
   popup: [
@@ -92,9 +95,9 @@ const KINDS: Record<RunView, readonly RunStepKind[]> = {
 
 export type RunSaveCard = 'save' | 'nothingToSave' | 'sessions';
 
-const STEPS: readonly RunStep[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+const STEPS: readonly RunStep[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 // KAN-830. The full view's cards the popup tour does not have.
-const FULL_VIEW_ONLY_STEPS: readonly RunStep[] = [1, 2, 9];
+const FULL_VIEW_ONLY_STEPS: readonly RunStep[] = [1, 2, 10];
 const ENDINGS: readonly RunEnding[] = [
   'finished',
   'skipped',
@@ -125,13 +128,14 @@ export function needsSession(kind: RunStepKind): boolean {
     kind === 'switch' ||
     kind === 'replace' ||
     kind === 'delete' ||
-    kind === 'windows'
+    kind === 'windows' ||
+    kind === 'drag'
   );
 }
 
 // KAN-878. Whether this page's run shows the pin card (twoViews); decided once per run shown here.
 export type RunPinCard = 'show' | 'skip';
-export const PIN_CARD_STEP: RunStep = 9;
+export const PIN_CARD_STEP: RunStep = 10;
 
 // KAN-878. Skipped only on a pinned tab that already pins in new windows, and never from the card itself; an unknown tab shows it.
 export function pinCardFor(
@@ -227,7 +231,14 @@ export function asFirstRun(value: unknown): FirstRun | null {
   }
   const view: unknown = Reflect.get(value, 'view');
   if (view !== 'popup' && view !== 'full') return null;
-  const step = asRunStep(view, Reflect.get(value, 'step'));
+  const rawStep: unknown = Reflect.get(value, 'step');
+  // Stored before KAN-1023: a run of only the full view's steps had its pin card at 9.
+  const step = asRunStep(
+    view,
+    Reflect.get(value, 'onlyFullViewSteps') === true && rawStep === 9
+      ? PIN_CARD_STEP
+      : rawStep
+  );
   const rawId: unknown = Reflect.get(value, 'sessionId');
   const sessionId = typeof rawId === 'string' ? rawId : null;
   const hello: unknown = Reflect.get(value, 'hello');

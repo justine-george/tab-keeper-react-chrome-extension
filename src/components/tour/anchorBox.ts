@@ -7,13 +7,15 @@ import {
 
 export type AnchorBox = (element: Element) => Box | null;
 
-// KAN-900. What a step lights and leaves reachable in a hole of its own,
-// outside the ring: each element `selector` finds, measured by `boxOf` (its
-// own box by default), its hole in `corners` (a CONTROL's by default).
+// KAN-900. What a step lights and leaves reachable in a hole of its own:
+// each element `selector` finds, measured by `boxOf` (its own box by
+// default), its hole in `corners` (a CONTROL's by default), ringed as the
+// anchor is (O1) unless `isRinged` is false.
 export interface Opening {
   selector: string;
   boxOf?: AnchorBox;
   corners?: HoleCorners;
+  isRinged?: boolean;
 }
 
 // What a step lights instead of its ring's box: the first of `anchors` drawn, measured by `boxOf`.
@@ -58,25 +60,6 @@ const clientBox = (element: Element): Box => {
   };
 };
 
-// The nearest ancestor that scrolls; null when none does.
-const scrollerOf = (element: Element): Element | null => {
-  for (let el = element.parentElement; el !== null; el = el.parentElement) {
-    const { overflow, overflowY } = getComputedStyle(el);
-    if (/auto|scroll/.test(`${overflow} ${overflowY}`)) return el;
-  }
-  return null;
-};
-
-// KAN-999. A session row's fill, clipped to what its list shows: null for a
-// row scrolled out of view, so no hole opens outside the list.
-export const visibleRowFill: AnchorBox = (row) => {
-  const fill = rowFillBox(row);
-  const scroller = scrollerOf(row);
-  return fill === null || scroller === null
-    ? fill
-    : intersectBox(fill, clientBox(scroller));
-};
-
 // The window rows, not their container (it holds a margin and the trailing block), clipped to the scroll box.
 export const rowsBox: AnchorBox = (element) => {
   const rows = unionBox(
@@ -103,3 +86,21 @@ export const findAndFitBox: AnchorBox = (element) =>
         ].map((part) => fromRect(part.getBoundingClientRect()))
       )
     : ownBox(element);
+
+// KAN-1021. A pane's panels: the drawn children of its column, so the
+// padding that spaces them from the window's edges, and the strips of page
+// above and below them, stay dimmed (O1: the rail's card, not its margin).
+export const panelsBox: AnchorBox = (pane) => {
+  const column = pane.firstElementChild ?? pane;
+  return unionBox(
+    [...column.children].map((panel) => fromRect(panel.getBoundingClientRect()))
+  );
+};
+
+// KAN-1021. The first element `selector` finds, as its own box; undefined when none is drawn.
+export function boxOfFirst(selector: string): Box | undefined {
+  const element = document.querySelector(selector);
+  return element === null
+    ? undefined
+    : fromRect(element.getBoundingClientRect());
+}

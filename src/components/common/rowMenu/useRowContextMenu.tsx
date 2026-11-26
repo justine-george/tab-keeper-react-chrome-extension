@@ -11,6 +11,7 @@ import {
   type RowMenuKind,
 } from './rowMenuStore';
 import { selectRunHere } from '../../../redux/firstRun';
+import { refuseDuringTour } from '../../tour/tourRefusal';
 import { useMacKeys } from '../../../hooks/useIsMac';
 
 export type RowMenuProps = {
@@ -72,7 +73,8 @@ export function useMacCtrlClickGuard(): {
 }
 
 // KAN-708. What a right-click or menu key on a row gets. 'chromeHere': Chrome's menu, and no enclosing row answers.
-type Answer = 'chrome' | 'chromeHere' | 'suppress' | 'open';
+// 'tour': suppressed while the tour runs, and the tour's card says why.
+type Answer = 'chrome' | 'chromeHere' | 'suppress' | 'tour' | 'open';
 
 // KAN-708. Right-click, Shift+F10 or the Menu key opens a row's ⋮ items; spread rowProps(id) on rows, render menu outside them all (R1).
 // KAN-708. Portalled, its React events still reach the consumer's ancestors: an enclosing drag row ignores them only via its handleSelector.
@@ -107,7 +109,8 @@ export function useRowContextMenu({
   ): Answer => {
     if (isWithin(e.target, MENU)) return 'chrome';
     if (isWithin(e.target, TEXT_FIELD) || via === 'touch') return 'chrome';
-    if (tourRuns || isMovingRows()) return 'suppress';
+    if (isMovingRows()) return 'suppress';
+    if (tourRuns) return 'tour';
     const open = getRowMenu();
     // KAN-708. The keyboard opened it already; this is the contextmenu that may follow the same key press. A key is never one.
     if (
@@ -143,6 +146,7 @@ export function useRowContextMenu({
       e.stopPropagation();
       if (answer === 'chromeHere') return;
       e.preventDefault();
+      if (answer === 'tour') refuseDuringTour();
       if (answer === 'open') openAt(id, { x: e.clientX, y: e.clientY }, true);
     },
     onKeyDown: (e) => {
@@ -156,6 +160,7 @@ export function useRowContextMenu({
       e.stopPropagation();
       if (answer === 'chromeHere') return;
       e.preventDefault();
+      if (answer === 'tour') refuseDuringTour();
       if (answer !== 'open') return;
       const anchor = e.target instanceof Element ? e.target : e.currentTarget;
       const rect = anchor.getBoundingClientRect();

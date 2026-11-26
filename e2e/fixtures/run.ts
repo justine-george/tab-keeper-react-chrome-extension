@@ -44,7 +44,7 @@ export const FULL_RUN: RunViewCase = {
   path: FULL_VIEW_PATH,
   viewport: FULL,
   view: 'full',
-  total: 9,
+  total: 10,
 };
 export const RUN_VIEWS: readonly RunViewCase[] = [POPUP_RUN, FULL_RUN];
 
@@ -119,6 +119,12 @@ export async function nextTo(page: Page, step: number): Promise<void> {
   await expect(cardAt(page, step)).toBeVisible();
 }
 
+// Past the drag step untried: its button reads Skip until a drag ticks.
+export async function skipTo(page: Page, step: number): Promise<void> {
+  await cardButton(page, 'Skip').click();
+  await expect(cardAt(page, step)).toBeVisible();
+}
+
 // Until the card has landed at `step` (KAN-558). It shows the step at once, but is
 // placed for it in the next frame, committed in the task after that frame (React's
 // scheduler posts a message), and then glides there.
@@ -148,6 +154,7 @@ export async function walkFullRunToLastStep(page: Page): Promise<void> {
   for (let step = 2; step <= 3; step++) await nextTo(page, step);
   await cardButton(page, 'Use an example').click();
   for (let step = 5; step <= 9; step++) await nextTo(page, step);
+  await skipTo(page, 10);
 }
 
 // KAN-499. The note after the run: a card with no step and no run kind, at Settings.
@@ -186,7 +193,7 @@ export async function finishFullRun(page: Page): Promise<void> {
 export async function finishShortFullRun(page: Page): Promise<void> {
   await expect(cardAt(page, 1)).toBeVisible();
   await nextTo(page, 2);
-  await nextTo(page, 9);
+  await nextTo(page, 10);
   await cardButton(page, 'Not now').click();
   await closeReplayNote(page);
 }

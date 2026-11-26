@@ -22,6 +22,7 @@ import {
 } from './slices/tabContainerDataStateSlice';
 import { showSession } from './showSession';
 import type { RootState } from './store';
+import { noteRunDrag } from './firstRun';
 import { TOAST_MESSAGES } from '../utils/constants/common';
 import { copiedTabCount, copiesAnything } from '../utils/functions/liveCopy';
 import {
@@ -123,6 +124,8 @@ const copyToSession =
         })
       );
     }
+    // Round 2 (KAN-1023). The tour's drag step ticks a copy into its session.
+    dispatch(noteRunDrag({ way: 'saved', intoSessionId: copy.to.tabGroupId }));
     return true;
   };
 

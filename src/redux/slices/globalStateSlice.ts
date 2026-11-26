@@ -274,7 +274,15 @@ export interface Global {
   runPinCard: RunPinCard | null;
   // The session whose tabs echo the run's first save, until the echo plays.
   runSaveEcho: string | null;
+  // Round 2 (KAN-1023). Which ways a drop landed at the drag step here.
+  runDragsTried: RunDragsTried;
 }
+
+// A saved tab or group opened in Currently open; a live one saved into the
+// run's session.
+export type RunDragWay = 'opened' | 'saved';
+export type RunDragsTried = Record<RunDragWay, boolean>;
+const NO_DRAGS_TRIED: RunDragsTried = { opened: false, saved: false };
 
 // The windows folded shut in one session. `windowIds` may hold ids that the
 // session no longer has -- deleting a folded window leaves its id behind -- and
@@ -407,6 +415,7 @@ export const initialState: Global = {
   runSaveCard: null,
   runPinCard: null,
   runSaveEcho: null,
+  runDragsTried: NO_DRAGS_TRIED,
 };
 
 // save data to Firestore if dirty, saves latest to localStorage at the end
@@ -1700,6 +1709,11 @@ export const globalStateSlice = createSlice({
       state.runSaveCard = null;
       state.runPinCard = null;
       state.runSaveEcho = null;
+      state.runDragsTried = NO_DRAGS_TRIED;
+    },
+
+    runDragTried: (state, action: PayloadAction<RunDragWay>) => {
+      state.runDragsTried[action.payload] = true;
     },
 
     setRunSaveCard: (state, action: PayloadAction<RunSaveCard | null>) => {
@@ -1904,6 +1918,7 @@ export const {
   runShownHere,
   runStoppedHere,
   setRunSaveCard,
+  runDragTried,
   setRunPinCard,
   setRunSaveEcho,
 } = globalStateSlice.actions;

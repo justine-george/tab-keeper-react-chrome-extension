@@ -9,6 +9,7 @@ import {
   cardButton,
   closeReplayNote,
   nextTo,
+  skipTo,
   replayNote,
   runCheck,
   seedRawSettingsIfAbsent,
@@ -59,16 +60,16 @@ async function fullViewPage(
   return openPage(context, extensionId, FULL_VIEW_PATH, FULL);
 }
 
-// From the first card to Windows, with an example as the run's session.
-async function walkToWindows(page: Page) {
+// From the first card to the drag card, with an example as the run's session.
+async function walkToDrag(page: Page) {
   await expect(cardAt(page, 1)).toBeVisible();
   await nextTo(page, 2);
   await nextTo(page, 3);
   await cardButton(page, 'Use an example').click();
-  for (let step = 5; step <= 8; step++) await nextTo(page, step);
+  for (let step = 5; step <= 9; step++) await nextTo(page, step);
 }
 
-test('Help tour on a pinned tab that pins in new windows: 8 cards, Done on Windows, no pin card', async ({
+test('Help tour on a pinned tab that pins in new windows: 9 cards, Done on the drag card, no pin card', async ({
   context,
   extensionId,
   serviceWorker,
@@ -76,8 +77,8 @@ test('Help tour on a pinned tab that pins in new windows: 8 cards, Done on Windo
   const page = await fullViewPage(context, extensionId, true);
   await pinOwnTab(serviceWorker, extensionId);
   await startRunFromHelp(page);
-  await walkToWindows(page);
-  await expectCount(page, 8, 8);
+  await walkToDrag(page);
+  await expectCount(page, 9, 9);
   await expect(cardButton(page, 'Next')).toHaveCount(0);
   await expect(card(page).getByText('Skip tutorial')).toHaveCount(0);
   await cardButton(page, 'Done').click();
@@ -94,14 +95,14 @@ test('Esc on that last card finishes the tour, as Done does', async ({
   const page = await fullViewPage(context, extensionId, true);
   await pinOwnTab(serviceWorker, extensionId);
   await startRunFromHelp(page);
-  await walkToWindows(page);
-  await expectCount(page, 8, 8);
+  await walkToDrag(page);
+  await expectCount(page, 9, 9);
   await page.keyboard.press('Escape');
   await expect(replayNote(page)).toBeVisible();
   expect(await storedRun(page)).toMatchObject({ ended: 'finished' });
 });
 
-test('pinned with the setting off: the pin card is card 9 of 9', async ({
+test('pinned with the setting off: the pin card is card 10 of 10', async ({
   context,
   extensionId,
   serviceWorker,
@@ -109,11 +110,11 @@ test('pinned with the setting off: the pin card is card 9 of 9', async ({
   const page = await fullViewPage(context, extensionId, false);
   await pinOwnTab(serviceWorker, extensionId);
   await startRunFromHelp(page);
-  await walkToWindows(page);
-  await expectCount(page, 8, 9);
-  await nextTo(page, 9);
+  await walkToDrag(page);
+  await expectCount(page, 9, 10);
+  await skipTo(page, 10);
   await expect(page.locator(PIN_CARD)).toBeVisible();
-  await expectCount(page, 9, 9);
+  await expectCount(page, 10, 10);
   await expect(cardButton(page, 'Pin this tab')).toBeVisible();
 });
 
@@ -123,8 +124,8 @@ test('same tab: Pin this tab, then a Help replay skips the card', async ({
 }) => {
   const page = await fullViewPage(context, extensionId, false);
   await startRunFromHelp(page);
-  await walkToWindows(page);
-  await nextTo(page, 9);
+  await walkToDrag(page);
+  await skipTo(page, 10);
   await cardButton(page, 'Pin this tab').click();
   await closeReplayNote(page);
   const setup = page.getByRole('dialog', { name: SETUP, exact: true });
@@ -132,8 +133,8 @@ test('same tab: Pin this tab, then a Help replay skips the card', async ({
   await setup.getByText('Skip setup', { exact: true }).click();
   await expect(setup).toHaveCount(0);
   await startRunFromHelp(page);
-  await walkToWindows(page);
-  await expectCount(page, 8, 8);
+  await walkToDrag(page);
+  await expectCount(page, 9, 9);
   await expect(cardButton(page, 'Done')).toBeVisible();
 });
 

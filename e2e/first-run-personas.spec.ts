@@ -30,6 +30,7 @@ import {
   finishShortFullRun,
   hello,
   nextTo,
+  skipTo,
   pastCompactViewCard,
   replayNote,
   runCheck,
@@ -173,6 +174,7 @@ test('new install, Get started, each step done by hand; then setup, then the pin
     .click();
   await expect(cardAt(full, 4)).toBeVisible();
   for (let step = 5; step <= 9; step++) await nextTo(full, step);
+  await skipTo(full, 10);
   await cardButton(full, 'Pin this tab').click();
   await closeReplayNote(full);
   await skipSetupThenGuide(full);
@@ -209,6 +211,7 @@ test('new install, Get started, Next only (Use an example): the sample is gone a
   await expect(cardAt(full, 4)).toBeVisible();
   expect(await storedTitles(full)).toEqual(['Sample: Weekend trip']);
   for (let step = 5; step <= 9; step++) await nextTo(full, step);
+  await skipTo(full, 10);
   await cardButton(full, 'Not now').click();
   await closeReplayNote(full);
   await skipSetupThenGuide(full);
@@ -270,6 +273,7 @@ async function upgraderRunFromStepOne(full: Page) {
     'Your saved sessions are all here, just as you left them.'
   );
   for (let step = 4; step <= 9; step++) await nextTo(full, step);
+  await skipTo(full, 10);
   expect(await storedRun(full)).toMatchObject({ sessionId: 'new' });
   await cardButton(full, 'Not now').click();
   await closeReplayNote(full);

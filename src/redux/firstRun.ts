@@ -17,6 +17,7 @@ import {
   closeSettingsPage,
   openCloudConsentModal,
   openReplayNote,
+  runDragTried,
   runShownHere,
   runStoppedHere,
   setEndingCard,
@@ -24,6 +25,7 @@ import {
   setRunSaveCard,
   setRunSaveEcho,
   setSearchInputText,
+  type RunDragWay,
 } from './slices/globalStateSlice';
 import {
   beginSetup,
@@ -103,6 +105,31 @@ export const selectRunHere = (state: RootState): FirstRun | null => {
     ? run
     : null;
 };
+
+// Round 2 (KAN-1023). The full view's drag step is showing here.
+export const selectIsDragStepHere = (state: RootState): boolean => {
+  const run = selectRunHere(state);
+  return run !== null && stepKindOf(run) === 'drag';
+};
+
+// A drop that landed: at the drag step, its way ticks in the card. A copy
+// counts only into the run's own session, the one the card names.
+export const noteRunDrag =
+  (
+    drop: { way: 'opened' } | { way: 'saved'; intoSessionId: string }
+  ): Thunk<void> =>
+  (dispatch, getState) => {
+    const state = getState();
+    if (!selectIsDragStepHere(state)) return;
+    if (
+      drop.way === 'saved' &&
+      drop.intoSessionId !== selectRunHere(state)?.sessionId
+    ) {
+      return;
+    }
+    const way: RunDragWay = drop.way;
+    dispatch(runDragTried(way));
+  };
 
 // R3. Settings or a search hide every card; another session or the fold hides a session step's.
 export const selectIsRunCardShown = (state: RootState): boolean => {

@@ -2,10 +2,11 @@ import { useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 
-import CoachMark from './CoachMark';
+import CoachMark, { type CoachCheck } from './CoachMark';
 import GlyphSentence from './GlyphSentence';
 import { GLYPH_SLOT } from './glyphSlot';
 import { CARD_WIDTH, PIN_CARD_WIDTH, runStepPlan } from './runSteps';
+import { boxOfFirst } from './anchorBox';
 import {
   placeBeside,
   placeInPopupPane,
@@ -15,7 +16,7 @@ import {
   type Size,
 } from './coachMarkPlacement';
 import { RunHelloDialog } from '../modals/RunHelloDialog';
-import { SAVED_CARD_ICON, SAVED_FOLD_ICON } from '../home/opennow/foldIcon';
+import { SAVED_FOLD_ICON } from '../home/opennow/foldIcon';
 import { SAVE_OF } from '../home/leftpane/saveScopes';
 import type { AppDispatch, RootState } from '../../redux/store';
 import {
@@ -63,6 +64,7 @@ import { panes, prepareLayoutGlide } from '../common/layoutGlide';
 interface Card {
   text: ReactNode;
   fine?: string;
+  checklist?: readonly CoachCheck[];
   width?: string;
   primary: CoachAction;
   secondary?: CoachAction;
@@ -87,11 +89,9 @@ export default function FirstRun() {
     (s: RootState) => s.tabContainerDataState.tabGroups
   );
   const echo = useSelector((s: RootState) => s.globalState.runSaveEcho);
+  const dragsTried = useSelector((s: RootState) => s.globalState.runDragsTried);
   const isFolded = useSelector(selectIsSavedSessionFolded);
   const hasSavedCard = useSelector(selectShowsSavedSessionCard);
-  const selectedSessionId = useSelector(
-    (s: RootState) => s.tabContainerDataState.selectedTabGroupId
-  );
   // KAN-635. The save button the row shows, so the card names what is there.
   const defaultSaveScope = useSelector(
     (s: RootState) => s.settingsDataState.defaultSaveScope
@@ -199,7 +199,8 @@ export default function FirstRun() {
     saveCard,
     run.sessionId,
     hasCompactButton,
-    hasSavedCard ? selectedSessionId : null
+    hasSavedCard,
+    isRail
   );
   if (plan === null || (kind === 'save' && saveCard === null)) return null;
 
@@ -269,18 +270,8 @@ export default function FirstRun() {
           };
         }
         return {
-          // KAN-999. Folded, the Saved session card or a session's row shows
-          // it; on a first run nothing is saved, so there is neither.
-          text: hasSavedCard ? (
-            <GlyphSentence
-              sentence={t(
-                'Type in the search box to find an open tab. To show the saved session beside it, press {{icon}} or click a session in the list.',
-                { icon: GLYPH_SLOT }
-              )}
-              icon={SAVED_CARD_ICON}
-              label={t('Show the saved session')}
-            />
-          ) : isFolded ? (
+          // Round 3 (A). Folded, search alone: step 4 shows the saved session.
+          text: isFolded ? (
             t('Type in the search box to find an open tab.')
           ) : (
             <GlyphSentence
@@ -381,8 +372,9 @@ export default function FirstRun() {
         };
       case 'replace':
         return {
+          // KAN-1022. A habit to keep, not a definition.
           text: t(
-            'Replace keeps this saved session up to date by overwriting it with what you have open now. Nothing closes.'
+            'Before you shut down, press Replace to save what you have open over this session. Nothing closes.'
           ),
           primary: next,
         };
@@ -399,9 +391,37 @@ export default function FirstRun() {
       case 'windows':
         return {
           text: t(
-            "Each window can be opened on its own. Click a window's title to rename it."
+            "Each window can be opened on its own. Click a window's title to rename it. After the tour, right-click it for more."
           ),
           primary: next,
+        };
+      // KAN-1023. A second way in, beside Open, to try each way (round 2);
+      // Next goes on whether tried or not, as a keyboard can't drag.
+      case 'drag':
+        return {
+          text: t(
+            'Try it: drag a tab between this session and Currently open.'
+          ),
+          checklist: [
+            {
+              label: t(
+                'Left to right: onto a window in Currently open, to open it there'
+              ),
+              isDone: dragsTried.opened,
+            },
+            {
+              label: t(
+                'Right to left: from Currently open into this session, to save a copy'
+              ),
+              isDone: dragsTried.saved,
+            },
+          ],
+          // Round 4. Skip until a drag ticks, then Next: the same way on.
+          // Last (no pin card), Done: the tour ends either way.
+          primary:
+            isLast || dragsTried.opened || dragsTried.saved
+              ? next
+              : { label: t('Skip'), onPress: next.onPress },
         };
       case 'twoViews':
         return {
@@ -425,6 +445,7 @@ export default function FirstRun() {
   const card = cardFor();
 
   const sides = plan.sides;
+  const { belowAt, within } = plan;
   const place =
     sides === 'pane'
       ? placeInPopupPane
@@ -434,7 +455,10 @@ export default function FirstRun() {
           viewport: Size,
           bright: Box
         ): AnchoredPlacement =>
-          placeBeside(anchor, mark, viewport, sides, bright);
+          placeBeside(anchor, mark, viewport, sides, bright, {
+            belowAt,
+            within: within === undefined ? undefined : boxOfFirst(within),
+          });
 
   return (
     <CoachMark
@@ -447,14 +471,16 @@ export default function FirstRun() {
       kind={kind}
       text={card.text}
       fine={card.fine}
+      checklist={card.checklist}
       anchors={plan.anchors}
       boxOf={plan.boxOf}
       openings={plan.openings}
       holeCorners={plan.holeCorners}
       isLive={plan.isLive}
-      width={card.width ?? CARD_WIDTH[run.view]}
+      width={card.width ?? plan.cardWidth ?? CARD_WIDTH[run.view]}
       place={place}
-      onSkip={isLast ? undefined : skip}
+      // Round 4. The drag card's Skip is its button: no second way out beside it.
+      onSkip={isLast || kind === 'drag' ? undefined : skip}
       onBack={
         previousRunStep(run, decidedPinCard) !== null ? goBack : undefined
       }

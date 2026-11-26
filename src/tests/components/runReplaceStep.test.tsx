@@ -2,8 +2,10 @@ import { describe, expect, test } from 'vitest';
 import { screen } from '@testing-library/react';
 
 import TabGroupEntry from '../../components/home/leftpane/TabGroupEntry';
-import { runStepPlan } from '../../components/tour/runSteps';
-import { rowFillBox } from '../../components/tour/anchorBox';
+import { LIST_CARD_WIDTH, runStepPlan } from '../../components/tour/runSteps';
+import { panelsBox, rowFillBox } from '../../components/tour/anchorBox';
+import { sameCorners } from '../../components/tour/coachMarkPlacement';
+import { RADIUS } from '../../styles/scale';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { classRulesFor } from '../setup/hoverRules';
@@ -67,21 +69,34 @@ describe('the run’s Replace step (KAN-586)', () => {
   });
 
   // KAN-901. The row step rings the row's fill, which sits in from the row's sides.
-  test('the row step rings the session row’s fill, below it, in both views', () => {
-    for (const view of ['popup', 'full'] as const)
-      expect(runStepPlan(view, 'row', null, SAMPLE, false, null)).toStrictEqual(
+  // KAN-1021. It lights the right-hand pane's panels too, and keeps its card
+  // inside the saved list: in the full view, a narrower card.
+  test('the row step rings the session row’s fill and lights the right-hand pane, below it, in both views', () => {
+    const plan = {
+      anchors: ['[data-pane="sessions"] [data-drag-row-id="sample\\:x"]'],
+      boxOf: rowFillBox,
+      openings: [
         {
-          anchors: ['[data-pane="sessions"] [data-drag-row-id="sample\\:x"]'],
-          boxOf: rowFillBox,
-          sides: ['below', 'right', 'left'],
-          isLive: false,
-        }
-      );
+          selector: '[data-pane="detail"]',
+          boxOf: panelsBox,
+          corners: sameCorners(Number.parseFloat(RADIUS.PANEL)),
+        },
+      ],
+      sides: ['below', 'right', 'left'],
+      within: '[data-pane="sessions"]',
+      isLive: false,
+    };
+    expect(
+      runStepPlan('popup', 'row', null, SAMPLE, false, false)
+    ).toStrictEqual(plan);
+    expect(
+      runStepPlan('full', 'row', null, SAMPLE, false, false)
+    ).toStrictEqual({ ...plan, cardWidth: LIST_CARD_WIDTH });
   });
 
   test('it points at the engaged row’s Replace, below it, in both views', () => {
     for (const view of ['popup', 'full'] as const)
-      expect(runStepPlan(view, 'replace', null, SAMPLE, false, null)).toEqual({
+      expect(runStepPlan(view, 'replace', null, SAMPLE, false, false)).toEqual({
         anchors: [
           '[data-pane="sessions"] [data-drag-row-id="sample\\:x"] [data-run-engaged] [data-tour-anchor="row-replace"]',
         ],
@@ -89,7 +104,9 @@ describe('the run’s Replace step (KAN-586)', () => {
         isLive: false,
       });
     // No session yet: no card, as at Open and Switch.
-    expect(runStepPlan('popup', 'replace', null, null, false, null)).toBeNull();
+    expect(
+      runStepPlan('popup', 'replace', null, null, false, false)
+    ).toBeNull();
   });
 
   test('at its step the row’s Replace is lit, still waiting; Open and Switch are dimmed', async () => {

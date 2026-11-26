@@ -172,6 +172,62 @@ describe('placeBeside', () => {
   });
 });
 
+// KAN-1020. Below a wide row, hung from its end: the card's right edge
+// lines up with the row's end, as the picked mock (B) drew it; the notch
+// aims 46px in from the end.
+describe('placeBeside below, hung from the anchor’s end', () => {
+  const row = { left: 400, top: 120, width: 860, height: 44 };
+  test('the card ends where the row ends; the notch aims 46px in', () => {
+    const p = placeBeside(row, FULL_MARK, FULL_VIEW, STEP_2, row, {
+      belowAt: 'end',
+    });
+    expect(p).toEqual({
+      side: 'below',
+      left: 1260 - FULL_MARK.width,
+      top: 178,
+      notch: FULL_MARK.width - 46,
+    });
+    expect(p.left + p.notch).toBe(1260 - 46);
+  });
+
+  test('CONTROL: from the start, as before', () => {
+    expect(placeBeside(row, FULL_MARK, FULL_VIEW, STEP_2, row)).toEqual({
+      side: 'below',
+      left: 422,
+      top: 178,
+      notch: 24,
+    });
+  });
+});
+
+// KAN-1021. A card kept inside a box across, so it covers nothing lit beside it.
+describe('placeBeside within a box', () => {
+  const rowFill = { left: 14, top: 140, width: 330, height: 72 };
+  const list = { left: 10, top: 0, width: 338, height: 800 };
+  const card = { width: 320, height: 150 };
+  test('a card hung from the row’s start, past the list’s right edge, moves back inside it', () => {
+    const p = placeBeside(rowFill, card, FULL_VIEW, STEP_2, rowFill, {
+      within: list,
+    });
+    expect(p.left).toBe(28);
+    expect(p.left + card.width).toBe(list.left + list.width);
+    // The notch still aims 46px into the row.
+    expect(p.left + p.notch).toBe(60);
+  });
+
+  test('CONTROL: without the box it runs past the list', () => {
+    const p = placeBeside(rowFill, card, FULL_VIEW, STEP_2, rowFill);
+    expect(p.left + card.width).toBeGreaterThan(list.left + list.width);
+  });
+
+  test('a box narrower than the card keeps the card at its left', () => {
+    const p = placeBeside(rowFill, card, FULL_VIEW, STEP_2, rowFill, {
+      within: { ...list, width: 200 },
+    });
+    expect(p.left).toBe(10);
+  });
+});
+
 describe('placeBeside with a bright box larger than the anchor', () => {
   const tab = { left: 432, top: 152, width: 398, height: 40 };
   const lit = { left: 432, top: 152, width: 398, height: 210 };
@@ -426,7 +482,13 @@ describe('sameFrame', () => {
     kind: 'anchored' as const,
     anchor: { left: 1, top: 2, width: 3, height: 4 },
     bright: { left: 1, top: 2, width: 3, height: 4 },
-    openings: [{ box: { left: 9, top: 0, width: 2, height: 50 }, corners: C8 }],
+    openings: [
+      {
+        box: { left: 9, top: 0, width: 2, height: 50 },
+        corners: C8,
+        isRinged: true,
+      },
+    ],
     placement: { side: 'below' as const, left: 5, top: 6, notch: 24 },
   };
   // KAN-900. A moved or gone opening is a new frame, so the dim's holes follow it.
@@ -435,16 +497,29 @@ describe('sameFrame', () => {
       sameFrame(frame, {
         ...frame,
         openings: [
-          { box: { left: 10, top: 0, width: 2, height: 50 }, corners: C8 },
+          {
+            box: { left: 10, top: 0, width: 2, height: 50 },
+            corners: C8,
+            isRinged: true,
+          },
         ],
       })
     ).toBe(false);
     expect(sameFrame(frame, { ...frame, openings: [] })).toBe(false);
+    // O1. Same box and corners, ringed or not: the ring is drawn anew.
+    expect(
+      sameFrame(frame, {
+        ...frame,
+        openings: [{ ...frame.openings[0], isRinged: false }],
+      })
+    ).toBe(false);
     // KAN-999. Same box, other corners: the hole is drawn anew.
     expect(
       sameFrame(frame, {
         ...frame,
-        openings: [{ ...frame.openings[0], corners: sameCorners(12) }],
+        openings: [
+          { ...frame.openings[0], corners: sameCorners(12), isRinged: true },
+        ],
       })
     ).toBe(false);
     expect(
@@ -452,7 +527,11 @@ describe('sameFrame', () => {
         ...frame,
         openings: [
           ...frame.openings,
-          { box: { left: 0, top: 0, width: 1, height: 1 }, corners: C8 },
+          {
+            box: { left: 0, top: 0, width: 1, height: 1 },
+            corners: C8,
+            isRinged: true,
+          },
         ],
       })
     ).toBe(false);

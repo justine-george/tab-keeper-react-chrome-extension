@@ -56,7 +56,7 @@ describe('asFirstRun', () => {
     ['null', null],
     ['an array', [FULL_AT_3]],
     ['another view', { ...FULL_AT_3, view: 'tab' }],
-    ['full step 10', { ...FULL_AT_3, step: 10 }],
+    ['full step 11', { ...FULL_AT_3, step: 11 }],
     ['popup step 9', { ...newRun('popup', 1), step: 9 }],
     ['a step as text', { ...FULL_AT_3, step: '3' }],
     ['a numeric session id', { ...FULL_AT_3, sessionId: 7 }],
@@ -87,9 +87,20 @@ describe('asFirstRun', () => {
     const short = newFullViewStepsRun(null);
     expect(asFirstRun(short)).toEqual(short);
     expect(asFirstRun({ ...short, step: 2 })).toEqual({ ...short, step: 2 });
-    expect(asFirstRun({ ...short, step: 9 })).toEqual({ ...short, step: 9 });
+    expect(asFirstRun({ ...short, step: 10 })).toEqual({ ...short, step: 10 });
     const carried = newFullViewStepsRun('sample:abc');
     expect(asFirstRun(carried)).toEqual(carried);
+  });
+
+  // KAN-1023. The drag card took step 9; a short run's pin card, stored at 9 before it, is at 10.
+  test('KAN-1023: a short run stored at its old pin card, 9, reads at 10', () => {
+    const short = newFullViewStepsRun(null);
+    expect(asFirstRun({ ...short, step: 9 })).toEqual({ ...short, step: 10 });
+  });
+
+  test('KAN-1023: a whole full run at 9 stays at 9, the drag card', () => {
+    expect(asFirstRun(newRun('full', 9))).toEqual(newRun('full', 9));
+    expect(runStepKind('full', 9)).toBe('drag');
   });
 
   test.each([
@@ -110,9 +121,10 @@ describe('asFirstRun', () => {
 
 describe('the steps', () => {
   // KAN-586: Replace after Open (full) or Switch (popup), before Delete.
-  test('full: Hello, then 9 cards, Open, Replace, then Delete (no Switch)', () => {
+  // KAN-1023: the drag card between Windows and the pin card.
+  test('full: Hello, then 10 cards, Open, Replace, then Delete (no Switch), Windows, then the drag card', () => {
     expect(
-      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((s) =>
+      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((s) =>
         runStepKind('full', asRunStep('full', s) ?? 0)
       )
     ).toEqual([
@@ -125,6 +137,7 @@ describe('the steps', () => {
       'replace',
       'delete',
       'windows',
+      'drag',
       'twoViews',
     ]);
   });
@@ -146,13 +159,14 @@ describe('the steps', () => {
       'fullView',
     ]);
     expect(asRunStep('popup', 9)).toBeNull();
-    expect(asRunStep('full', 10)).toBeNull();
+    expect(asRunStep('full', 11)).toBeNull();
   });
 
   test('Next stops at the last step; Back exists from step 2', () => {
     expect(nextRunStep(newRun('full', 0), 'show')).toBe(1);
     expect(nextRunStep(newRun('full', 8), 'show')).toBe(9);
-    expect(nextRunStep(newRun('full', 9), 'show')).toBeNull();
+    expect(nextRunStep(newRun('full', 9), 'show')).toBe(10);
+    expect(nextRunStep(newRun('full', 10), 'show')).toBeNull();
     expect(nextRunStep(newRun('popup', 7), 'show')).toBe(8);
     expect(nextRunStep(newRun('popup', 8), 'show')).toBeNull();
     expect(previousRunStep(newRun('full', 2), 'show')).toBe(1);
@@ -162,7 +176,7 @@ describe('the steps', () => {
 
   test('KAN-830: a short run is the full view’s own steps: Currently open, Find & fit, Two views', () => {
     const steps = runSteps(newFullViewStepsRun(null), 'show');
-    expect(steps).toEqual([1, 2, 9]);
+    expect(steps).toEqual([1, 2, 10]);
     expect(steps.map((s) => runStepKind('full', s))).toEqual([
       'openNow',
       'findAndFit',
@@ -170,30 +184,30 @@ describe('the steps', () => {
     ]);
   });
 
-  test('KAN-830: a short run moves 1 → 2 → 9 and back; no Back on its first', () => {
-    const at = (step: 1 | 2 | 9): FirstRun => ({
+  test('KAN-830: a short run moves 1 → 2 → 10 and back; no Back on its first', () => {
+    const at = (step: 1 | 2 | 10): FirstRun => ({
       ...newFullViewStepsRun(null),
       step,
     });
     expect(nextRunStep(at(1), 'show')).toBe(2);
-    expect(nextRunStep(at(2), 'show')).toBe(9);
-    expect(nextRunStep(at(9), 'show')).toBeNull();
-    expect(previousRunStep(at(9), 'show')).toBe(2);
+    expect(nextRunStep(at(2), 'show')).toBe(10);
+    expect(nextRunStep(at(10), 'show')).toBeNull();
+    expect(previousRunStep(at(10), 'show')).toBe(2);
     expect(previousRunStep(at(2), 'show')).toBe(1);
     expect(previousRunStep(at(1), 'show')).toBeNull();
   });
 
-  test('KAN-830: a short run counts 1, 2, 3 of 3; a whole run counts its step of 9', () => {
-    const at = (step: 1 | 2 | 9): FirstRun => ({
+  test('KAN-830: a short run counts 1, 2, 3 of 3; a whole run counts its step of 10', () => {
+    const at = (step: 1 | 2 | 10): FirstRun => ({
       ...newFullViewStepsRun(null),
       step,
     });
     expect(runProgress(at(1), 'show')).toEqual({ position: 1, total: 3 });
     expect(runProgress(at(2), 'show')).toEqual({ position: 2, total: 3 });
-    expect(runProgress(at(9), 'show')).toEqual({ position: 3, total: 3 });
+    expect(runProgress(at(10), 'show')).toEqual({ position: 3, total: 3 });
     expect(runProgress(newRun('full', 1), 'show')).toEqual({
       position: 1,
-      total: 9,
+      total: 10,
     });
     expect(runProgress(newRun('popup', 4), 'show')).toEqual({
       position: 4,
@@ -201,16 +215,16 @@ describe('the steps', () => {
     });
   });
 
-  test('KAN-878: skipping the pin card, a whole full run is 8 cards ending on Windows', () => {
+  test('KAN-878: skipping the pin card, a whole full run is 9 cards ending on the drag card', () => {
     const at = (step: RunStep) => newRun('full', step);
-    expect(runSteps(at(1), 'skip')).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
-    expect(nextRunStep(at(7), 'skip')).toBe(8);
-    expect(nextRunStep(at(8), 'skip')).toBeNull();
-    expect(previousRunStep(at(8), 'skip')).toBe(7);
+    expect(runSteps(at(1), 'skip')).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(nextRunStep(at(8), 'skip')).toBe(9);
+    expect(nextRunStep(at(9), 'skip')).toBeNull();
+    expect(previousRunStep(at(9), 'skip')).toBe(8);
     expect(nextRunStep(at(0), 'skip')).toBe(1);
-    expect(runProgress(at(1), 'skip')).toEqual({ position: 1, total: 8 });
-    expect(runProgress(at(8), 'skip')).toEqual({ position: 8, total: 8 });
-    expect(runProgress(at(8), 'show')).toEqual({ position: 8, total: 9 });
+    expect(runProgress(at(1), 'skip')).toEqual({ position: 1, total: 9 });
+    expect(runProgress(at(9), 'skip')).toEqual({ position: 9, total: 9 });
+    expect(runProgress(at(9), 'show')).toEqual({ position: 9, total: 10 });
   });
 
   test('KAN-878: skipping the pin card, a short run is Currently open, Find & fit', () => {
@@ -237,9 +251,9 @@ describe('the steps', () => {
     expect(pinCardFor(full, true, false)).toBe('show');
     expect(pinCardFor(full, false, true)).toBe('show');
     expect(pinCardFor(full, null, true)).toBe('show');
-    expect(pinCardFor(newRun('full', 9), true, true)).toBe('show');
+    expect(pinCardFor(newRun('full', 10), true, true)).toBe('show');
     expect(
-      pinCardFor({ ...newFullViewStepsRun(null), step: 9 }, true, true)
+      pinCardFor({ ...newFullViewStepsRun(null), step: 10 }, true, true)
     ).toBe('show');
     expect(pinCardFor(newRun('popup', 1), true, true)).toBe('show');
   });
@@ -257,11 +271,20 @@ describe('the steps', () => {
           'replace',
           'delete',
           'windows',
+          'drag',
           'twoViews',
           'fullView',
         ] as const
       ).filter(needsSession)
-    ).toEqual(['row', 'open', 'switch', 'replace', 'delete', 'windows']);
+    ).toEqual([
+      'row',
+      'open',
+      'switch',
+      'replace',
+      'delete',
+      'windows',
+      'drag',
+    ]);
   });
 
   test('a new popup welcome counts its first show; nothing else counts', () => {

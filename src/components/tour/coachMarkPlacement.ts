@@ -34,13 +34,13 @@ export interface FreePlacement {
 export type CoachPlacement = AnchoredPlacement | FreePlacement;
 
 // bright: the box left undimmed, the anchor's own unless the step lights more.
-// openings (KAN-900): more undimmed boxes, each a hole of its own, outside the ring.
+// openings (KAN-900): more undimmed boxes, each a hole of its own.
 export type CoachFrame =
   | {
       kind: 'anchored';
       anchor: Box;
       bright: Box;
-      openings: readonly Hole[];
+      openings: readonly LitHole[];
       placement: AnchoredPlacement;
     }
   | { kind: 'free'; placement: FreePlacement };
@@ -67,15 +67,36 @@ export const COACH = {
 const clamp = (value: number, low: number, high: number): number =>
   Math.min(Math.max(value, low), Math.max(low, high));
 
-const aimX = (anchor: Box): number =>
-  anchor.left + Math.min(anchor.width / 2, COACH.BELOW_AIM);
+// KAN-1020. Below, the card hangs from the anchor's start, or ends where it ends.
+export type BelowAt = 'start' | 'end';
+// Beyond the sides to try: where a card below hangs, and the box it stays
+// inside across (the window, when none).
+export interface PlaceOptions {
+  belowAt?: BelowAt;
+  within?: Box;
+}
+const aimX = (anchor: Box, at: BelowAt = 'start'): number => {
+  const inset = Math.min(anchor.width / 2, COACH.BELOW_AIM);
+  return at === 'end'
+    ? anchor.left + anchor.width - inset
+    : anchor.left + inset;
+};
 const aimY = (anchor: Box): number => anchor.top + anchor.height / 2;
 
 // The mark clears `bright`; its notch still aims at `anchor`.
-function unclamped(side: CoachSide, anchor: Box, mark: Size, bright: Box) {
+function unclamped(
+  side: CoachSide,
+  anchor: Box,
+  mark: Size,
+  bright: Box,
+  at: BelowAt = 'start'
+) {
   if (side === 'below') {
     return {
-      left: aimX(anchor) - COACH.NOTCH_INSET,
+      left:
+        at === 'end'
+          ? bright.left + bright.width - mark.width
+          : aimX(anchor) - COACH.NOTCH_INSET,
       top: bright.top + bright.height + COACH.GAP_BELOW,
     };
   }
@@ -91,13 +112,27 @@ function settle(
   raw: { left: number; top: number },
   anchor: Box,
   mark: Size,
-  viewport: Size
+  viewport: Size,
+  { belowAt = 'start', within }: PlaceOptions = {}
 ): AnchoredPlacement {
-  const left = clamp(
+  const inViewport = clamp(
     raw.left,
     COACH.GUTTER,
     viewport.width - mark.width - COACH.GUTTER
   );
+  // KAN-1021. Kept inside `within` across, as far as the window allows.
+  const left =
+    within === undefined
+      ? inViewport
+      : clamp(
+          clamp(
+            inViewport,
+            within.left,
+            within.left + within.width - mark.width
+          ),
+          COACH.GUTTER,
+          viewport.width - mark.width - COACH.GUTTER
+        );
   const top = clamp(
     raw.top,
     COACH.GUTTER,
@@ -106,7 +141,7 @@ function settle(
   const notch =
     side === 'below'
       ? clamp(
-          aimX(anchor) - left,
+          aimX(anchor, belowAt) - left,
           COACH.NOTCH_MIN,
           mark.width - COACH.NOTCH_MIN
         )
@@ -124,10 +159,11 @@ export function placeBeside(
   mark: Size,
   viewport: Size,
   sides: readonly CoachSide[],
-  bright: Box = anchor
+  bright: Box = anchor,
+  options: PlaceOptions = {}
 ): AnchoredPlacement {
   const fits = (side: CoachSide): boolean => {
-    const raw = unclamped(side, anchor, mark, bright);
+    const raw = unclamped(side, anchor, mark, bright, options.belowAt);
     return side === 'below'
       ? raw.top + mark.height <= viewport.height - COACH.GUTTER
       : raw.left >= COACH.GUTTER &&
@@ -136,10 +172,11 @@ export function placeBeside(
   const side = sides.find(fits) ?? sides[0] ?? 'below';
   return settle(
     side,
-    unclamped(side, anchor, mark, bright),
+    unclamped(side, anchor, mark, bright, options.belowAt),
     anchor,
     mark,
-    viewport
+    viewport,
+    options
   );
 }
 
@@ -216,6 +253,15 @@ export interface Hole {
   corners: HoleCorners;
 }
 
+// O1. An opening's hole, and whether a ring goes round it as round the anchor.
+export interface LitHole extends Hole {
+  isRinged: boolean;
+}
+
+// O1. A ring's corners: RING_INSET out from those of the hole it rings.
+export const ringCorners = (corners: HoleCorners): string =>
+  corners.map((c) => `${c + COACH.RING_INSET}px`).join(' ');
+
 // A clip-path keeping the whole element but each hole, in the element's own
 // px, each corner a squircle of its radius (KAN-721, KAN-901), capped at half
 // the hole's sides.
@@ -263,6 +309,7 @@ export function sameFrame(a: CoachFrame | null, b: CoachFrame | null): boolean {
     a.openings.every(
       (hole, i) =>
         sameBox(hole.box, b.openings[i].box) &&
+        hole.isRinged === b.openings[i].isRinged &&
         hole.corners.every((c, j) => c === b.openings[i].corners[j])
     ) &&
     a.placement.side === b.placement.side &&

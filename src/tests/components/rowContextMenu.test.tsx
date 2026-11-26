@@ -9,6 +9,7 @@ import { recordFirstRun } from '../../redux/slices/settingsDataStateSlice';
 import { runShownHere } from '../../redux/slices/globalStateSlice';
 import { endRun } from '../../redux/firstRun';
 import { newRun } from '../../utils/functions/firstRun';
+import { onRefusedDuringTour } from '../../components/tour/tourRefusal';
 
 // KAN-708. A right-click (or Shift+F10, or the Menu key) on a row opens that row's ⋮ items at the pointer.
 
@@ -369,6 +370,8 @@ describe('right-click on a row', () => {
       store.dispatch(runShownHere());
     });
     const reachedDocument = vi.fn();
+    const refused = vi.fn();
+    const stopHearing = onRefusedDuringTour(refused);
     document.addEventListener('contextmenu', reachedDocument);
     try {
       expect(fireEvent.contextMenu(row('a'))).toBe(false);
@@ -377,8 +380,11 @@ describe('right-click on a row', () => {
         fireEvent.keyDown(title('a'), { key: 'F10', shiftKey: true })
       ).toBe(false);
       expect(rowMenus()).toHaveLength(0);
+      // Round 2. The tour's card says why, once per press.
+      expect(refused).toHaveBeenCalledTimes(2);
     } finally {
       document.removeEventListener('contextmenu', reachedDocument);
+      stopHearing();
     }
 
     act(() => {
@@ -392,9 +398,14 @@ describe('right-click on a row', () => {
     'during a drag or carry (%s): nothing opens, Chrome’s menu suppressed',
     async (flag) => {
       await renderRows();
+      const refused = vi.fn();
+      const stopHearing = onRefusedDuringTour(refused);
       document.documentElement.setAttribute(flag, '');
       expect(fireEvent.contextMenu(row('a'))).toBe(false);
       expect(rowMenus()).toHaveLength(0);
+      // CONTROL: no tour, nothing to say.
+      expect(refused).not.toHaveBeenCalled();
+      stopHearing();
       document.documentElement.removeAttribute(flag);
       expect(fireEvent.contextMenu(row('a'))).toBe(false);
       expect(rowMenus()).toHaveLength(1);
