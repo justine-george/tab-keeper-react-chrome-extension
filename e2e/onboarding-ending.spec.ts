@@ -19,6 +19,7 @@ import {
   endingCard,
   nextTo,
   openRunFromHelp,
+  replayNote,
   runCheck,
   startRunFromHelp,
   walkFullRunToLastStep,
@@ -523,4 +524,44 @@ test('popup: Read the story closes the card and opens Settings › About', async
   await expectEnding(page, 'typed', openOn(page, 'Lisbon trip'));
   await readsTheStory(page);
   expect((await storedSettings(page)).isPopupEndingSeen).toBe(true);
+});
+
+// KAN-1018. The popup skipper's note carries the story link; a full-view skip's note does not (its ending card comes after setup).
+const replayStoryLink = (page: Page) =>
+  replayNote(page).getByRole('button', { name: 'Read the story', exact: true });
+
+test('popup: Skip tutorial, the note has Read the story, which opens Settings › About', async ({
+  context,
+  extensionId,
+}) => {
+  await seedSettings(context, {
+    firstRun: {
+      ...RUN_FINISHED,
+      view: 'popup',
+      helloIn: 'popup',
+      step: 1,
+      ended: null,
+    },
+  });
+  const page = await openPage(context, extensionId, POPUP_RUN.path, POPUP);
+  await runCheck(page, 'resumed');
+  await cardButton(page, 'Skip tutorial').click();
+  await expect(replayStoryLink(page)).toBeVisible();
+  await replayStoryLink(page).click();
+  await expect(replayNote(page)).toHaveCount(0);
+  await expect(aboutStory(page)).toBeVisible();
+  await expect(endingCard(page)).toHaveCount(0);
+});
+
+test('full view: Skip tutorial, the note has no Read the story', async ({
+  context,
+  extensionId,
+}) => {
+  await stubToolbarPin(context, { pinned: true });
+  const page = await openRunningFullView(context, extensionId);
+  await cardButton(page, 'Skip tutorial').click();
+  await expect(
+    replayNote(page).getByRole('button', { name: 'Got it', exact: true })
+  ).toBeVisible();
+  await expect(replayStoryLink(page)).toHaveCount(0);
 });
