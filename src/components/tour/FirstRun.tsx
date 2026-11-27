@@ -3,6 +3,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 
 import CoachMark, { type CoachCheck } from './CoachMark';
+import DragStepArrow from './DragStepArrow';
+import { arrowWay } from './dragArrow';
 import GlyphSentence from './GlyphSentence';
 import { GLYPH_SLOT } from './glyphSlot';
 import { CARD_WIDTH, PIN_CARD_WIDTH, runStepPlan } from './runSteps';
@@ -461,32 +463,36 @@ export default function FirstRun() {
           });
 
   return (
-    <CoachMark
-      // KAN-623. The card is outside the tour's count: step 1 is still card 1 of the count.
-      progress={
-        kind === 'compactView'
-          ? null
-          : { step: run.step, ...runProgress(run, decidedPinCard) }
-      }
-      kind={kind}
-      text={card.text}
-      fine={card.fine}
-      checklist={card.checklist}
-      anchors={plan.anchors}
-      boxOf={plan.boxOf}
-      openings={plan.openings}
-      holeCorners={plan.holeCorners}
-      isLive={plan.isLive}
-      width={card.width ?? plan.cardWidth ?? CARD_WIDTH[run.view]}
-      place={place}
-      // Round 4. The drag card's Skip is its button: no second way out beside it.
-      onSkip={isLast || kind === 'drag' ? undefined : skip}
-      onBack={
-        previousRunStep(run, decidedPinCard) !== null ? goBack : undefined
-      }
-      secondary={card.secondary}
-      primary={card.primary}
-      onEscape={isLast ? finish : skip}
-    />
+    <>
+      {/* KAN-1030. Under the card: earlier in the page, on the same layer. */}
+      {kind === 'drag' && <DragStepArrow way={arrowWay(dragsTried)} />}
+      <CoachMark
+        // KAN-623. The card is outside the tour's count: step 1 is still card 1 of the count.
+        progress={
+          kind === 'compactView'
+            ? null
+            : { step: run.step, ...runProgress(run, decidedPinCard) }
+        }
+        kind={kind}
+        text={card.text}
+        fine={card.fine}
+        checklist={card.checklist}
+        anchors={plan.anchors}
+        boxOf={plan.boxOf}
+        openings={plan.openings}
+        holeCorners={plan.holeCorners}
+        isLive={plan.isLive}
+        width={card.width ?? plan.cardWidth ?? CARD_WIDTH[run.view]}
+        place={place}
+        // Round 4. The drag card's Skip is its button: no second way out beside it.
+        onSkip={isLast || kind === 'drag' ? undefined : skip}
+        onBack={
+          previousRunStep(run, decidedPinCard) !== null ? goBack : undefined
+        }
+        secondary={card.secondary}
+        primary={card.primary}
+        onEscape={isLast ? finish : skip}
+      />
+    </>
   );
 }

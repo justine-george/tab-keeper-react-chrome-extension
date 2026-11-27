@@ -1069,6 +1069,8 @@ export default function OpenNowWindow({
       <div
         css={containerStyle}
         data-open-window-id={openWindow.id}
+        // KAN-1030. The tour's drag arrow aims at another window first.
+        data-this-window={openWindow.isThisWindow ? '' : undefined}
         // KAN-892 D. A saved window lands only in a window of its kind.
         data-window-incognito={openWindow.incognito ? '' : undefined}
         data-drop-window-id={windowKey}
