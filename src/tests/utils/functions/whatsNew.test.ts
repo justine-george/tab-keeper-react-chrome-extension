@@ -234,6 +234,13 @@ describe('the shipped list', () => {
     expect(page('2.2.1')).toBe(SettingsCategory.IMPORT);
   });
 
+  test('2.6.0 has no entry: from 2.5.0 nothing, from 2.4.0 only 2.5.0', () => {
+    const shipped = (since: string) =>
+      releasesToShow(since, '2.6.0').map((r) => r.version);
+    expect(shipped('2.5.0')).toEqual([]);
+    expect(shipped('2.4.0')).toEqual(['2.5.0']);
+  });
+
   test('2.5.0 is import from bookmarks, then fold a tab group', () => {
     expect(WHATS_NEW[0]).toEqual({
       version: '2.5.0',

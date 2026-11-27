@@ -50,6 +50,20 @@ test.describe("What's new (KAN-861)", () => {
     expect(await sinceIn(serviceWorker)).toBeNull();
   });
 
+  // 2.6.0 has no entry: an update from 2.5.0 shows nothing, and clears its key.
+  test('an update from the newest listed release shows nothing', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await updatedFrom(serviceWorker, NEWEST_LISTED);
+    const page = await openPopup(context, extensionId);
+    await expect(page.locator('html[data-first-open]')).toHaveCount(1);
+
+    await expect(page.locator('dialog[data-whats-new]')).toHaveCount(0);
+    await expect.poll(() => sinceIn(serviceWorker)).toBeNull();
+  });
+
   test('closed unanswered, the next open shows it again', async ({
     context,
     extensionId,

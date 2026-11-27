@@ -409,7 +409,7 @@
   "Before you shut down, press Replace to save what you have open over this session. Nothing closes.": "パソコンをシャットダウンする前に「置き換え」を押すと、このセッションを今開いているもので上書きできます。何も閉じません。",
   "Copy all links, save as PDF, or delete this session from this menu. Deleting doesn't close your open windows.": "このメニューから、すべてのリンクのコピー、このセッションのPDFとしての保存や削除ができます。削除しても、開いているウィンドウは閉じません。",
   "Right-click a session, window, group or tab to open its menu.": "セッション、ウィンドウ、グループ、タブを右クリックすると、それぞれのメニューが開きます。",
-  "Each window can be opened on its own. Click a window's title to rename it. After the tour, right-click it for more.": "ウィンドウは1つずつ開くこともできます。名前を変えるにはウィンドウのタイトルをクリックしてください。ツアーの後は、右クリックでその他の操作ができます。",
+  "Each window can be opened on its own. Click a window's title to rename it. After the tour, right-click it for more.": "ウィンドウは1つずつ開くこともできます。名前を変えるにはウィンドウのタイトルをクリックしてください。案内の終了後は、右クリックでその他の操作ができます。",
   "Try it: drag a tab between this session and Currently open.": "試してみましょう：このセッションと「現在開いているタブ」の間でタブをドラッグします。",
   "Left to right: onto a window in Currently open, to open it there": "左から右へ：「現在開いているタブ」のウィンドウへ。そこで開きます",
   "Right to left: from Currently open into this session, to save a copy": "右から左へ：「現在開いているタブ」からこのセッションへ。コピーを保存します",
