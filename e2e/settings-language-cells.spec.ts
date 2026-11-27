@@ -4,7 +4,8 @@ import { test, expect } from './fixtures/extension';
 import { buildContainer, seedSessions } from './fixtures/seed';
 import { POPUP, openPage } from './fixtures/onboarding';
 
-// KAN-510. Settings' language cells are 200×48 in two columns at the label's left edge, not half the pane each.
+// KAN-510. Settings' language cells are two to a row at the label's left edge, not half the pane each.
+// KAN-1032. The popup's are 200×48 (gap 12); the full view's are setup's 274×48 (gap 10), narrower only when the pane is.
 
 async function openLanguagePane(
   context: BrowserContext,
@@ -26,37 +27,88 @@ const cells = (page: Page) =>
   page.locator('div:has(> button:has-text("Deutsch")) > button');
 
 const VIEWS = [
-  ['the popup', 'index.html', POPUP],
-  ['a 1280 full view', 'index.html?view=tab', { width: 1280, height: 800 }],
-  ['a 1920 full view', 'index.html?view=tab', { width: 1920, height: 1000 }],
+  ['the popup', 'index.html', POPUP, 200, 12],
+  [
+    'a 1280 full view',
+    'index.html?view=tab',
+    { width: 1280, height: 800 },
+    274,
+    10,
+  ],
+  [
+    'a 1920 full view',
+    'index.html?view=tab',
+    { width: 1920, height: 1000 },
+    274,
+    10,
+  ],
 ] as const;
 
-for (const [name, path, size] of VIEWS) {
-  test(`in ${name}, every language cell is 200×48, two to a row, from the label's left edge`, async ({
+async function cellBoxes(page: Page) {
+  return cells(page).evaluateAll((els) =>
+    els.map((el) => {
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height, right: r.right };
+    })
+  );
+}
+
+for (const [name, path, size, width, gap] of VIEWS) {
+  test(`in ${name}, every language cell is ${width}×48, ${gap}px apart, two to a row, from the label's left edge`, async ({
     context,
     extensionId,
   }) => {
     const page = await openLanguagePane(context, extensionId, path, size);
-    const boxes = await cells(page).evaluateAll((els) =>
-      els.map((el) => {
-        const r = el.getBoundingClientRect();
-        return { x: r.x, y: r.y, w: r.width, h: r.height };
-      })
-    );
+    const boxes = await cellBoxes(page);
     const label = await page
       .getByText('Choose language', { exact: true })
       .boundingBox();
     // PREMISE: all 13 languages are drawn.
     expect(boxes).toHaveLength(13);
     for (const b of boxes) {
-      expect(b.w).toBeCloseTo(200, 0);
+      expect(b.w).toBeCloseTo(width, 0);
       expect(b.h).toBeCloseTo(48, 0);
     }
     expect(boxes[1].y).toBeCloseTo(boxes[0].y, 0);
-    expect(boxes[2].y).toBeGreaterThan(boxes[0].y);
+    expect(boxes[1].x - (boxes[0].x + boxes[0].w)).toBeCloseTo(gap, 0);
+    expect(boxes[2].y - (boxes[0].y + boxes[0].h)).toBeCloseTo(gap, 0);
     expect(boxes[0].x).toBeCloseTo(label!.x, 0);
   });
 }
+
+test('in a full view too narrow for 274, the cells share the pane: equal, side by side, inside its padding', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openLanguagePane(
+    context,
+    extensionId,
+    'index.html?view=tab',
+    { width: 800, height: 700 }
+  );
+  const boxes = await cellBoxes(page);
+  // The right edge of the box the grid sits in, inside its padding.
+  const contentRight = await cells(page)
+    .first()
+    .evaluate((el) => {
+      const pane = el.parentElement!.parentElement!;
+      return (
+        pane.getBoundingClientRect().right -
+        parseFloat(getComputedStyle(pane).paddingRight)
+      );
+    });
+  const label = await page
+    .getByText('Choose language', { exact: true })
+    .boundingBox();
+  expect(boxes).toHaveLength(13);
+  // PREMISE: two 274 cells and their gap would not fit.
+  expect(contentRight - boxes[0].x).toBeLessThan(2 * 274 + 10);
+  expect(boxes[0].w).toBeLessThan(274);
+  expect(boxes[1].w).toBeCloseTo(boxes[0].w, 0);
+  expect(boxes[1].y).toBeCloseTo(boxes[0].y, 0);
+  expect(boxes[0].x).toBeCloseTo(label!.x, 0);
+  expect(boxes[1].right).toBeCloseTo(contentRight, 0);
+});
 
 test('at the largest Chrome font size (a 24px root), every language name fits inside its cell', async ({
   context,

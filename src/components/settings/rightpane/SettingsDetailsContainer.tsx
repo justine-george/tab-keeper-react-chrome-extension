@@ -1110,13 +1110,25 @@ const SettingsDetailsContainer: React.FC = () => {
             ref={languageCellsRef}
             css={css`
               display: grid;
-              /* KAN-510. Two 200px columns from the label's edge: half the
-                 pane each grew to 745px at 1920. The pane's inner width is
-                 434px at every root size, so two always fit. */
+              /* KAN-510. Two columns from the label's edge, not half the
+                 pane each (745px at 1920). The popup's pane is 434px wide at
+                 every root size, so two 200px columns always fit. */
               grid-template-columns: repeat(2, 200px);
               gap: 12px;
               align-items: center;
               margin-top: 8px;
+              ${
+                isTabView() &&
+                css`
+                  /* KAN-1032. The full view draws setup's cells: 274px, 10px
+                   apart (a 600px dialog's grid), narrower only in a narrow
+                   pane. */
+                  grid-template-columns: repeat(2, minmax(0, 1fr));
+                  gap: 10px;
+                  width: 100%;
+                  max-width: ${2 * 274 + 10}px;
+                `
+              }
             `}
           >
             {languageCells.map(([language, endonym]) => {
