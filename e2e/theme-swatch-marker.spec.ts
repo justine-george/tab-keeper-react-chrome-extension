@@ -181,7 +181,7 @@ for (const [theme, colours] of PALETTES) {
     for (const name of Object.values(SHOWN).filter((n) => n !== SHOWN[theme])) {
       await expect(
         swatch(page, name).locator('[data-swatch-check]')
-      ).toHaveCount(0);
+      ).toBeHidden();
     }
 
     // The pointer on the current tile leaves its frame as it was (the KAN-96 rule).

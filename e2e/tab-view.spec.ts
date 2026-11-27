@@ -791,10 +791,10 @@ test.describe('the popup page and the tab view together (KAN-279 D8, D9, D12)', 
     await tab.getByRole('button', { name: 'Settings', exact: true }).click();
     await tab.getByRole('button', { name: 'Graphite', exact: true }).click();
 
-    expect(await stored(tab)).toMatchObject({
-      language: 'de',
-      theme: 'Darkenheimer',
-    });
+    // A frame after the press: the pick saves inside its page fade (KAN-1024).
+    await expect
+      .poll(() => stored(tab))
+      .toMatchObject({ language: 'de', theme: 'Darkenheimer' });
     // The tab view takes in the language it never heard; the popup keeps it.
     await expect(tab.locator('html')).toHaveAttribute('lang', 'de');
     await expect(popup.locator('html')).toHaveAttribute('lang', 'de');

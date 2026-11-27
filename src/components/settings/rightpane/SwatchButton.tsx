@@ -1,5 +1,5 @@
 import { css, type SerializedStyles } from '@emotion/react';
-import type { ReactNode } from 'react';
+import { useLayoutEffect, useRef, type ReactNode } from 'react';
 
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { focusRingOutsideCss } from '../../common/focusRing';
@@ -8,6 +8,7 @@ import { slidingPairColors } from '../../common/slidingPairColors';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { DURATION, RADIUS, TYPE } from '../../../styles/scale';
 import { corners } from '../../../styles/corners';
+import { moveMarker } from './pickMotion';
 
 /**
  * A picture tile with its name underneath, for a choice shown by example: a
@@ -22,6 +23,10 @@ import { corners } from '../../../styles/corners';
  * square at the tile's corner. The frame alone reads like the hover frame
  * (LABEL_L2); the check separates them. border-box keeps the tile's size and
  * the check is absolutely placed, so the row never reflows.
+ *
+ * A PICK MOVES (KAN-1024): the check pops in on the new tile as the old one
+ * fades where it is; the frames change at once (pickMotion). So the check
+ * stays rendered on every tile, hidden on all but the current one.
  *
  * HOVER AND PRESS move an unselected frame's colour a rung, not the tile's
  * fill: the tile's colours are the information. The current tile's frame
@@ -110,7 +115,19 @@ export default function SwatchButton({
     box-shadow: 0 0 0 2px ${PAGE.PRIMARY_COLOR};
     /* A small mark: round (KAN-721). */
     border-radius: ${RADIUS.MARK};
+    ${isActive ? '' : 'visibility: hidden;'}
   `;
+
+  const frameRef = useRef<HTMLSpanElement>(null);
+  const checkRef = useRef<HTMLSpanElement>(null);
+  // The state last drawn: a change from it is a pick (StrictMode's second run
+  // of the effect sees no change).
+  const drawn = useRef(isActive);
+  useLayoutEffect(() => {
+    if (drawn.current === isActive) return;
+    drawn.current = isActive;
+    moveMarker(isActive, frameRef.current, checkRef.current);
+  }, [isActive]);
 
   const nameStyle = css`
     font-size: ${TYPE.SECONDARY};
@@ -128,19 +145,22 @@ export default function SwatchButton({
       css={buttonStyle}
     >
       <span aria-hidden="true" css={holderStyle}>
-        <span aria-hidden="true" data-swatch-tile css={[tileStyle, tileCss]}>
+        <span
+          ref={frameRef}
+          aria-hidden="true"
+          data-swatch-tile
+          css={[tileStyle, tileCss]}
+        >
           {children}
         </span>
-        {isActive && (
-          <span data-swatch-check css={checkStyle}>
-            <Icon
-              type="check"
-              size="12px"
-              color={labelOnKnob}
-              style="padding: 0;"
-            />
-          </span>
-        )}
+        <span ref={checkRef} data-swatch-check css={checkStyle}>
+          <Icon
+            type="check"
+            size="12px"
+            color={labelOnKnob}
+            style="padding: 0;"
+          />
+        </span>
       </span>
       <span css={nameStyle}>{name}</span>
     </button>

@@ -14,6 +14,8 @@ import TabKeeperMark from '../common/TabKeeperMark';
 import { KEYS_SLOT, ShortcutSentence } from '../common/ShortcutSentence';
 import { slidingPairColors } from '../common/slidingPairColors';
 import { pressedCellStyle } from '../common/pressedCellStyle';
+import { pickTheme } from '../settings/rightpane/pickMotion';
+import { useCheckPop } from '../settings/rightpane/useCheckPop';
 import ThemeSwatch from '../settings/rightpane/ThemeSwatch';
 import { chromeLanguageOrder } from '../settings/rightpane/languageOptions';
 import { themeChoices } from '../settings/rightpane/themeChoices';
@@ -84,6 +86,9 @@ export const SetupModal: React.FC = () => {
   const dispatch: AppDispatch = useDispatch();
   const theme = useSelector((s: RootState) => s.settingsDataState.theme);
   const language = useSelector((s: RootState) => s.settingsDataState.language);
+  // KAN-1031. A pick pops the new cell's check in.
+  const languageCells = useRef<HTMLDivElement>(null);
+  useCheckPop(languageCells, language);
   const settings = useSelector((s: RootState) => s.settingsDataState);
   const hasTabGroups = useSelector(
     (s: RootState) => s.globalState.hasTabGroupsPermission
@@ -334,7 +339,7 @@ export const SetupModal: React.FC = () => {
                 palette={palette}
                 name={name}
                 isActive={theme === id}
-                onSelect={() => dispatch(setTheme(id))}
+                onSelect={() => pickTheme(() => dispatch(setTheme(id)))}
               />
             ))}
           </div>
@@ -347,7 +352,7 @@ export const SetupModal: React.FC = () => {
     language: {
       heading: t('Which language do you prefer?'),
       body: (
-        <div css={languageGridStyle}>
+        <div ref={languageCells} css={languageGridStyle}>
           {languages.map(([id, endonym]) => {
             const isActive = language === id;
             return (

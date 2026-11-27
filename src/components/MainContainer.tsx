@@ -44,6 +44,7 @@ import {
 } from '../redux/savedSessionFold';
 import { useOpenNowPlace } from '../hooks/useOpenNowPlace';
 import { paneMotionCss } from './home/paneMotion';
+import { pickMotionCss } from './settings/rightpane/pickMotion';
 import LeftPaneSettings from './settings/leftpane/LeftPaneSettings';
 import RightPaneSettings from './settings/rightpane/RightPaneSettings';
 import { selectUndoKeyTarget } from '../redux/slices/globalStateSlice';
@@ -460,6 +461,12 @@ export default function MainContainer() {
 
   return (
     <div>
+      {/* KAN-1024. A theme pick's page fade, in both views. */}
+      <Global
+        styles={css`
+          ${pickMotionCss}
+        `}
+      />
       {/* KAN-810. The folds' and the drawer's motion; the popup has neither. */}
       {isTab && (
         <Global

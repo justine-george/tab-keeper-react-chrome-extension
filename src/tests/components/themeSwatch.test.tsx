@@ -135,9 +135,12 @@ describe('the theme picker shows each theme as a miniature (KAN-237)', () => {
       expect(getComputedStyle(tileOf(n)).borderTopWidth).toBe('1px');
     }
 
-    // The check: on the current tile only, hidden from the name it sits beside.
+    // The check: shown on the current tile only (every tile keeps one, so a
+    // pick can fade the old out, KAN-1024), hidden from the name it sits beside.
     const checks = NAMES.filter(
-      (n) => swatch(n).querySelector('[data-swatch-check]') !== null
+      (n) =>
+        getComputedStyle(swatch(n).querySelector('[data-swatch-check]')!)
+          .visibility !== 'hidden'
     );
     expect(checks).toEqual(['Petal']);
     expect(

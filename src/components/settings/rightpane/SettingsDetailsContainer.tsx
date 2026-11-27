@@ -10,6 +10,8 @@ import { focusRingOutsideCss } from '../../common/focusRing';
 import { RecentlyDeleted } from './RecentlyDeleted';
 import ClickableTabKeeperMark from '../../common/ClickableTabKeeperMark';
 import HelpSettings from './HelpSettings';
+import { pickTheme } from './pickMotion';
+import { useCheckPop } from './useCheckPop';
 import ThemeSwatch from './ThemeSwatch';
 import ToolbarIconTiles from './ToolbarIconTiles';
 import { chromeLanguageOrder } from './languageOptions';
@@ -133,6 +135,9 @@ const SettingsDetailsContainer: React.FC = () => {
   const settingsData = useSelector(
     (state: RootState) => state.settingsDataState
   );
+  // KAN-1031. A language pick pops the new cell's check in.
+  const languageCellsRef = useRef<HTMLDivElement>(null);
+  useCheckPop(languageCellsRef, settingsData.language);
 
   const hasTabGroups = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
@@ -257,7 +262,7 @@ const SettingsDetailsContainer: React.FC = () => {
                 palette={palette}
                 name={name}
                 isActive={settingsData.theme === theme}
-                onSelect={() => dispatch(setTheme(theme))}
+                onSelect={() => pickTheme(() => dispatch(setTheme(theme)))}
               />
             ))}
           </div>
@@ -1102,6 +1107,7 @@ const SettingsDetailsContainer: React.FC = () => {
           </div>
 
           <div
+            ref={languageCellsRef}
             css={css`
               display: grid;
               /* KAN-510. Two 200px columns from the label's edge: half the
