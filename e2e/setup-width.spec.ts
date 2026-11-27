@@ -1,6 +1,7 @@
 import type { BrowserContext, Locator, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { documentLanded } from './fixtures/landed';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
 import { localeStrings, shippedLanguages } from './fixtures/locales';
 import { openTabGroup } from './fixtures/onboarding';
@@ -98,7 +99,10 @@ for (const root of [16, 20]) {
           expect(back, label).toBeGreaterThan(20);
           expect(Math.abs(end - 1.5 * back), label).toBeLessThanOrEqual(1);
         }
-        if (step < 7) await button('Next').click();
+        if (step < 7) {
+          await button('Next').click();
+          await documentLanded(page);
+        }
       }
     });
   }
@@ -114,6 +118,7 @@ test('CONTROL: de at 480px wraps Skip setup onto two lines', async ({
   const say = (key: string) => localeStrings('de')[key] ?? key;
   // Step 2: Back and Next share the footer with Skip setup.
   await dialog.getByRole('button', { name: say('Next'), exact: true }).click();
+  await documentLanded(dialog.page());
   await expect(dialog.getByRole('progressbar')).toHaveAttribute(
     'aria-valuenow',
     '2'

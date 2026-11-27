@@ -1,6 +1,7 @@
 import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { documentLanded } from './fixtures/landed';
 import {
   buildContainer,
   seedSessions,
@@ -44,8 +45,11 @@ const guide = (page: Page) =>
   });
 const stepHeading = (page: Page) =>
   setup(page).getByRole('heading', { level: 3 });
-const press = (page: Page, name: string) =>
-  setup(page).getByRole('button', { name, exact: true }).click();
+// KAN-1033. A step glides in; read it once it has landed.
+const press = async (page: Page, name: string) => {
+  await setup(page).getByRole('button', { name, exact: true }).click();
+  await documentLanded(page);
+};
 // By id, not by name: a language pick renames the dialog itself.
 const setupAnyLanguage = (page: Page) =>
   page.locator('dialog[aria-labelledby="setup-title"]');
@@ -387,6 +391,7 @@ for (const lang of ['en', 'de', 'ru', 'sv']) {
       ];
       for (const primary of [...primaries, strings.Next, strings.Done]) {
         await button(strings.Next).click();
+        await documentLanded(page);
         await expect(button(strings.Back)).toBeVisible();
         await expect(button(primary)).toBeVisible();
         const seen = await widths(primary);

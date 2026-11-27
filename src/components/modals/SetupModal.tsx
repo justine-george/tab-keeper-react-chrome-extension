@@ -1,5 +1,12 @@
 import { DIALOG_LEAVE, useLeaveRef } from '../common/popoverMotion';
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { css } from '@emotion/react';
@@ -55,6 +62,7 @@ import {
 import { dialogTitleSize } from './dialogTitleSize';
 import { setupFinePrintCss } from './setupFinePrint';
 import { dialogRiseCss } from './dialogRise';
+import { holdStep, playStep, type StepBefore } from './setupStepMotion';
 import { useHasRisen } from '../../hooks/useHasRisen';
 import { corners } from '../../styles/corners';
 import { dialogFitsWindow } from './dialogFit';
@@ -103,6 +111,26 @@ export const SetupModal: React.FC = () => {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const hasMoved = useRef(false);
   const [stepIndex, setStepIndex] = useState(0);
+  // KAN-1033. The step's own contents and the buttons, for its change's motion.
+  const stepRef = useRef<HTMLDivElement>(null);
+  const footRef = useRef<HTMLDivElement>(null);
+  const nextRef = useRef<HTMLButtonElement>(null);
+  const backRef = useRef<HTMLButtonElement>(null);
+  const stepBefore = useRef<StepBefore | null>(null);
+  const holdStepFor = (dir: 1 | -1) => {
+    const dialog = dialogRef.current;
+    const contents = stepRef.current;
+    stepBefore.current =
+      dialog && contents
+        ? holdStep(
+            dialog,
+            contents,
+            nextRef.current,
+            backRef.current !== null,
+            dir
+          )
+        : null;
+  };
   // Chrome's language first, fixed for the dialog's life: a pick presses its cell where it is.
   const [languages] = useState(chromeLanguageOrder);
   // A9: asked as setup opens and again as the shortcut step is left; null until Chrome answers.
@@ -136,6 +164,18 @@ export const SetupModal: React.FC = () => {
     }
   }, []);
 
+  // KAN-1033. The step drawn, its change plays from what was held.
+  useLayoutEffect(() => {
+    const was = stepBefore.current;
+    stepBefore.current = null;
+    const dialog = dialogRef.current;
+    const contents = stepRef.current;
+    const foot = footRef.current;
+    if (was && dialog && contents && foot) {
+      playStep(dialog, contents, foot, nextRef.current, backRef.current, was);
+    }
+  }, [stepIndex]);
+
   // D5. A new step takes the focus to its heading, so it is announced.
   useEffect(() => {
     if (hasMoved.current) headingRef.current?.focus();
@@ -143,6 +183,7 @@ export const SetupModal: React.FC = () => {
 
   const goTo = (index: number) => {
     hasMoved.current = true;
+    holdStepFor(index > stepIndex ? 1 : -1);
     setStepIndex(index);
   };
   const finish = () => void dispatch(leaveSetup());
@@ -155,6 +196,7 @@ export const SetupModal: React.FC = () => {
       dispatch(setNeverAskAgainForTabGroups());
     }
     hasMoved.current = true;
+    holdStepFor(1);
     // A Go back pressed while Chrome answered wins over this late move.
     setStepIndex((at) => (at === from ? from + 1 : at));
   };
@@ -527,11 +569,13 @@ export const SetupModal: React.FC = () => {
           onClick={finish}
         />
       </div>
-      <h3 ref={headingRef} tabIndex={-1} css={stepHeadingStyle}>
-        {content[step].heading}
-      </h3>
-      {content[step].body}
-      <div css={footerStyle}>
+      <div ref={stepRef} data-setup-step>
+        <h3 ref={headingRef} tabIndex={-1} css={stepHeadingStyle}>
+          {content[step].heading}
+        </h3>
+        {content[step].body}
+      </div>
+      <div ref={footRef} data-setup-foot css={footerStyle}>
         <button
           type="button"
           css={[buttons.link, flushLinkCss]}
@@ -543,6 +587,7 @@ export const SetupModal: React.FC = () => {
         <span css={stepIndex > 0 ? pairCss : undefined}>
           {stepIndex > 0 && (
             <button
+              ref={backRef}
               type="button"
               css={[buttons.quiet, tall]}
               onClick={() => goTo(stepIndex - 1)}
@@ -551,11 +596,17 @@ export const SetupModal: React.FC = () => {
             </button>
           )}
           {isLast ? (
-            <button type="button" css={[buttons.filled, tall]} onClick={finish}>
+            <button
+              ref={nextRef}
+              type="button"
+              css={[buttons.filled, tall]}
+              onClick={finish}
+            >
               {t('Done')}
             </button>
           ) : (
             <button
+              ref={nextRef}
               type="button"
               css={[buttons.filled, tall]}
               onClick={(e) => {

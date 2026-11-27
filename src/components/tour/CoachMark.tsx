@@ -1,6 +1,8 @@
 import {
+  useCallback,
   useId,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -41,6 +43,7 @@ import {
 } from './coachMarkPlacement';
 import type { AnchorBox, Opening, Spotlight } from './anchorBox';
 import { playLineIn, playSwell } from './cardMotion';
+import { fadeTourIn, tourLeaveRef } from './tourMotion';
 import { canAnimate, prefersReducedMotion } from '../modals/getStartedMotion';
 import { CORNER_SHAPE, RADIUS, TYPE } from '../../styles/scale';
 import { onRefusedDuringTour } from './tourRefusal';
@@ -150,6 +153,26 @@ function Notch({
 
 const Z = COACH_LAYER;
 
+// KAN-1033. A ring round an opening; it fades a copy out as it leaves.
+function OpeningRing({
+  className,
+  style,
+}: {
+  className?: string;
+  style: CSSProperties;
+}) {
+  const leave = useMemo(() => tourLeaveRef('ring'), []);
+  return (
+    <div
+      ref={leave}
+      aria-hidden="true"
+      data-coach-opening-ring
+      className={className}
+      style={style}
+    />
+  );
+}
+
 // A press on the dim does nothing: no focus moves, no menu sees it as a press outside,
 // and a right-click opens no menu, Chrome's included (KAN-736).
 // KAN-902. Whether an element may be moved: drawn, animatable, motion allowed.
@@ -187,7 +210,7 @@ export default function CoachMark({
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
   const textId = useId();
-  const markRef = useRef<HTMLDivElement>(null);
+  const markRef = useRef<HTMLDivElement | null>(null);
   const nudgeRef = useRef<HTMLParagraphElement>(null);
   // KAN-902. The step a press on the dim was made at: its card says why
   // nothing happened, until the step changes.
@@ -214,7 +237,38 @@ export default function CoachMark({
   useLayoutEffect(() => {
     if (isNudged && canMove(nudgeRef.current)) playLineIn(nudgeRef.current);
   }, [isNudged]);
-  const ringRef = useRef<HTMLDivElement>(null);
+  const ringRef = useRef<HTMLDivElement | null>(null);
+  // KAN-1033. Each part fades a copy out as it leaves; the card shrinks toward its anchor.
+  const dimRef = useRef<HTMLDivElement | null>(null);
+  const leaving = useMemo(
+    () => ({
+      card: tourLeaveRef('card'),
+      dim: tourLeaveRef('dim'),
+      ring: tourLeaveRef('ring'),
+    }),
+    []
+  );
+  const setMark = useCallback(
+    (el: HTMLDivElement | null) => {
+      markRef.current = el;
+      leaving.card(el);
+    },
+    [leaving]
+  );
+  const setDim = useCallback(
+    (el: HTMLDivElement | null) => {
+      dimRef.current = el;
+      leaving.dim(el);
+    },
+    [leaving]
+  );
+  const setRing = useCallback(
+    (el: HTMLDivElement | null) => {
+      ringRef.current = el;
+      leaving.ring(el);
+    },
+    [leaving]
+  );
   const frame = useCoachPlacement(
     markRef,
     anchors,
@@ -226,6 +280,23 @@ export default function CoachMark({
   useCardMotion(markRef, ringRef, progress?.step ?? null, frame);
   const buttons = dialogButtonStyles(COLORS);
   const isPlaced = frame !== null;
+  // KAN-1033. The dim and rings fade in as the card first shows.
+  const wasShown = useRef(false);
+  useLayoutEffect(() => {
+    if (!isPlaced) {
+      wasShown.current = false;
+      return;
+    }
+    if (wasShown.current) return;
+    wasShown.current = true;
+    fadeTourIn(
+      dimRef.current,
+      [
+        ringRef.current,
+        ...document.querySelectorAll<HTMLElement>('[data-coach-opening-ring]'),
+      ].filter((ring): ring is HTMLElement => ring !== null)
+    );
+  }, [isPlaced]);
   const onRefusedRef = useRef(nudge);
   useLayoutEffect(() => {
     onRefusedRef.current = nudge;
@@ -356,6 +427,7 @@ export default function CoachMark({
     <>
       {frame && isDimmed && (
         <div
+          ref={setDim}
           aria-hidden="true"
           data-coach-dim
           css={dimStyle}
@@ -395,7 +467,7 @@ export default function CoachMark({
         ))}
       {frame?.kind === 'anchored' && (
         <div
-          ref={ringRef}
+          ref={setRing}
           aria-hidden="true"
           data-coach-ring
           css={ringStyle}
@@ -408,10 +480,8 @@ export default function CoachMark({
       {openingHoles
         .filter((hole) => hole.isRinged)
         .map((hole, index) => (
-          <div
+          <OpeningRing
             key={index}
-            aria-hidden="true"
-            data-coach-opening-ring
             css={ringStyle}
             style={{
               ...ringBox(hole.box),
@@ -420,7 +490,7 @@ export default function CoachMark({
           />
         ))}
       <div
-        ref={markRef}
+        ref={setMark}
         role="dialog"
         aria-modal="false"
         aria-labelledby={textId}

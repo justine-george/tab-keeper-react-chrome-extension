@@ -843,10 +843,12 @@ describe('motion (§10)', () => {
     await render({ progress: { step: 2, position: 2, total: 8 } });
     await placed();
     const appear = animations.find((a) => a.el === mark());
+    // The card's appear, and (KAN-1033) the dim's and ring's fade-in.
+    const started = animations.length;
     anchor.getBoundingClientRect = () => ({ ...RECT, top: 300, y: 300 });
     await waitFor(() => expect(ring()?.style.top).toBe('296px'));
     expect(appear?.cancel).not.toHaveBeenCalled();
-    expect(animations).toHaveLength(1);
+    expect(animations).toHaveLength(started);
   });
 });
 

@@ -7,7 +7,7 @@ const FADE_IN = keyframes`
   to { opacity: 1; }
 `;
 
-// The callout and the rate prompt fade in as they appear; reduced motion shows them at once.
+// The rate prompt fades in as it appears; reduced motion shows it at once.
 export const cardFadeIn = css`
   animation: ${FADE_IN} ${DURATION.COLOR} ${EASE.OUT};
   @media (prefers-reduced-motion: reduce) {
