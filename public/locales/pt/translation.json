@@ -437,7 +437,7 @@
   "Right-click a session, window, group or tab to open its menu.": "Clique com o botão direito em uma sessão, janela, grupo ou aba para abrir o respectivo menu.",
   "Each window can be opened on its own. Click a window's title to rename it. After the tour, right-click it for more.": "Cada janela pode ser aberta separadamente. Clique no título de uma janela para renomeá-la. Depois do tour, clique com o botão direito para ver mais opções.",
   "Try it: drag a tab between this session and Currently open.": "Experimente: arraste uma aba entre esta sessão e o painel Abas abertas.",
-  "Left to right: onto a window in Currently open, to open it there": "Da esquerda para a direita: para uma janela em Abas abertas, para abri-la lá",
+  "Left to right: onto a window in Currently open, to open it there": "Da esquerda para a direita: em uma janela de Abas abertas, para abri-la lá",
   "Right to left: from Currently open into this session, to save a copy": "Da direita para a esquerda: de Abas abertas para esta sessão, para salvar uma cópia",
   "Keep Tab Keeper open in a pinned tab.": "Mantenha o Tab Keeper aberto em uma aba fixada.",
   "It moves to the start of your tab bar and stays there, here and in every window Tab Keeper opens. You can turn this off in Settings › Quick access.": "Ele vai para o início da sua barra de abas e fica lá, aqui e em todas as janelas que o Tab Keeper abrir. Você pode desativar isso em Configurações › Acesso rápido.",
@@ -578,5 +578,5 @@
   "WhatsNewFoldGroupTitle": "Recolha um grupo de abas",
   "WhatsNewFoldGroupBody": "Clique na seta antes do nome de um grupo para recolhê-lo. Em “Abas abertas”, o grupo também é recolhido no Chrome. Um grupo salvo que você recolher continua recolhido quando você o abre.",
   "WhatsNewAnimationsTitle": "Animações mais suaves",
-  "WhatsNewAnimationsBody": "Linhas, menus e caixas de diálogo agora se movem suavemente até o lugar, para você ver o que mudou."
+  "WhatsNewAnimationsBody": "Linhas, menus e caixas de diálogo agora se movem suavemente até o seu lugar, para você ver o que mudou."
 }
