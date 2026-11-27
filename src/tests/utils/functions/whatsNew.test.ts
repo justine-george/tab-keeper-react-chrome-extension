@@ -234,36 +234,15 @@ describe('the shipped list', () => {
     expect(page('2.2.1')).toBe(SettingsCategory.IMPORT);
   });
 
-  test('2.6.0 reaches 2.5.0 alone, and 2.4.0 with 2.5.0', () => {
+  test('2.6.0 has no entry: from 2.5.0 nothing, from 2.4.0 only 2.5.0', () => {
     const shipped = (since: string) =>
       releasesToShow(since, '2.6.0').map((r) => r.version);
-    expect(shipped('2.5.0')).toEqual(['2.6.0']);
-    expect(shipped('2.4.0')).toEqual(['2.6.0', '2.5.0']);
-    expect(shipped('2.6.0')).toEqual([]);
-  });
-
-  test('from 2.5.0 there is no Open Settings; from 2.4.0 it opens Import', () => {
-    const page = (since: string) =>
-      settingsPageOf(releasesToShow(since, '2.6.0'));
-    expect(page('2.5.0')).toBeNull();
-    expect(page('2.4.0')).toBe(SettingsCategory.IMPORT);
-  });
-
-  test('2.6.0 is smoother animations', () => {
-    expect(WHATS_NEW[0]).toEqual({
-      version: '2.6.0',
-      entries: [
-        {
-          titleKey: 'WhatsNewAnimationsTitle',
-          bodyKey: 'WhatsNewAnimationsBody',
-          changesDefault: false,
-        },
-      ],
-    });
+    expect(shipped('2.5.0')).toEqual([]);
+    expect(shipped('2.4.0')).toEqual(['2.5.0']);
   });
 
   test('2.5.0 is import from bookmarks, then fold a tab group', () => {
-    expect(WHATS_NEW[1]).toEqual({
+    expect(WHATS_NEW[0]).toEqual({
       version: '2.5.0',
       entries: [
         {
@@ -282,7 +261,7 @@ describe('the shipped list', () => {
   });
 
   test('2.4.0 is split views, live new window, then undo a drop', () => {
-    expect(WHATS_NEW[2]).toEqual({
+    expect(WHATS_NEW[1]).toEqual({
       version: '2.4.0',
       entries: [
         {
@@ -305,7 +284,7 @@ describe('the shipped list', () => {
   });
 
   test('2.3.0 is toolbar icon, group color, then open in new window', () => {
-    expect(WHATS_NEW[3]).toEqual({
+    expect(WHATS_NEW[2]).toEqual({
       version: '2.3.0',
       entries: [
         {
@@ -329,7 +308,7 @@ describe('the shipped list', () => {
   });
 
   test('2.2.0 is open in this window, skip tabs, then switch to an open tab', () => {
-    expect(WHATS_NEW[4]).toEqual({
+    expect(WHATS_NEW[3]).toEqual({
       version: '2.2.0',
       entries: [
         {
@@ -354,7 +333,7 @@ describe('the shipped list', () => {
   });
 
   test('2.1.0 is Copy links, Replace a saved window, then live duplicates', () => {
-    expect(WHATS_NEW[5]).toEqual({
+    expect(WHATS_NEW[4]).toEqual({
       version: '2.1.0',
       entries: [
         {

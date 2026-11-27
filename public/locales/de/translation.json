@@ -555,7 +555,5 @@
   "WhatsNewImportBookmarksTitle": "Lesezeichenordner importieren",
   "WhatsNewImportBookmarksBody": "Wählen Sie in Einstellungen › Import die gewünschten Ordner aus. Jeder wird zu einer gespeicherten Sitzung, und Ihre Lesezeichen bleiben unverändert.",
   "WhatsNewFoldGroupTitle": "Tabgruppen einklappen",
-  "WhatsNewFoldGroupBody": "Klicken Sie auf den Pfeil vor dem Namen einer Gruppe, um sie einzuklappen. In „Offene Tabs“ wird die Gruppe auch in Chrome eingeklappt. Eine gespeicherte Gruppe, die Sie einklappen, bleibt beim Öffnen eingeklappt.",
-  "WhatsNewAnimationsTitle": "Flüssigere Animationen",
-  "WhatsNewAnimationsBody": "Zeilen, Menüs und Dialoge gleiten jetzt sanft an ihren Platz, sodass Sie sehen, was sich geändert hat."
+  "WhatsNewFoldGroupBody": "Klicken Sie auf den Pfeil vor dem Namen einer Gruppe, um sie einzuklappen. In „Offene Tabs“ wird die Gruppe auch in Chrome eingeklappt. Eine gespeicherte Gruppe, die Sie einklappen, bleibt beim Öffnen eingeklappt."
 }

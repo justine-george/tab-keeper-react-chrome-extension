@@ -576,7 +576,5 @@
   "WhatsNewImportBookmarksTitle": "Importe suas pastas de favoritos",
   "WhatsNewImportBookmarksBody": "Em Configurações › Importação, marque as pastas que quiser. Cada uma vira uma sessão salva, e seus favoritos permanecem como estão.",
   "WhatsNewFoldGroupTitle": "Recolha um grupo de abas",
-  "WhatsNewFoldGroupBody": "Clique na seta antes do nome de um grupo para recolhê-lo. Em “Abas abertas”, o grupo também é recolhido no Chrome. Um grupo salvo que você recolher continua recolhido quando você o abre.",
-  "WhatsNewAnimationsTitle": "Animações mais suaves",
-  "WhatsNewAnimationsBody": "Linhas, menus e caixas de diálogo agora se movem suavemente até o seu lugar, para você ver o que mudou."
+  "WhatsNewFoldGroupBody": "Clique na seta antes do nome de um grupo para recolhê-lo. Em “Abas abertas”, o grupo também é recolhido no Chrome. Um grupo salvo que você recolher continua recolhido quando você o abre."
 }

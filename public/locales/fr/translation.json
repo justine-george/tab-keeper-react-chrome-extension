@@ -576,7 +576,5 @@
   "WhatsNewImportBookmarksTitle": "Importez vos dossiers de favoris",
   "WhatsNewImportBookmarksBody": "Dans Paramètres › Importation, cochez les dossiers voulus. Chacun devient une session enregistrée, et vos favoris restent tels quels.",
   "WhatsNewFoldGroupTitle": "Réduisez un groupe d’onglets",
-  "WhatsNewFoldGroupBody": "Cliquez sur la flèche devant le nom d’un groupe pour le réduire. Dans « Onglets ouverts », le groupe se réduit aussi dans Chrome. Un groupe enregistré que vous réduisez reste réduit à l’ouverture.",
-  "WhatsNewAnimationsTitle": "Des animations plus fluides",
-  "WhatsNewAnimationsBody": "Les lignes, les menus et les boîtes de dialogue se mettent désormais en place en douceur, pour que vous voyiez ce qui a changé."
+  "WhatsNewFoldGroupBody": "Cliquez sur la flèche devant le nom d’un groupe pour le réduire. Dans « Onglets ouverts », le groupe se réduit aussi dans Chrome. Un groupe enregistré que vous réduisez reste réduit à l’ouverture."
 }

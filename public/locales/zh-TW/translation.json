@@ -534,7 +534,5 @@
   "WhatsNewImportBookmarksTitle": "匯入書籤資料夾",
   "WhatsNewImportBookmarksBody": "在「設定 › 匯入」中，勾選需要的資料夾。每個資料夾都會成為一個已儲存的工作階段，你的書籤會保持不變。",
   "WhatsNewFoldGroupTitle": "收合分頁群組",
-  "WhatsNewFoldGroupBody": "點選群組名稱前的箭頭即可收合該群組。在「目前開啟的分頁」中，Chrome 裡的群組也會一起收合。收合後的已儲存群組，開啟時仍會保持收合。",
-  "WhatsNewAnimationsTitle": "更流暢的動畫",
-  "WhatsNewAnimationsBody": "列、選單和對話方塊現在會平順地移動到位，讓你看清楚哪些地方有變動。"
+  "WhatsNewFoldGroupBody": "點選群組名稱前的箭頭即可收合該群組。在「目前開啟的分頁」中，Chrome 裡的群組也會一起收合。收合後的已儲存群組，開啟時仍會保持收合。"
 }
