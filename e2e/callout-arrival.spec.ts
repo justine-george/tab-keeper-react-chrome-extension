@@ -1,12 +1,13 @@
 import type { BrowserContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { motionsOf, recordMotionFromStart } from './fixtures/motionRecord';
 import {
   buildContainer,
   seedSessions,
   seedSettingsIfAbsent,
 } from './fixtures/seed';
-import { openPopup } from './fixtures/onboarding';
+import { POPUP, openPopup } from './fixtures/onboarding';
 import { EASE } from '../src/styles/scale';
 
 // The full-view callout arrives as soon as the open's queue picks it
@@ -52,28 +53,24 @@ const arrival = (page: Page) =>
         }
       : { decided: NaN, drawn: NaN };
   });
-const fade = (page: Page) =>
-  page.evaluate((selector) => {
-    const el = document.querySelector(selector);
-    if (el === null) return null;
-    const style = getComputedStyle(el);
-    return [
-      style.animationName === 'none' ? 'none' : 'fade',
-      style.animationDuration,
-      style.animationTimingFunction,
-    ];
-  }, CALLOUT);
+// KAN-1033. It grows in, from its notch: what the page recorded starting on it.
+const growth = async (page: Page) =>
+  (await motionsOf(page, '[data-full-view-callout]')).map((m) => [
+    m.duration,
+    m.easing,
+  ]);
 
 async function sessionHolder(context: BrowserContext): Promise<void> {
   await seedSessions(context, buildContainer());
   await seedSettingsIfAbsent(context, { isFullViewCalloutSeen: false });
 }
 
-test('popup: the callout is drawn as the queue decides it, and fades in', async ({
+test('popup: the callout is drawn as the queue decides it, and grows in', async ({
   context,
   extensionId,
 }) => {
   await watchArrival(context);
+  await recordMotionFromStart(context);
   await sessionHolder(context);
   const page = await openPopup(context, extensionId);
   await expect(callout(page)).toBeVisible();
@@ -84,7 +81,7 @@ test('popup: the callout is drawn as the queue decides it, and fades in', async 
   const { decided, drawn } = await arrival(page);
   // Opened inside the queue, before it reports: no wait between the two.
   expect(drawn).toBeLessThanOrEqual(decided);
-  expect(await fade(page)).toEqual(['fade', '0.12s', EASE.OUT]);
+  await expect.poll(() => growth(page)).toEqual([[160, EASE.OUT]]);
 });
 
 test('popup: a key pressed as it opens does not stop the callout', async ({
@@ -107,13 +104,23 @@ test('popup: a key pressed as it opens does not stop the callout', async ({
   await expect(callout(page)).toBeVisible();
 });
 
-test('reduced motion: the callout appears with no fade', async ({
+// KAN-1033. Reduced motion fades it in: nothing grows.
+test('reduced motion: the callout fades in, nothing grows', async ({
   context,
   extensionId,
 }) => {
+  await recordMotionFromStart(context);
   await sessionHolder(context);
-  const page = await openPopup(context, extensionId);
+  const page = await context.newPage();
   await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize(POPUP);
+  await page.goto(`chrome-extension://${extensionId}/index.html`);
   await expect(callout(page)).toBeVisible();
-  expect((await fade(page))?.[0]).toBe('none');
+  await expect
+    .poll(async () =>
+      (await motionsOf(page, '[data-full-view-callout]')).map((m) =>
+        m.keyframes.map((k) => k.scale ?? 'none')
+      )
+    )
+    .toEqual([['none', 'none']]);
 });

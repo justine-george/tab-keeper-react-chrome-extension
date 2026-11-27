@@ -1,6 +1,7 @@
 import type { BrowserContext, Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { documentLanded } from './fixtures/landed';
 import {
   RUN_FINISHED,
   THEME_MOVE_APPLIED,
@@ -216,8 +217,11 @@ async function expectFits(root: Locator, label: string) {
   expect(fit, label).toEqual({ inside: true, spills: [], wide: false });
 }
 
-const press = (root: Locator, name: string) =>
-  root.getByRole('button', { name, exact: true }).click();
+// KAN-1033. A setup step glides in; read it once it has landed.
+const press = async (root: Locator, name: string) => {
+  await root.getByRole('button', { name, exact: true }).click();
+  await documentLanded(root.page());
+};
 // On to the next card: the drag card's button reads Skip until a drag ticks (round 4).
 const onward = async (page: Page, say: (s: string) => string) =>
   press(

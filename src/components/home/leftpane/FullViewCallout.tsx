@@ -1,8 +1,7 @@
-import { useEffect, useId } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { css } from '@emotion/react';
 
-import { cardFadeIn } from '../../common/cardFade';
 import { isUnclaimedEscape } from '../../common/unclaimedEscape';
 import Icon from '../../common/Icon';
 import { dialogButtonStyles } from '../../modals/dialogButtons';
@@ -10,6 +9,7 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { corners } from '../../../styles/corners';
 import { ICON, RADIUS, TYPE } from '../../../styles/scale';
+import { calloutLeaveRef, growCallout } from './calloutMotion';
 
 interface FullViewCalloutProps {
   onTry: () => void;
@@ -29,6 +29,21 @@ export default function FullViewCallout({
   const { t } = useTranslation();
   const textId = useId();
   const buttons = dialogButtonStyles(COLORS);
+  // KAN-1033. It grows from its notch under ⤢ and fades out with ⤢'s ring.
+  const calloutRef = useRef<HTMLDivElement | null>(null);
+  const leave = useMemo(() => calloutLeaveRef(), []);
+  const setCallout = useMemo(
+    () => (el: HTMLDivElement | null) => {
+      calloutRef.current = el;
+      leave(el);
+    },
+    [leave]
+  );
+  useLayoutEffect(() => {
+    const callout = calloutRef.current;
+    const anchor = callout?.parentElement;
+    if (callout && anchor) growCallout(callout, anchor);
+  }, []);
 
   // D7. Esc closes it, unless a field already used the key; a consumed Esc is
   // prevented, or Chrome closes the popup (KAN-403). This hears Esc before a
@@ -93,11 +108,12 @@ export default function FullViewCallout({
 
   return (
     <div
+      ref={setCallout}
       role="dialog"
       aria-modal="false"
       aria-labelledby={textId}
       data-full-view-callout
-      css={[calloutStyle, cardFadeIn]}
+      css={calloutStyle}
     >
       <span
         aria-hidden="true"

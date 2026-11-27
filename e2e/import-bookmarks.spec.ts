@@ -1,6 +1,7 @@
 import type { Locator, Page, Worker } from '@playwright/test';
 
 import { expect, grantedTest as test } from './fixtures/grantedExtension';
+import { documentLanded } from './fixtures/landed';
 import {
   FULL,
   FULL_VIEW_PATH,
@@ -422,6 +423,7 @@ async function onImportStep(page: Page): Promise<void> {
   const setup = setupOn(page);
   for (let n = 0; n < 4; n++) {
     await setup.getByRole('button', { name: 'Next', exact: true }).click();
+    await documentLanded(page);
   }
   await expect(setup.getByRole('heading', { level: 3 })).toHaveText(
     IMPORT_STEP
@@ -474,6 +476,7 @@ test.describe('Import from bookmarks in setup (KAN-862)', () => {
     ).toBeVisible();
 
     await setup.getByRole('button', { name: 'Next', exact: true }).click();
+    await documentLanded(page);
     await expect(setup.getByRole('heading', { level: 3 })).toHaveText(
       'Sync across your devices?'
     );
@@ -531,8 +534,10 @@ test.describe('Import from bookmarks in setup (KAN-862)', () => {
       name: de['Make Tab Keeper yours'],
       exact: true,
     });
-    for (let n = 0; n < 4; n++)
+    for (let n = 0; n < 4; n++) {
       await setup.getByRole('button', { name: de.Next, exact: true }).click();
+      await documentLanded(page);
+    }
     await expect(setup.getByRole('heading', { level: 3 })).toHaveText(
       de[IMPORT_STEP]
     );

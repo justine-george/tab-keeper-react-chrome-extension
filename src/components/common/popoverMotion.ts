@@ -31,6 +31,20 @@ export const DIALOG_LEAVE: LeaveSpec = {
   withDim: true,
 };
 
+// KAN-1033. How a copy leaves, past the menus' and dialogs' defaults.
+export interface LeaveOptions {
+  /** Where a `scale` in the spec shrinks toward; the element's own origin otherwise. */
+  origin?: string;
+  /** Leaves with motion after a key too (the tour's Esc). */
+  afterKey?: boolean;
+  /** Under reduced motion, fades (no scale) instead of going at once. */
+  fadeWhenReduced?: boolean;
+  /** The copy's `data-leaving-copy` value, to tell copies apart. */
+  as?: string;
+  /** Holds still this long before it goes. */
+  delay?: number;
+}
+
 // A key opens and closes at once; so does reduced motion, and an engine with no Web Animations.
 const stillnessWanted = (el: Element) =>
   prefersReducedMotion() || lastInputWasKey() || !canAnimate(el);
@@ -69,7 +83,7 @@ const isHook = (name: string) =>
   name.startsWith('aria-') ||
   (name.startsWith('data-') && name !== 'data-key-hint');
 
-function stripHooks(root: Element): void {
+export function stripHooks(root: Element): void {
   for (const node of [root, ...root.querySelectorAll('*')]) {
     for (const { name } of [...node.attributes]) {
       if (isHook(name)) node.removeAttribute(name);
@@ -89,9 +103,14 @@ function stripHooks(root: Element): void {
  */
 export function leaveCopy(
   el: HTMLElement,
-  spec: LeaveSpec
+  spec: LeaveSpec,
+  options: LeaveOptions = {}
 ): (() => void) | null {
-  if (stillnessWanted(el) || !el.isConnected) return null;
+  const reduced = prefersReducedMotion();
+  if (reduced && !options.fadeWhenReduced) return null;
+  if (!options.afterKey && lastInputWasKey()) return null;
+  if (!canAnimate(el) || !el.isConnected) return null;
+  const to: Keyframe = reduced ? { opacity: 0 } : spec.to;
   if (el.getAnimations().some((a) => a.playState === 'running')) return null;
   const rect = el.getBoundingClientRect();
   if (rect.width === 0 || rect.height === 0) return null;
@@ -130,10 +149,10 @@ export function leaveCopy(
     pointerEvents: 'none',
     zIndex: '2147483647',
   });
-  copy.style.transformOrigin = style.transformOrigin;
+  copy.style.transformOrigin = options.origin ?? style.transformOrigin;
   copy.inert = true;
   copy.setAttribute('aria-hidden', 'true');
-  copy.dataset.leavingCopy = '';
+  copy.dataset.leavingCopy = options.as ?? '';
 
   const parts: HTMLElement[] = [copy];
   if (dimColor !== '' && dimColor !== 'rgba(0, 0, 0, 0)') {
@@ -159,14 +178,15 @@ export function leaveCopy(
   doc.body.append(...parts);
   const timing = {
     duration: spec.ms,
+    delay: options.delay ?? 0,
     easing: EASE.OUT,
     fill: 'forwards' as const,
   };
   // Only what `to` names: a scale would make the copy the containing block of
   // a fixed child (PinGuide's arrow) and carry it off its place.
   const from: Keyframe = { opacity: 1 };
-  if ('scale' in spec.to) from.scale = '1';
-  const fade = copy.animate([from, spec.to], timing);
+  if ('scale' in to) from.scale = '1';
+  const fade = copy.animate([from, to], timing);
   for (const part of parts.slice(0, -1)) {
     part.animate([{ opacity: 1 }, { opacity: 0 }], timing);
   }
