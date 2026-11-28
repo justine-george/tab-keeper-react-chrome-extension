@@ -130,6 +130,8 @@ Read the full [privacy policy](PRIVACY.md).
 - A carried tab let go beside the pane, level with its own spot, no longer makes a new window
 - A carried item lands in a session that already holds its ids
 
+[View All Changelog →](https://github.com/justine-george/tab-keeper-react-chrome-extension/wiki/Changelog)
+
 ## Blog Posts
 
 [View All Posts →](https://github.com/justine-george/tab-keeper-react-chrome-extension/wiki/Blog-Posts)
